@@ -241,54 +241,122 @@ function InmueblesPage() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map((i) => (
-          <Link
-            key={i.id}
-            to="/inmuebles/$id"
-            params={{ id: i.id }}
-            className="group rounded-lg border border-border bg-card overflow-hidden flex flex-col hover:shadow-md transition-shadow"
-          >
-            <div className="aspect-video relative overflow-hidden">
-              <SafeImage src={i.imagen} alt={i.calle || i.ref} imgClassName="group-hover:scale-[1.02] transition-transform" />
-              <div className="absolute top-2 left-2 z-10">{statusBadge(i.estatus)}</div>
-              {i.ref && (
-                <div className="absolute top-2 right-2 z-10 text-[11px] font-mono bg-background/90 text-foreground border border-border/60 backdrop-blur px-1.5 py-0.5 rounded shadow-sm">
-                  #{i.ref}
+      {view === "grid" ? (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filtered.map((i) => (
+              <Link
+                key={i.id}
+                to="/inmuebles/$id"
+                params={{ id: i.id }}
+                className="group rounded-lg border border-border bg-card overflow-hidden flex flex-col hover:shadow-md transition-shadow"
+              >
+                <div className="aspect-video relative overflow-hidden">
+                  <SafeImage src={i.imagen} alt={i.calle || i.ref} imgClassName="group-hover:scale-[1.02] transition-transform" />
+                  <div className="absolute top-2 left-2 z-10">{statusBadge(i.estatus)}</div>
+                  {i.ref && (
+                    <div className="absolute top-2 right-2 z-10 text-[11px] font-mono bg-background/90 text-foreground border border-border/60 backdrop-blur px-1.5 py-0.5 rounded shadow-sm">
+                      #{i.ref}
+                    </div>
+                  )}
                 </div>
-              )}
+                <div className="p-4 flex flex-col gap-2 flex-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h3 className="font-semibold text-sm truncate min-w-0 flex-1">
+                      {i.calle || "Sin dirección"} {i.numero && <span className="text-muted-foreground font-normal">{i.numero}</span>}
+                    </h3>
+                    <div className="text-base font-semibold text-primary whitespace-nowrap shrink-0">
+                      {formatEuro(i.precio)}
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {[i.barrio, i.localidad].filter(Boolean).join(" · ") || "—"}
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
+                    {i.tipo && <span>{i.tipo}</span>}
+                    {i.habitaciones && <span>{i.habitaciones} hab.</span>}
+                    {i.banos && <span>{i.banos} baños</span>}
+                    {i.superficie && <span>{i.superficie} m²</span>}
+                  </div>
+                  {i.propietario && (
+                    <div className="mt-auto pt-2 text-[11px] text-muted-foreground border-t border-border/60">
+                      Propietario: <span className="text-foreground/80">{i.propietario}</span>
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+          {filtered.length === 0 && (
+            <div className="text-center text-sm text-muted-foreground py-16">
+              Sin resultados para los filtros actuales.
             </div>
-            <div className="p-4 flex flex-col gap-2 flex-1">
-              <div className="flex items-baseline justify-between gap-3">
-                <h3 className="font-semibold text-sm truncate min-w-0 flex-1">
-                  {i.calle || "Sin dirección"} {i.numero && <span className="text-muted-foreground font-normal">{i.numero}</span>}
-                </h3>
-                <div className="text-base font-semibold text-primary whitespace-nowrap shrink-0">
-                  {formatEuro(i.precio)}
+          )}
+        </>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {KANBAN_COLS.map(({ key, label, tone, icon: Icon }) => {
+            const items = kanbanGroups[key];
+            return (
+              <div key={key} className={`rounded-lg border ${tone} flex flex-col min-h-[300px]`}>
+                <div className="flex items-center justify-between px-3 py-2 border-b border-border/60">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Icon className="size-4" />
+                    <span>{label}</span>
+                  </div>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-background/80 border border-border/60">
+                    {items.length}
+                  </span>
+                </div>
+                <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[70vh]">
+                  {items.length === 0 && (
+                    <div className="text-center text-xs text-muted-foreground py-6">Vacío</div>
+                  )}
+                  {items.map((i) => {
+                    const dias = daysSince(i.fechaInicio);
+                    const isStale = key === "Estancados";
+                    return (
+                      <Link
+                        key={i.id}
+                        to="/inmuebles/$id"
+                        params={{ id: i.id }}
+                        className="block rounded-md border border-border bg-card hover:shadow-md transition-shadow p-2.5"
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <div className="size-12 shrink-0 rounded overflow-hidden bg-muted">
+                            <SafeImage src={i.imagen} alt={i.calle || i.ref} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline justify-between gap-2">
+                              <h4 className="text-xs font-semibold truncate">
+                                {i.calle || "Sin dirección"} {i.numero}
+                              </h4>
+                              <span className="text-[10px] font-mono text-muted-foreground shrink-0">#{i.ref}</span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground truncate">
+                              {[i.barrio, i.localidad].filter(Boolean).join(" · ") || "—"}
+                            </div>
+                            <div className="flex items-center justify-between mt-1 gap-2">
+                              <span className="text-xs font-semibold text-primary">{formatEuro(i.precio)}</span>
+                              {dias !== null && (
+                                <span className={`text-[10px] inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full ${
+                                  isStale
+                                    ? "bg-destructive/15 text-destructive"
+                                    : "bg-muted text-muted-foreground"
+                                }`}>
+                                  <Clock className="size-2.5" />{dias}d
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="text-xs text-muted-foreground">
-                {[i.barrio, i.localidad].filter(Boolean).join(" · ") || "—"}
-              </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
-                {i.tipo && <span>{i.tipo}</span>}
-                {i.habitaciones && <span>{i.habitaciones} hab.</span>}
-                {i.banos && <span>{i.banos} baños</span>}
-                {i.superficie && <span>{i.superficie} m²</span>}
-              </div>
-              {i.propietario && (
-                <div className="mt-auto pt-2 text-[11px] text-muted-foreground border-t border-border/60">
-                  Propietario: <span className="text-foreground/80">{i.propietario}</span>
-                </div>
-              )}
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="text-center text-sm text-muted-foreground py-16">
-          Sin resultados para los filtros actuales.
+            );
+          })}
         </div>
       )}
     </AppShell>
