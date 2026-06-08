@@ -176,7 +176,7 @@ export const createVisita = createServerFn({ method: "POST" })
       Inmuebles: data.inmueblesIds,
     };
     const com = strOpt(data.comentarios);
-    if (com) fields["Comentarios"] = com;
+    if (com) fields["Comentarios"] = toTitleCase(com);
     const cli = arrOpt(data.clientesIds);
     if (cli) fields["Clientes"] = cli;
     const ag = arrOpt(data.agentesIds);
