@@ -140,29 +140,29 @@ function mapBase(r: { id: string; fields: Record<string, unknown> }): Inmueble {
   return {
     id: r.id,
     ref: String(f["Ref"] ?? ""),
-    calle: String(f["Calle"] ?? "").trim(),
+    calle: toTitleCase(String(f["Calle"] ?? "").trim()),
     numero: String(f["Numero"] ?? ""),
-    localidad: String(f["Localidad"] ?? ""),
-    barrio: String(f["Barrio"] ?? ""),
+    localidad: toTitleCase(String(f["Localidad"] ?? "")),
+    barrio: toTitleCase(String(f["Barrio"] ?? "")),
     precio: typeof f["Precio"] === "number" ? (f["Precio"] as number) : null,
     precioFinal:
       typeof f["Precio Final "] === "number" ? (f["Precio Final "] as number) : null,
     tipo: String(f["Tipo de inmueble (desplegable)"] ?? ""),
     estatus: String(f["Estatus"] ?? ""),
     publicacion: String(f["Publicación"] ?? ""),
-    estado: String(f["Estado"] ?? ""),
+    estado: toTitleCase(String(f["Estado"] ?? "")),
     habitaciones: String(f["Habitaciones / dormitorios"] ?? ""),
     banos: String(f["Baño"] ?? ""),
     superficie: String(f["Superficie"] ?? ""),
     imagen: pickAttachment(f["Imágenes"]),
-    descripcion: String(f["Descripción"] ?? ""),
-    propietario: pickLookup(f["Nombre Propietario"]),
+    descripcion: toTitleCase(String(f["Descripción"] ?? "")),
+    propietario: toTitleCase(pickLookup(f["Nombre Propietario"])),
     telefonoPropietario: pickLookup(f["Teléfono Propietario"]),
     fechaInicio: (f["Fecha de inicio"] as string) ?? null,
     fechaReserva: (f["Fecha Reserva"] as string) ?? null,
     fechaEscritura: (f["Fecha Escritura"] as string) ?? null,
     agentesNombres: Array.isArray(f["Nombre Agente Asignado"])
-      ? (f["Nombre Agente Asignado"] as string[]).map(String).filter(Boolean)
+      ? toTitleCaseArr((f["Nombre Agente Asignado"] as string[]).map(String).filter(Boolean))
       : [],
   };
 }
