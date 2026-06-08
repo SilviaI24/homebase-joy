@@ -275,5 +275,23 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
   });
 
   clientes.sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""));
-  return { clientes };
+
+  // Dedupe: prioriza DNI, luego email, teléfono o nombre normalizado.
+  // Como ya están ordenados por fecha desc, el primero que entra es el más reciente.
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const seen = new Set<string>();
+  const unique: Cliente[] = [];
+  for (const c of clientes) {
+    const key =
+      (c.dni && `dni:${norm(c.dni)}`) ||
+      (c.email && `mail:${norm(c.email)}`) ||
+      (c.telefono && `tel:${c.telefono.replace(/\D/g, "")}`) ||
+      (c.nombre && `nom:${norm(c.nombre)}`) ||
+      `id:${c.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(c);
+  }
+
+  return { clientes: unique };
 });
