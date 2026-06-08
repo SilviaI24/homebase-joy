@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as VisitasIndexRouteImport } from './routes/visitas.index'
 import { Route as SilviaIndexRouteImport } from './routes/silvia.index'
 import { Route as InmueblesIndexRouteImport } from './routes/inmuebles.index'
 import { Route as ComercialesIndexRouteImport } from './routes/comerciales.index'
@@ -20,6 +21,11 @@ import { Route as InmueblesIdRouteImport } from './routes/inmuebles.$id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VisitasIndexRoute = VisitasIndexRouteImport.update({
+  id: '/visitas/',
+  path: '/visitas/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SilviaIndexRoute = SilviaIndexRouteImport.update({
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/comerciales/': typeof ComercialesIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
   '/silvia/': typeof SilviaIndexRoute
+  '/visitas/': typeof VisitasIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/comerciales': typeof ComercialesIndexRoute
   '/inmuebles': typeof InmueblesIndexRoute
   '/silvia': typeof SilviaIndexRoute
+  '/visitas': typeof VisitasIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/comerciales/': typeof ComercialesIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
   '/silvia/': typeof SilviaIndexRoute
+  '/visitas/': typeof VisitasIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/comerciales/'
     | '/inmuebles/'
     | '/silvia/'
+    | '/visitas/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/comerciales'
     | '/inmuebles'
     | '/silvia'
+    | '/visitas'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/comerciales/'
     | '/inmuebles/'
     | '/silvia/'
+    | '/visitas/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   ComercialesIndexRoute: typeof ComercialesIndexRoute
   InmueblesIndexRoute: typeof InmueblesIndexRoute
   SilviaIndexRoute: typeof SilviaIndexRoute
+  VisitasIndexRoute: typeof VisitasIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -128,6 +141,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/visitas/': {
+      id: '/visitas/'
+      path: '/visitas'
+      fullPath: '/visitas/'
+      preLoaderRoute: typeof VisitasIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/silvia/': {
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComercialesIndexRoute: ComercialesIndexRoute,
   InmueblesIndexRoute: InmueblesIndexRoute,
   SilviaIndexRoute: SilviaIndexRoute,
+  VisitasIndexRoute: VisitasIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
