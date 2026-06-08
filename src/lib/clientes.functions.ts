@@ -138,7 +138,7 @@ function mapInmuebleMini(r: { id: string; fields: Record<string, unknown> }): Mi
   };
 }
 
-function mapClienteBase(r: { id: string; fields: Record<string, unknown> }): Omit<Cliente, "activo" | "motivoActivo" | "inmueblesActivos" | "matches"> {
+function mapClienteBase(r: { id: string; fields: Record<string, unknown> }): Omit<Cliente, "activo" | "motivoActivo" | "inmueblesActivos" | "matches" | "segmento" | "segmentoMotivo" | "estadoComercial" | "diasDesdeAlta" | "inmueblesVinculados"> {
   const f = r.fields;
   const atts = Array.isArray(f["Attachments"]) ? (f["Attachments"] as Array<{ url: string; filename: string; type: string }>) : [];
   return {
