@@ -39,6 +39,10 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/visitas/")({
+  // El dashboard depende de `Date.now()` y de la zona horaria del cliente,
+  // por lo que el render del servidor difería del cliente (heatmap, KPIs,
+  // "próximas 14d") y provocaba mismatches de hidratación.
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Visitas · El Sol Grupo CRM" },
@@ -54,6 +58,11 @@ export const Route = createFileRoute("/visitas/")({
     context.queryClient.ensureQueryData(allInmueblesQuery);
   },
   component: VisitasPage,
+  pendingComponent: () => (
+    <AppShell title="Visitas">
+      <div className="text-sm text-muted-foreground py-10 text-center">Cargando panel…</div>
+    </AppShell>
+  ),
   errorComponent: ({ error }) => (
     <AppShell title="Visitas">
       <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
