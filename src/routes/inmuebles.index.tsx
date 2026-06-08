@@ -165,22 +165,11 @@ function InmueblesPage() {
             params={{ id: i.id }}
             className="group rounded-lg border border-border bg-card overflow-hidden flex flex-col hover:shadow-md transition-shadow"
           >
-            <div className="aspect-video bg-muted relative overflow-hidden">
-              {i.imagen ? (
-                <img
-                  src={i.imagen}
-                  alt={i.calle || i.ref}
-                  loading="lazy"
-                  className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                  <Building2 className="size-8" />
-                </div>
-              )}
-              <div className="absolute top-2 left-2">{statusBadge(i.estatus)}</div>
+            <div className="aspect-video relative overflow-hidden">
+              <SafeImage src={i.imagen} alt={i.calle || i.ref} imgClassName="group-hover:scale-[1.02] transition-transform" />
+              <div className="absolute top-2 left-2 z-10">{statusBadge(i.estatus)}</div>
               {i.ref && (
-                <div className="absolute top-2 right-2 text-[11px] font-mono bg-background/85 backdrop-blur px-1.5 py-0.5 rounded">
+                <div className="absolute top-2 right-2 z-10 text-[11px] font-mono bg-background/90 text-foreground border border-border/60 backdrop-blur px-1.5 py-0.5 rounded shadow-sm">
                   #{i.ref}
                 </div>
               )}
