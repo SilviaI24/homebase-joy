@@ -2,7 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { SafeImage } from "@/components/SafeImage";
+import { NewVisitaDialog } from "@/components/CreateDialogs";
 import { listClientes } from "@/lib/clientes.functions";
+import { allInmueblesQuery } from "@/lib/queries";
+import type { Inmueble } from "@/lib/inmuebles.functions";
 import {
   Sparkles,
   Phone,
@@ -19,6 +23,8 @@ import {
   UserCog,
   Tag,
   CalendarDays,
+  MessageSquare,
+  CalendarPlus,
 } from "lucide-react";
 import {
   CanalChip,
@@ -31,6 +37,40 @@ const clientesQuery = queryOptions({
   queryKey: ["clientes"],
   queryFn: () => listClientes(),
 });
+
+// Detecta inmuebles mencionados en el texto libre de la conversación buscando
+// coincidencias de la calle, referencia o barrio del inmueble.
+function findMentionedInmuebles(text: string, inmuebles: Inmueble[]): Inmueble[] {
+  const haystack = (text || "").toLowerCase();
+  if (!haystack.trim()) return [];
+  const found = new Map<string, Inmueble>();
+  for (const inm of inmuebles) {
+    if (found.has(inm.id)) continue;
+    const candidatos: string[] = [];
+    // Referencia (#1234)
+    if (inm.ref && inm.ref.length >= 3) candidatos.push(inm.ref.toLowerCase());
+    // Calle (sin "calle", "av", "c/", etc.) — usamos la palabra clave principal
+    const calle = (inm.calle || "")
+      .toLowerCase()
+      .replace(/^(calle|c\/|c\.|avda?\.?|avenida|plaza|paseo|camino|carretera|ctra\.?|ronda|travesía|travesia)\s+/i, "")
+      .trim();
+    if (calle.length >= 4) candidatos.push(calle);
+    for (const needle of candidatos) {
+      // Match con límite de palabra para evitar falsos positivos
+      const re = new RegExp(`(?:^|[^a-záéíóúñ0-9])${escapeReg(needle)}(?:[^a-záéíóúñ0-9]|$)`, "i");
+      if (re.test(haystack)) {
+        found.set(inm.id, inm);
+        break;
+      }
+    }
+  }
+  return Array.from(found.values()).slice(0, 6);
+}
+
+function escapeReg(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 
 export const Route = createFileRoute("/silvia/")({
   head: () => ({
