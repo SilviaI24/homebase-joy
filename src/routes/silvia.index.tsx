@@ -21,6 +21,7 @@ import {
   Bot,
   Tag,
   CalendarDays,
+  Globe,
 } from "lucide-react";
 
 const clientesQuery = queryOptions({
@@ -49,10 +50,11 @@ export const Route = createFileRoute("/silvia/")({
   ),
 });
 
-type Canal = "WhatsApp" | "Llamada" | "Otro";
+type Canal = "WhatsApp" | "Llamada" | "Idealista" | "Otro";
 
 function inferCanal(c: Cliente): Canal {
-  const txt = `${c.solicitud} ${c.motivo} ${c.conversaciones}`.toLowerCase();
+  const txt = `${c.solicitud} ${c.motivo} ${c.conversaciones} ${c.seccion}`.toLowerCase();
+  if (/idealista/.test(txt)) return "Idealista";
   if (/whats|wa\b|wsp/.test(txt)) return "WhatsApp";
   if (/llamad|tel[eé]fono|call/.test(txt) || c.motivo) return "Llamada";
   return "Otro";
@@ -62,6 +64,7 @@ function canalChip(canal: Canal) {
   const map: Record<Canal, { cls: string; icon: typeof Phone }> = {
     WhatsApp: { cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400", icon: MessageCircle },
     Llamada: { cls: "bg-blue-500/15 text-blue-700 dark:text-blue-400", icon: Phone },
+    Idealista: { cls: "bg-[#e8f5b8] text-[#5a6b1a] dark:bg-lime-500/20 dark:text-lime-300", icon: Globe },
     Otro: { cls: "bg-slate-500/15 text-slate-600 dark:text-slate-400", icon: Bot },
   };
   const { cls, icon: Icon } = map[canal];
@@ -219,7 +222,7 @@ function SilviaPage() {
           ))}
         </div>
         <div className="inline-flex rounded-lg border border-border p-1 bg-card">
-          {(["Todos", "WhatsApp", "Llamada"] as const).map((c) => (
+          {(["Todos", "WhatsApp", "Llamada", "Idealista"] as const).map((c) => (
             <button
               key={c}
               onClick={() => setCanalFilter(c)}
