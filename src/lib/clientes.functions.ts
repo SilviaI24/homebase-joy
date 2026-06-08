@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { airtableFetch, BASE_ID, TABLES } from "./airtable.server";
 import { getCategoria, isAlquiler, type Categoria } from "./inmuebles.functions";
+import { toTitleCase, toTitleCaseArr } from "./format";
 
 export type ClienteAttachment = { url: string; filename: string; type: string };
 
