@@ -24,7 +24,6 @@ import {
   CanalChip,
   Transcripcion,
   inferCanal,
-  hasSilviaConversation,
   type Canal,
 } from "@/components/silvia/conversation";
 
