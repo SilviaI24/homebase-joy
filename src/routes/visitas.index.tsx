@@ -7,27 +7,35 @@ import {
   PieChart,
   Pie,
   Cell,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   Legend,
+  ResponsiveContainer as RC,
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
+import { Input } from "@/components/ui/input";
 
 import { visitasQuery, allInmueblesQuery } from "@/lib/queries";
 import type { VisitaFull } from "@/lib/visitas.functions";
 import {
   CalendarDays,
   TrendingUp,
+  TrendingDown,
   CheckCircle2,
   Clock,
   Building2,
   UserCog,
   Activity,
   ArrowRight,
+  Search,
+  Flame,
+  XCircle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/visitas/")({
@@ -63,6 +71,17 @@ const ESTADO_COLORS: Record<string, string> = {
   "No realizada": "#94a3b8",
 };
 
+const ESTADOS = ["Confirmada", "Pendiente", "Realizada", "Cancelada", "No realizada"] as const;
+const DOW = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+const tooltipStyle = {
+  background: "hsl(var(--card))",
+  border: "1px solid hsl(var(--border))",
+  borderRadius: 10,
+  fontSize: 12,
+  boxShadow: "0 8px 24px -8px rgb(0 0 0 / 0.12)",
+} as const;
+
 function fmtDate(s: string | null, opts?: Intl.DateTimeFormatOptions) {
   if (!s) return "—";
   try {
@@ -87,10 +106,11 @@ function VisitasPage() {
   const { data: vData } = useSuspenseQuery(visitasQuery);
   const { data: inmData } = useSuspenseQuery(allInmueblesQuery);
   const [periodo, setPeriodo] = useState<"30d" | "90d" | "ytd" | "12m">("90d");
+  const [estadoFilter, setEstadoFilter] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const visitas = vData.visitas;
 
-  // Mapa id -> nombre/calle de inmueble para mostrar nombres legibles.
   const inmIndex = useMemo(() => {
     const m = new Map<string, { calle: string; numero: string; barrio: string }>();
     [...inmData.inmuebles, ...inmData.alquileres].forEach((i) =>
@@ -109,6 +129,8 @@ function VisitasPage() {
         : periodo === "ytd"
           ? startOfYear
           : now - 365 * 86400000;
+  const periodoDays =
+    periodo === "30d" ? 30 : periodo === "90d" ? 90 : periodo === "ytd" ? Math.max(1, Math.round((now - startOfYear) / 86400000)) : 365;
 
   const stats = useMemo(() => {
     const enPeriodo = visitas.filter((v) => {
@@ -116,6 +138,16 @@ function VisitasPage() {
       const t = new Date(v.fecha).getTime();
       return t >= periodoStart && t <= now + 30 * 86400000;
     });
+    const periodoAnterior = visitas.filter((v) => {
+      if (!v.fecha) return false;
+      const t = new Date(v.fecha).getTime();
+      return t >= periodoStart - periodoDays * 86400000 && t < periodoStart;
+    });
+    const deltaPct = periodoAnterior.length
+      ? Math.round(((enPeriodo.length - periodoAnterior.length) / periodoAnterior.length) * 100)
+      : enPeriodo.length > 0
+        ? 100
+        : 0;
 
     const proximas = visitas
       .filter((v) => v.fecha && new Date(v.fecha).getTime() >= now)
@@ -123,22 +155,25 @@ function VisitasPage() {
     const proximas14 = proximas.filter(
       (v) => v.fecha && new Date(v.fecha).getTime() <= now + 14 * 86400000,
     );
-
-    const pasadasPeriodo = enPeriodo.filter(
-      (v) => v.fecha && new Date(v.fecha).getTime() < now,
+    const hoy = proximas.filter(
+      (v) => v.fecha && new Date(v.fecha).toDateString() === new Date().toDateString(),
     );
+
+    const pasadasPeriodo = enPeriodo.filter((v) => v.fecha && new Date(v.fecha).getTime() < now);
     const confirmadas = pasadasPeriodo.filter(
       (v) => v.estado === "Confirmada" || v.estado === "Realizada",
     );
     const canceladas = pasadasPeriodo.filter(
       (v) => v.estado === "Cancelada" || v.estado === "No realizada",
     );
-
     const ratioConfirm = pasadasPeriodo.length
       ? Math.round((confirmadas.length / pasadasPeriodo.length) * 100)
       : 0;
+    const ratioCancel = pasadasPeriodo.length
+      ? Math.round((canceladas.length / pasadasPeriodo.length) * 100)
+      : 0;
 
-    // Pie estados
+    // Pie estados (periodo)
     const estadoCount: Record<string, number> = {};
     enPeriodo.forEach((v) => {
       if (!v.estado) return;
@@ -154,10 +189,7 @@ function VisitasPage() {
     for (let k = 11; k >= 0; k--) {
       const d = new Date(today.getFullYear(), today.getMonth() - k, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      months.push({
-        key,
-        label: d.toLocaleDateString("es-ES", { month: "short", year: "2-digit" }),
-      });
+      months.push({ key, label: d.toLocaleDateString("es-ES", { month: "short" }) });
     }
     const monthCount: Record<string, { total: number; confirmadas: number; canceladas: number }> = {};
     months.forEach((m) => (monthCount[m.key] = { total: 0, confirmadas: 0, canceladas: 0 }));
@@ -175,8 +207,9 @@ function VisitasPage() {
       Confirmadas: monthCount[m.key].confirmadas,
       Canceladas: monthCount[m.key].canceladas,
     }));
+    const sparkTotal = seriesData.slice(-8).map((d, i) => ({ i, v: d.Total }));
 
-    // Top inmuebles por # visitas en periodo
+    // Top inmuebles
     const inmCount = new Map<string, number>();
     enPeriodo.forEach((v) =>
       v.inmuebleIds.forEach((id) => inmCount.set(id, (inmCount.get(id) ?? 0) + 1)),
@@ -187,37 +220,96 @@ function VisitasPage() {
         const label = meta
           ? `${meta.calle || "—"} ${meta.numero || ""}`.trim()
           : id.slice(0, 6);
-        return { id, label: label.slice(0, 28), count, barrio: meta?.barrio ?? "" };
+        return { id, label, count, barrio: meta?.barrio ?? "" };
       })
       .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+      .slice(0, 8);
+    const maxTopInm = topInmuebles[0]?.count ?? 1;
 
-    // Top agentes por # visitas en periodo
-    const agCount = new Map<string, number>();
+    // Top agentes
+    const agCount = new Map<string, { count: number; realizadas: number }>();
     enPeriodo.forEach((v) =>
       v.agentesMails.forEach((m) => {
         if (!m) return;
-        agCount.set(m, (agCount.get(m) ?? 0) + 1);
+        const p = agCount.get(m) ?? { count: 0, realizadas: 0 };
+        p.count += 1;
+        if (v.estado === "Realizada" || v.estado === "Confirmada") p.realizadas += 1;
+        agCount.set(m, p);
       }),
     );
     const topAgentes = Array.from(agCount.entries())
-      .map(([mail, count]) => ({ mail, label: mail.split("@")[0], count }))
+      .map(([mail, p]) => ({
+        mail,
+        label: mail.split("@")[0],
+        count: p.count,
+        ratio: p.count ? Math.round((p.realizadas / p.count) * 100) : 0,
+      }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
+    const maxTopAg = topAgentes[0]?.count ?? 1;
+
+    // Heatmap: día de la semana × franja horaria
+    const HOURS = [
+      { key: "M", label: "Mañana", from: 8, to: 12 },
+      { key: "D", label: "Mediodía", from: 12, to: 16 },
+      { key: "T", label: "Tarde", from: 16, to: 20 },
+      { key: "N", label: "Noche", from: 20, to: 24 },
+    ];
+    const heat: number[][] = Array.from({ length: 7 }, () => Array(HOURS.length).fill(0));
+    enPeriodo.forEach((v) => {
+      if (!v.fecha) return;
+      const d = new Date(v.fecha);
+      const dow = (d.getDay() + 6) % 7; // Lun=0
+      const h = d.getHours();
+      const idx = HOURS.findIndex((H) => h >= H.from && h < H.to);
+      if (idx >= 0) heat[dow][idx]++;
+    });
+    const heatMax = Math.max(1, ...heat.flat());
 
     return {
       enPeriodo,
       proximas,
       proximas14,
+      hoy,
       confirmadas,
       canceladas,
       ratioConfirm,
+      ratioCancel,
+      deltaPct,
       pieData,
       seriesData,
+      sparkTotal,
       topInmuebles,
+      maxTopInm,
       topAgentes,
+      maxTopAg,
+      heat,
+      heatMax,
+      heatHours: HOURS,
     };
-  }, [visitas, periodoStart, inmIndex, now]);
+  }, [visitas, periodoStart, periodoDays, inmIndex, now]);
+
+  const filteredActividad = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return stats.enPeriodo
+      .filter((v) => !estadoFilter || v.estado === estadoFilter)
+      .filter((v) => {
+        if (!q) return true;
+        const blob = [
+          v.estado,
+          v.comentarios,
+          v.actividad,
+          ...v.clientesNombres,
+          ...v.inmuebleCalles,
+          ...v.agentesMails,
+        ]
+          .join(" ")
+          .toLowerCase();
+        return blob.includes(q);
+      })
+      .sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""))
+      .slice(0, 80);
+  }, [stats.enPeriodo, estadoFilter, search]);
 
   return (
     <AppShell title="Visitas y actividad">
@@ -225,31 +317,32 @@ function VisitasPage() {
         <div className="text-sm text-muted-foreground">
           Visualización del desempeño comercial: visitas, calendario y rendimiento por inmueble y agente.
         </div>
-        <div className="inline-flex rounded-md border border-border bg-card overflow-hidden text-xs">
-          {(
-            [
-              ["30d", "30 días"],
-              ["90d", "90 días"],
-              ["ytd", "Año"],
-              ["12m", "12 meses"],
-            ] as const
-          ).map(([k, label]) => (
-            <button
-              key={k}
-              onClick={() => setPeriodo(k)}
-              className={`px-3 py-1.5 transition-colors ${
-                periodo === k
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-accent text-foreground/80"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex rounded-md border border-border bg-card overflow-hidden text-xs">
+            {(
+              [
+                ["30d", "30 días"],
+                ["90d", "90 días"],
+                ["ytd", "Año"],
+                ["12m", "12 meses"],
+              ] as const
+            ).map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setPeriodo(k)}
+                className={`px-3 py-1.5 transition-colors ${
+                  periodo === k
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-accent text-foreground/80"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <NewVisitaDialog />
         </div>
-        <NewVisitaDialog />
       </div>
-
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -259,27 +352,33 @@ function VisitasPage() {
           value={stats.enPeriodo.length.toString()}
           hint={`${visitas.length} totales`}
           tone="primary"
+          sparkData={stats.sparkTotal}
+          sparkColor="#3b82f6"
+          delta={stats.deltaPct}
         />
         <KpiCard
           icon={Clock}
           label="Próximas (14 días)"
           value={stats.proximas14.length.toString()}
-          hint={`${stats.proximas.length} futuras`}
+          hint={`${stats.hoy.length} hoy · ${stats.proximas.length} futuras`}
           tone="violet"
         />
         <KpiCard
           icon={CheckCircle2}
-          label="Confirmadas / Realizadas"
-          value={stats.confirmadas.length.toString()}
-          hint={`Ratio ${stats.ratioConfirm}%`}
+          label="Tasa realización"
+          value={`${stats.ratioConfirm}%`}
+          hint={`${stats.confirmadas.length} confirmadas / realizadas`}
           tone="emerald"
+          progress={stats.ratioConfirm}
         />
         <KpiCard
-          icon={Activity}
-          label="Canceladas / No realizadas"
-          value={stats.canceladas.length.toString()}
-          hint="En el periodo"
+          icon={XCircle}
+          label="Tasa cancelación"
+          value={`${stats.ratioCancel}%`}
+          hint={`${stats.canceladas.length} canceladas / no realizadas`}
           tone="amber"
+          progress={stats.ratioCancel}
+          progressTone="amber"
         />
       </div>
 
@@ -289,71 +388,147 @@ function VisitasPage() {
           {stats.pieData.length === 0 ? (
             <EmptyChart />
           ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={stats.pieData}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={50}
-                  outerRadius={90}
-                  paddingAngle={2}
-                >
-                  {stats.pieData.map((e) => (
-                    <Cell key={e.name} fill={ESTADO_COLORS[e.name] ?? "#cbd5e1"} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={tooltipStyle}
-                  formatter={(v: number) => [`${v} visitas`, ""]}
-                />
-                <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
+            <>
+              <ResponsiveContainer width="100%" height={210}>
+                <PieChart>
+                  <Pie
+                    data={stats.pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={55}
+                    outerRadius={88}
+                    paddingAngle={3}
+                    stroke="hsl(var(--card))"
+                    strokeWidth={2}
+                  >
+                    {stats.pieData.map((e) => (
+                      <Cell key={e.name} fill={ESTADO_COLORS[e.name] ?? "#cbd5e1"} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v} visitas`, ""]} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="mt-2 grid grid-cols-2 gap-1.5">
+                {stats.pieData.map((p) => (
+                  <button
+                    key={p.name}
+                    onClick={() => setEstadoFilter(estadoFilter === p.name ? null : p.name)}
+                    className={`flex items-center gap-1.5 text-[11px] px-1.5 py-1 rounded transition-colors ${
+                      estadoFilter === p.name ? "bg-accent" : "hover:bg-accent/60"
+                    }`}
+                  >
+                    <span
+                      className="inline-block size-2 rounded-full"
+                      style={{ background: ESTADO_COLORS[p.name] ?? "#cbd5e1" }}
+                    />
+                    <span className="truncate">{p.name}</span>
+                    <span className="ml-auto tabular-nums text-muted-foreground">{p.value}</span>
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </ChartCard>
 
-        <ChartCard title="Evolución mensual (12 meses)" icon={TrendingUp} className="lg:col-span-2">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={stats.seriesData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+        <ChartCard
+          title="Evolución mensual"
+          subtitle="Últimos 12 meses · confirmadas vs canceladas"
+          icon={Activity}
+          className="lg:col-span-2"
+        >
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={stats.seriesData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gConf" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gCanc" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity={0.4} />
+                  <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis dataKey="mes" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
               <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
               <Tooltip contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="Confirmadas" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Canceladas" stackId="a" fill="#ef4444" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Total" fill="#3b82f6" radius={[6, 6, 0, 0]} opacity={0} hide />
-            </BarChart>
+              <Area type="monotone" dataKey="Confirmadas" stroke="#10b981" strokeWidth={2.5} fill="url(#gConf)" />
+              <Area type="monotone" dataKey="Canceladas" stroke="#ef4444" strokeWidth={2.5} fill="url(#gCanc)" />
+            </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
 
-      {/* Charts row 2: top inmuebles + agentes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      {/* Heatmap + Top inmuebles + Top agentes */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <ChartCard title="Mapa de actividad" subtitle="Cuándo se concentran las visitas" icon={Flame}>
+          <div className="mt-2">
+            <div className="grid grid-cols-[auto_repeat(4,1fr)] gap-1 text-[10px]">
+              <div></div>
+              {stats.heatHours.map((h) => (
+                <div key={h.key} className="text-center text-muted-foreground font-medium">
+                  {h.label}
+                </div>
+              ))}
+              {DOW.map((d, di) => (
+                <Fragment key={d}>
+                  <div className="text-muted-foreground font-medium pr-1 flex items-center">{d}</div>
+                  {stats.heatHours.map((_, hi) => {
+                    const v = stats.heat[di][hi];
+                    const alpha = v === 0 ? 0 : 0.15 + (v / stats.heatMax) * 0.85;
+                    return (
+                      <div
+                        key={`${di}-${hi}`}
+                        className="aspect-square rounded flex items-center justify-center text-[10px] font-semibold"
+                        style={{
+                          background: v === 0 ? "hsl(var(--muted))" : `rgba(59,130,246,${alpha})`,
+                          color: alpha > 0.55 ? "white" : "hsl(var(--foreground))",
+                        }}
+                        title={`${d} ${stats.heatHours[hi].label}: ${v} visitas`}
+                      >
+                        {v > 0 ? v : ""}
+                      </div>
+                    );
+                  })}
+                </Fragment>
+              ))}
+            </div>
+          </div>
+        </ChartCard>
+
         <ChartCard title="Inmuebles más visitados" icon={Building2}>
           {stats.topInmuebles.length === 0 ? (
             <EmptyChart />
           ) : (
-            <ResponsiveContainer width="100%" height={Math.max(220, stats.topInmuebles.length * 28)}>
-              <BarChart
-                data={stats.topInmuebles}
-                layout="vertical"
-                margin={{ top: 5, right: 20, left: 10, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
-                <YAxis
-                  type="category"
-                  dataKey="label"
-                  tick={{ fontSize: 11 }}
-                  stroke="hsl(var(--muted-foreground))"
-                  width={150}
-                />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v} visitas`, ""]} />
-                <Bar dataKey="count" fill="#10b981" radius={[0, 6, 6, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="space-y-2.5">
+              {stats.topInmuebles.map((t, idx) => {
+                const pct = Math.max(6, Math.round((t.count / stats.maxTopInm) * 100));
+                return (
+                  <Link
+                    key={t.id}
+                    to="/inmuebles/$id"
+                    params={{ id: t.id }}
+                    className="block group"
+                  >
+                    <div className="flex items-baseline justify-between gap-2 mb-1">
+                      <div className="text-xs font-medium truncate group-hover:text-primary transition-colors">
+                        <span className="text-muted-foreground tabular-nums mr-1.5">{idx + 1}.</span>
+                        {t.label}
+                        {t.barrio && <span className="text-muted-foreground"> · {t.barrio}</span>}
+                      </div>
+                      <div className="text-xs font-semibold tabular-nums shrink-0">{t.count}</div>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-400"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           )}
         </ChartCard>
 
@@ -361,25 +536,31 @@ function VisitasPage() {
           {stats.topAgentes.length === 0 ? (
             <EmptyChart />
           ) : (
-            <ResponsiveContainer width="100%" height={Math.max(220, stats.topAgentes.length * 32)}>
-              <BarChart
-                data={stats.topAgentes}
-                layout="vertical"
-                margin={{ top: 5, right: 20, left: 10, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
-                <YAxis
-                  type="category"
-                  dataKey="label"
-                  tick={{ fontSize: 11 }}
-                  stroke="hsl(var(--muted-foreground))"
-                  width={120}
-                />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v} visitas`, ""]} />
-                <Bar dataKey="count" fill="#8b5cf6" radius={[0, 6, 6, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="space-y-2.5">
+              {stats.topAgentes.map((a, idx) => {
+                const pct = Math.max(6, Math.round((a.count / stats.maxTopAg) * 100));
+                return (
+                  <div key={a.mail}>
+                    <div className="flex items-baseline justify-between gap-2 mb-1">
+                      <div className="text-xs font-medium truncate">
+                        <span className="text-muted-foreground tabular-nums mr-1.5">{idx + 1}.</span>
+                        {a.label}
+                      </div>
+                      <div className="text-xs tabular-nums shrink-0">
+                        <span className="font-semibold">{a.count}</span>
+                        <span className="text-muted-foreground"> · {a.ratio}%</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-400"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </ChartCard>
       </div>
@@ -389,25 +570,53 @@ function VisitasPage() {
 
       {/* Tabla actividad reciente */}
       <div className="rounded-lg border border-border bg-card overflow-hidden mt-6">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border gap-3 flex-wrap">
           <h3 className="text-sm font-semibold flex items-center gap-2">
             <Clock className="size-4 text-muted-foreground" /> Actividad reciente
+            <span className="ml-1 text-xs font-normal text-muted-foreground">
+              · {filteredActividad.length} de {stats.enPeriodo.length}
+            </span>
           </h3>
-          <div className="text-xs text-muted-foreground">
-            {stats.enPeriodo.length} en el periodo
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="size-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar cliente, calle, agente…"
+                className="h-8 pl-7 w-56 text-xs"
+              />
+            </div>
+            <div className="inline-flex rounded-md border border-border overflow-hidden text-[11px]">
+              <button
+                onClick={() => setEstadoFilter(null)}
+                className={`px-2 py-1 transition-colors ${
+                  !estadoFilter ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                }`}
+              >
+                Todas
+              </button>
+              {ESTADOS.map((e) => (
+                <button
+                  key={e}
+                  onClick={() => setEstadoFilter(estadoFilter === e ? null : e)}
+                  className={`px-2 py-1 transition-colors border-l border-border ${
+                    estadoFilter === e ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                  }`}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         <div className="divide-y divide-border max-h-[480px] overflow-auto">
-          {stats.enPeriodo.length === 0 ? (
+          {filteredActividad.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">
-              Sin visitas en el periodo seleccionado.
+              Sin visitas para los filtros seleccionados.
             </div>
           ) : (
-            stats.enPeriodo
-              .slice()
-              .sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""))
-              .slice(0, 50)
-              .map((v) => <VisitaRow key={v.id} v={v} inmIndex={inmIndex} />)
+            filteredActividad.map((v) => <VisitaRow key={v.id} v={v} inmIndex={inmIndex} />)
           )}
         </div>
       </div>
@@ -415,16 +624,13 @@ function VisitasPage() {
   );
 }
 
-const tooltipStyle = {
-  background: "hsl(var(--card))",
-  border: "1px solid hsl(var(--border))",
-  borderRadius: 8,
-  fontSize: 12,
-} as const;
+function Fragment({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
 
 function EmptyChart() {
   return (
-    <div className="h-[240px] flex items-center justify-center text-sm text-muted-foreground">
+    <div className="h-[210px] flex items-center justify-center text-sm text-muted-foreground">
       Sin datos para el periodo
     </div>
   );
@@ -436,12 +642,22 @@ function KpiCard({
   value,
   hint,
   tone = "primary",
+  sparkData,
+  sparkColor,
+  delta,
+  progress,
+  progressTone = "emerald",
 }: {
   icon: typeof CalendarDays;
   label: string;
   value: string;
   hint?: string;
   tone?: "primary" | "emerald" | "violet" | "amber";
+  sparkData?: { i: number; v: number }[];
+  sparkColor?: string;
+  delta?: number;
+  progress?: number;
+  progressTone?: "emerald" | "amber";
 }) {
   const toneMap: Record<string, string> = {
     primary: "text-primary bg-primary/10",
@@ -449,6 +665,7 @@ function KpiCard({
     violet: "text-violet-600 dark:text-violet-400 bg-violet-500/10",
     amber: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
   };
+  const positive = (delta ?? 0) >= 0;
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between">
@@ -457,28 +674,83 @@ function KpiCard({
           <Icon className="size-4" />
         </div>
       </div>
-      <div className="mt-2 text-2xl font-semibold tabular-nums">{value}</div>
-      {hint && <div className="mt-0.5 text-[11px] text-muted-foreground">{hint}</div>}
+      <div className="mt-2 flex items-baseline justify-between gap-2">
+        <div className="text-2xl font-semibold tabular-nums">{value}</div>
+        {typeof delta === "number" && (
+          <div
+            className={`inline-flex items-center gap-0.5 text-[11px] font-semibold rounded-full px-1.5 py-0.5 ${
+              positive
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : "bg-destructive/10 text-destructive"
+            }`}
+          >
+            {positive ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+            {positive ? "+" : ""}
+            {delta}%
+          </div>
+        )}
+      </div>
+      {hint && <div className="mt-0.5 text-[11px] text-muted-foreground line-clamp-1">{hint}</div>}
+      {sparkData && sparkData.length > 1 && (
+        <div className="mt-2 -mx-1 h-8">
+          <RC width="100%" height="100%">
+            <AreaChart data={sparkData} margin={{ top: 2, right: 2, left: 2, bottom: 0 }}>
+              <defs>
+                <linearGradient id={`vsp-${label}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={sparkColor ?? "#3b82f6"} stopOpacity={0.5} />
+                  <stop offset="100%" stopColor={sparkColor ?? "#3b82f6"} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Area
+                type="monotone"
+                dataKey="v"
+                stroke={sparkColor ?? "#3b82f6"}
+                strokeWidth={1.75}
+                fill={`url(#vsp-${label})`}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </RC>
+        </div>
+      )}
+      {typeof progress === "number" && (
+        <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div
+            className={`h-full rounded-full ${
+              progressTone === "amber"
+                ? "bg-gradient-to-r from-amber-500 to-orange-400"
+                : "bg-gradient-to-r from-emerald-500 to-teal-400"
+            }`}
+            style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
 function ChartCard({
   title,
+  subtitle,
   icon: Icon,
   children,
   className = "",
 }: {
   title: string;
+  subtitle?: string;
   icon: typeof TrendingUp;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
     <div className={`rounded-lg border border-border bg-card p-5 ${className}`}>
-      <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-        <Icon className="size-4 text-muted-foreground" /> {title}
-      </h3>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Icon className="size-4 text-muted-foreground" /> {title}
+        </h3>
+        {subtitle && <div className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</div>}
+      </div>
       {children}
     </div>
   );
@@ -491,7 +763,6 @@ function CalendarAgenda({
   visitas: VisitaFull[];
   inmIndex: Map<string, { calle: string; numero: string; barrio: string }>;
 }) {
-  // Agrupa por día (próximos 14 días)
   const days = useMemo(() => {
     const out: { key: string; label: string; date: Date; items: VisitaFull[] }[] = [];
     const today = new Date();
@@ -557,8 +828,13 @@ function DayCell({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const isToday = day.date.getTime() === today.getTime();
+  const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
   return (
-    <div className={`bg-card p-2 min-h-[110px] ${isToday ? "ring-2 ring-primary/40 ring-inset" : ""}`}>
+    <div
+      className={`p-2 min-h-[110px] ${isWeekend ? "bg-muted/30" : "bg-card"} ${
+        isToday ? "ring-2 ring-primary/40 ring-inset" : ""
+      }`}
+    >
       <div className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 flex items-center justify-between">
         <span className={isToday ? "text-primary" : "text-muted-foreground"}>{day.label}</span>
         {day.items.length > 0 && (
