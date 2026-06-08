@@ -492,8 +492,41 @@ function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () =>
           </Section>
         )}
 
-        <Section title="Estado y solicitudes">
-          <Row label="Motivo de llamada" value={cliente.motivo} multiline />
+        {hasSilviaConversation(cliente) && (
+          <Section
+            title={
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="size-3.5 text-violet-500" />
+                Conversación con Silvia
+                <CanalChip canal={inferCanal(cliente)} />
+                <Link
+                  to="/silvia"
+                  className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-violet-700 dark:text-violet-400 hover:underline"
+                >
+                  Abrir en SilvIA <ArrowUpRight className="size-3" />
+                </Link>
+              </span>
+            }
+          >
+            {cliente.motivo && (
+              <div className="rounded-md bg-muted/40 border border-border p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                  Motivo
+                </div>
+                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                  {cliente.motivo}
+                </p>
+              </div>
+            )}
+            {cliente.conversaciones && (
+              <div className="rounded-md bg-muted/40 border border-border p-3 max-h-96 overflow-auto">
+                <Transcripcion text={cliente.conversaciones} />
+              </div>
+            )}
+          </Section>
+        )}
+
+        <Section title="Solicitud e intereses">
           <Row label="Solicitud" value={cliente.solicitud} multiline />
           <Row label="Sección" value={cliente.seccion} multiline />
           {cliente.categoria.length > 0 && (
@@ -523,10 +556,9 @@ function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () =>
           </Section>
         )}
 
-        {(cliente.conversaciones || cliente.observaciones || cliente.feedback) && (
-          <Section title="Notas">
+        {(cliente.observaciones || cliente.feedback) && (
+          <Section title="Notas internas">
             <Row label="Observaciones" value={cliente.observaciones} multiline />
-            <Row label="Conversaciones" value={cliente.conversaciones} multiline />
             <Row label="Feedback comercial" value={cliente.feedback} multiline />
           </Section>
         )}
