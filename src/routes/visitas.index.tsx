@@ -15,6 +15,8 @@ import {
   Legend,
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
+import { NewVisitaDialog } from "@/components/CreateDialogs";
+
 import { visitasQuery, allInmueblesQuery } from "@/lib/queries";
 import type { VisitaFull } from "@/lib/visitas.functions";
 import {
@@ -245,7 +247,9 @@ function VisitasPage() {
             </button>
           ))}
         </div>
+        <NewVisitaDialog />
       </div>
+
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

@@ -1,7 +1,15 @@
 import { queryOptions } from "@tanstack/react-query";
-import { listAllInmuebles } from "@/lib/inmuebles.functions";
+import { listAllInmuebles, listAgentes } from "@/lib/inmuebles.functions";
 import { listClientes } from "@/lib/clientes.functions";
 import { listVisitas } from "@/lib/visitas.functions";
+
+export const agentesQuery = queryOptions({
+  queryKey: ["agentes"],
+  queryFn: () => listAgentes(),
+  staleTime: 10 * 60 * 1000,
+  gcTime: 60 * 60 * 1000,
+});
+
 
 
 // Cache compartida por todas las rutas que necesitan inmuebles/alquileres.
