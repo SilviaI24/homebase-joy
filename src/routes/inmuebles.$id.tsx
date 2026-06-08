@@ -671,6 +671,55 @@ function VisitasPanel({ id }: { id: string }) {
   const futuras = visitas.filter((v) => v.fecha && new Date(v.fecha).getTime() >= now);
   const pasadas = visitas.filter((v) => !v.fecha || new Date(v.fecha).getTime() < now);
 
+  const stats = useMemo(() => {
+    const total = visitas.length;
+    let confirmadas = 0, realizadas = 0, canceladas = 0, pendientes = 0;
+    const clientesSet = new Set<string>();
+    const agentesSet = new Set<string>();
+    let lastPast: number | null = null;
+    let nextFuture: number | null = null;
+    const months: { label: string; count: number; key: string }[] = [];
+    const d = new Date();
+    d.setDate(1);
+    for (let i = 5; i >= 0; i--) {
+      const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
+      months.push({
+        key: `${m.getFullYear()}-${m.getMonth()}`,
+        label: m.toLocaleDateString("es-ES", { month: "short" }),
+        count: 0,
+      });
+    }
+    const idxByKey = new Map(months.map((m, i) => [m.key, i]));
+    for (const v of visitas) {
+      const e = v.estado.toLowerCase();
+      if (e.includes("confirm")) confirmadas++;
+      else if (e.includes("realiz")) realizadas++;
+      else if (e.includes("cancel")) canceladas++;
+      else if (e.includes("pend")) pendientes++;
+      v.clientesNombres.forEach((c) => clientesSet.add(c));
+      v.agentesMails.forEach((a) => agentesSet.add(a));
+      if (v.fecha) {
+        const t = new Date(v.fecha).getTime();
+        if (t < now && (lastPast == null || t > lastPast)) lastPast = t;
+        if (t >= now && (nextFuture == null || t < nextFuture)) nextFuture = t;
+        const dt = new Date(v.fecha);
+        const key = `${dt.getFullYear()}-${dt.getMonth()}`;
+        const idx = idxByKey.get(key);
+        if (idx != null) months[idx].count++;
+      }
+    }
+    const efectivas = confirmadas + realizadas;
+    const conversion = total > 0 ? Math.round((efectivas / total) * 100) : 0;
+    const daysSince = lastPast != null ? Math.floor((now - lastPast) / 86400000) : null;
+    const daysUntil = nextFuture != null ? Math.ceil((nextFuture - now) / 86400000) : null;
+    const maxMonth = Math.max(1, ...months.map((m) => m.count));
+    return {
+      total, confirmadas, realizadas, canceladas, pendientes,
+      clientes: clientesSet.size, agentes: agentesSet.size,
+      conversion, efectivas, daysSince, daysUntil, months, maxMonth,
+    };
+  }, [visitas, now]);
+
   return (
     <div className="rounded-lg border border-border bg-card p-5">
       <div className="flex items-center justify-between mb-3">
@@ -691,6 +740,59 @@ function VisitasPanel({ id }: { id: string }) {
         <div className="text-sm text-muted-foreground">Sin visitas registradas.</div>
       ) : (
         <div className="space-y-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <StatBox label="Total" value={stats.total} />
+            <StatBox label="Conversión" value={`${stats.conversion}%`} hint={`${stats.efectivas} efectivas`} />
+            <StatBox label="Clientes" value={stats.clientes} />
+            <StatBox label="Agentes" value={stats.agentes} />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <StatBox label="Confirmadas" value={stats.confirmadas} tone="emerald" />
+            <StatBox label="Realizadas" value={stats.realizadas} tone="primary" />
+            <StatBox label="Pendientes" value={stats.pendientes} tone="muted" />
+            <StatBox label="Canceladas" value={stats.canceladas} tone="destructive" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <StatBox
+              label="Última visita"
+              value={stats.daysSince != null ? `hace ${stats.daysSince}d` : "—"}
+            />
+            <StatBox
+              label="Próxima visita"
+              value={
+                stats.daysUntil != null
+                  ? stats.daysUntil === 0
+                    ? "hoy"
+                    : `en ${stats.daysUntil}d`
+                  : "—"
+              }
+            />
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
+              Visitas últimos 6 meses
+            </div>
+            <div className="flex items-end gap-2 h-20">
+              {stats.months.map((m) => (
+                <div key={m.key} className="flex-1 flex flex-col items-center gap-1 h-full">
+                  <div className="w-full flex-1 bg-muted/50 rounded-sm relative overflow-hidden">
+                    <div
+                      className="absolute bottom-0 left-0 right-0 bg-primary/70 rounded-sm transition-all"
+                      style={{ height: `${(m.count / stats.maxMonth) * 100}%` }}
+                      title={`${m.count} visita${m.count === 1 ? "" : "s"}`}
+                    />
+                    {m.count > 0 && (
+                      <div className="absolute top-0.5 left-0 right-0 text-center text-[10px] font-medium text-foreground/70">
+                        {m.count}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground capitalize">{m.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {futuras.length > 0 && (
             <VisitaList title="Próximas" visitas={futuras} />
           )}
@@ -699,6 +801,36 @@ function VisitasPanel({ id }: { id: string }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function StatBox({
+  label,
+  value,
+  hint,
+  tone = "default",
+}: {
+  label: string;
+  value: React.ReactNode;
+  hint?: string;
+  tone?: "default" | "emerald" | "primary" | "destructive" | "muted";
+}) {
+  const toneCls =
+    tone === "emerald"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : tone === "primary"
+      ? "text-primary"
+      : tone === "destructive"
+      ? "text-destructive"
+      : tone === "muted"
+      ? "text-muted-foreground"
+      : "text-foreground";
+  return (
+    <div className="rounded-md border border-border bg-background px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={`text-lg font-semibold leading-tight ${toneCls}`}>{value}</div>
+      {hint && <div className="text-[10px] text-muted-foreground mt-0.5">{hint}</div>}
     </div>
   );
 }
