@@ -291,7 +291,7 @@ export const listAgentes = createServerFn({ method: "GET" }).handler(async () =>
   )) as { records: Array<{ id: string; fields: Record<string, unknown> }> };
   const agentes: Agente[] = data.records.map((r) => ({
     id: r.id,
-    nombre: String(r.fields["Nombre"] ?? "").trim() || "(sin nombre)",
+    nombre: toTitleCase(String(r.fields["Nombre"] ?? "").trim()) || "(sin nombre)",
     mail: String(r.fields["Mail"] ?? ""),
   }));
   agentes.sort((a, b) => a.nombre.localeCompare(b.nombre));
