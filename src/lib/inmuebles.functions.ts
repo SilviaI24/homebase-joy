@@ -26,6 +26,7 @@ export type Inmueble = {
   fechaReserva: string | null;
   fechaEscritura: string | null;
   agentesNombres: string[];
+  observaciones: string;
 };
 
 export type InmuebleDetalle = Inmueble & {
