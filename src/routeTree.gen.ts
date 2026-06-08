@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SilviaIndexRouteImport } from './routes/silvia.index'
 import { Route as InmueblesIndexRouteImport } from './routes/inmuebles.index'
+import { Route as ComercialesIndexRouteImport } from './routes/comerciales.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as AlquileresIndexRouteImport } from './routes/alquileres.index'
 import { Route as InmueblesIdRouteImport } from './routes/inmuebles.$id'
@@ -29,6 +30,11 @@ const SilviaIndexRoute = SilviaIndexRouteImport.update({
 const InmueblesIndexRoute = InmueblesIndexRouteImport.update({
   id: '/inmuebles/',
   path: '/inmuebles/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComercialesIndexRoute = ComercialesIndexRouteImport.update({
+  id: '/comerciales/',
+  path: '/comerciales/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientesIndexRoute = ClientesIndexRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/inmuebles/$id': typeof InmueblesIdRoute
   '/alquileres/': typeof AlquileresIndexRoute
   '/clientes/': typeof ClientesIndexRoute
+  '/comerciales/': typeof ComercialesIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
   '/silvia/': typeof SilviaIndexRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/inmuebles/$id': typeof InmueblesIdRoute
   '/alquileres': typeof AlquileresIndexRoute
   '/clientes': typeof ClientesIndexRoute
+  '/comerciales': typeof ComercialesIndexRoute
   '/inmuebles': typeof InmueblesIndexRoute
   '/silvia': typeof SilviaIndexRoute
 }
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/inmuebles/$id': typeof InmueblesIdRoute
   '/alquileres/': typeof AlquileresIndexRoute
   '/clientes/': typeof ClientesIndexRoute
+  '/comerciales/': typeof ComercialesIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
   '/silvia/': typeof SilviaIndexRoute
 }
@@ -79,6 +88,7 @@ export interface FileRouteTypes {
     | '/inmuebles/$id'
     | '/alquileres/'
     | '/clientes/'
+    | '/comerciales/'
     | '/inmuebles/'
     | '/silvia/'
   fileRoutesByTo: FileRoutesByTo
@@ -87,6 +97,7 @@ export interface FileRouteTypes {
     | '/inmuebles/$id'
     | '/alquileres'
     | '/clientes'
+    | '/comerciales'
     | '/inmuebles'
     | '/silvia'
   id:
@@ -95,6 +106,7 @@ export interface FileRouteTypes {
     | '/inmuebles/$id'
     | '/alquileres/'
     | '/clientes/'
+    | '/comerciales/'
     | '/inmuebles/'
     | '/silvia/'
   fileRoutesById: FileRoutesById
@@ -104,6 +116,7 @@ export interface RootRouteChildren {
   InmueblesIdRoute: typeof InmueblesIdRoute
   AlquileresIndexRoute: typeof AlquileresIndexRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
+  ComercialesIndexRoute: typeof ComercialesIndexRoute
   InmueblesIndexRoute: typeof InmueblesIndexRoute
   SilviaIndexRoute: typeof SilviaIndexRoute
 }
@@ -129,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/inmuebles'
       fullPath: '/inmuebles/'
       preLoaderRoute: typeof InmueblesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/comerciales/': {
+      id: '/comerciales/'
+      path: '/comerciales'
+      fullPath: '/comerciales/'
+      preLoaderRoute: typeof ComercialesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clientes/': {
@@ -160,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   InmueblesIdRoute: InmueblesIdRoute,
   AlquileresIndexRoute: AlquileresIndexRoute,
   ClientesIndexRoute: ClientesIndexRoute,
+  ComercialesIndexRoute: ComercialesIndexRoute,
   InmueblesIndexRoute: InmueblesIndexRoute,
   SilviaIndexRoute: SilviaIndexRoute,
 }

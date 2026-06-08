@@ -283,7 +283,7 @@ function SilviaPage() {
                         {c.email && (
                           <span className="inline-flex items-center gap-1 truncate max-w-[200px]">
                             <Mail className="size-3" />
-                            {c.email}
+                            <span>{c.email.trim()}</span>
                           </span>
                         )}
                         <span className="inline-flex items-center gap-1">
