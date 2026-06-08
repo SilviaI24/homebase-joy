@@ -12,7 +12,7 @@ import { AppShell } from "@/components/AppShell";
 import { SafeImage } from "@/components/SafeImage";
 import {
   getInmueble,
-  getPortada,
+  
   listAgentes,
   listVisitasByInmueble,
   updateInmueble,
