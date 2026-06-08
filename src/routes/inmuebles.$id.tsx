@@ -155,6 +155,19 @@ function formatDate(s: string | null) {
   }
 }
 
+function diffDays(a: string | null, b: string | null) {
+  if (!a || !b) return null;
+  const d1 = new Date(a).getTime();
+  const d2 = new Date(b).getTime();
+  if (isNaN(d1) || isNaN(d2)) return null;
+  return Math.max(0, Math.floor((d2 - d1) / 86400000));
+}
+
+function daysLabel(d: number | null) {
+  if (d == null) return "—";
+  return `${d} día${d === 1 ? "" : "s"}`;
+}
+
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="py-2 border-b border-border/50 last:border-0">
