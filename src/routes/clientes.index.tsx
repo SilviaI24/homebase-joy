@@ -290,46 +290,61 @@ function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () =>
               )}
             </p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {propiedades.map((p) => (
                 <li key={p.id}>
                   <Link
                     to="/inmuebles/$id"
                     params={{ id: p.id }}
-                    className="flex items-start gap-2.5 rounded-md border border-border bg-muted/40 p-2.5 hover:bg-accent transition-colors"
+                    className="group flex gap-3 rounded-xl border border-border bg-background p-3 hover:shadow-md hover:border-primary/30 transition-all"
                   >
                     <div className="shrink-0">
                       {p.imagen ? (
                         <img
                           src={p.imagen}
                           alt={p.calle || p.ref}
-                          className="size-10 rounded object-cover"
+                          className="h-20 w-28 rounded-lg object-cover"
                         />
                       ) : (
-                        <div className="size-10 rounded bg-muted flex items-center justify-center">
-                          <Building2 className="size-4 text-muted-foreground" />
+                        <div className="h-20 w-28 rounded-lg bg-muted flex items-center justify-center">
+                          <Building2 className="size-6 text-muted-foreground" />
                         </div>
                       )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[11px] bg-background/80 px-1 rounded">
-                          #{p.ref || p.id}
-                        </span>
-                        {p.estatus && (
-                          <span className="text-[10px] rounded-full bg-secondary px-1.5 py-0.5">
-                            {p.estatus}
+                    <div className="min-w-0 flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                            #{p.ref || p.id}
                           </span>
+                          {p.estatus && (
+                            <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${estatusClase(p.estatus)}`}>
+                              {p.estatus}
+                            </span>
+                          )}
+                          <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${isAlquiler(p.tipo) ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-blue-500/10 text-blue-600 dark:text-blue-400"}`}>
+                            {isAlquiler(p.tipo) ? "Alquiler" : "Venta"}
+                          </span>
+                        </div>
+                        <div className="text-sm font-semibold text-foreground truncate">
+                          {[p.calle, p.numero].filter(Boolean).join(" ")}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <MapPin className="size-3.5" />
+                          <span className="truncate">{[p.barrio, p.localidad].filter(Boolean).join(" · ")}</span>
+                        </div>
+                        {(p.precio ?? p.precioFinal) != null && (
+                          <div className="flex items-center gap-0.5 text-xs font-bold text-foreground">
+                            <Euro className="size-3" />
+                            {(p.precioFinal ?? p.precio)!.toLocaleString("es-ES")}
+                          </div>
                         )}
                       </div>
-                      <div className="text-xs text-foreground/90 truncate mt-0.5">
-                        {[p.calle, p.numero].filter(Boolean).join(" ")}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <MapPin className="size-2.5" />
-                        {[p.barrio, p.localidad].filter(Boolean).join(" · ")}
-                        {p.tipo && <span>· {p.tipo}</span>}
-                      </div>
+                    </div>
+                    <div className="shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ChevronRight className="size-4 text-muted-foreground" />
                     </div>
                   </Link>
                 </li>
