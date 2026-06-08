@@ -427,9 +427,20 @@ function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () =>
                   Inmuebles activos que encajan con sus intereses.
                 </p>
                 <ul className="space-y-3">
-                  {cliente.matches.map((p) => (
-                    <li key={p.id}>
-                      <InmuebleCard p={p} />
+                  {cliente.matches.map((m) => (
+                    <li key={m.inmueble.id} className="space-y-1.5">
+                      <InmuebleCard p={m.inmueble} />
+                      <div className="flex flex-wrap gap-1 pl-1">
+                        {m.razones.map((r, i) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.5"
+                          >
+                            <Sparkles className="size-2.5" />
+                            {r}
+                          </span>
+                        ))}
+                      </div>
                     </li>
                   ))}
                 </ul>
