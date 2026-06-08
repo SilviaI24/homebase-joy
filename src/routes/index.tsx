@@ -209,7 +209,7 @@ function Dashboard() {
     inmuebles.forEach((i) => {
       const precio = i.precioFinal ?? i.precio ?? 0;
       if (!precio) return;
-      const fee = isAlquilerTipo(i.tipo)
+      const fee = isAlquiler(i.tipo)
         ? precio * COMISION_ALQUILER_MESES
         : precio * COMISION_VENTA;
       if (i.estatus === "Vendido" || i.estatus === "Alquilado") {
