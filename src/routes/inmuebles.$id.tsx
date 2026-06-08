@@ -286,26 +286,20 @@ function DetailView({
         <div className="lg:col-span-2 space-y-6">
           {/* Galería */}
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="aspect-video bg-muted">
-              {mainImg ? (
-                <img src={mainImg} alt={inmueble.calle} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                  <Building2 className="size-10" />
-                </div>
-              )}
+            <div className="aspect-video">
+              <SafeImage src={mainImg} alt={inmueble.calle || "Inmueble"} />
             </div>
             {detailReady && inmueble.imagenes.length > 1 && (
-              <div className="p-2 flex gap-2 overflow-x-auto">
+              <div className="p-2 flex gap-2 overflow-x-auto border-t border-border">
                 {inmueble.imagenes.map((src) => (
                   <button
                     key={src}
                     onClick={() => setMainImg(src)}
-                    className={`shrink-0 size-16 rounded overflow-hidden border-2 ${
-                      mainImg === src ? "border-primary" : "border-transparent"
+                    className={`shrink-0 size-16 rounded overflow-hidden border-2 transition-colors ${
+                      mainImg === src ? "border-primary" : "border-border hover:border-muted-foreground/40"
                     }`}
                   >
-                    <img src={src} alt="" className="w-full h-full object-cover" />
+                    <SafeImage src={src} alt="" />
                   </button>
                 ))}
               </div>
