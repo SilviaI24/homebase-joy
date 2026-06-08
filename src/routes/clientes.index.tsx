@@ -114,8 +114,7 @@ function ClientesPage() {
 
   const porEstado = useMemo(() => {
     const activos = data.clientes.filter((c) => c.activo);
-    const potenciales = data.clientes.filter((c) => !c.activo);
-    return { Activos: activos, Potenciales: potenciales, Todos: data.clientes };
+    return { Activos: activos, Todos: data.clientes };
   }, [data.clientes]);
 
   const baseSet = porEstado[estado];
