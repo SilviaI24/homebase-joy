@@ -99,10 +99,10 @@ function mapInmuebleMini(r: { id: string; fields: Record<string, unknown> }): Mi
   return {
     id: r.id,
     ref: String(f["Ref"] ?? ""),
-    calle: String(f["Calle"] ?? "").trim(),
+    calle: toTitleCase(String(f["Calle"] ?? "").trim()),
     numero: String(f["Numero"] ?? ""),
-    barrio: String(f["Barrio"] ?? ""),
-    localidad: String(f["Localidad"] ?? ""),
+    barrio: toTitleCase(String(f["Barrio"] ?? "")),
+    localidad: toTitleCase(String(f["Localidad"] ?? "")),
     estatus: String(f["Estatus"] ?? ""),
     tipo,
     categoria: getCategoria(tipo),
