@@ -19,3 +19,10 @@ export const clientesQueryOpts = queryOptions({
   staleTime: 5 * 60 * 1000,
   gcTime: 30 * 60 * 1000,
 });
+
+export const visitasQuery = queryOptions({
+  queryKey: ["visitas-all"],
+  queryFn: () => listVisitas(),
+  staleTime: 5 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
+});
