@@ -225,6 +225,18 @@ function ClientesPage() {
   );
 }
 
+function estatusClase(estatus: string) {
+  const map: Record<string, string> = {
+    Activo: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    Reservado: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    Vendido: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    Alquilado: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    Baja: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
+    Prospección: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  };
+  return map[estatus] ?? "bg-secondary text-secondary-foreground";
+}
+
 function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () => void }) {
   const fetchByIds = useServerFn(getInmueblesByIds);
   const allIds = useMemo(() => {
