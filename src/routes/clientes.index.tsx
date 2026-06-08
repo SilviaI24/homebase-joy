@@ -325,7 +325,7 @@ function ClientesPage() {
               </div>
               <div className="relative mt-2 h-1 rounded-full bg-muted overflow-hidden">
                 <div
-                  className={`h-full ${m.color.replace("text-", "bg-").replace(" dark:text", "")}`}
+                  className={`h-full ${SEG_BAR[s]}`}
                   style={{ width: `${Math.min(100, pct)}%` }}
                 />
               </div>
