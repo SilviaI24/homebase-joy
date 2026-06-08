@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SilviaIndexRouteImport } from './routes/silvia.index'
 import { Route as InmueblesIndexRouteImport } from './routes/inmuebles.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as AlquileresIndexRouteImport } from './routes/alquileres.index'
@@ -18,6 +19,11 @@ import { Route as InmueblesIdRouteImport } from './routes/inmuebles.$id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SilviaIndexRoute = SilviaIndexRouteImport.update({
+  id: '/silvia/',
+  path: '/silvia/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InmueblesIndexRoute = InmueblesIndexRouteImport.update({
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/alquileres/': typeof AlquileresIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
+  '/silvia/': typeof SilviaIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/alquileres': typeof AlquileresIndexRoute
   '/clientes': typeof ClientesIndexRoute
   '/inmuebles': typeof InmueblesIndexRoute
+  '/silvia': typeof SilviaIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,6 +70,7 @@ export interface FileRoutesById {
   '/alquileres/': typeof AlquileresIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
+  '/silvia/': typeof SilviaIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -71,8 +80,15 @@ export interface FileRouteTypes {
     | '/alquileres/'
     | '/clientes/'
     | '/inmuebles/'
+    | '/silvia/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/inmuebles/$id' | '/alquileres' | '/clientes' | '/inmuebles'
+  to:
+    | '/'
+    | '/inmuebles/$id'
+    | '/alquileres'
+    | '/clientes'
+    | '/inmuebles'
+    | '/silvia'
   id:
     | '__root__'
     | '/'
@@ -80,6 +96,7 @@ export interface FileRouteTypes {
     | '/alquileres/'
     | '/clientes/'
     | '/inmuebles/'
+    | '/silvia/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -88,6 +105,7 @@ export interface RootRouteChildren {
   AlquileresIndexRoute: typeof AlquileresIndexRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
   InmueblesIndexRoute: typeof InmueblesIndexRoute
+  SilviaIndexRoute: typeof SilviaIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -97,6 +115,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/silvia/': {
+      id: '/silvia/'
+      path: '/silvia'
+      fullPath: '/silvia/'
+      preLoaderRoute: typeof SilviaIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inmuebles/': {
@@ -136,7 +161,18 @@ const rootRouteChildren: RootRouteChildren = {
   AlquileresIndexRoute: AlquileresIndexRoute,
   ClientesIndexRoute: ClientesIndexRoute,
   InmueblesIndexRoute: InmueblesIndexRoute,
+  SilviaIndexRoute: SilviaIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
