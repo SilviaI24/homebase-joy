@@ -170,7 +170,7 @@ function InmueblesPage() {
             className="group rounded-lg border border-border bg-card overflow-hidden flex flex-col hover:shadow-md transition-shadow"
           >
             <div className="aspect-video relative overflow-hidden">
-              <SafeImage src={getPortada(i)} fallbackSrc={getPortada({ imagen: null, tipo: i.tipo })} alt={i.calle || i.ref} imgClassName="group-hover:scale-[1.02] transition-transform" />
+              <SafeImage src={i.imagen} alt={i.calle || i.ref} imgClassName="group-hover:scale-[1.02] transition-transform" />
               <div className="absolute top-2 left-2 z-10">{statusBadge(i.estatus)}</div>
               {i.ref && (
                 <div className="absolute top-2 right-2 z-10 text-[11px] font-mono bg-background/90 text-foreground border border-border/60 backdrop-blur px-1.5 py-0.5 rounded shadow-sm">
