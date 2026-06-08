@@ -417,7 +417,11 @@ function DetailView({
               </div>
             )}
           </div>
+
+          {/* Visitas */}
+          <VisitasPanel id={id} />
         </div>
+
 
         {/* Panel lateral */}
         <aside className="space-y-6">
