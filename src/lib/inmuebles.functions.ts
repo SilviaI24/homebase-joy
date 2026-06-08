@@ -22,6 +22,9 @@ export type Inmueble = {
   propietario: string;
   telefonoPropietario: string;
   fechaInicio: string | null;
+  fechaReserva: string | null;
+  fechaEscritura: string | null;
+  agentesNombres: string[];
 };
 
 export type InmuebleDetalle = Inmueble & {
@@ -155,6 +158,11 @@ function mapBase(r: { id: string; fields: Record<string, unknown> }): Inmueble {
     propietario: pickLookup(f["Nombre Propietario"]),
     telefonoPropietario: pickLookup(f["Teléfono Propietario"]),
     fechaInicio: (f["Fecha de inicio"] as string) ?? null,
+    fechaReserva: (f["Fecha Reserva"] as string) ?? null,
+    fechaEscritura: (f["Fecha Escritura"] as string) ?? null,
+    agentesNombres: Array.isArray(f["Nombre Agente Asignado"])
+      ? (f["Nombre Agente Asignado"] as string[]).map(String).filter(Boolean)
+      : [],
   };
 }
 
