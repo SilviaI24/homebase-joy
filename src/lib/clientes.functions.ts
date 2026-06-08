@@ -60,7 +60,7 @@ export type Cliente = {
   activo: boolean;
   motivoActivo: string;
   inmueblesActivos: MiniInmueble[];
-  matches: MiniInmueble[];
+  matches: ClienteMatch[];
 };
 
 export const TIPOS_CLIENTE = [
