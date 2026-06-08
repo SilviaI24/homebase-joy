@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { SafeImage } from "@/components/SafeImage";
 import { NewInmuebleDialog } from "@/components/CreateDialogs";
+import { RecordatoriosEstancados } from "@/components/RecordatoriosEstancados";
+
 
 import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
 import { allInmueblesQuery } from "@/lib/queries";
@@ -240,6 +242,8 @@ function InmueblesPage() {
           );
         })}
       </div>
+
+      <RecordatoriosEstancados inmuebles={data.inmuebles} staleDays={STALE_DAYS} />
 
       {view === "grid" ? (
         <>

@@ -26,6 +26,7 @@ export type Inmueble = {
   fechaReserva: string | null;
   fechaEscritura: string | null;
   agentesNombres: string[];
+  observaciones: string;
 };
 
 export type InmuebleDetalle = Inmueble & {
@@ -164,6 +165,7 @@ function mapBase(r: { id: string; fields: Record<string, unknown> }): Inmueble {
     agentesNombres: Array.isArray(f["Nombre Agente Asignado"])
       ? toTitleCaseArr((f["Nombre Agente Asignado"] as string[]).map(String).filter(Boolean))
       : [],
+    observaciones: String(f["Observaciones"] ?? ""),
   };
 }
 
