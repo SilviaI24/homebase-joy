@@ -7,32 +7,39 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
   Legend,
+  RadialBarChart,
+  RadialBar,
+  PolarAngleAxis,
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
 import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
-import { allInmueblesQuery, clientesQueryOpts } from "@/lib/queries";
+import { allInmueblesQuery, clientesQueryOpts, visitasQuery } from "@/lib/queries";
 import {
   Building2,
   Users,
   TrendingUp,
+  TrendingDown,
   Sparkles,
   Wallet,
   Clock,
   ArrowRight,
   UserCog,
+  CalendarCheck2,
+  Target,
+  Trophy,
+  Activity,
 } from "lucide-react";
 
 const inmueblesQuery = allInmueblesQuery;
 const clientesQuery = clientesQueryOpts;
-
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -44,6 +51,7 @@ export const Route = createFileRoute("/")({
   loader: ({ context }) => {
     context.queryClient.ensureQueryData(inmueblesQuery);
     context.queryClient.ensureQueryData(clientesQuery);
+    context.queryClient.ensureQueryData(visitasQuery);
   },
   component: Dashboard,
   errorComponent: ({ error }) => (
@@ -56,7 +64,7 @@ export const Route = createFileRoute("/")({
 });
 
 function moneyShort(v: number): string {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M €`;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M €`;
   if (v >= 1_000) return `${Math.round(v / 1_000)}k €`;
   return `${v} €`;
 }
@@ -81,9 +89,18 @@ const STATUS_COLORS: Record<string, string> = {
   Prospección: "#ec4899",
 };
 
+const TOOLTIP_STYLE = {
+  background: "hsl(var(--card))",
+  border: "1px solid hsl(var(--border))",
+  borderRadius: 10,
+  fontSize: 12,
+  boxShadow: "0 8px 24px -8px rgb(0 0 0 / 0.12)",
+} as const;
+
 function Dashboard() {
   const { data: inmData } = useSuspenseQuery(inmueblesQuery);
   const { data: cliData } = useSuspenseQuery(clientesQuery);
+  const { data: visData } = useSuspenseQuery(visitasQuery);
 
   const stats = useMemo(() => {
     const inmuebles = inmData.inmuebles;
@@ -91,11 +108,12 @@ function Dashboard() {
     const activos = byEstatus("Activo");
     const reservados = byEstatus("Reservado");
     const vendidos = byEstatus("Vendido");
+    const alquilados = byEstatus("Alquilado");
     const valorCartera = activos.reduce((s, i) => s + (i.precio ?? 0), 0);
     const precios = activos.map((i) => i.precio).filter((p): p is number => !!p && p > 0);
     const precioMedio = precios.length ? Math.round(precios.reduce((a, b) => a + b, 0) / precios.length) : 0;
+    const valorVendido = vendidos.reduce((s, i) => s + (i.precioFinal ?? i.precio ?? 0), 0);
 
-    // Pie: distribución por estatus
     const estatusCount: Record<string, number> = {};
     inmuebles.forEach((i) => {
       if (!i.estatus) return;
@@ -105,7 +123,6 @@ function Dashboard() {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
 
-    // Bar: valor cartera activa por categoría
     const valorPorCat: Record<string, number> = {};
     [...CATEGORIAS, "Otros"].forEach((c) => (valorPorCat[c] = 0));
     activos.forEach((i) => {
@@ -114,15 +131,15 @@ function Dashboard() {
     });
     const barData = Object.entries(valorPorCat)
       .map(([cat, valor]) => ({ cat, valor, valorM: +(valor / 1_000_000).toFixed(2) }))
-      .filter((d) => d.valor > 0);
+      .filter((d) => d.valor > 0)
+      .sort((a, b) => b.valor - a.valor);
 
-    // Series: captaciones por mes (últimos 12 meses)
     const now = new Date();
     const months: { key: string; label: string }[] = [];
     for (let k = 11; k >= 0; k--) {
       const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const label = d.toLocaleDateString("es-ES", { month: "short", year: "2-digit" });
+      const label = d.toLocaleDateString("es-ES", { month: "short" });
       months.push({ key, label });
     }
     const captCount: Record<string, number> = {};
@@ -147,22 +164,53 @@ function Dashboard() {
       Ventas: ventaCount[m.key],
     }));
 
+    // Captaciones MoM delta
+    const last = seriesData[seriesData.length - 1]?.Captaciones ?? 0;
+    const prev = seriesData[seriesData.length - 2]?.Captaciones ?? 0;
+    const captDelta = prev === 0 ? (last > 0 ? 100 : 0) : Math.round(((last - prev) / prev) * 100);
+
+    // sparklines (last 8 months)
+    const spark = seriesData.slice(-8);
+    const sparkCapt = spark.map((d, i) => ({ i, v: d.Captaciones }));
+    const sparkVentas = spark.map((d, i) => ({ i, v: d.Ventas }));
+
     const recientes = [...inmuebles]
       .filter((i) => i.fechaInicio)
       .sort((a, b) => (b.fechaInicio ?? "").localeCompare(a.fechaInicio ?? ""))
       .slice(0, 6);
+
+    // Top agentes (cartera activa)
+    const agMap = new Map<string, { nombre: string; activos: number; valor: number }>();
+    activos.forEach((i) => {
+      i.agentesNombres.forEach((n) => {
+        const prevA = agMap.get(n) ?? { nombre: n, activos: 0, valor: 0 };
+        prevA.activos += 1;
+        prevA.valor += i.precio ?? 0;
+        agMap.set(n, prevA);
+      });
+    });
+    const topAgentes = [...agMap.values()].sort((a, b) => b.valor - a.valor).slice(0, 5);
+    const maxAgValor = topAgentes[0]?.valor ?? 1;
 
     return {
       inmuebles,
       activos,
       reservados,
       vendidos,
+      alquilados,
       valorCartera,
+      valorVendido,
       precioMedio,
       pieData,
       barData,
       seriesData,
+      sparkCapt,
+      sparkVentas,
+      captDelta,
+      lastCapt: last,
       recientes,
+      topAgentes,
+      maxAgValor,
     };
   }, [inmData]);
 
@@ -174,24 +222,53 @@ function Dashboard() {
     return { total: c.length, propietarios, compradores, leadsSilvia: conConv.length };
   }, [cliData]);
 
+  const visStats = useMemo(() => {
+    const v = visData.visitas;
+    const now = new Date();
+    const in7 = new Date(now.getTime() + 7 * 86400000);
+    const proximas = v.filter((x) => {
+      if (!x.fecha) return false;
+      const d = new Date(x.fecha);
+      return d >= now && d <= in7;
+    }).length;
+    const realizadas = v.filter((x) => x.estado === "Realizada").length;
+    const tasaRealizadas = v.length ? Math.round((realizadas / v.length) * 100) : 0;
+
+    // funnel: visitas -> reservas -> ventas
+    const reservas = stats.reservados.length + stats.vendidos.length + stats.alquilados.length;
+    const ventas = stats.vendidos.length + stats.alquilados.length;
+    const funnel = [
+      { name: "Visitas", value: v.length, fill: "#3b82f6" },
+      { name: "Reservas", value: reservas, fill: "#f59e0b" },
+      { name: "Cierres", value: ventas, fill: "#10b981" },
+    ];
+    return { total: v.length, proximas, realizadas, tasaRealizadas, funnel };
+  }, [visData, stats]);
+
   return (
     <AppShell title="Dashboard">
-      {/* KPIs principales */}
+      {/* KPIs principales con sparklines */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <KpiCard
           icon={Building2}
           label="Inmuebles activos"
           value={stats.activos.length.toString()}
-          hint={`${stats.inmuebles.length} en base`}
+          hint={`${stats.inmuebles.length} en base · ${stats.reservados.length} reservados`}
           to="/inmuebles"
           tone="primary"
+          sparkData={stats.sparkCapt}
+          sparkColor="#3b82f6"
+          delta={stats.captDelta}
+          deltaLabel="captaciones MoM"
         />
         <KpiCard
           icon={Wallet}
           label="Valor de cartera"
           value={moneyShort(stats.valorCartera)}
-          hint={`Medio: ${moneyShort(stats.precioMedio)}`}
+          hint={`Medio: ${moneyShort(stats.precioMedio)} · Vendido: ${moneyShort(stats.valorVendido)}`}
           tone="emerald"
+          sparkData={stats.sparkVentas}
+          sparkColor="#10b981"
         />
         <KpiCard
           icon={Users}
@@ -202,117 +279,182 @@ function Dashboard() {
           tone="blue"
         />
         <KpiCard
-          icon={Sparkles}
-          label="Leads de SilvIA"
-          value={cliStats.leadsSilvia.toString()}
-          hint="Conversaciones con motivo"
-          to="/silvia"
+          icon={CalendarCheck2}
+          label="Visitas"
+          value={visStats.total.toString()}
+          hint={`${visStats.proximas} en 7 días · ${visStats.tasaRealizadas}% realizadas`}
+          to="/visitas"
           tone="violet"
         />
       </div>
 
       {/* Charts row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <ChartCard title="Distribución por estado" icon={TrendingUp} className="lg:col-span-1">
+        <ChartCard title="Distribución por estado" icon={TrendingUp}>
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie
                 data={stats.pieData}
                 dataKey="value"
                 nameKey="name"
-                innerRadius={50}
-                outerRadius={90}
-                paddingAngle={2}
+                innerRadius={55}
+                outerRadius={92}
+                paddingAngle={3}
+                stroke="hsl(var(--card))"
+                strokeWidth={2}
               >
                 {stats.pieData.map((entry) => (
                   <Cell key={entry.name} fill={STATUS_COLORS[entry.name] ?? "#cbd5e1"} />
                 ))}
               </Pie>
-              <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-                formatter={(v: number) => [`${v} inmuebles`, ""]}
-              />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v} inmuebles`, ""]} />
               <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Valor de cartera activa por categoría" icon={Wallet} className="lg:col-span-2">
+        <ChartCard title="Valor de cartera por categoría" icon={Wallet} className="lg:col-span-2">
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={stats.barData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gBar" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0.5} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis dataKey="cat" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                stroke="hsl(var(--muted-foreground))"
-                tickFormatter={(v) => `${v}M`}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-                formatter={(v: number) => [`${v}M €`, "Valor"]}
-              />
-              <Bar dataKey="valorM" fill="#10b981" radius={[6, 6, 0, 0]} />
+              <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${v}M`} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}M €`, "Valor"]} />
+              <Bar dataKey="valorM" fill="url(#gBar)" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
 
-      {/* Charts row 2 — evolución */}
+      {/* Charts row 2 — evolución (area) */}
       <div className="mb-6">
-        <ChartCard title="Evolución de captaciones y ventas (últimos 12 meses)" icon={TrendingUp}>
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={stats.seriesData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+        <ChartCard
+          title="Evolución de captaciones y ventas"
+          subtitle="Últimos 12 meses"
+          icon={Activity}
+        >
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={stats.seriesData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gCapt" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gVent" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis dataKey="mes" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
               <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
-              <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-              />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Line
+              <Area
                 type="monotone"
                 dataKey="Captaciones"
                 stroke="#3b82f6"
-                strokeWidth={2}
-                dot={{ r: 3 }}
+                strokeWidth={2.5}
+                fill="url(#gCapt)"
                 activeDot={{ r: 5 }}
               />
-              <Line
+              <Area
                 type="monotone"
                 dataKey="Ventas"
                 stroke="#10b981"
-                strokeWidth={2}
-                dot={{ r: 3 }}
+                strokeWidth={2.5}
+                fill="url(#gVent)"
                 activeDot={{ r: 5 }}
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
+      </div>
+
+      {/* Funnel + Top agentes */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <ChartCard title="Embudo comercial" icon={Target}>
+          <ResponsiveContainer width="100%" height={240}>
+            <RadialBarChart
+              innerRadius="30%"
+              outerRadius="100%"
+              data={visStats.funnel}
+              startAngle={90}
+              endAngle={-270}
+            >
+              <PolarAngleAxis type="number" domain={[0, Math.max(...visStats.funnel.map((f) => f.value), 1)]} tick={false} />
+              <RadialBar background dataKey="value" cornerRadius={8} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+            </RadialBarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <div className="lg:col-span-2 rounded-lg border border-border bg-card p-5">
+          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+            <Trophy className="size-4 text-amber-500" /> Top comerciales por cartera activa
+          </h3>
+          {stats.topAgentes.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-8 text-center">Sin datos de cartera asignada.</div>
+          ) : (
+            <div className="space-y-3">
+              {stats.topAgentes.map((a, idx) => {
+                const pct = Math.max(4, Math.round((a.valor / stats.maxAgValor) * 100));
+                const medalTone =
+                  idx === 0
+                    ? "bg-amber-500 text-white"
+                    : idx === 1
+                      ? "bg-slate-300 text-slate-900"
+                      : idx === 2
+                        ? "bg-orange-700 text-white"
+                        : "bg-muted text-muted-foreground";
+                return (
+                  <div key={a.nombre} className="flex items-center gap-3">
+                    <div className={`size-7 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${medalTone}`}>
+                      {idx + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <div className="text-sm font-medium truncate">{a.nombre}</div>
+                        <div className="text-xs text-muted-foreground tabular-nums">
+                          {a.activos} · <span className="font-semibold text-foreground">{moneyShort(a.valor)}</span>
+                        </div>
+                      </div>
+                      <div className="mt-1.5 h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-primary to-blue-500 transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <Link
+            to="/comerciales"
+            className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            Ver ranking completo <ArrowRight className="size-3" />
+          </Link>
+        </div>
       </div>
 
       {/* Acceso comerciales + SilvIA */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <Link
           to="/comerciales"
-          className="rounded-lg border border-border bg-gradient-to-br from-primary/10 to-primary/5 p-5 hover:border-primary/40 transition-colors group"
+          className="rounded-lg border border-border bg-gradient-to-br from-primary/10 to-primary/5 p-5 hover:border-primary/40 hover:shadow-md transition-all group"
         >
           <div className="flex items-start gap-3">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow">
               <UserCog className="size-5" />
             </div>
             <div className="flex-1">
@@ -329,10 +471,10 @@ function Dashboard() {
 
         <Link
           to="/silvia"
-          className="rounded-lg border border-border bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 p-5 hover:border-violet-500/40 transition-colors group"
+          className="rounded-lg border border-border bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 p-5 hover:border-violet-500/40 hover:shadow-md transition-all group"
         >
           <div className="flex items-start gap-3">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow">
               <Sparkles className="size-5" />
             </div>
             <div className="flex-1">
@@ -375,6 +517,10 @@ function KpiCard({
   hint,
   to,
   tone = "primary",
+  sparkData,
+  sparkColor,
+  delta,
+  deltaLabel,
 }: {
   icon: typeof Building2;
   label: string;
@@ -382,6 +528,10 @@ function KpiCard({
   hint?: string;
   to?: string;
   tone?: "primary" | "emerald" | "blue" | "violet";
+  sparkData?: { i: number; v: number }[];
+  sparkColor?: string;
+  delta?: number;
+  deltaLabel?: string;
 }) {
   const toneMap: Record<string, string> = {
     primary: "text-primary bg-primary/10",
@@ -389,6 +539,7 @@ function KpiCard({
     blue: "text-blue-600 dark:text-blue-400 bg-blue-500/10",
     violet: "text-violet-600 dark:text-violet-400 bg-violet-500/10",
   };
+  const positive = (delta ?? 0) >= 0;
   const inner = (
     <>
       <div className="flex items-center justify-between">
@@ -397,15 +548,54 @@ function KpiCard({
           <Icon className="size-4" />
         </div>
       </div>
-      <div className="mt-2 text-2xl font-semibold tabular-nums">{value}</div>
-      {hint && <div className="mt-0.5 text-[11px] text-muted-foreground">{hint}</div>}
+      <div className="mt-2 flex items-baseline justify-between gap-2">
+        <div className="text-2xl font-semibold tabular-nums">{value}</div>
+        {typeof delta === "number" && (
+          <div
+            className={`inline-flex items-center gap-0.5 text-[11px] font-semibold rounded-full px-1.5 py-0.5 ${
+              positive
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                : "bg-destructive/10 text-destructive"
+            }`}
+            title={deltaLabel}
+          >
+            {positive ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+            {positive ? "+" : ""}
+            {delta}%
+          </div>
+        )}
+      </div>
+      {hint && <div className="mt-0.5 text-[11px] text-muted-foreground line-clamp-1">{hint}</div>}
+      {sparkData && sparkData.length > 1 && (
+        <div className="mt-2 -mx-1 h-9">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={sparkData} margin={{ top: 2, right: 2, left: 2, bottom: 0 }}>
+              <defs>
+                <linearGradient id={`spark-${label}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={sparkColor ?? "#3b82f6"} stopOpacity={0.5} />
+                  <stop offset="100%" stopColor={sparkColor ?? "#3b82f6"} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Area
+                type="monotone"
+                dataKey="v"
+                stroke={sparkColor ?? "#3b82f6"}
+                strokeWidth={1.75}
+                fill={`url(#spark-${label})`}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </>
   );
   if (to) {
     return (
       <Link
         to={to as "/"}
-        className="rounded-lg border border-border bg-card p-4 hover:border-foreground/20 hover:shadow-sm transition-all"
+        className="rounded-lg border border-border bg-card p-4 hover:border-foreground/20 hover:shadow-md transition-all"
       >
         {inner}
       </Link>
@@ -416,20 +606,27 @@ function KpiCard({
 
 function ChartCard({
   title,
+  subtitle,
   icon: Icon,
   children,
   className = "",
 }: {
   title: string;
+  subtitle?: string;
   icon: typeof TrendingUp;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
     <div className={`rounded-lg border border-border bg-card p-5 ${className}`}>
-      <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-        <Icon className="size-4 text-muted-foreground" /> {title}
-      </h3>
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Icon className="size-4 text-muted-foreground" /> {title}
+          </h3>
+          {subtitle && <div className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</div>}
+        </div>
+      </div>
       {children}
     </div>
   );
