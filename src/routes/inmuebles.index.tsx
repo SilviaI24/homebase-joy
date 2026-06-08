@@ -2,8 +2,9 @@ import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { SafeImage } from "@/components/SafeImage";
 import { listInmuebles, getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
-import { Building2, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 const inmueblesQuery = queryOptions({
   queryKey: ["inmuebles"],
