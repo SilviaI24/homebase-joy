@@ -276,42 +276,63 @@ function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () =>
           />
         </Section>
 
-        <Section title={`Propiedades vinculadas (${propTotal})`}>
-          {propTotal === 0 ? (
-            <p className="text-xs text-muted-foreground">Sin propiedades vinculadas.</p>
+        <Section title={`Propiedades vinculadas (${propiedades.length})`}>
+          {propiedades.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {linkedLoading ? (
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="size-3 animate-spin" /> Cargando propiedades…
+                </span>
+              ) : (
+                "Sin propiedades vinculadas."
+              )}
+            </p>
           ) : (
-            <div className="space-y-2">
-              {cliente.propiedadRefs.length > 0 && (
-                <div>
-                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                    Propiedad asociada
-                  </div>
-                  <ul className="space-y-1">
-                    {cliente.propiedadRefs.map((ref, i) => (
-                      <li
-                        key={i}
-                        className="text-xs flex items-center gap-2 rounded-md bg-muted/40 px-2 py-1.5"
-                      >
-                        <Building2 className="size-3 text-muted-foreground" />
-                        <span className="font-mono text-[11px]">#{ref}</span>
-                        <span className="text-muted-foreground truncate">
-                          {cliente.propiedadCalles[i] ?? ""}
+            <ul className="space-y-2">
+              {propiedades.map((p) => (
+                <li key={p.id}>
+                  <Link
+                    to="/inmuebles/$id"
+                    params={{ id: p.id }}
+                    className="flex items-start gap-2.5 rounded-md border border-border bg-muted/40 p-2.5 hover:bg-accent transition-colors"
+                  >
+                    <div className="shrink-0">
+                      {p.imagen ? (
+                        <img
+                          src={p.imagen}
+                          alt={p.calle || p.ref}
+                          className="size-10 rounded object-cover"
+                        />
+                      ) : (
+                        <div className="size-10 rounded bg-muted flex items-center justify-center">
+                          <Building2 className="size-4 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] bg-background/80 px-1 rounded">
+                          #{p.ref || p.id}
                         </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {cliente.inmuebleCompradorIds.length > 0 && (
-                <Mini label="Inmuebles (comprador)" count={cliente.inmuebleCompradorIds.length} />
-              )}
-              {cliente.propiedadAlquilerIds.length > 0 && (
-                <Mini label="Propiedad (alquiler)" count={cliente.propiedadAlquilerIds.length} />
-              )}
-              {cliente.inmueblesIds.length > 0 && (
-                <Mini label="Inmuebles (otros)" count={cliente.inmueblesIds.length} />
-              )}
-            </div>
+                        {p.estatus && (
+                          <span className="text-[10px] rounded-full bg-secondary px-1.5 py-0.5">
+                            {p.estatus}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-foreground/90 truncate mt-0.5">
+                        {[p.calle, p.numero].filter(Boolean).join(" ")}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <MapPin className="size-2.5" />
+                        {[p.barrio, p.localidad].filter(Boolean).join(" · ")}
+                        {p.tipo && <span>· {p.tipo}</span>}
+                      </div>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           )}
         </Section>
 
