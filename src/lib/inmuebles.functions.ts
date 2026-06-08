@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { airtableFetch, BASE_ID, TABLES } from "./airtable.server";
-import { toTitleCase, toTitleCaseArr } from "./format";
+import { toTitleCase, toTitleCaseArr, toSentenceCase } from "./format";
 
 export type Inmueble = {
   id: string;
@@ -155,7 +155,7 @@ function mapBase(r: { id: string; fields: Record<string, unknown> }): Inmueble {
     banos: String(f["Baño"] ?? ""),
     superficie: String(f["Superficie"] ?? ""),
     imagen: pickAttachment(f["Imágenes"]),
-    descripcion: toTitleCase(String(f["Descripción"] ?? "")),
+    descripcion: toSentenceCase(String(f["Descripción"] ?? "")),
     propietario: toTitleCase(pickLookup(f["Nombre Propietario"])),
     telefonoPropietario: pickLookup(f["Teléfono Propietario"]),
     fechaInicio: (f["Fecha de inicio"] as string) ?? null,
@@ -274,7 +274,7 @@ export const getInmueble = createServerFn({ method: "GET" })
       honorarios: toTitleCase(String(f["Honorarios"] ?? "")),
       tipoExclusiva: toTitleCase(String(f["Tipo de exclusiva"] ?? "")),
       notaria: toTitleCase(String(f["Notaría"] ?? "")),
-      observaciones: toTitleCase(String(f["Observaciones"] ?? "")),
+      observaciones: toSentenceCase(String(f["Observaciones"] ?? "")),
       llaves: toTitleCase(String(f["Llaves"] ?? "")),
       fechaInicio: (f["Fecha de inicio"] as string) ?? null,
       fechaExclusiva: (f["Fecha de autorización de venta ( exclusiva)"] as string) ?? null,

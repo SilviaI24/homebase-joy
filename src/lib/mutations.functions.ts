@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { airtableFetch, BASE_ID, TABLES } from "./airtable.server";
-import { toTitleCase } from "./format";
+import { toTitleCase, toSentenceCase } from "./format";
 
 // Helpers
 function strOpt(v: unknown): string | undefined {
@@ -61,11 +61,11 @@ export const createCliente = createServerFn({ method: "POST" })
     const fecha = strOpt(data.fecha ?? undefined);
     if (fecha) fields["Fecha"] = fecha;
     const motivo = strOpt(data.motivo);
-    if (motivo) fields["Motivo de la llamada"] = toTitleCase(motivo);
+    if (motivo) fields["Motivo de la llamada"] = toSentenceCase(motivo);
     const sol = strOpt(data.solicitud);
-    if (sol) fields["Solicitud de llamada"] = toTitleCase(sol);
+    if (sol) fields["Solicitud de llamada"] = toSentenceCase(sol);
     const obs = strOpt(data.observaciones);
-    if (obs) fields["Observaciones"] = toTitleCase(obs);
+    if (obs) fields["Observaciones"] = toSentenceCase(obs);
     const cat = arrOpt(data.categoria);
     if (cat) fields["Categoría"] = cat;
     const prof = strOpt(data.profesion);
@@ -136,9 +136,9 @@ export const createInmueble = createServerFn({ method: "POST" })
     const sup = strOpt(data.superficie);
     if (sup) fields["Superficie"] = sup;
     const desc = strOpt(data.descripcion);
-    if (desc) fields["Descripción"] = toTitleCase(desc);
+    if (desc) fields["Descripción"] = toSentenceCase(desc);
     const obs = strOpt(data.observaciones);
-    if (obs) fields["Observaciones"] = toTitleCase(obs);
+    if (obs) fields["Observaciones"] = toSentenceCase(obs);
     const ag = arrOpt(data.agentesIds);
     if (ag) fields["Agentes Asignados"] = ag;
     const prop = arrOpt(data.propietariosIds);
@@ -176,7 +176,7 @@ export const createVisita = createServerFn({ method: "POST" })
       Inmuebles: data.inmueblesIds,
     };
     const com = strOpt(data.comentarios);
-    if (com) fields["Comentarios"] = toTitleCase(com);
+    if (com) fields["Comentarios"] = toSentenceCase(com);
     const cli = arrOpt(data.clientesIds);
     if (cli) fields["Clientes"] = cli;
     const ag = arrOpt(data.agentesIds);
