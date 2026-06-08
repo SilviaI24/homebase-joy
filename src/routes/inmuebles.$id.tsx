@@ -382,6 +382,8 @@ function DetailView({
             </div>
           </div>
 
+          <TiempoMercadoPanel inmueble={inmueble} detailReady={detailReady} />
+
           {/* Historial / fechas — visible solo cuando hay datos */}
           <div className="rounded-lg border border-border bg-card p-5">
             <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
