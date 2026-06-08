@@ -42,7 +42,7 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
             return (
               <Link
                 key={item.to}
-                to={item.to}
+                to={item.to as "/"}
                 activeOptions={{ exact: item.to === "/" }}
                 className="flex items-center gap-2 px-3 py-2 text-sm rounded-md text-foreground/80 hover:bg-accent hover:text-foreground transition-colors [&.active]:bg-primary [&.active]:text-primary-foreground"
               >
