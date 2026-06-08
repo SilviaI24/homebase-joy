@@ -172,17 +172,37 @@ function InmueblesPage() {
             className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
-        <select
-          value={estatus}
-          onChange={(e) => setEstatus(e.target.value)}
-          className="h-9 px-3 rounded-md border border-input bg-background text-sm"
-        >
-          {estatuses.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+        {view === "grid" && (
+          <select
+            value={estatus}
+            onChange={(e) => setEstatus(e.target.value)}
+            className="h-9 px-3 rounded-md border border-input bg-background text-sm"
+          >
+            {estatuses.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        )}
+        <div className="inline-flex h-9 rounded-md border border-input bg-background overflow-hidden">
+          <button
+            onClick={() => setView("grid")}
+            className={`px-3 text-xs font-medium inline-flex items-center gap-1.5 ${view === "grid" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+            title="Vista en cuadrícula"
+          >
+            <LayoutGrid className="size-3.5" /> Lista
+          </button>
+          <button
+            onClick={() => setView("kanban")}
+            className={`px-3 text-xs font-medium inline-flex items-center gap-1.5 border-l border-input ${view === "kanban" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+            title="Vista kanban"
+          >
+            <Columns3 className="size-3.5" /> Kanban
+          </button>
+        </div>
         <div className="ml-auto text-sm text-muted-foreground">
-          {filtered.length} de {data.inmuebles.length}
+          {view === "grid"
+            ? `${filtered.length} de ${data.inmuebles.length}`
+            : `${kanbanGroups.Activos.length + kanbanGroups.Reservados.length + kanbanGroups.Cerrados.length + kanbanGroups.Estancados.length} inmuebles`}
         </div>
         <button
           onClick={() => router.invalidate()}
