@@ -96,14 +96,12 @@ function ClientesPage() {
   const [tipo, setTipo] = useState<string>("Todos");
   const [selectedId, setSelectedId] = useState<string | null>(search.id ?? null);
 
-  // Deep-link desde SilvIA: ?id=... selecciona y ajusta el tab al estado del cliente
+  // Deep-link desde SilvIA: ?id=... abre la ficha como overlay
   useEffect(() => {
     if (!search.id) return;
     const c = data.clientes.find((x) => x.id === search.id);
     if (!c) return;
     setSelectedId(c.id);
-    setEstado(c.activo ? "Activos" : "Potenciales");
-    setTipo("Todos");
   }, [search.id, data.clientes]);
 
   function selectCliente(id: string | null) {
