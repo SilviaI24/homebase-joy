@@ -2,6 +2,8 @@ import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { NewInmuebleDialog } from "@/components/CreateDialogs";
+
 import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
 import { allInmueblesQuery } from "@/lib/queries";
 import { Building2, Search } from "lucide-react";
@@ -130,7 +132,9 @@ function AlquileresPage() {
         >
           Refrescar
         </button>
+        <NewInmuebleDialog defaultAlquiler />
       </div>
+
 
       <div className="flex flex-wrap gap-1.5 mb-5 border-b border-border pb-2">
         {tabs.map((t) => {
