@@ -188,6 +188,69 @@ export const listAgentes = createServerFn({ method: "GET" }).handler(async () =>
   return { agentes };
 });
 
+export type Visita = {
+  id: string;
+  fecha: string | null;
+  estado: string;
+  comentarios: string;
+  actividad: string;
+  clientesNombres: string[];
+  clientesTelefonos: string[];
+  agentesMails: string[];
+};
+
+export const listVisitasByInmueble = createServerFn({ method: "GET" })
+  .inputValidator((d: { id: string }) => {
+    if (!d?.id) throw new Error("id requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    // Paginar y filtrar en JS porque {Inmuebles} en filterByFormula devuelve
+    // nombres concatenados, no IDs de los registros enlazados.
+    const records: Array<{ id: string; fields: Record<string, unknown> }> = [];
+    let offset: string | undefined;
+    do {
+      const params = new URLSearchParams({ pageSize: "100" });
+      if (offset) params.set("offset", offset);
+      const page = (await airtableFetch(
+        `/v0/${BASE_ID}/${TABLES.visitas}?${params}`,
+      )) as {
+        records: Array<{ id: string; fields: Record<string, unknown> }>;
+        offset?: string;
+      };
+      records.push(...page.records);
+      offset = page.offset;
+    } while (offset && records.length < 1000);
+    const res = {
+      records: records.filter((r) => {
+        const v = r.fields["Inmuebles"];
+        return Array.isArray(v) && (v as string[]).includes(data.id);
+      }),
+    };
+
+    const visitas: Visita[] = res.records.map((r) => {
+      const f = r.fields;
+      return {
+        id: r.id,
+        fecha: (f["Fecha y Hora"] as string) ?? null,
+        estado: String(f["Estado"] ?? ""),
+        comentarios: String(f["Comentarios"] ?? ""),
+        actividad: pickLookup(f["Actividad"]),
+        clientesNombres: Array.isArray(f["Nombre Clientes"])
+          ? (f["Nombre Clientes"] as string[])
+          : [],
+        clientesTelefonos: Array.isArray(f["Teléfono Clientes"])
+          ? (f["Teléfono Clientes"] as string[])
+          : [],
+        agentesMails: Array.isArray(f["Mail (from Agentes)"])
+          ? (f["Mail (from Agentes)"] as string[])
+          : [],
+      };
+    });
+    visitas.sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""));
+    return { visitas };
+  });
+
 export type UpdateInmueblePayload = {
   id: string;
   estatus?: string;

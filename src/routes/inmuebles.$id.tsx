@@ -12,6 +12,7 @@ import { AppShell } from "@/components/AppShell";
 import {
   getInmueble,
   listAgentes,
+  listVisitasByInmueble,
   updateInmueble,
   ESTATUS_OPCIONES,
   PUBLICACION_OPCIONES,
@@ -22,11 +23,13 @@ import {
   ArrowLeft,
   Building2,
   Calendar,
+  CalendarDays,
   MapPin,
   Phone,
   Mail,
   Save,
   Loader2,
+  User,
 } from "lucide-react";
 
 // Build a detail placeholder from a list row so the page renders instantly.
@@ -88,6 +91,14 @@ const agentesQuery = queryOptions({
   queryFn: () => listAgentes(),
   staleTime: 5 * 60_000,
 });
+
+const visitasQuery = (id: string) =>
+  queryOptions({
+    queryKey: ["visitas", "inmueble", id],
+    queryFn: () => listVisitasByInmueble({ data: { id } }),
+    staleTime: 60_000,
+  });
+
 
 export const Route = createFileRoute("/inmuebles/$id")({
   head: () => ({
@@ -406,7 +417,11 @@ function DetailView({
               </div>
             )}
           </div>
+
+          {/* Visitas */}
+          <VisitasPanel id={id} />
         </div>
+
 
         {/* Panel lateral */}
         <aside className="space-y-6">
@@ -627,6 +642,145 @@ function ManagementPanel(props: {
           <div className="text-xs text-emerald-600 dark:text-emerald-400">Guardado ✓</div>
         )}
       </div>
+    </div>
+  );
+}
+
+function formatDateTime(s: string | null) {
+  if (!s) return "—";
+  try {
+    return new Date(s).toLocaleString("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return s;
+  }
+}
+
+function estadoVisitaColor(estado: string) {
+  const e = estado.toLowerCase();
+  if (e.includes("confirm")) return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
+  if (e.includes("cancel")) return "bg-destructive/15 text-destructive";
+  if (e.includes("realiz")) return "bg-primary/15 text-primary";
+  return "bg-muted text-muted-foreground";
+}
+
+function VisitasPanel({ id }: { id: string }) {
+  const visitasQ = useQuery(visitasQuery(id));
+  const visitas = visitasQ.data?.visitas ?? [];
+  const now = Date.now();
+  const futuras = visitas.filter((v) => v.fecha && new Date(v.fecha).getTime() >= now);
+  const pasadas = visitas.filter((v) => !v.fecha || new Date(v.fecha).getTime() < now);
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <CalendarDays className="size-4" /> Visitas y actividad
+        </h3>
+        <span className="text-xs text-muted-foreground">
+          {visitasQ.isLoading ? "Cargando…" : `${visitas.length} registro${visitas.length === 1 ? "" : "s"}`}
+        </span>
+      </div>
+
+      {visitasQ.isLoading ? (
+        <div className="space-y-2">
+          <SkeletonLine className="w-2/3" />
+          <SkeletonLine className="w-1/2" />
+        </div>
+      ) : visitas.length === 0 ? (
+        <div className="text-sm text-muted-foreground">Sin visitas registradas.</div>
+      ) : (
+        <div className="space-y-5">
+          {futuras.length > 0 && (
+            <VisitaList title="Próximas" visitas={futuras} />
+          )}
+          {pasadas.length > 0 && (
+            <VisitaList title="Histórico" visitas={pasadas} muted />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VisitaList({
+  title,
+  visitas,
+  muted = false,
+}: {
+  title: string;
+  visitas: Array<{
+    id: string;
+    fecha: string | null;
+    estado: string;
+    comentarios: string;
+    actividad: string;
+    clientesNombres: string[];
+    clientesTelefonos: string[];
+    agentesMails: string[];
+  }>;
+  muted?: boolean;
+}) {
+  return (
+    <div>
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">{title}</div>
+      <ul className="space-y-2">
+        {visitas.map((v) => (
+          <li
+            key={v.id}
+            className={`rounded-md border border-border p-3 ${muted ? "bg-muted/30" : "bg-background"}`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm font-medium">{formatDateTime(v.fecha)}</div>
+              {v.estado && (
+                <span className={`text-[11px] px-2 py-0.5 rounded ${estadoVisitaColor(v.estado)}`}>
+                  {v.estado}
+                </span>
+              )}
+            </div>
+            <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              {v.clientesNombres.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <User className="size-3" />
+                  <span>{v.clientesNombres.join(", ")}</span>
+                </div>
+              )}
+              {v.clientesTelefonos.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <Phone className="size-3" />
+                  <a
+                    href={`tel:${v.clientesTelefonos[0]}`}
+                    className="hover:text-primary"
+                  >
+                    {v.clientesTelefonos.join(", ")}
+                  </a>
+                </div>
+              )}
+              {v.agentesMails.length > 0 && (
+                <div className="flex items-center gap-1 sm:col-span-2">
+                  <Mail className="size-3" />
+                  <span>{v.agentesMails.join(", ")}</span>
+                </div>
+              )}
+              {v.actividad && (
+                <div className="sm:col-span-2">
+                  <span className="font-medium text-foreground/80">Actividad:</span> {v.actividad}
+                </div>
+              )}
+            </div>
+            {v.comentarios && (
+              <div className="mt-2 text-xs whitespace-pre-line text-foreground/80">
+                {v.comentarios}
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
