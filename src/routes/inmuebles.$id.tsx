@@ -9,6 +9,8 @@ import {
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { NewVisitaDialog } from "@/components/CreateDialogs";
+
 import { SafeImage } from "@/components/SafeImage";
 import {
   getInmueble,
@@ -819,10 +821,14 @@ function VisitasPanel({ id }: { id: string }) {
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <CalendarDays className="size-4" /> Visitas y actividad
         </h3>
-        <span className="text-xs text-muted-foreground">
-          {visitasQ.isLoading ? "Cargando…" : `${visitas.length} registro${visitas.length === 1 ? "" : "s"}`}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {visitasQ.isLoading ? "Cargando…" : `${visitas.length} registro${visitas.length === 1 ? "" : "s"}`}
+          </span>
+          <NewVisitaDialog defaultInmuebleId={id} />
+        </div>
       </div>
+
 
       {visitasQ.isLoading ? (
         <div className="space-y-2">
