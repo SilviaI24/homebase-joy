@@ -222,7 +222,7 @@ function SilviaPage() {
           ))}
         </div>
         <div className="inline-flex rounded-lg border border-border p-1 bg-card">
-          {(["Todos", "WhatsApp", "Llamada"] as const).map((c) => (
+          {(["Todos", "WhatsApp", "Llamada", "Idealista"] as const).map((c) => (
             <button
               key={c}
               onClick={() => setCanalFilter(c)}
