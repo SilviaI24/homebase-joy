@@ -17,8 +17,8 @@ import {
   Legend,
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
-import { listInmuebles, getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
-import { listClientes } from "@/lib/clientes.functions";
+import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
+import { allInmueblesQuery, clientesQueryOpts } from "@/lib/queries";
 import {
   Building2,
   Users,
@@ -30,14 +30,9 @@ import {
   UserCog,
 } from "lucide-react";
 
-const inmueblesQuery = queryOptions({
-  queryKey: ["inmuebles"],
-  queryFn: () => listInmuebles(),
-});
-const clientesQuery = queryOptions({
-  queryKey: ["clientes"],
-  queryFn: () => listClientes(),
-});
+const inmueblesQuery = allInmueblesQuery;
+const clientesQuery = clientesQueryOpts;
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
