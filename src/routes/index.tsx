@@ -293,7 +293,34 @@ function Dashboard() {
   }, [visData, stats]);
 
   return (
-    <AppShell title="Dashboard">
+    <AppShell
+      title="Dashboard"
+      subtitle={`${stats.activos.length} activos · ${cliStats.total} clientes · ${visStats.proximas} visitas próximas`}
+    >
+      {/* Hero ejecutivo */}
+      <div className="mb-6 rounded-2xl border border-border bg-gradient-to-br from-primary via-primary to-[oklch(0.32_0.09_165)] text-primary-foreground p-6 lg:p-7 shadow-xl shadow-primary/20 overflow-hidden relative">
+        <div className="absolute -top-16 -right-16 size-56 rounded-full bg-gold/30 blur-3xl" />
+        <div className="absolute -bottom-20 left-1/3 size-72 rounded-full bg-gold/10 blur-3xl" />
+        <div className="relative grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-10">
+          <HeroStat
+            label="Comisiones este mes"
+            value={moneyShort(stats.comisionMes)}
+            sub={`Año en curso: ${moneyShort(stats.comisionAnual)}`}
+            highlight
+          />
+          <HeroStat
+            label="Pipeline estimado"
+            value={moneyShort(stats.comisionPipeline)}
+            sub={`${stats.activos.length + stats.reservados.length} operaciones abiertas`}
+          />
+          <HeroStat
+            label="Conversión visita → cierre"
+            value={`${visStats.tasaCierre}%`}
+            sub={`${visStats.total} visitas · ${stats.vendidos.length + stats.alquilados.length} cierres`}
+          />
+        </div>
+      </div>
+
       {/* KPIs principales con sparklines */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <KpiCard
