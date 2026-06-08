@@ -95,6 +95,7 @@ function InmueblesPage() {
   const [q, setQ] = useState("");
   const [estatus, setEstatus] = useState<string>("Activo");
   const [categoria, setCategoria] = useState<string>("Todas");
+  const [view, setView] = useState<"grid" | "kanban">("grid");
 
   const estatuses = useMemo(() => {
     const s = new Set<string>();
