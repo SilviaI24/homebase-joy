@@ -23,7 +23,7 @@ export function AppShell({ title, children }: { title: string; children: ReactNo
     <div className="flex min-h-screen bg-background text-foreground">
       <aside className="hidden md:flex w-60 flex-col border-r border-border bg-card">
         <div className="px-5 py-5 border-b border-border">
-          <div className="text-sm font-semibold tracking-tight">El Sol Grupo</div>
+          <div className="font-semibold tracking-tight text-lg text-amber-400">El Sol Grupo</div>
           <div className="text-xs text-muted-foreground">CRM Inmobiliario</div>
         </div>
         <nav className="flex-1 p-2 space-y-1">
