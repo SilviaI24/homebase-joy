@@ -21,6 +21,7 @@ export type Inmueble = {
   descripcion: string;
   propietario: string;
   telefonoPropietario: string;
+  fechaInicio: string | null;
 };
 
 export type InmuebleDetalle = Inmueble & {
