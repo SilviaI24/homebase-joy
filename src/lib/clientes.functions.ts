@@ -187,7 +187,7 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
         };
         records.push(...page.records);
         offset = page.offset;
-      } while (offset && records.length < 5000);
+      } while (offset && records.length < 50000);
       return records;
     })(),
     fetchAllInmueblesMini(),
