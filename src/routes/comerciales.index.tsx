@@ -36,7 +36,7 @@ export const Route = createFileRoute("/comerciales/")({
       },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(inmueblesQuery),
+  loader: ({ context }) => context.queryClient.ensureQueryData(allInmueblesQuery),
   component: ComercialesPage,
   errorComponent: ({ error }) => (
     <AppShell title="Comerciales">
