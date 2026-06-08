@@ -397,6 +397,68 @@ function SilviaPage() {
                   </div>
                 )}
 
+                {/* Inmuebles mencionados en la conversación */}
+                {mencionados.length > 0 && (
+                  <div className="px-4 pb-3 border-t border-border pt-3">
+                    <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
+                      <MessageSquare className="size-3 text-primary" />
+                      Inmuebles mencionados ({mencionados.length})
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {mencionados.map((inm) => (
+                        <div
+                          key={inm.id}
+                          className="rounded-md border border-primary/30 bg-primary/[0.03] overflow-hidden flex"
+                        >
+                          <Link
+                            to="/inmuebles/$id"
+                            params={{ id: inm.id }}
+                            className="flex items-stretch gap-2 flex-1 min-w-0 hover:bg-primary/[0.06] transition-colors"
+                          >
+                            <div className="w-16 shrink-0 bg-muted">
+                              <SafeImage src={inm.imagen} alt={inm.calle || inm.ref} />
+                            </div>
+                            <div className="flex-1 min-w-0 py-2 pr-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-mono text-muted-foreground">#{inm.ref}</span>
+                                <span className="text-[10px] text-muted-foreground">{inm.estatus}</span>
+                              </div>
+                              <div className="text-xs font-semibold truncate">
+                                {inm.calle} {inm.numero}
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                <span className="inline-flex items-center gap-0.5">
+                                  <MapPin className="size-2.5" />
+                                  {inm.barrio || inm.localidad || "—"}
+                                </span>
+                                <span className="inline-flex items-center gap-0.5 font-semibold text-primary">
+                                  <Euro className="size-2.5" />
+                                  {moneyShort(inm.precioFinal ?? inm.precio)}
+                                </span>
+                              </div>
+                            </div>
+                          </Link>
+                          <div className="flex items-center pr-2">
+                            <NewVisitaDialog
+                              defaultInmuebleId={inm.id}
+                              defaultClienteId={c.id}
+                              trigger={
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 cursor-pointer transition-opacity whitespace-nowrap"
+                                  title={`Agendar visita de ${c.nombre || "cliente"} a ${inm.calle}`}
+                                >
+                                  <CalendarPlus className="size-3" /> Cita
+                                </button>
+                              }
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Matches de propiedades */}
                 {c.matches.length > 0 && (
                   <div className="px-4 pb-3 border-t border-border pt-3">
