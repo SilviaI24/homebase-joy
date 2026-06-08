@@ -545,7 +545,7 @@ export function NewVisitaDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      {trigger ?? <NewButton>Nueva visita</NewButton>}
+      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : <NewButton>Nueva visita</NewButton>}
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Nueva visita</DialogTitle>
