@@ -7,7 +7,37 @@ import { NewInmuebleDialog } from "@/components/CreateDialogs";
 
 import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
 import { allInmueblesQuery } from "@/lib/queries";
-import { Search } from "lucide-react";
+import { Search, LayoutGrid, Columns3, Clock, AlertTriangle } from "lucide-react";
+
+const STALE_DAYS = 90;
+const DAY_MS = 1000 * 60 * 60 * 24;
+
+function daysSince(iso: string | null): number | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (isNaN(t)) return null;
+  return Math.floor((Date.now() - t) / DAY_MS);
+}
+
+type KanbanCol = "Activos" | "Reservados" | "Cerrados" | "Estancados";
+const KANBAN_COLS: { key: KanbanCol; label: string; tone: string; icon: any }[] = [
+  { key: "Activos", label: "Activos", tone: "border-emerald-500/40 bg-emerald-500/5", icon: LayoutGrid },
+  { key: "Reservados", label: "Reservados", tone: "border-amber-500/40 bg-amber-500/5", icon: Clock },
+  { key: "Cerrados", label: "Cerrados", tone: "border-blue-500/40 bg-blue-500/5", icon: Columns3 },
+  { key: "Estancados", label: `Estancados (>${STALE_DAYS}d)`, tone: "border-destructive/40 bg-destructive/5", icon: AlertTriangle },
+];
+
+function classifyKanban(i: Inmueble): KanbanCol | null {
+  const e = i.estatus;
+  if (e === "Reservado") return "Reservados";
+  if (e === "Vendido" || e === "Alquilado") return "Cerrados";
+  if (e === "Activo" || e === "Prospección") {
+    const d = daysSince(i.fechaInicio);
+    if (d !== null && d > STALE_DAYS) return "Estancados";
+    return "Activos";
+  }
+  return null;
+}
 
 
 export const Route = createFileRoute("/inmuebles/")({
@@ -65,6 +95,7 @@ function InmueblesPage() {
   const [q, setQ] = useState("");
   const [estatus, setEstatus] = useState<string>("Activo");
   const [categoria, setCategoria] = useState<string>("Todas");
+  const [view, setView] = useState<"grid" | "kanban">("grid");
 
   const estatuses = useMemo(() => {
     const s = new Set<string>();
@@ -84,22 +115,48 @@ function InmueblesPage() {
     return map;
   }, [data.inmuebles, estatus]);
 
+  const matchesSearch = (i: Inmueble, needle: string) => {
+    if (!needle) return true;
+    return (
+      i.ref.toLowerCase().includes(needle) ||
+      i.calle.toLowerCase().includes(needle) ||
+      i.localidad.toLowerCase().includes(needle) ||
+      i.barrio.toLowerCase().includes(needle) ||
+      i.tipo.toLowerCase().includes(needle) ||
+      i.propietario.toLowerCase().includes(needle)
+    );
+  };
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return data.inmuebles.filter((i: Inmueble) => {
       if (estatus !== "Todos" && i.estatus !== estatus) return false;
       if (categoria !== "Todas" && getCategoria(i.tipo) !== categoria) return false;
-      if (!needle) return true;
-      return (
-        i.ref.toLowerCase().includes(needle) ||
-        i.calle.toLowerCase().includes(needle) ||
-        i.localidad.toLowerCase().includes(needle) ||
-        i.barrio.toLowerCase().includes(needle) ||
-        i.tipo.toLowerCase().includes(needle) ||
-        i.propietario.toLowerCase().includes(needle)
-      );
+      return matchesSearch(i, needle);
     });
   }, [data.inmuebles, q, estatus, categoria]);
+
+  const kanbanGroups = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const groups: Record<KanbanCol, Inmueble[]> = {
+      Activos: [], Reservados: [], Cerrados: [], Estancados: [],
+    };
+    data.inmuebles.forEach((i) => {
+      if (categoria !== "Todas" && getCategoria(i.tipo) !== categoria) return;
+      if (!matchesSearch(i, needle)) return;
+      const col = classifyKanban(i);
+      if (col) groups[col].push(i);
+    });
+    // Sort oldest first by fechaInicio
+    (Object.keys(groups) as KanbanCol[]).forEach((k) => {
+      groups[k].sort((a, b) => {
+        const da = Date.parse(a.fechaInicio || "") || Infinity;
+        const db = Date.parse(b.fechaInicio || "") || Infinity;
+        return da - db;
+      });
+    });
+    return groups;
+  }, [data.inmuebles, q, categoria]);
 
   const tabs: string[] = ["Todas", ...CATEGORIAS];
 
@@ -115,17 +172,37 @@ function InmueblesPage() {
             className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
-        <select
-          value={estatus}
-          onChange={(e) => setEstatus(e.target.value)}
-          className="h-9 px-3 rounded-md border border-input bg-background text-sm"
-        >
-          {estatuses.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+        {view === "grid" && (
+          <select
+            value={estatus}
+            onChange={(e) => setEstatus(e.target.value)}
+            className="h-9 px-3 rounded-md border border-input bg-background text-sm"
+          >
+            {estatuses.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        )}
+        <div className="inline-flex h-9 rounded-md border border-input bg-background overflow-hidden">
+          <button
+            onClick={() => setView("grid")}
+            className={`px-3 text-xs font-medium inline-flex items-center gap-1.5 ${view === "grid" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+            title="Vista en cuadrícula"
+          >
+            <LayoutGrid className="size-3.5" /> Lista
+          </button>
+          <button
+            onClick={() => setView("kanban")}
+            className={`px-3 text-xs font-medium inline-flex items-center gap-1.5 border-l border-input ${view === "kanban" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+            title="Vista kanban"
+          >
+            <Columns3 className="size-3.5" /> Kanban
+          </button>
+        </div>
         <div className="ml-auto text-sm text-muted-foreground">
-          {filtered.length} de {data.inmuebles.length}
+          {view === "grid"
+            ? `${filtered.length} de ${data.inmuebles.length}`
+            : `${kanbanGroups.Activos.length + kanbanGroups.Reservados.length + kanbanGroups.Cerrados.length + kanbanGroups.Estancados.length} inmuebles`}
         </div>
         <button
           onClick={() => router.invalidate()}
@@ -164,54 +241,122 @@ function InmueblesPage() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map((i) => (
-          <Link
-            key={i.id}
-            to="/inmuebles/$id"
-            params={{ id: i.id }}
-            className="group rounded-lg border border-border bg-card overflow-hidden flex flex-col hover:shadow-md transition-shadow"
-          >
-            <div className="aspect-video relative overflow-hidden">
-              <SafeImage src={i.imagen} alt={i.calle || i.ref} imgClassName="group-hover:scale-[1.02] transition-transform" />
-              <div className="absolute top-2 left-2 z-10">{statusBadge(i.estatus)}</div>
-              {i.ref && (
-                <div className="absolute top-2 right-2 z-10 text-[11px] font-mono bg-background/90 text-foreground border border-border/60 backdrop-blur px-1.5 py-0.5 rounded shadow-sm">
-                  #{i.ref}
+      {view === "grid" ? (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filtered.map((i) => (
+              <Link
+                key={i.id}
+                to="/inmuebles/$id"
+                params={{ id: i.id }}
+                className="group rounded-lg border border-border bg-card overflow-hidden flex flex-col hover:shadow-md transition-shadow"
+              >
+                <div className="aspect-video relative overflow-hidden">
+                  <SafeImage src={i.imagen} alt={i.calle || i.ref} imgClassName="group-hover:scale-[1.02] transition-transform" />
+                  <div className="absolute top-2 left-2 z-10">{statusBadge(i.estatus)}</div>
+                  {i.ref && (
+                    <div className="absolute top-2 right-2 z-10 text-[11px] font-mono bg-background/90 text-foreground border border-border/60 backdrop-blur px-1.5 py-0.5 rounded shadow-sm">
+                      #{i.ref}
+                    </div>
+                  )}
                 </div>
-              )}
+                <div className="p-4 flex flex-col gap-2 flex-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h3 className="font-semibold text-sm truncate min-w-0 flex-1">
+                      {i.calle || "Sin dirección"} {i.numero && <span className="text-muted-foreground font-normal">{i.numero}</span>}
+                    </h3>
+                    <div className="text-base font-semibold text-primary whitespace-nowrap shrink-0">
+                      {formatEuro(i.precio)}
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {[i.barrio, i.localidad].filter(Boolean).join(" · ") || "—"}
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
+                    {i.tipo && <span>{i.tipo}</span>}
+                    {i.habitaciones && <span>{i.habitaciones} hab.</span>}
+                    {i.banos && <span>{i.banos} baños</span>}
+                    {i.superficie && <span>{i.superficie} m²</span>}
+                  </div>
+                  {i.propietario && (
+                    <div className="mt-auto pt-2 text-[11px] text-muted-foreground border-t border-border/60">
+                      Propietario: <span className="text-foreground/80">{i.propietario}</span>
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+          {filtered.length === 0 && (
+            <div className="text-center text-sm text-muted-foreground py-16">
+              Sin resultados para los filtros actuales.
             </div>
-            <div className="p-4 flex flex-col gap-2 flex-1">
-              <div className="flex items-baseline justify-between gap-3">
-                <h3 className="font-semibold text-sm truncate min-w-0 flex-1">
-                  {i.calle || "Sin dirección"} {i.numero && <span className="text-muted-foreground font-normal">{i.numero}</span>}
-                </h3>
-                <div className="text-base font-semibold text-primary whitespace-nowrap shrink-0">
-                  {formatEuro(i.precio)}
+          )}
+        </>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {KANBAN_COLS.map(({ key, label, tone, icon: Icon }) => {
+            const items = kanbanGroups[key];
+            return (
+              <div key={key} className={`rounded-lg border ${tone} flex flex-col min-h-[300px]`}>
+                <div className="flex items-center justify-between px-3 py-2 border-b border-border/60">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Icon className="size-4" />
+                    <span>{label}</span>
+                  </div>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-background/80 border border-border/60">
+                    {items.length}
+                  </span>
+                </div>
+                <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[70vh]">
+                  {items.length === 0 && (
+                    <div className="text-center text-xs text-muted-foreground py-6">Vacío</div>
+                  )}
+                  {items.map((i) => {
+                    const dias = daysSince(i.fechaInicio);
+                    const isStale = key === "Estancados";
+                    return (
+                      <Link
+                        key={i.id}
+                        to="/inmuebles/$id"
+                        params={{ id: i.id }}
+                        className="block rounded-md border border-border bg-card hover:shadow-md transition-shadow p-2.5"
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <div className="size-12 shrink-0 rounded overflow-hidden bg-muted">
+                            <SafeImage src={i.imagen} alt={i.calle || i.ref} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline justify-between gap-2">
+                              <h4 className="text-xs font-semibold truncate">
+                                {i.calle || "Sin dirección"} {i.numero}
+                              </h4>
+                              <span className="text-[10px] font-mono text-muted-foreground shrink-0">#{i.ref}</span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground truncate">
+                              {[i.barrio, i.localidad].filter(Boolean).join(" · ") || "—"}
+                            </div>
+                            <div className="flex items-center justify-between mt-1 gap-2">
+                              <span className="text-xs font-semibold text-primary">{formatEuro(i.precio)}</span>
+                              {dias !== null && (
+                                <span className={`text-[10px] inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full ${
+                                  isStale
+                                    ? "bg-destructive/15 text-destructive"
+                                    : "bg-muted text-muted-foreground"
+                                }`}>
+                                  <Clock className="size-2.5" />{dias}d
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="text-xs text-muted-foreground">
-                {[i.barrio, i.localidad].filter(Boolean).join(" · ") || "—"}
-              </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
-                {i.tipo && <span>{i.tipo}</span>}
-                {i.habitaciones && <span>{i.habitaciones} hab.</span>}
-                {i.banos && <span>{i.banos} baños</span>}
-                {i.superficie && <span>{i.superficie} m²</span>}
-              </div>
-              {i.propietario && (
-                <div className="mt-auto pt-2 text-[11px] text-muted-foreground border-t border-border/60">
-                  Propietario: <span className="text-foreground/80">{i.propietario}</span>
-                </div>
-              )}
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="text-center text-sm text-muted-foreground py-16">
-          Sin resultados para los filtros actuales.
+            );
+          })}
         </div>
       )}
     </AppShell>
