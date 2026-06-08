@@ -194,8 +194,7 @@ function ClientesPage() {
 
       {/* Descripcion del estado */}
       <p className="text-xs text-muted-foreground mb-3">
-        {estado === "Activos" && "Propietarios con inmueble activo o prospecciones en curso."}
-        {estado === "Potenciales" && "Clientes sin propiedad activa. Les sugerimos matches con inmuebles disponibles."}
+        {estado === "Activos" && "Propietarios con inmueble activo o prospecciones en curso. Los clientes potenciales se gestionan desde SilvIA."}
         {estado === "Todos" && "Todos los registros de clientes."}
       </p>
 
