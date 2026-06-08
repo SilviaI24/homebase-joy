@@ -306,6 +306,24 @@ export const listVisitasByInmueble = createServerFn({ method: "GET" })
     return { visitas };
   });
 
+export const getInmueblesByIds = createServerFn({ method: "POST" })
+  .inputValidator((d: { ids: string[] }) => {
+    if (!Array.isArray(d.ids)) throw new Error("ids requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    if (data.ids.length === 0) return { inmuebles: [] as Inmueble[] };
+    const parts = data.ids.map((id) => `RECORD_ID()='${id}'`);
+    const formula = `OR(${parts.join(",")})`;
+    const res = (await airtableFetch(
+      `/v0/${BASE_ID}/${TABLES.inmuebles}?filterByFormula=${encodeURIComponent(formula)}&pageSize=100`,
+    )) as {
+      records: Array<{ id: string; fields: Record<string, unknown> }>;
+    };
+    const inmuebles = res.records.map(mapBase);
+    return { inmuebles };
+  });
+
 export type UpdateInmueblePayload = {
   id: string;
   estatus?: string;
