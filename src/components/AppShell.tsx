@@ -12,7 +12,7 @@ const nav: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/inmuebles", label: "Inmuebles", icon: Building2 },
   { to: "/alquileres", label: "Alquileres", icon: KeyRound },
-  { to: "/clientes", label: "Clientes", icon: Users, disabled: true },
+  { to: "/clientes", label: "Clientes", icon: Users },
   { to: "/visitas", label: "Visitas", icon: CalendarDays, disabled: true },
   { to: "/agentes", label: "Agentes", icon: UserCog, disabled: true },
 ];
