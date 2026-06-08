@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { airtableFetch, BASE_ID, TABLES } from "./airtable.server";
 import { getCategoria, isAlquiler, type Categoria } from "./inmuebles.functions";
-import { toTitleCase, toTitleCaseArr } from "./format";
+import { toTitleCase, toTitleCaseArr, toSentenceCase } from "./format";
 
 export type ClienteAttachment = { url: string; filename: string; type: string };
 
@@ -124,12 +124,12 @@ function mapClienteBase(r: { id: string; fields: Record<string, unknown> }): Omi
     dni: asStr(f["DNI"]),
     tipo: asStr(f["Tipo de cliente"]),
     fecha: (f["Fecha"] as string) ?? null,
-    motivo: toTitleCase(asStr(f["Motivo de la llamada"])),
-    observaciones: toTitleCase(asStr(f["Observaciones"])),
-    solicitud: toTitleCase(asStr(f["Solicitud de llamada"])),
+    motivo: toSentenceCase(asStr(f["Motivo de la llamada"])),
+    observaciones: toSentenceCase(asStr(f["Observaciones"])),
+    solicitud: toSentenceCase(asStr(f["Solicitud de llamada"])),
     seccion: toTitleCase(asStr(f["Seccion"])),
-    conversaciones: toTitleCase(asStr(f["Conversaciones"])),
-    feedback: toTitleCase(asStr(f["Feedback Comercial"])),
+    conversaciones: toSentenceCase(asStr(f["Conversaciones"])),
+    feedback: toSentenceCase(asStr(f["Feedback Comercial"])),
     profesion: toTitleCase(asStr(f["Profesión"])),
     contratoTrabajo: toTitleCase(asStr(f["Dispones de contrato de trabajo"])),
     mascota: toTitleCase(asStr(f["¿Tiene mascota?"])),
