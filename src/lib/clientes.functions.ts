@@ -20,6 +20,12 @@ export type MiniInmueble = {
   imagen: string | null;
 };
 
+export type ClienteMatch = {
+  inmueble: MiniInmueble;
+  razones: string[];
+  score: number;
+};
+
 export type Cliente = {
   id: string;
   nombre: string;
