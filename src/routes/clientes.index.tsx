@@ -659,7 +659,7 @@ function ClienteDetalle({ cliente }: { cliente: Cliente }) {
           </Section>
         )}
 
-        {cliente.inmueblesActivos.length === 0 && cliente.matches.length > 0 && (
+        {cliente.estadoComercial !== "Cerrado" && cliente.inmueblesActivos.length === 0 && cliente.matches.length > 0 && (
           <Section
             title={
               <span className="flex items-center gap-1.5">
