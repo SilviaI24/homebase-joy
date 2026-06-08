@@ -20,7 +20,7 @@ import {
   PolarAngleAxis,
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
-import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
+import { getCategoria, isAlquiler, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
 import { allInmueblesQuery, clientesQueryOpts, visitasQuery } from "@/lib/queries";
 import {
   Building2,
