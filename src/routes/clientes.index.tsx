@@ -57,7 +57,7 @@ export const Route = createFileRoute("/clientes/")({
   ),
 });
 
-const ESTADO_TABS = ["Activos", "Potenciales", "Todos"] as const;
+const ESTADO_TABS = ["Activos", "Todos"] as const;
 type EstadoTab = (typeof ESTADO_TABS)[number];
 
 const TIPO_TABS = [
