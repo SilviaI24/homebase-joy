@@ -20,6 +20,12 @@ export type MiniInmueble = {
   imagen: string | null;
 };
 
+export type ClienteMatch = {
+  inmueble: MiniInmueble;
+  razones: string[];
+  score: number;
+};
+
 export type Cliente = {
   id: string;
   nombre: string;
@@ -54,7 +60,7 @@ export type Cliente = {
   activo: boolean;
   motivoActivo: string;
   inmueblesActivos: MiniInmueble[];
-  matches: MiniInmueble[];
+  matches: ClienteMatch[];
 };
 
 export const TIPOS_CLIENTE = [
@@ -222,14 +228,39 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
     }
 
     // Match para potenciales: solo si no es activo
-    let matches: MiniInmueble[] = [];
+    let matches: ClienteMatch[] = [];
     if (!activo) {
-      const wantsAlquiler = base.tipo === "Interesado alquiler";
-      const wantsVenta = base.tipo === "Interesado Propiedades" || base.tipo === "Comprador";
+      const wantsAlquiler =
+        base.tipo === "Interesado alquiler" ||
+        /alquiler/i.test(base.solicitud) ||
+        /alquiler/i.test(base.motivo);
+      const wantsVenta =
+        base.tipo === "Interesado Propiedades" ||
+        base.tipo === "Comprador" ||
+        /\b(compra|venta|comprar)\b/i.test(base.solicitud) ||
+        /\b(compra|venta|comprar)\b/i.test(base.motivo);
       const pool = wantsAlquiler ? activosAlquiler : wantsVenta ? activosVenta : [];
       const linkedSet = new Set(linkedInmuebles.map((i) => i.id));
+      const cats = base.categoria.map((c) => c.toLowerCase());
       matches = pool
-        .filter((i) => !linkedSet.has(i.id) && categoriaMatches(base.categoria, i.categoria))
+        .filter((i) => !linkedSet.has(i.id))
+        .map<ClienteMatch>((i) => {
+          const razones: string[] = [];
+          let score = 0;
+          razones.push(i.esAlquiler ? "Alquiler" : "Venta");
+          score += 2;
+          if (cats.length === 0) {
+            razones.push("Sin filtro de categoría");
+          } else if (cats.includes(i.categoria.toLowerCase())) {
+            razones.push(`Categoría: ${i.categoria}`);
+            score += 3;
+          } else {
+            score -= 5;
+          }
+          return { inmueble: i, razones, score };
+        })
+        .filter((m) => m.score > 0)
+        .sort((a, b) => b.score - a.score)
         .slice(0, 6);
     }
 
