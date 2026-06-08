@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Fragment, useMemo, useState } from "react";
 import {
   BarChart,
@@ -12,7 +12,8 @@ import {
   Legend,
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
-import { listInmuebles, type Inmueble } from "@/lib/inmuebles.functions";
+import { type Inmueble } from "@/lib/inmuebles.functions";
+import { allInmueblesQuery } from "@/lib/queries";
 import {
   UserCog,
   Building2,
@@ -24,10 +25,6 @@ import {
   Clock,
 } from "lucide-react";
 
-const inmueblesQuery = queryOptions({
-  queryKey: ["inmuebles"],
-  queryFn: () => listInmuebles(),
-});
 
 export const Route = createFileRoute("/comerciales/")({
   head: () => ({
