@@ -1,10 +1,8 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
-import { queryOptions, useSuspenseQuery, useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { listClientes, type Cliente } from "@/lib/clientes.functions";
-import { getInmueblesByIds, isAlquiler } from "@/lib/inmuebles.functions";
+import { listClientes, type Cliente, type MiniInmueble } from "@/lib/clientes.functions";
 import {
   Search,
   Mail,
@@ -18,10 +16,12 @@ import {
   Dog,
   ShieldCheck,
   CalendarDays,
-  Loader2,
   MapPin,
   ChevronRight,
   Euro,
+  Sparkles,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 
 const clientesQuery = queryOptions({
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/clientes/")({
   head: () => ({
     meta: [
       { title: "Clientes · El Sol Grupo CRM" },
-      { name: "description", content: "Gestión de clientes: propietarios, compradores e interesados." },
+      { name: "description", content: "Gestión de clientes activos y potenciales." },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(clientesQuery),
@@ -47,7 +47,10 @@ export const Route = createFileRoute("/clientes/")({
   ),
 });
 
-const TIPOS_TABS = [
+const ESTADO_TABS = ["Activos", "Potenciales", "Todos"] as const;
+type EstadoTab = (typeof ESTADO_TABS)[number];
+
+const TIPO_TABS = [
   "Todos",
   "Propietario",
   "Comprador",
@@ -77,21 +80,30 @@ function ClientesPage() {
   const { data } = useSuspenseQuery(clientesQuery);
   const router = useRouter();
   const [q, setQ] = useState("");
+  const [estado, setEstado] = useState<EstadoTab>("Activos");
   const [tipo, setTipo] = useState<string>("Todos");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const conteo = useMemo(() => {
-    const m: Record<string, number> = { Todos: data.clientes.length };
-    TIPOS_TABS.forEach((t) => t !== "Todos" && (m[t] = 0));
-    data.clientes.forEach((c) => {
+  const porEstado = useMemo(() => {
+    const activos = data.clientes.filter((c) => c.activo);
+    const potenciales = data.clientes.filter((c) => !c.activo);
+    return { Activos: activos, Potenciales: potenciales, Todos: data.clientes };
+  }, [data.clientes]);
+
+  const baseSet = porEstado[estado];
+
+  const conteoTipos = useMemo(() => {
+    const m: Record<string, number> = { Todos: baseSet.length };
+    TIPO_TABS.forEach((t) => t !== "Todos" && (m[t] = 0));
+    baseSet.forEach((c) => {
       if (m[c.tipo] != null) m[c.tipo]++;
     });
     return m;
-  }, [data.clientes]);
+  }, [baseSet]);
 
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase();
-    return data.clientes.filter((c) => {
+    return baseSet.filter((c) => {
       if (tipo !== "Todos" && c.tipo !== tipo) return false;
       if (!n) return true;
       return (
@@ -103,7 +115,7 @@ function ClientesPage() {
         c.propiedadCalles.some((s) => s.toLowerCase().includes(n))
       );
     });
-  }, [data.clientes, q, tipo]);
+  }, [baseSet, q, tipo]);
 
   const selected = useMemo(
     () => data.clientes.find((c) => c.id === selectedId) ?? null,
@@ -112,8 +124,34 @@ function ClientesPage() {
 
   return (
     <AppShell title="Clientes">
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="relative flex-1 min-w-[220px] max-w-sm">
+      {/* Estado tabs (segmented) */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
+          {ESTADO_TABS.map((e) => {
+            const active = estado === e;
+            const count = porEstado[e].length;
+            return (
+              <button
+                key={e}
+                onClick={() => {
+                  setEstado(e);
+                  setTipo("Todos");
+                }}
+                className={`px-3 h-8 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  active ? "bg-primary text-primary-foreground shadow-sm" : "text-foreground/70 hover:bg-accent"
+                }`}
+              >
+                {e === "Activos" && <CheckCircle2 className="size-3.5" />}
+                {e === "Potenciales" && <Clock className="size-3.5" />}
+                {e}
+                <span className={`text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="relative flex-1 min-w-[220px] max-w-sm ml-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
             value={q}
@@ -121,9 +159,6 @@ function ClientesPage() {
             placeholder="Buscar por nombre, email, tel, DNI, ref…"
             className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
-        </div>
-        <div className="ml-auto text-sm text-muted-foreground">
-          {filtered.length} de {data.clientes.length}
         </div>
         <button
           onClick={() => router.invalidate()}
@@ -133,28 +168,38 @@ function ClientesPage() {
         </button>
       </div>
 
+      {/* Descripcion del estado */}
+      <p className="text-xs text-muted-foreground mb-3">
+        {estado === "Activos" && "Propietarios con inmueble activo o prospecciones en curso."}
+        {estado === "Potenciales" && "Clientes sin propiedad activa. Les sugerimos matches con inmuebles disponibles."}
+        {estado === "Todos" && "Todos los registros de clientes."}
+      </p>
+
+      {/* Tipo filter (secundario) */}
       <div className="flex flex-wrap gap-1.5 mb-4 border-b border-border pb-2">
-        {TIPOS_TABS.map((t) => {
+        {TIPO_TABS.map((t) => {
           const active = tipo === t;
-          const count = conteo[t] ?? 0;
+          const count = conteoTipos[t] ?? 0;
+          if (t !== "Todos" && count === 0) return null;
           return (
             <button
               key={t}
               onClick={() => setTipo(t)}
               className={`px-3 h-8 rounded-md text-xs font-medium transition-colors ${
-                active ? "bg-primary text-primary-foreground" : "text-foreground/70 hover:bg-accent"
+                active ? "bg-accent text-foreground" : "text-foreground/60 hover:bg-accent/60"
               }`}
             >
               {t}
-              <span className={`ml-1.5 text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>
-                {count}
-              </span>
+              <span className="ml-1.5 text-[10px] text-muted-foreground">{count}</span>
             </button>
           );
         })}
+        <div className="ml-auto text-xs text-muted-foreground self-center">
+          {filtered.length} {filtered.length === 1 ? "resultado" : "resultados"}
+        </div>
       </div>
 
-      <div className={`grid gap-4 ${selected ? "lg:grid-cols-[1fr_420px]" : "grid-cols-1"}`}>
+      <div className={`grid gap-4 ${selected ? "lg:grid-cols-[1fr_440px]" : "grid-cols-1"}`}>
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -163,17 +208,12 @@ function ClientesPage() {
                   <th className="px-3 py-2 font-medium">Nombre</th>
                   <th className="px-3 py-2 font-medium">Tipo</th>
                   <th className="px-3 py-2 font-medium">Contacto</th>
-                  <th className="px-3 py-2 font-medium">Propiedades</th>
+                  <th className="px-3 py-2 font-medium">Estado</th>
                   <th className="px-3 py-2 font-medium hidden md:table-cell">Motivo</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((c) => {
-                  const propCount =
-                    c.propiedadIds.length +
-                    c.inmuebleCompradorIds.length +
-                    c.propiedadAlquilerIds.length +
-                    c.inmueblesIds.length;
                   const active = c.id === selectedId;
                   return (
                     <tr
@@ -192,10 +232,15 @@ function ClientesPage() {
                         </div>
                       </td>
                       <td className="px-3 py-2 text-xs">
-                        {propCount > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-foreground/80">
-                            <Building2 className="size-3" />
-                            {propCount}
+                        {c.activo ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                            <CheckCircle2 className="size-3.5" />
+                            {c.inmueblesActivos.length} activo{c.inmueblesActivos.length !== 1 ? "s" : ""}
+                          </span>
+                        ) : c.matches.length > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-violet-600 dark:text-violet-400">
+                            <Sparkles className="size-3.5" />
+                            {c.matches.length} match
                           </span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
@@ -237,36 +282,96 @@ function estatusClase(estatus: string) {
   return map[estatus] ?? "bg-secondary text-secondary-foreground";
 }
 
-function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () => void }) {
-  const fetchByIds = useServerFn(getInmueblesByIds);
-  const allIds = useMemo(() => {
-    const ids = new Set<string>();
-    cliente.propiedadIds.forEach((id) => ids.add(id));
-    cliente.inmuebleCompradorIds.forEach((id) => ids.add(id));
-    cliente.propiedadAlquilerIds.forEach((id) => ids.add(id));
-    cliente.inmueblesIds.forEach((id) => ids.add(id));
-    return Array.from(ids);
-  }, [cliente]);
-  const { data: linkedData, isLoading: linkedLoading } = useQuery({
-    queryKey: ["inmuebles", "byIds", allIds],
-    queryFn: () => fetchByIds({ data: { ids: allIds } }),
-    enabled: allIds.length > 0,
-  });
-  const propiedades = linkedData?.inmuebles ?? [];
+function InmuebleCard({ p }: { p: MiniInmueble }) {
+  return (
+    <Link
+      to="/inmuebles/$id"
+      params={{ id: p.id }}
+      className="group flex gap-3 rounded-xl border border-border bg-background p-3 hover:shadow-md hover:border-primary/30 transition-all"
+    >
+      <div className="shrink-0">
+        {p.imagen ? (
+          <img src={p.imagen} alt={p.calle || p.ref} className="h-20 w-28 rounded-lg object-cover" />
+        ) : (
+          <div className="h-20 w-28 rounded-lg bg-muted flex items-center justify-center">
+            <Building2 className="size-6 text-muted-foreground" />
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1 flex flex-col justify-between">
+        <div>
+          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+              #{p.ref || p.id}
+            </span>
+            {p.estatus && (
+              <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${estatusClase(p.estatus)}`}>
+                {p.estatus}
+              </span>
+            )}
+            <span
+              className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${
+                p.esAlquiler
+                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+              }`}
+            >
+              {p.esAlquiler ? "Alquiler" : "Venta"}
+            </span>
+            <span className="text-[10px] text-muted-foreground">{p.categoria}</span>
+          </div>
+          <div className="text-sm font-semibold text-foreground truncate">
+            {[p.calle, p.numero].filter(Boolean).join(" ") || "Sin dirección"}
+          </div>
+        </div>
+        <div className="flex items-center justify-between mt-1.5">
+          <div className="text-xs text-muted-foreground flex items-center gap-1 min-w-0">
+            <MapPin className="size-3.5 shrink-0" />
+            <span className="truncate">{[p.barrio, p.localidad].filter(Boolean).join(" · ")}</span>
+          </div>
+          {(p.precio ?? p.precioFinal) != null && (
+            <div className="flex items-center gap-0.5 text-xs font-bold text-foreground shrink-0">
+              <Euro className="size-3" />
+              {(p.precioFinal ?? p.precio)!.toLocaleString("es-ES")}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <ChevronRight className="size-4 text-muted-foreground" />
+      </div>
+    </Link>
+  );
+}
 
+function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () => void }) {
   return (
     <aside className="rounded-lg border border-border bg-card sticky top-4 self-start max-h-[calc(100vh-2rem)] overflow-auto">
       <header className="flex items-start justify-between gap-2 p-4 border-b border-border">
         <div className="min-w-0">
           <h2 className="font-semibold text-base truncate">{cliente.nombre || "Sin nombre"}</h2>
-          <div className="mt-1 flex items-center gap-2">
+          <div className="mt-1 flex items-center gap-2 flex-wrap">
             {tipoBadge(cliente.tipo)}
+            {cliente.activo ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 rounded-full px-2 py-0.5">
+                <CheckCircle2 className="size-3" />
+                Activo
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 rounded-full px-2 py-0.5">
+                <Clock className="size-3" />
+                Potencial
+              </span>
+            )}
             {cliente.trabajado && (
               <span className="text-[10px] bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 rounded-full px-2 py-0.5">
                 {cliente.trabajado}
               </span>
             )}
           </div>
+          {cliente.motivoActivo && (
+            <div className="text-[11px] text-muted-foreground mt-1">{cliente.motivoActivo}</div>
+          )}
         </div>
         <button
           onClick={onClose}
@@ -290,80 +395,48 @@ function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () =>
           />
         </Section>
 
-        <Section title={`Propiedades vinculadas (${propiedades.length})`}>
-          {propiedades.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              {linkedLoading ? (
-                <span className="flex items-center gap-1.5">
-                  <Loader2 className="size-3 animate-spin" /> Cargando propiedades…
-                </span>
-              ) : (
-                "Sin propiedades vinculadas."
-              )}
-            </p>
-          ) : (
+        {cliente.activo && (
+          <Section title={`Propiedades activas (${cliente.inmueblesActivos.length})`}>
             <ul className="space-y-3">
-              {propiedades.map((p) => (
+              {cliente.inmueblesActivos.map((p) => (
                 <li key={p.id}>
-                  <Link
-                    to="/inmuebles/$id"
-                    params={{ id: p.id }}
-                    className="group flex gap-3 rounded-xl border border-border bg-background p-3 hover:shadow-md hover:border-primary/30 transition-all"
-                  >
-                    <div className="shrink-0">
-                      {p.imagen ? (
-                        <img
-                          src={p.imagen}
-                          alt={p.calle || p.ref}
-                          className="h-20 w-28 rounded-lg object-cover"
-                        />
-                      ) : (
-                        <div className="h-20 w-28 rounded-lg bg-muted flex items-center justify-center">
-                          <Building2 className="size-6 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                            #{p.ref || p.id}
-                          </span>
-                          {p.estatus && (
-                            <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${estatusClase(p.estatus)}`}>
-                              {p.estatus}
-                            </span>
-                          )}
-                          <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${isAlquiler(p.tipo) ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-blue-500/10 text-blue-600 dark:text-blue-400"}`}>
-                            {isAlquiler(p.tipo) ? "Alquiler" : "Venta"}
-                          </span>
-                        </div>
-                        <div className="text-sm font-semibold text-foreground truncate">
-                          {[p.calle, p.numero].filter(Boolean).join(" ")}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between mt-1.5">
-                        <div className="text-xs text-muted-foreground flex items-center gap-1">
-                          <MapPin className="size-3.5" />
-                          <span className="truncate">{[p.barrio, p.localidad].filter(Boolean).join(" · ")}</span>
-                        </div>
-                        {(p.precio ?? p.precioFinal) != null && (
-                          <div className="flex items-center gap-0.5 text-xs font-bold text-foreground">
-                            <Euro className="size-3" />
-                            {(p.precioFinal ?? p.precio)!.toLocaleString("es-ES")}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="shrink-0 self-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ChevronRight className="size-4 text-muted-foreground" />
-                    </div>
-                  </Link>
+                  <InmuebleCard p={p} />
                 </li>
               ))}
             </ul>
-          )}
-        </Section>
+          </Section>
+        )}
+
+        {!cliente.activo && (
+          <Section
+            title={
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="size-3.5 text-violet-500" />
+                Posibles matches ({cliente.matches.length})
+              </span>
+            }
+          >
+            {cliente.matches.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Sin inmuebles activos que encajen con sus intereses
+                {cliente.categoria.length > 0 ? ` (${cliente.categoria.join(", ")})` : ""}.
+              </p>
+            ) : (
+              <>
+                <p className="text-[11px] text-muted-foreground mb-2">
+                  Inmuebles activos que encajan con sus intereses.
+                </p>
+                <ul className="space-y-3">
+                  {cliente.matches.map((p) => (
+                    <li key={p.id}>
+                      <InmuebleCard p={p} />
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </Section>
+        )}
 
         <Section title="Estado y solicitudes">
           <Row label="Motivo de llamada" value={cliente.motivo} multiline />
@@ -372,7 +445,7 @@ function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () =>
           {cliente.categoria.length > 0 && (
             <div>
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                Categoría
+                Categoría de interés
               </div>
               <div className="flex flex-wrap gap-1">
                 {cliente.categoria.map((c) => (
@@ -449,7 +522,7 @@ function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () =>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <section>
       <h3 className="text-xs font-semibold text-foreground/70 uppercase tracking-wide mb-2">
@@ -481,15 +554,6 @@ function Row({
       <div className={multiline ? "whitespace-pre-wrap text-foreground/90" : "text-foreground/90"}>
         {value}
       </div>
-    </div>
-  );
-}
-
-function Mini({ label, count }: { label: string; count: number }) {
-  return (
-    <div className="flex items-center justify-between text-xs rounded-md bg-muted/40 px-2 py-1.5">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{count}</span>
     </div>
   );
 }
