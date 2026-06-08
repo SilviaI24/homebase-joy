@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { listClientes, type Cliente, type MiniInmueble } from "@/lib/clientes.functions";
 import {
@@ -22,7 +22,14 @@ import {
   Sparkles,
   CheckCircle2,
   Clock,
+  ArrowUpRight,
 } from "lucide-react";
+import {
+  CanalChip,
+  Transcripcion,
+  inferCanal,
+  hasSilviaConversation,
+} from "@/components/silvia/conversation";
 
 const clientesQuery = queryOptions({
   queryKey: ["clientes"],
@@ -30,6 +37,9 @@ const clientesQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/clientes/")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    id: typeof s.id === "string" ? s.id : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Clientes · El Sol Grupo CRM" },
