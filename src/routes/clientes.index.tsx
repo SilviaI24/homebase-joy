@@ -385,9 +385,9 @@ function InmuebleCard({ p }: { p: MiniInmueble }) {
   );
 }
 
-function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () => void }) {
+function ClienteDetalle({ cliente }: { cliente: Cliente }) {
   return (
-    <aside className="rounded-lg border border-border bg-card sticky top-4 self-start max-h-[calc(100vh-2rem)] overflow-auto">
+    <aside className="bg-card">
       <header className="flex items-start justify-between gap-2 p-4 border-b border-border">
         <div className="min-w-0">
           <h2 className="font-semibold text-base truncate">{cliente.nombre || "Sin nombre"}</h2>
@@ -414,13 +414,6 @@ function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () =>
             <div className="text-[11px] text-muted-foreground mt-1">{cliente.motivoActivo}</div>
           )}
         </div>
-        <button
-          onClick={onClose}
-          className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-accent"
-          aria-label="Cerrar"
-        >
-          <X className="size-4" />
-        </button>
       </header>
 
       <div className="p-4 space-y-5">
