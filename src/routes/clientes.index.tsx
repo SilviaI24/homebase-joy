@@ -167,7 +167,6 @@ function ClientesPage() {
                 }`}
               >
                 {e === "Activos" && <CheckCircle2 className="size-3.5" />}
-                {e === "Potenciales" && <Clock className="size-3.5" />}
                 {e}
                 <span className={`text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>
                   {count}
