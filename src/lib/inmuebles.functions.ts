@@ -205,14 +205,29 @@ export const listVisitasByInmueble = createServerFn({ method: "GET" })
     return d;
   })
   .handler(async ({ data }) => {
-    const formula = `FIND("${data.id}", ARRAYJOIN({Inmuebles}))`;
-    const params = new URLSearchParams({
-      pageSize: "100",
-      filterByFormula: formula,
-    });
-    const res = (await airtableFetch(
-      `/v0/${BASE_ID}/${TABLES.visitas}?${params}`,
-    )) as { records: Array<{ id: string; fields: Record<string, unknown> }> };
+    // Paginar y filtrar en JS porque {Inmuebles} en filterByFormula devuelve
+    // nombres concatenados, no IDs de los registros enlazados.
+    const records: Array<{ id: string; fields: Record<string, unknown> }> = [];
+    let offset: string | undefined;
+    do {
+      const params = new URLSearchParams({ pageSize: "100" });
+      if (offset) params.set("offset", offset);
+      const page = (await airtableFetch(
+        `/v0/${BASE_ID}/${TABLES.visitas}?${params}`,
+      )) as {
+        records: Array<{ id: string; fields: Record<string, unknown> }>;
+        offset?: string;
+      };
+      records.push(...page.records);
+      offset = page.offset;
+    } while (offset && records.length < 1000);
+    const res = {
+      records: records.filter((r) => {
+        const v = r.fields["Inmuebles"];
+        return Array.isArray(v) && (v as string[]).includes(data.id);
+      }),
+    };
+
     const visitas: Visita[] = res.records.map((r) => {
       const f = r.fields;
       return {
