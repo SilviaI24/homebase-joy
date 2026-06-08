@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { listClientes, type Cliente, type MiniInmueble } from "@/lib/clientes.functions";
 import {
@@ -22,7 +22,14 @@ import {
   Sparkles,
   CheckCircle2,
   Clock,
+  ArrowUpRight,
 } from "lucide-react";
+import {
+  CanalChip,
+  Transcripcion,
+  inferCanal,
+  hasSilviaConversation,
+} from "@/components/silvia/conversation";
 
 const clientesQuery = queryOptions({
   queryKey: ["clientes"],
@@ -30,6 +37,9 @@ const clientesQuery = queryOptions({
 });
 
 export const Route = createFileRoute("/clientes/")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    id: typeof s.id === "string" ? s.id : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Clientes · El Sol Grupo CRM" },
@@ -79,10 +89,28 @@ function tipoBadge(t: string) {
 function ClientesPage() {
   const { data } = useSuspenseQuery(clientesQuery);
   const router = useRouter();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
   const [q, setQ] = useState("");
   const [estado, setEstado] = useState<EstadoTab>("Activos");
   const [tipo, setTipo] = useState<string>("Todos");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(search.id ?? null);
+
+  // Deep-link desde SilvIA: ?id=... selecciona y ajusta el tab al estado del cliente
+  useEffect(() => {
+    if (!search.id) return;
+    const c = data.clientes.find((x) => x.id === search.id);
+    if (!c) return;
+    setSelectedId(c.id);
+    setEstado(c.activo ? "Activos" : "Potenciales");
+    setTipo("Todos");
+  }, [search.id, data.clientes]);
+
+  function selectCliente(id: string | null) {
+    setSelectedId(id);
+    navigate({ search: { id: id ?? undefined }, replace: true });
+  }
+
 
   const porEstado = useMemo(() => {
     const activos = data.clientes.filter((c) => c.activo);
@@ -215,15 +243,30 @@ function ClientesPage() {
               <tbody>
                 {filtered.map((c) => {
                   const active = c.id === selectedId;
+                  const hasSilvia = hasSilviaConversation(c);
                   return (
                     <tr
                       key={c.id}
-                      onClick={() => setSelectedId(c.id)}
+                      onClick={() => selectCliente(c.id)}
                       className={`border-t border-border cursor-pointer hover:bg-accent/40 ${
                         active ? "bg-accent/60" : ""
                       }`}
                     >
-                      <td className="px-3 py-2 font-medium">{c.nombre || "—"}</td>
+                      <td className="px-3 py-2 font-medium">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{c.nombre || "—"}</span>
+                          {hasSilvia && (
+                            <Link
+                              to="/silvia"
+                              onClick={(e) => e.stopPropagation()}
+                              title="Ver conversación con Silvia"
+                              className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-400 px-1.5 py-0.5 hover:bg-violet-500/20"
+                            >
+                              <Sparkles className="size-2.5" /> SilvIA
+                            </Link>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-3 py-2">{tipoBadge(c.tipo)}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">
                         <div className="flex flex-col gap-0.5">
@@ -264,7 +307,7 @@ function ClientesPage() {
           </div>
         </div>
 
-        {selected && <ClienteDetalle cliente={selected} onClose={() => setSelectedId(null)} />}
+        {selected && <ClienteDetalle cliente={selected} onClose={() => selectCliente(null)} />}
       </div>
     </AppShell>
   );
@@ -449,8 +492,41 @@ function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () =>
           </Section>
         )}
 
-        <Section title="Estado y solicitudes">
-          <Row label="Motivo de llamada" value={cliente.motivo} multiline />
+        {hasSilviaConversation(cliente) && (
+          <Section
+            title={
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="size-3.5 text-violet-500" />
+                Conversación con Silvia
+                <CanalChip canal={inferCanal(cliente)} />
+                <Link
+                  to="/silvia"
+                  className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-violet-700 dark:text-violet-400 hover:underline"
+                >
+                  Abrir en SilvIA <ArrowUpRight className="size-3" />
+                </Link>
+              </span>
+            }
+          >
+            {cliente.motivo && (
+              <div className="rounded-md bg-muted/40 border border-border p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                  Motivo
+                </div>
+                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                  {cliente.motivo}
+                </p>
+              </div>
+            )}
+            {cliente.conversaciones && (
+              <div className="rounded-md bg-muted/40 border border-border p-3 max-h-96 overflow-auto">
+                <Transcripcion text={cliente.conversaciones} />
+              </div>
+            )}
+          </Section>
+        )}
+
+        <Section title="Solicitud e intereses">
           <Row label="Solicitud" value={cliente.solicitud} multiline />
           <Row label="Sección" value={cliente.seccion} multiline />
           {cliente.categoria.length > 0 && (
@@ -480,10 +556,9 @@ function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () =>
           </Section>
         )}
 
-        {(cliente.conversaciones || cliente.observaciones || cliente.feedback) && (
-          <Section title="Notas">
+        {(cliente.observaciones || cliente.feedback) && (
+          <Section title="Notas internas">
             <Row label="Observaciones" value={cliente.observaciones} multiline />
-            <Row label="Conversaciones" value={cliente.conversaciones} multiline />
             <Row label="Feedback comercial" value={cliente.feedback} multiline />
           </Section>
         )}
