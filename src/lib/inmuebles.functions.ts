@@ -48,7 +48,6 @@ export type InmuebleDetalle = Inmueble & {
   notaria: string;
   observaciones: string;
   llaves: string;
-  fechaInicio: string | null;
   fechaExclusiva: string | null;
   fechaFinExclusiva: string | null;
   fechaReserva: string | null;
@@ -118,7 +117,14 @@ function mapBase(r: { id: string; fields: Record<string, unknown> }): Inmueble {
     descripcion: String(f["Descripción"] ?? ""),
     propietario: pickLookup(f["Nombre Propietario"]),
     telefonoPropietario: pickLookup(f["Teléfono Propietario"]),
+    fechaInicio: (f["Fecha de inicio"] as string) ?? null,
   };
+}
+
+function getYearFromDate(dateStr: string | null): number | null {
+  if (!dateStr) return null;
+  const y = new Date(dateStr).getFullYear();
+  return isNaN(y) ? null : y;
 }
 
 export const listInmuebles = createServerFn({ method: "GET" }).handler(async () => {
@@ -126,7 +132,15 @@ export const listInmuebles = createServerFn({ method: "GET" }).handler(async () 
   const data = (await airtableFetch(
     `/v0/${BASE_ID}/${TABLES.inmuebles}?${params}`,
   )) as { records: Array<{ id: string; fields: Record<string, unknown> }> };
-  return { inmuebles: data.records.map(mapBase) };
+  const currentYear = new Date().getFullYear();
+  const allowedYears = new Set([currentYear, currentYear - 1]);
+  const inmuebles = data.records
+    .map(mapBase)
+    .filter((i) => {
+      const year = getYearFromDate(i.fechaInicio);
+      return year != null && allowedYears.has(year);
+    });
+  return { inmuebles };
 });
 
 export const getInmueble = createServerFn({ method: "GET" })
