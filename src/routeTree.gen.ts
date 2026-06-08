@@ -10,15 +10,20 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SilviaIndexRouteImport } from './routes/silvia.index'
 import { Route as InmueblesIndexRouteImport } from './routes/inmuebles.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as AlquileresIndexRouteImport } from './routes/alquileres.index'
-import { Route as SilviaIndexRouteImport } from './routes/silvia.index'
 import { Route as InmueblesIdRouteImport } from './routes/inmuebles.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SilviaIndexRoute = SilviaIndexRouteImport.update({
+  id: '/silvia/',
+  path: '/silvia/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InmueblesIndexRoute = InmueblesIndexRouteImport.update({
@@ -34,11 +39,6 @@ const ClientesIndexRoute = ClientesIndexRouteImport.update({
 const AlquileresIndexRoute = AlquileresIndexRouteImport.update({
   id: '/alquileres/',
   path: '/alquileres/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SilviaIndexRoute = SilviaIndexRouteImport.update({
-  id: '/silvia/',
-  path: '/silvia/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InmueblesIdRoute = InmueblesIdRouteImport.update({
@@ -82,7 +82,13 @@ export interface FileRouteTypes {
     | '/inmuebles/'
     | '/silvia/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/inmuebles/$id' | '/alquileres' | '/clientes' | '/inmuebles' | '/silvia'
+  to:
+    | '/'
+    | '/inmuebles/$id'
+    | '/alquileres'
+    | '/clientes'
+    | '/inmuebles'
+    | '/silvia'
   id:
     | '__root__'
     | '/'
@@ -111,6 +117,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/silvia/': {
+      id: '/silvia/'
+      path: '/silvia'
+      fullPath: '/silvia/'
+      preLoaderRoute: typeof SilviaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inmuebles/': {
       id: '/inmuebles/'
       path: '/inmuebles'
@@ -130,13 +143,6 @@ declare module '@tanstack/react-router' {
       path: '/alquileres'
       fullPath: '/alquileres/'
       preLoaderRoute: typeof AlquileresIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/silvia/': {
-      id: '/silvia/'
-      path: '/silvia'
-      fullPath: '/silvia/'
-      preLoaderRoute: typeof SilviaIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inmuebles/$id': {
