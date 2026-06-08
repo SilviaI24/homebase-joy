@@ -2,8 +2,9 @@ import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { SafeImage } from "@/components/SafeImage";
 import { listInmuebles, getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
-import { Building2, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 const inmueblesQuery = queryOptions({
   queryKey: ["inmuebles"],
@@ -141,14 +142,18 @@ function InmueblesPage() {
             <button
               key={t}
               onClick={() => setCategoria(t)}
-              className={`px-3 h-8 rounded-md text-xs font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-colors ${
                 active
                   ? "bg-primary text-primary-foreground"
                   : "text-foreground/70 hover:bg-accent"
               }`}
             >
-              {t}
-              <span className={`ml-1.5 text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>
+              <span>{t}</span>
+              <span
+                className={`text-[10px] leading-none px-1.5 py-0.5 rounded-full ${
+                  active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}
+              >
                 {count}
               </span>
             </button>
@@ -164,32 +169,21 @@ function InmueblesPage() {
             params={{ id: i.id }}
             className="group rounded-lg border border-border bg-card overflow-hidden flex flex-col hover:shadow-md transition-shadow"
           >
-            <div className="aspect-video bg-muted relative overflow-hidden">
-              {i.imagen ? (
-                <img
-                  src={i.imagen}
-                  alt={i.calle || i.ref}
-                  loading="lazy"
-                  className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                  <Building2 className="size-8" />
-                </div>
-              )}
-              <div className="absolute top-2 left-2">{statusBadge(i.estatus)}</div>
+            <div className="aspect-video relative overflow-hidden">
+              <SafeImage src={i.imagen} alt={i.calle || i.ref} imgClassName="group-hover:scale-[1.02] transition-transform" />
+              <div className="absolute top-2 left-2 z-10">{statusBadge(i.estatus)}</div>
               {i.ref && (
-                <div className="absolute top-2 right-2 text-[11px] font-mono bg-background/85 backdrop-blur px-1.5 py-0.5 rounded">
+                <div className="absolute top-2 right-2 z-10 text-[11px] font-mono bg-background/90 text-foreground border border-border/60 backdrop-blur px-1.5 py-0.5 rounded shadow-sm">
                   #{i.ref}
                 </div>
               )}
             </div>
             <div className="p-4 flex flex-col gap-2 flex-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <h3 className="font-semibold text-sm truncate">
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="font-semibold text-sm truncate min-w-0 flex-1">
                   {i.calle || "Sin dirección"} {i.numero && <span className="text-muted-foreground font-normal">{i.numero}</span>}
                 </h3>
-                <div className="text-base font-semibold text-primary whitespace-nowrap">
+                <div className="text-base font-semibold text-primary whitespace-nowrap shrink-0">
                   {formatEuro(i.precio)}
                 </div>
               </div>
