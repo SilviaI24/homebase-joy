@@ -89,10 +89,28 @@ function tipoBadge(t: string) {
 function ClientesPage() {
   const { data } = useSuspenseQuery(clientesQuery);
   const router = useRouter();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
   const [q, setQ] = useState("");
   const [estado, setEstado] = useState<EstadoTab>("Activos");
   const [tipo, setTipo] = useState<string>("Todos");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(search.id ?? null);
+
+  // Deep-link desde SilvIA: ?id=... selecciona y ajusta el tab al estado del cliente
+  useEffect(() => {
+    if (!search.id) return;
+    const c = data.clientes.find((x) => x.id === search.id);
+    if (!c) return;
+    setSelectedId(c.id);
+    setEstado(c.activo ? "Activos" : "Potenciales");
+    setTipo("Todos");
+  }, [search.id, data.clientes]);
+
+  function selectCliente(id: string | null) {
+    setSelectedId(id);
+    navigate({ search: { id: id ?? undefined }, replace: true });
+  }
+
 
   const porEstado = useMemo(() => {
     const activos = data.clientes.filter((c) => c.activo);
