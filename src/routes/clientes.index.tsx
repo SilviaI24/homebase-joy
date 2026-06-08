@@ -243,15 +243,30 @@ function ClientesPage() {
               <tbody>
                 {filtered.map((c) => {
                   const active = c.id === selectedId;
+                  const hasSilvia = hasSilviaConversation(c);
                   return (
                     <tr
                       key={c.id}
-                      onClick={() => setSelectedId(c.id)}
+                      onClick={() => selectCliente(c.id)}
                       className={`border-t border-border cursor-pointer hover:bg-accent/40 ${
                         active ? "bg-accent/60" : ""
                       }`}
                     >
-                      <td className="px-3 py-2 font-medium">{c.nombre || "—"}</td>
+                      <td className="px-3 py-2 font-medium">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{c.nombre || "—"}</span>
+                          {hasSilvia && (
+                            <Link
+                              to="/silvia"
+                              onClick={(e) => e.stopPropagation()}
+                              title="Ver conversación con Silvia"
+                              className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-400 px-1.5 py-0.5 hover:bg-violet-500/20"
+                            >
+                              <Sparkles className="size-2.5" /> SilvIA
+                            </Link>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-3 py-2">{tipoBadge(c.tipo)}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">
                         <div className="flex flex-col gap-0.5">
@@ -292,7 +307,7 @@ function ClientesPage() {
           </div>
         </div>
 
-        {selected && <ClienteDetalle cliente={selected} onClose={() => setSelectedId(null)} />}
+        {selected && <ClienteDetalle cliente={selected} onClose={() => selectCliente(null)} />}
       </div>
     </AppShell>
   );
