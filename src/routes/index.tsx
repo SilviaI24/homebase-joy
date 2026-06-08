@@ -331,7 +331,7 @@ function Dashboard() {
           to="/inmuebles"
           tone="primary"
           sparkData={stats.sparkCapt}
-          sparkColor="#3b82f6"
+          sparkColor={C_PRIMARY}
           delta={stats.captDelta}
           deltaLabel="captaciones MoM"
         />
@@ -340,9 +340,9 @@ function Dashboard() {
           label="Valor de cartera"
           value={moneyShort(stats.valorCartera)}
           hint={`Medio: ${moneyShort(stats.precioMedio)} · Vendido: ${moneyShort(stats.valorVendido)}`}
-          tone="emerald"
+          tone="gold"
           sparkData={stats.sparkVentas}
-          sparkColor="#10b981"
+          sparkColor={C_GOLD}
         />
         <KpiCard
           icon={Users}
@@ -350,7 +350,7 @@ function Dashboard() {
           value={cliStats.total.toString()}
           hint={`${cliStats.propietarios} propietarios · ${cliStats.compradores} compradores`}
           to="/clientes"
-          tone="blue"
+          tone="primary"
         />
         <KpiCard
           icon={CalendarCheck2}
@@ -358,7 +358,7 @@ function Dashboard() {
           value={visStats.total.toString()}
           hint={`${visStats.proximas} en 7 días · ${visStats.tasaRealizadas}% realizadas`}
           to="/visitas"
-          tone="violet"
+          tone="gold"
         />
       </div>
 
@@ -392,8 +392,8 @@ function Dashboard() {
             <BarChart data={stats.barData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="gBar" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0.5} />
+                  <stop offset="0%" stopColor="var(--gold)" stopOpacity={1} />
+                  <stop offset="100%" stopColor="var(--gold)" stopOpacity={0.5} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -417,12 +417,12 @@ function Dashboard() {
             <AreaChart data={stats.seriesData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="gCapt" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.45} />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                  <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gVent" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.45} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                  <stop offset="0%" stopColor="var(--gold)" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="var(--gold)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -433,7 +433,7 @@ function Dashboard() {
               <Area
                 type="monotone"
                 dataKey="Captaciones"
-                stroke="#3b82f6"
+                stroke="var(--primary)"
                 strokeWidth={2.5}
                 fill="url(#gCapt)"
                 activeDot={{ r: 5 }}
@@ -441,7 +441,7 @@ function Dashboard() {
               <Area
                 type="monotone"
                 dataKey="Ventas"
-                stroke="#10b981"
+                stroke="var(--gold)"
                 strokeWidth={2.5}
                 fill="url(#gVent)"
                 activeDot={{ r: 5 }}
@@ -472,7 +472,7 @@ function Dashboard() {
 
         <div className="lg:col-span-2 rounded-lg border border-border bg-card p-5">
           <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-            <Trophy className="size-4 text-amber-500" /> Top comerciales por cartera activa
+            <Trophy className="size-4 text-gold" /> Top comerciales por cartera activa
           </h3>
           {stats.topAgentes.length === 0 ? (
             <div className="text-sm text-muted-foreground py-8 text-center">Sin datos de cartera asignada.</div>
@@ -482,7 +482,7 @@ function Dashboard() {
                 const pct = Math.max(4, Math.round((a.valor / stats.maxAgValor) * 100));
                 const medalTone =
                   idx === 0
-                    ? "bg-amber-500 text-white"
+                    ? "bg-gold text-gold-foreground"
                     : idx === 1
                       ? "bg-slate-300 text-slate-900"
                       : idx === 2
@@ -502,7 +502,7 @@ function Dashboard() {
                       </div>
                       <div className="mt-1.5 h-2 rounded-full bg-muted overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-primary to-blue-500 transition-all"
+                          className="h-full rounded-full bg-gradient-to-r from-primary to-gold transition-all"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -545,16 +545,16 @@ function Dashboard() {
 
         <Link
           to="/silvia"
-          className="rounded-lg border border-border bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 p-5 hover:border-violet-500/40 hover:shadow-md transition-all group"
+          className="rounded-lg border border-border bg-gradient-to-br from-gold/15 to-gold/5 p-5 hover:border-gold/50 hover:shadow-md transition-all group"
         >
           <div className="flex items-start gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-gold to-amber-300 text-gold-foreground shadow">
               <Sparkles className="size-5" />
             </div>
             <div className="flex-1">
               <div className="text-sm font-semibold">SilvIA tiene {cliStats.leadsSilvia} conversaciones</div>
               <div className="text-xs text-muted-foreground mt-0.5">Revisa los leads y cualifícalos.</div>
-              <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-violet-700 dark:text-violet-300 group-hover:underline">
+              <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary group-hover:underline">
                 Ir a la bandeja <ArrowRight className="size-3" />
               </div>
             </div>
@@ -646,14 +646,14 @@ function KpiCard({
             <AreaChart data={sparkData} margin={{ top: 2, right: 2, left: 2, bottom: 0 }}>
               <defs>
                 <linearGradient id={`spark-${label}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={sparkColor ?? "#3b82f6"} stopOpacity={0.5} />
-                  <stop offset="100%" stopColor={sparkColor ?? "#3b82f6"} stopOpacity={0} />
+                  <stop offset="0%" stopColor={sparkColor ?? "var(--primary)"} stopOpacity={0.5} />
+                  <stop offset="100%" stopColor={sparkColor ?? "var(--primary)"} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <Area
                 type="monotone"
                 dataKey="v"
-                stroke={sparkColor ?? "#3b82f6"}
+                stroke={sparkColor ?? "var(--primary)"}
                 strokeWidth={1.75}
                 fill={`url(#spark-${label})`}
                 dot={false}
