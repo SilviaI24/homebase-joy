@@ -174,12 +174,18 @@ function categoriaMatches(clienteCats: string[], inmCat: string): boolean {
 }
 
 export const listClientes = createServerFn({ method: "GET" }).handler(async () => {
+  // Solo últimos 3 meses por Fecha. Si Fecha está vacía se descarta.
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 3);
+  const cutoffISO = cutoff.toISOString().slice(0, 10);
+  const formula = `IS_AFTER({Fecha}, '${cutoffISO}')`;
+
   const [clienteRecords, inmuebles] = await Promise.all([
     (async () => {
       const records: Array<{ id: string; fields: Record<string, unknown> }> = [];
       let offset: string | undefined;
       do {
-        const params = new URLSearchParams({ pageSize: "100" });
+        const params = new URLSearchParams({ pageSize: "100", filterByFormula: formula });
         if (offset) params.set("offset", offset);
         const page = (await airtableFetch(`/v0/${BASE_ID}/${TABLES.clientes}?${params}`)) as {
           records: Array<{ id: string; fields: Record<string, unknown> }>;
@@ -269,5 +275,23 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
   });
 
   clientes.sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""));
-  return { clientes };
+
+  // Dedupe: prioriza DNI, luego email, teléfono o nombre normalizado.
+  // Como ya están ordenados por fecha desc, el primero que entra es el más reciente.
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const seen = new Set<string>();
+  const unique: Cliente[] = [];
+  for (const c of clientes) {
+    const key =
+      (c.dni && `dni:${norm(c.dni)}`) ||
+      (c.email && `mail:${norm(c.email)}`) ||
+      (c.telefono && `tel:${c.telefono.replace(/\D/g, "")}`) ||
+      (c.nombre && `nom:${norm(c.nombre)}`) ||
+      `id:${c.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(c);
+  }
+
+  return { clientes: unique };
 });
