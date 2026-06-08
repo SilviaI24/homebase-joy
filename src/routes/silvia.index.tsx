@@ -286,7 +286,7 @@ function SilviaPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(({ cliente: c, canal }) => {
+          {filtered.map(({ cliente: c, canal, mencionados }) => {
             const isOpen = expanded.has(c.id);
             const isArchived = archivados.has(c.id);
             const isCualified = cualificados.has(c.id);
