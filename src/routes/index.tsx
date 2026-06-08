@@ -20,7 +20,7 @@ import {
   PolarAngleAxis,
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
-import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
+import { getCategoria, isAlquiler, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
 import { allInmueblesQuery, clientesQueryOpts, visitasQuery } from "@/lib/queries";
 import {
   Building2,
@@ -81,20 +81,28 @@ function fmtDate(s: string | null): string {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  Activo: "#10b981",
-  Reservado: "#f59e0b",
-  Vendido: "#3b82f6",
-  Baja: "#94a3b8",
-  Alquilado: "#a855f7",
-  Prospección: "#ec4899",
+  Activo: "var(--primary)",
+  Reservado: "var(--gold)",
+  Vendido: "var(--chart-1)",
+  Baja: "var(--muted-foreground)",
+  Alquilado: "var(--chart-3)",
+  Prospección: "var(--chart-4)",
 };
 
+const C_PRIMARY = "var(--primary)";
+const C_GOLD = "var(--gold)";
+
+// Comisiones estimadas
+const COMISION_VENTA = 0.03; // 3% sobre precio venta
+const COMISION_ALQUILER_MESES = 1; // 1 mes de renta
+
 const TOOLTIP_STYLE = {
-  background: "hsl(var(--card))",
-  border: "1px solid hsl(var(--border))",
-  borderRadius: 10,
+  background: "var(--card)",
+  border: "1px solid var(--border)",
+  borderRadius: 12,
   fontSize: 12,
-  boxShadow: "0 8px 24px -8px rgb(0 0 0 / 0.12)",
+  color: "var(--foreground)",
+  boxShadow: "0 8px 24px -8px rgb(0 0 0 / 0.18)",
 } as const;
 
 function Dashboard() {
@@ -192,6 +200,40 @@ function Dashboard() {
     const topAgentes = [...agMap.values()].sort((a, b) => b.valor - a.valor).slice(0, 5);
     const maxAgValor = topAgentes[0]?.valor ?? 1;
 
+    // Comisiones estimadas (mes actual + año en curso)
+    const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const curYear = String(now.getFullYear());
+    let comisionMes = 0;
+    let comisionAnual = 0;
+    let comisionPipeline = 0; // activos + reservados
+    inmuebles.forEach((i) => {
+      const precio = i.precioFinal ?? i.precio ?? 0;
+      if (!precio) return;
+      const fee = isAlquiler(i.tipo)
+        ? precio * COMISION_ALQUILER_MESES
+        : precio * COMISION_VENTA;
+      if (i.estatus === "Vendido" || i.estatus === "Alquilado") {
+        if (i.fechaEscritura?.startsWith(curMonth)) comisionMes += fee;
+        if (i.fechaEscritura?.startsWith(curYear)) comisionAnual += fee;
+      }
+      if (i.estatus === "Activo" || i.estatus === "Reservado") {
+        comisionPipeline += fee;
+      }
+    });
+
+    // Inmuebles estancados: activos con captación > 90 días sin escritura
+    const stalledThreshold = 90;
+    const ahora = Date.now();
+    const estancados = activos
+      .map((i) => {
+        if (!i.fechaInicio) return null;
+        const dias = Math.floor((ahora - new Date(i.fechaInicio).getTime()) / 86400000);
+        return dias > stalledThreshold ? { i, dias } : null;
+      })
+      .filter((x): x is { i: Inmueble; dias: number } => !!x)
+      .sort((a, b) => b.dias - a.dias)
+      .slice(0, 5);
+
     return {
       inmuebles,
       activos,
@@ -211,6 +253,10 @@ function Dashboard() {
       recientes,
       topAgentes,
       maxAgValor,
+      comisionMes,
+      comisionAnual,
+      comisionPipeline,
+      estancados,
     };
   }, [inmData]);
 
@@ -237,16 +283,44 @@ function Dashboard() {
     // funnel: visitas -> reservas -> ventas
     const reservas = stats.reservados.length + stats.vendidos.length + stats.alquilados.length;
     const ventas = stats.vendidos.length + stats.alquilados.length;
+    const tasaCierre = v.length ? Math.round((ventas / v.length) * 100) : 0;
     const funnel = [
-      { name: "Visitas", value: v.length, fill: "#3b82f6" },
-      { name: "Reservas", value: reservas, fill: "#f59e0b" },
-      { name: "Cierres", value: ventas, fill: "#10b981" },
+      { name: "Visitas", value: v.length, fill: "var(--chart-3)" },
+      { name: "Reservas", value: reservas, fill: "var(--gold)" },
+      { name: "Cierres", value: ventas, fill: "var(--primary)" },
     ];
-    return { total: v.length, proximas, realizadas, tasaRealizadas, funnel };
+    return { total: v.length, proximas, realizadas, tasaRealizadas, funnel, tasaCierre };
   }, [visData, stats]);
 
   return (
-    <AppShell title="Dashboard">
+    <AppShell
+      title="Dashboard"
+      subtitle={`${stats.activos.length} activos · ${cliStats.total} clientes · ${visStats.proximas} visitas próximas`}
+    >
+      {/* Hero ejecutivo */}
+      <div className="mb-6 rounded-2xl border border-border bg-gradient-to-br from-primary via-primary to-[oklch(0.32_0.09_165)] text-primary-foreground p-6 lg:p-7 shadow-xl shadow-primary/20 overflow-hidden relative">
+        <div className="absolute -top-16 -right-16 size-56 rounded-full bg-gold/30 blur-3xl" />
+        <div className="absolute -bottom-20 left-1/3 size-72 rounded-full bg-gold/10 blur-3xl" />
+        <div className="relative grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-10">
+          <HeroStat
+            label="Comisiones este mes"
+            value={moneyShort(stats.comisionMes)}
+            sub={`Año en curso: ${moneyShort(stats.comisionAnual)}`}
+            highlight
+          />
+          <HeroStat
+            label="Pipeline estimado"
+            value={moneyShort(stats.comisionPipeline)}
+            sub={`${stats.activos.length + stats.reservados.length} operaciones abiertas`}
+          />
+          <HeroStat
+            label="Conversión visita → cierre"
+            value={`${visStats.tasaCierre}%`}
+            sub={`${visStats.total} visitas · ${stats.vendidos.length + stats.alquilados.length} cierres`}
+          />
+        </div>
+      </div>
+
       {/* KPIs principales con sparklines */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <KpiCard
@@ -257,7 +331,7 @@ function Dashboard() {
           to="/inmuebles"
           tone="primary"
           sparkData={stats.sparkCapt}
-          sparkColor="#3b82f6"
+          sparkColor={C_PRIMARY}
           delta={stats.captDelta}
           deltaLabel="captaciones MoM"
         />
@@ -266,9 +340,9 @@ function Dashboard() {
           label="Valor de cartera"
           value={moneyShort(stats.valorCartera)}
           hint={`Medio: ${moneyShort(stats.precioMedio)} · Vendido: ${moneyShort(stats.valorVendido)}`}
-          tone="emerald"
+          tone="gold"
           sparkData={stats.sparkVentas}
-          sparkColor="#10b981"
+          sparkColor={C_GOLD}
         />
         <KpiCard
           icon={Users}
@@ -276,7 +350,7 @@ function Dashboard() {
           value={cliStats.total.toString()}
           hint={`${cliStats.propietarios} propietarios · ${cliStats.compradores} compradores`}
           to="/clientes"
-          tone="blue"
+          tone="primary"
         />
         <KpiCard
           icon={CalendarCheck2}
@@ -284,7 +358,7 @@ function Dashboard() {
           value={visStats.total.toString()}
           hint={`${visStats.proximas} en 7 días · ${visStats.tasaRealizadas}% realizadas`}
           to="/visitas"
-          tone="violet"
+          tone="gold"
         />
       </div>
 
@@ -318,8 +392,8 @@ function Dashboard() {
             <BarChart data={stats.barData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="gBar" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0.5} />
+                  <stop offset="0%" stopColor="var(--gold)" stopOpacity={1} />
+                  <stop offset="100%" stopColor="var(--gold)" stopOpacity={0.5} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -343,12 +417,12 @@ function Dashboard() {
             <AreaChart data={stats.seriesData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="gCapt" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.45} />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                  <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gVent" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.45} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                  <stop offset="0%" stopColor="var(--gold)" stopOpacity={0.45} />
+                  <stop offset="100%" stopColor="var(--gold)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -359,7 +433,7 @@ function Dashboard() {
               <Area
                 type="monotone"
                 dataKey="Captaciones"
-                stroke="#3b82f6"
+                stroke="var(--primary)"
                 strokeWidth={2.5}
                 fill="url(#gCapt)"
                 activeDot={{ r: 5 }}
@@ -367,7 +441,7 @@ function Dashboard() {
               <Area
                 type="monotone"
                 dataKey="Ventas"
-                stroke="#10b981"
+                stroke="var(--gold)"
                 strokeWidth={2.5}
                 fill="url(#gVent)"
                 activeDot={{ r: 5 }}
@@ -398,7 +472,7 @@ function Dashboard() {
 
         <div className="lg:col-span-2 rounded-lg border border-border bg-card p-5">
           <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-            <Trophy className="size-4 text-amber-500" /> Top comerciales por cartera activa
+            <Trophy className="size-4 text-gold" /> Top comerciales por cartera activa
           </h3>
           {stats.topAgentes.length === 0 ? (
             <div className="text-sm text-muted-foreground py-8 text-center">Sin datos de cartera asignada.</div>
@@ -408,7 +482,7 @@ function Dashboard() {
                 const pct = Math.max(4, Math.round((a.valor / stats.maxAgValor) * 100));
                 const medalTone =
                   idx === 0
-                    ? "bg-amber-500 text-white"
+                    ? "bg-gold text-gold-foreground"
                     : idx === 1
                       ? "bg-slate-300 text-slate-900"
                       : idx === 2
@@ -428,7 +502,7 @@ function Dashboard() {
                       </div>
                       <div className="mt-1.5 h-2 rounded-full bg-muted overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-primary to-blue-500 transition-all"
+                          className="h-full rounded-full bg-gradient-to-r from-primary to-gold transition-all"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -471,16 +545,16 @@ function Dashboard() {
 
         <Link
           to="/silvia"
-          className="rounded-lg border border-border bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 p-5 hover:border-violet-500/40 hover:shadow-md transition-all group"
+          className="rounded-lg border border-border bg-gradient-to-br from-gold/15 to-gold/5 p-5 hover:border-gold/50 hover:shadow-md transition-all group"
         >
           <div className="flex items-start gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-gold to-amber-300 text-gold-foreground shadow">
               <Sparkles className="size-5" />
             </div>
             <div className="flex-1">
               <div className="text-sm font-semibold">SilvIA tiene {cliStats.leadsSilvia} conversaciones</div>
               <div className="text-xs text-muted-foreground mt-0.5">Revisa los leads y cualifícalos.</div>
-              <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-violet-700 dark:text-violet-300 group-hover:underline">
+              <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary group-hover:underline">
                 Ir a la bandeja <ArrowRight className="size-3" />
               </div>
             </div>
@@ -488,25 +562,88 @@ function Dashboard() {
         </Link>
       </div>
 
-      {/* Captaciones recientes */}
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Clock className="size-4 text-muted-foreground" /> Captaciones recientes
-          </h3>
-          <Link to="/inmuebles" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-            Ver todas <ArrowRight className="size-3" />
-          </Link>
+      {/* Alertas + Captaciones recientes */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 rounded-lg border border-border bg-card overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Clock className="size-4 text-muted-foreground" /> Captaciones recientes
+            </h3>
+            <Link to="/inmuebles" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+              Ver todas <ArrowRight className="size-3" />
+            </Link>
+          </div>
+          <div className="divide-y divide-border">
+            {stats.recientes.length === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">Sin captaciones recientes.</div>
+            ) : (
+              stats.recientes.map((i) => <RecentRow key={i.id} i={i} />)
+            )}
+          </div>
         </div>
-        <div className="divide-y divide-border">
-          {stats.recientes.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">Sin captaciones recientes.</div>
-          ) : (
-            stats.recientes.map((i) => <RecentRow key={i.id} i={i} />)
-          )}
-        </div>
+
+        <AlertasPanel estancados={stats.estancados} />
       </div>
     </AppShell>
+  );
+}
+
+function HeroStat({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-primary-foreground/70">{label}</div>
+      <div
+        className={`mt-2 font-display font-semibold tabular-nums leading-none ${
+          highlight ? "text-4xl lg:text-5xl text-gold" : "text-3xl lg:text-4xl text-primary-foreground"
+        }`}
+      >
+        {value}
+      </div>
+      {sub && <div className="mt-2 text-xs text-primary-foreground/75 truncate">{sub}</div>}
+    </div>
+  );
+}
+
+function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: number }[] }) {
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="px-5 py-3 border-b border-border">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <TrendingDown className="size-4 text-destructive" /> Inmuebles estancados
+        </h3>
+        <p className="text-[11px] text-muted-foreground mt-0.5">Activos sin escritura tras +90 días.</p>
+      </div>
+      {estancados.length === 0 ? (
+        <div className="p-6 text-center text-xs text-muted-foreground">Sin alertas. Cartera saludable.</div>
+      ) : (
+        <ul className="divide-y divide-border">
+          {estancados.map(({ i, dias }) => (
+            <li key={i.id}>
+              <Link
+                to="/inmuebles/$id"
+                params={{ id: i.id }}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
+              >
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive text-[11px] font-bold tabular-nums">
+                  {dias}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium truncate">
+                    {i.calle || "Sin dirección"} {i.numero}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {[i.barrio, i.localidad].filter(Boolean).join(" · ") || i.tipo}
+                  </div>
+                </div>
+                <div className="text-[11px] text-muted-foreground tabular-nums">
+                  {i.precio ? moneyShort(i.precio) : "—"}
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -527,7 +664,7 @@ function KpiCard({
   value: string;
   hint?: string;
   to?: string;
-  tone?: "primary" | "emerald" | "blue" | "violet";
+  tone?: "primary" | "gold";
   sparkData?: { i: number; v: number }[];
   sparkColor?: string;
   delta?: number;
@@ -535,9 +672,7 @@ function KpiCard({
 }) {
   const toneMap: Record<string, string> = {
     primary: "text-primary bg-primary/10",
-    emerald: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
-    blue: "text-blue-600 dark:text-blue-400 bg-blue-500/10",
-    violet: "text-violet-600 dark:text-violet-400 bg-violet-500/10",
+    gold: "text-gold-foreground bg-gold/25",
   };
   const positive = (delta ?? 0) >= 0;
   const inner = (
@@ -572,14 +707,14 @@ function KpiCard({
             <AreaChart data={sparkData} margin={{ top: 2, right: 2, left: 2, bottom: 0 }}>
               <defs>
                 <linearGradient id={`spark-${label}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={sparkColor ?? "#3b82f6"} stopOpacity={0.5} />
-                  <stop offset="100%" stopColor={sparkColor ?? "#3b82f6"} stopOpacity={0} />
+                  <stop offset="0%" stopColor={sparkColor ?? "var(--primary)"} stopOpacity={0.5} />
+                  <stop offset="100%" stopColor={sparkColor ?? "var(--primary)"} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <Area
                 type="monotone"
                 dataKey="v"
-                stroke={sparkColor ?? "#3b82f6"}
+                stroke={sparkColor ?? "var(--primary)"}
                 strokeWidth={1.75}
                 fill={`url(#spark-${label})`}
                 dot={false}
