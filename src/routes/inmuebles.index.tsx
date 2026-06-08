@@ -10,7 +10,7 @@ const inmueblesQuery = queryOptions({
   queryFn: () => listInmuebles(),
 });
 
-export const Route = createFileRoute("/inmuebles")({
+export const Route = createFileRoute("/inmuebles/")({
   head: () => ({
     meta: [
       { title: "Inmuebles · El Sol Grupo CRM" },
