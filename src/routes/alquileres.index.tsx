@@ -55,7 +55,9 @@ function statusBadge(estatus: string) {
 }
 
 function AlquileresPage() {
-  const { data } = useSuspenseQuery(alquileresQuery);
+  const { data: all } = useSuspenseQuery(allInmueblesQuery);
+  const data = { inmuebles: all.alquileres };
+
   const router = useRouter();
   const [q, setQ] = useState("");
   const [estatus, setEstatus] = useState<string>("Activo");
