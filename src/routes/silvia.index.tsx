@@ -2,11 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { listClientes, type Cliente } from "@/lib/clientes.functions";
+import { listClientes } from "@/lib/clientes.functions";
 import {
   Sparkles,
   Phone,
-  MessageCircle,
   Search,
   Mail,
   ChevronDown,
@@ -18,11 +17,16 @@ import {
   UserCheck,
   Archive,
   UserCog,
-  Bot,
   Tag,
   CalendarDays,
-  Globe,
 } from "lucide-react";
+import {
+  CanalChip,
+  Transcripcion,
+  inferCanal,
+  hasSilviaConversation,
+  type Canal,
+} from "@/components/silvia/conversation";
 
 const clientesQuery = queryOptions({
   queryKey: ["clientes"],
@@ -49,32 +53,6 @@ export const Route = createFileRoute("/silvia/")({
     </AppShell>
   ),
 });
-
-type Canal = "WhatsApp" | "Llamada" | "Idealista" | "Otro";
-
-function inferCanal(c: Cliente): Canal {
-  const txt = `${c.solicitud} ${c.motivo} ${c.conversaciones} ${c.seccion}`.toLowerCase();
-  if (/idealista/.test(txt)) return "Idealista";
-  if (/whats|wa\b|wsp/.test(txt)) return "WhatsApp";
-  if (/llamad|tel[eé]fono|call/.test(txt) || c.motivo) return "Llamada";
-  return "Otro";
-}
-
-function canalChip(canal: Canal) {
-  const map: Record<Canal, { cls: string; icon: typeof Phone }> = {
-    WhatsApp: { cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400", icon: MessageCircle },
-    Llamada: { cls: "bg-blue-500/15 text-blue-700 dark:text-blue-400", icon: Phone },
-    Idealista: { cls: "bg-[#e8f5b8] text-[#5a6b1a] dark:bg-lime-500/20 dark:text-lime-300", icon: Globe },
-    Otro: { cls: "bg-slate-500/15 text-slate-600 dark:text-slate-400", icon: Bot },
-  };
-  const { cls, icon: Icon } = map[canal];
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${cls}`}>
-      <Icon className="size-3" />
-      {canal}
-    </span>
-  );
-}
 
 function formatFecha(f: string | null): string {
   if (!f) return "Sin fecha";
