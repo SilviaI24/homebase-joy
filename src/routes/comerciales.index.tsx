@@ -71,7 +71,9 @@ type AgenteStats = {
 const SIN_ASIGNAR = "Sin asignar";
 
 function ComercialesPage() {
-  const { data } = useSuspenseQuery(inmueblesQuery);
+  const { data: all } = useSuspenseQuery(allInmueblesQuery);
+  const data = { inmuebles: all.inmuebles };
+
   const [selected, setSelected] = useState<string | null>(null);
 
   const agentes = useMemo<AgenteStats[]>(() => {
