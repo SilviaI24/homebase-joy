@@ -30,6 +30,7 @@ import {
   inferCanal,
   hasSilviaConversation,
 } from "@/components/silvia/conversation";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 const clientesQuery = queryOptions({
   queryKey: ["clientes"],
@@ -57,7 +58,7 @@ export const Route = createFileRoute("/clientes/")({
   ),
 });
 
-const ESTADO_TABS = ["Activos", "Potenciales", "Todos"] as const;
+const ESTADO_TABS = ["Activos", "Todos"] as const;
 type EstadoTab = (typeof ESTADO_TABS)[number];
 
 const TIPO_TABS = [
@@ -96,14 +97,12 @@ function ClientesPage() {
   const [tipo, setTipo] = useState<string>("Todos");
   const [selectedId, setSelectedId] = useState<string | null>(search.id ?? null);
 
-  // Deep-link desde SilvIA: ?id=... selecciona y ajusta el tab al estado del cliente
+  // Deep-link desde SilvIA: ?id=... abre la ficha como overlay
   useEffect(() => {
     if (!search.id) return;
     const c = data.clientes.find((x) => x.id === search.id);
     if (!c) return;
     setSelectedId(c.id);
-    setEstado(c.activo ? "Activos" : "Potenciales");
-    setTipo("Todos");
   }, [search.id, data.clientes]);
 
   function selectCliente(id: string | null) {
@@ -114,8 +113,7 @@ function ClientesPage() {
 
   const porEstado = useMemo(() => {
     const activos = data.clientes.filter((c) => c.activo);
-    const potenciales = data.clientes.filter((c) => !c.activo);
-    return { Activos: activos, Potenciales: potenciales, Todos: data.clientes };
+    return { Activos: activos, Todos: data.clientes };
   }, [data.clientes]);
 
   const baseSet = porEstado[estado];
@@ -170,7 +168,6 @@ function ClientesPage() {
                 }`}
               >
                 {e === "Activos" && <CheckCircle2 className="size-3.5" />}
-                {e === "Potenciales" && <Clock className="size-3.5" />}
                 {e}
                 <span className={`text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>
                   {count}
@@ -198,8 +195,7 @@ function ClientesPage() {
 
       {/* Descripcion del estado */}
       <p className="text-xs text-muted-foreground mb-3">
-        {estado === "Activos" && "Propietarios con inmueble activo o prospecciones en curso."}
-        {estado === "Potenciales" && "Clientes sin propiedad activa. Les sugerimos matches con inmuebles disponibles."}
+        {estado === "Activos" && "Propietarios con inmueble activo o prospecciones en curso. Los clientes potenciales se gestionan desde SilvIA."}
         {estado === "Todos" && "Todos los registros de clientes."}
       </p>
 
@@ -227,88 +223,90 @@ function ClientesPage() {
         </div>
       </div>
 
-      <div className={`grid gap-4 ${selected ? "lg:grid-cols-[1fr_440px]" : "grid-cols-1"}`}>
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-muted-foreground">
-                <tr className="text-left">
-                  <th className="px-3 py-2 font-medium">Nombre</th>
-                  <th className="px-3 py-2 font-medium">Tipo</th>
-                  <th className="px-3 py-2 font-medium">Contacto</th>
-                  <th className="px-3 py-2 font-medium">Estado</th>
-                  <th className="px-3 py-2 font-medium hidden md:table-cell">Motivo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((c) => {
-                  const active = c.id === selectedId;
-                  const hasSilvia = hasSilviaConversation(c);
-                  return (
-                    <tr
-                      key={c.id}
-                      onClick={() => selectCliente(c.id)}
-                      className={`border-t border-border cursor-pointer hover:bg-accent/40 ${
-                        active ? "bg-accent/60" : ""
-                      }`}
-                    >
-                      <td className="px-3 py-2 font-medium">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate">{c.nombre || "—"}</span>
-                          {hasSilvia && (
-                            <Link
-                              to="/silvia"
-                              onClick={(e) => e.stopPropagation()}
-                              title="Ver conversación con Silvia"
-                              className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-400 px-1.5 py-0.5 hover:bg-violet-500/20"
-                            >
-                              <Sparkles className="size-2.5" /> SilvIA
-                            </Link>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2">{tipoBadge(c.tipo)}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
-                        <div className="flex flex-col gap-0.5">
-                          {c.telefono && <span>{c.telefono}</span>}
-                          {c.email && <span className="truncate max-w-[180px]">{c.email}</span>}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-xs">
-                        {c.activo ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                            <CheckCircle2 className="size-3.5" />
-                            {c.inmueblesActivos.length} activo{c.inmueblesActivos.length !== 1 ? "s" : ""}
-                          </span>
-                        ) : c.matches.length > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-violet-600 dark:text-violet-400">
-                            <Sparkles className="size-3.5" />
-                            {c.matches.length} match
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-muted-foreground">
+              <tr className="text-left">
+                <th className="px-3 py-2 font-medium">Nombre</th>
+                <th className="px-3 py-2 font-medium">Tipo</th>
+                <th className="px-3 py-2 font-medium">Contacto</th>
+                <th className="px-3 py-2 font-medium">Estado</th>
+                <th className="px-3 py-2 font-medium hidden md:table-cell">Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((c) => {
+                const active = c.id === selectedId;
+                const hasSilvia = hasSilviaConversation(c);
+                return (
+                  <tr
+                    key={c.id}
+                    onClick={() => selectCliente(c.id)}
+                    className={`border-t border-border cursor-pointer hover:bg-accent/40 ${
+                      active ? "bg-accent/60" : ""
+                    }`}
+                  >
+                    <td className="px-3 py-2 font-medium">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate">{c.nombre || "—"}</span>
+                        {hasSilvia && (
+                          <Link
+                            to="/silvia"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Ver conversación con Silvia"
+                            className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-400 px-1.5 py-0.5 hover:bg-violet-500/20"
+                          >
+                            <Sparkles className="size-2.5" /> SilvIA
+                          </Link>
                         )}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground hidden md:table-cell truncate max-w-[260px]">
-                        {c.motivo || "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-3 py-12 text-center text-sm text-muted-foreground">
-                      Sin resultados.
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">{tipoBadge(c.tipo)}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      <div className="flex flex-col gap-0.5">
+                        {c.telefono && <span>{c.telefono}</span>}
+                        {c.email && <span className="truncate max-w-[180px]">{c.email}</span>}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-xs">
+                      {c.activo ? (
+                        <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                          <CheckCircle2 className="size-3.5" />
+                          {c.inmueblesActivos.length} activo{c.inmueblesActivos.length !== 1 ? "s" : ""}
+                        </span>
+                      ) : c.matches.length > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-violet-600 dark:text-violet-400">
+                          <Sparkles className="size-3.5" />
+                          {c.matches.length} match
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground hidden md:table-cell truncate max-w-[260px]">
+                      {c.motivo || "—"}
                     </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-3 py-12 text-center text-sm text-muted-foreground">
+                    Sin resultados.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-
-        {selected && <ClienteDetalle cliente={selected} onClose={() => selectCliente(null)} />}
       </div>
+
+      <Sheet open={!!selected} onOpenChange={(o) => !o && selectCliente(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-xl p-0 overflow-y-auto">
+          {selected && <ClienteDetalle cliente={selected} />}
+        </SheetContent>
+      </Sheet>
     </AppShell>
   );
 }
@@ -387,9 +385,9 @@ function InmuebleCard({ p }: { p: MiniInmueble }) {
   );
 }
 
-function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () => void }) {
+function ClienteDetalle({ cliente }: { cliente: Cliente }) {
   return (
-    <aside className="rounded-lg border border-border bg-card sticky top-4 self-start max-h-[calc(100vh-2rem)] overflow-auto">
+    <aside className="bg-card">
       <header className="flex items-start justify-between gap-2 p-4 border-b border-border">
         <div className="min-w-0">
           <h2 className="font-semibold text-base truncate">{cliente.nombre || "Sin nombre"}</h2>
@@ -416,13 +414,6 @@ function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () =>
             <div className="text-[11px] text-muted-foreground mt-1">{cliente.motivoActivo}</div>
           )}
         </div>
-        <button
-          onClick={onClose}
-          className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-accent"
-          aria-label="Cerrar"
-        >
-          <X className="size-4" />
-        </button>
       </header>
 
       <div className="p-4 space-y-5">
