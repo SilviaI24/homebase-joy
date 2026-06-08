@@ -174,12 +174,18 @@ function categoriaMatches(clienteCats: string[], inmCat: string): boolean {
 }
 
 export const listClientes = createServerFn({ method: "GET" }).handler(async () => {
+  // Solo últimos 3 meses por Fecha. Si Fecha está vacía se descarta.
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 3);
+  const cutoffISO = cutoff.toISOString().slice(0, 10);
+  const formula = `IS_AFTER({Fecha}, '${cutoffISO}')`;
+
   const [clienteRecords, inmuebles] = await Promise.all([
     (async () => {
       const records: Array<{ id: string; fields: Record<string, unknown> }> = [];
       let offset: string | undefined;
       do {
-        const params = new URLSearchParams({ pageSize: "100" });
+        const params = new URLSearchParams({ pageSize: "100", filterByFormula: formula });
         if (offset) params.set("offset", offset);
         const page = (await airtableFetch(`/v0/${BASE_ID}/${TABLES.clientes}?${params}`)) as {
           records: Array<{ id: string; fields: Record<string, unknown> }>;
