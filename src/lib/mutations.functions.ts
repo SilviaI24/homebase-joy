@@ -116,7 +116,7 @@ export const createInmueble = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const fields: Record<string, unknown> = {
-      Calle: data.calle.trim(),
+      Calle: toTitleCase(data.calle.trim()),
       "Tipo de inmueble (desplegable)": data.tipo.trim(),
       Estatus: strOpt(data.estatus) ?? "Activo",
       "Fecha de inicio": strOpt(data.fechaInicio ?? undefined) ?? new Date().toISOString().slice(0, 10),
@@ -124,9 +124,9 @@ export const createInmueble = createServerFn({ method: "POST" })
     const num = strOpt(data.numero);
     if (num) fields["Numero"] = num;
     const barrio = strOpt(data.barrio);
-    if (barrio) fields["Barrio"] = barrio;
+    if (barrio) fields["Barrio"] = toTitleCase(barrio);
     const loc = strOpt(data.localidad);
-    if (loc) fields["Localidad"] = loc;
+    if (loc) fields["Localidad"] = toTitleCase(loc);
     const precio = numOpt(data.precio);
     if (precio !== undefined) fields["Precio"] = precio;
     const hab = strOpt(data.habitaciones);
@@ -136,9 +136,9 @@ export const createInmueble = createServerFn({ method: "POST" })
     const sup = strOpt(data.superficie);
     if (sup) fields["Superficie"] = sup;
     const desc = strOpt(data.descripcion);
-    if (desc) fields["Descripción"] = desc;
+    if (desc) fields["Descripción"] = toTitleCase(desc);
     const obs = strOpt(data.observaciones);
-    if (obs) fields["Observaciones"] = obs;
+    if (obs) fields["Observaciones"] = toTitleCase(obs);
     const ag = arrOpt(data.agentesIds);
     if (ag) fields["Agentes Asignados"] = ag;
     const prop = arrOpt(data.propietariosIds);
