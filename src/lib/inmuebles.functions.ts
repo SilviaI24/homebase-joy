@@ -184,29 +184,6 @@ export function getCategoria(tipo: string): Categoria | "Otros" {
   return "Otros";
 }
 
-// Imagen de portada por defecto cuando el inmueble no trae foto.
-// URLs estables de Unsplash, optimizadas para tarjetas (aspect-video).
-const FALLBACK_PORTADAS: Record<Categoria | "Otros", string> = {
-  Pisos:
-    "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=70",
-  Casas:
-    "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1200&q=70",
-  Terrenos:
-    "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=70",
-  Garajes:
-    "https://images.unsplash.com/photo-1545179605-1296651e9d43?auto=format&fit=crop&w=1200&q=70",
-  Trasteros:
-    "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=70",
-  Locales:
-    "https://images.unsplash.com/photo-1604328698692-f76ea9498e76?auto=format&fit=crop&w=1200&q=70",
-  Otros:
-    "https://images.unsplash.com/photo-1572120360610-d971b9d7767c?auto=format&fit=crop&w=1200&q=70",
-};
-
-export function getPortada(inmueble: Pick<Inmueble, "imagen" | "tipo">): string {
-  if (inmueble.imagen) return inmueble.imagen;
-  return FALLBACK_PORTADAS[getCategoria(inmueble.tipo)];
-}
 
 async function fetchInmueblesFiltered(): Promise<Inmueble[]> {
   const currentYear = new Date().getFullYear();
