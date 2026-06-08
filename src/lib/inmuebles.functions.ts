@@ -67,10 +67,46 @@ export const ESTATUS_OPCIONES = [
 
 export const PUBLICACION_OPCIONES = ["SUBIR", "PUBLICADO"] as const;
 
+type AirtableAttachment = {
+  url?: string;
+  type?: string;
+  filename?: string;
+  thumbnails?: {
+    small?: { url?: string };
+    large?: { url?: string };
+    full?: { url?: string };
+  };
+};
+
+const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|avif|bmp|heic|heif)$/i;
+
+function isImageAttachment(att: AirtableAttachment): boolean {
+  if (att.type && att.type.startsWith("image/")) return true;
+  if (att.filename && IMAGE_EXT_RE.test(att.filename)) return true;
+  // Si no hay metadatos pero sí thumbnails, Airtable lo trata como imagen.
+  if (att.thumbnails && (att.thumbnails.large || att.thumbnails.full || att.thumbnails.small)) {
+    return true;
+  }
+  return false;
+}
+
+function attachmentUrl(att: AirtableAttachment): string | null {
+  return (
+    att.thumbnails?.large?.url ??
+    att.thumbnails?.full?.url ??
+    att.url ??
+    att.thumbnails?.small?.url ??
+    null
+  );
+}
+
 function pickAttachment(field: unknown): string | null {
-  if (Array.isArray(field) && field.length > 0) {
-    const att = field[0] as { url?: string; thumbnails?: { large?: { url?: string } } };
-    return att.thumbnails?.large?.url ?? att.url ?? null;
+  if (!Array.isArray(field)) return null;
+  for (const a of field) {
+    const att = a as AirtableAttachment;
+    if (!isImageAttachment(att)) continue;
+    const url = attachmentUrl(att);
+    if (url) return url;
   }
   return null;
 }
@@ -79,8 +115,9 @@ function pickAllAttachments(field: unknown): string[] {
   if (!Array.isArray(field)) return [];
   return field
     .map((a) => {
-      const att = a as { url?: string; thumbnails?: { large?: { url?: string } } };
-      return att.thumbnails?.large?.url ?? att.url ?? null;
+      const att = a as AirtableAttachment;
+      if (!isImageAttachment(att)) return null;
+      return attachmentUrl(att);
     })
     .filter((u): u is string => !!u);
 }
