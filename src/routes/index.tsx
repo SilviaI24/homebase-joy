@@ -200,6 +200,40 @@ function Dashboard() {
     const topAgentes = [...agMap.values()].sort((a, b) => b.valor - a.valor).slice(0, 5);
     const maxAgValor = topAgentes[0]?.valor ?? 1;
 
+    // Comisiones estimadas (mes actual + año en curso)
+    const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const curYear = String(now.getFullYear());
+    let comisionMes = 0;
+    let comisionAnual = 0;
+    let comisionPipeline = 0; // activos + reservados
+    inmuebles.forEach((i) => {
+      const precio = i.precioFinal ?? i.precio ?? 0;
+      if (!precio) return;
+      const fee = isAlquilerTipo(i.tipo)
+        ? precio * COMISION_ALQUILER_MESES
+        : precio * COMISION_VENTA;
+      if (i.estatus === "Vendido" || i.estatus === "Alquilado") {
+        if (i.fechaEscritura?.startsWith(curMonth)) comisionMes += fee;
+        if (i.fechaEscritura?.startsWith(curYear)) comisionAnual += fee;
+      }
+      if (i.estatus === "Activo" || i.estatus === "Reservado") {
+        comisionPipeline += fee;
+      }
+    });
+
+    // Inmuebles estancados: activos con captación > 90 días sin escritura
+    const stalledThreshold = 90;
+    const ahora = Date.now();
+    const estancados = activos
+      .map((i) => {
+        if (!i.fechaInicio) return null;
+        const dias = Math.floor((ahora - new Date(i.fechaInicio).getTime()) / 86400000);
+        return dias > stalledThreshold ? { i, dias } : null;
+      })
+      .filter((x): x is { i: Inmueble; dias: number } => !!x)
+      .sort((a, b) => b.dias - a.dias)
+      .slice(0, 5);
+
     return {
       inmuebles,
       activos,
@@ -219,6 +253,10 @@ function Dashboard() {
       recientes,
       topAgentes,
       maxAgValor,
+      comisionMes,
+      comisionAnual,
+      comisionPipeline,
+      estancados,
     };
   }, [inmData]);
 
