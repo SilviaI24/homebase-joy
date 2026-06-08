@@ -12,6 +12,7 @@ import { AppShell } from "@/components/AppShell";
 import {
   getInmueble,
   listAgentes,
+  listVisitasByInmueble,
   updateInmueble,
   ESTATUS_OPCIONES,
   PUBLICACION_OPCIONES,
@@ -22,11 +23,13 @@ import {
   ArrowLeft,
   Building2,
   Calendar,
+  CalendarDays,
   MapPin,
   Phone,
   Mail,
   Save,
   Loader2,
+  User,
 } from "lucide-react";
 
 // Build a detail placeholder from a list row so the page renders instantly.
