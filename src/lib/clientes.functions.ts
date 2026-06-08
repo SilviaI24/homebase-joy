@@ -89,6 +89,14 @@ export type Cliente = {
   estadoComercial: EstadoComercial;
   diasDesdeAlta: number | null;
   inmueblesVinculados: MiniInmueble[];
+  duplicados: number;
+  preferencias: ClientePrefs;
+};
+
+export type ClientePrefs = {
+  presupuesto: { min: number | null; max: number | null };
+  habitaciones: number | null;
+  zonas: string[];
 };
 
 export const TIPOS_CLIENTE = [
