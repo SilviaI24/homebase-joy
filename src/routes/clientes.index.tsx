@@ -647,6 +647,36 @@ function ClienteDetalle({ cliente }: { cliente: Cliente }) {
           />
         </Section>
 
+        {(cliente.preferencias.presupuesto.max != null ||
+          cliente.preferencias.habitaciones != null ||
+          cliente.preferencias.zonas.length > 0 ||
+          cliente.duplicados > 1) && (
+          <Section title="Perfil detectado">
+            <div className="flex flex-wrap gap-1.5">
+              {cliente.preferencias.presupuesto.max != null && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium rounded-full bg-primary/10 text-primary px-2.5 py-1">
+                  Presup. hasta {cliente.preferencias.presupuesto.max.toLocaleString("es-ES")} €
+                </span>
+              )}
+              {cliente.preferencias.habitaciones != null && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium rounded-full bg-primary/10 text-primary px-2.5 py-1">
+                  {cliente.preferencias.habitaciones} hab.
+                </span>
+              )}
+              {cliente.preferencias.zonas.slice(0, 4).map((z) => (
+                <span key={z} className="inline-flex items-center gap-1 text-[11px] font-medium rounded-full bg-gold/15 text-foreground px-2.5 py-1 capitalize">
+                  {z}
+                </span>
+              ))}
+              {cliente.duplicados > 1 && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 px-2.5 py-1">
+                  {cliente.duplicados} llamadas registradas
+                </span>
+              )}
+            </div>
+          </Section>
+        )}
+
         {cliente.inmueblesActivos.length > 0 && (
           <Section title={`Propiedades activas (${cliente.inmueblesActivos.length})`}>
             <ul className="space-y-3">

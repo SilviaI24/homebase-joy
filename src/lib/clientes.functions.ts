@@ -19,6 +19,8 @@ export type MiniInmueble = {
   precio: number | null;
   precioFinal: number | null;
   imagen: string | null;
+  habitaciones: number | null;
+  superficie: number | null;
 };
 
 export type ClienteMatch = {
@@ -87,6 +89,14 @@ export type Cliente = {
   estadoComercial: EstadoComercial;
   diasDesdeAlta: number | null;
   inmueblesVinculados: MiniInmueble[];
+  duplicados: number;
+  preferencias: ClientePrefs;
+};
+
+export type ClientePrefs = {
+  presupuesto: { min: number | null; max: number | null };
+  habitaciones: number | null;
+  zonas: string[];
 };
 
 export const TIPOS_CLIENTE = [
@@ -118,6 +128,15 @@ function pickAttachment(field: unknown): string | null {
   return null;
 }
 
+function parseIntSafe(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const m = v.match(/\d+/);
+    if (m) return parseInt(m[0], 10);
+  }
+  return null;
+}
+
 function mapInmuebleMini(r: { id: string; fields: Record<string, unknown> }): MiniInmueble {
   const f = r.fields;
   const tipo = String(f["Tipo de inmueble (desplegable)"] ?? "");
@@ -135,10 +154,12 @@ function mapInmuebleMini(r: { id: string; fields: Record<string, unknown> }): Mi
     precio: typeof f["Precio"] === "number" ? (f["Precio"] as number) : null,
     precioFinal: typeof f["Precio Final "] === "number" ? (f["Precio Final "] as number) : null,
     imagen: pickAttachment(f["Imágenes"]),
+    habitaciones: parseIntSafe(f["Habitaciones / dormitorios"]),
+    superficie: parseIntSafe(f["Superficie"]),
   };
 }
 
-function mapClienteBase(r: { id: string; fields: Record<string, unknown> }): Omit<Cliente, "activo" | "motivoActivo" | "inmueblesActivos" | "matches" | "segmento" | "segmentoMotivo" | "estadoComercial" | "diasDesdeAlta" | "inmueblesVinculados"> {
+function mapClienteBase(r: { id: string; fields: Record<string, unknown> }): Omit<Cliente, "activo" | "motivoActivo" | "inmueblesActivos" | "matches" | "segmento" | "segmentoMotivo" | "estadoComercial" | "diasDesdeAlta" | "inmueblesVinculados" | "duplicados" | "preferencias"> {
   const f = r.fields;
   const atts = Array.isArray(f["Attachments"]) ? (f["Attachments"] as Array<{ url: string; filename: string; type: string }>) : [];
   return {
@@ -228,6 +249,13 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
   const activosVenta = inmuebles.filter((i) => i.estatus === "Activo" && !i.esAlquiler);
   const activosAlquiler = inmuebles.filter((i) => i.estatus === "Activo" && i.esAlquiler);
 
+  // Diccionario de zonas (barrios + localidades) para detectar en texto libre.
+  const zonasConocidas = new Set<string>();
+  for (const i of inmuebles) {
+    if (i.barrio) zonasConocidas.add(i.barrio.toLowerCase());
+    if (i.localidad) zonasConocidas.add(i.localidad.toLowerCase());
+  }
+
   const clientes: Cliente[] = clienteRecords.map((r) => {
     const base = mapClienteBase(r);
     const linkedIds = new Set<string>([
@@ -259,18 +287,45 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
       motivoActivo = "Propietario con inmueble en gestión";
     }
 
+    // --- Extracción de preferencias desde texto libre ---------------------
+    const txtRaw = `${base.solicitud} ${base.motivo} ${base.observaciones} ${base.feedback}`;
+    const txt = txtRaw.toLowerCase();
+    const wantsAlquiler =
+      base.tipo === "Interesado alquiler" || /alquil/i.test(txtRaw);
+    const wantsVenta =
+      base.tipo === "Interesado Propiedades" ||
+      base.tipo === "Comprador" ||
+      /\b(compra|venta|comprar|adquirir)\b/i.test(txtRaw);
+
+    // Habitaciones
+    const habMatch = txt.match(/(\d+)\s*(?:hab|dorm|habitaci|dormitor)/);
+    const habitacionesPref = habMatch ? parseInt(habMatch[1], 10) : null;
+
+    // Presupuesto: capturar todos los importes en €
+    const moneyRe = /(\d{1,3}(?:[.,]\d{3})+|\d{4,7})\s*(?:€|eur|euros)?/gi;
+    const amounts: number[] = [];
+    for (const m of txt.matchAll(moneyRe)) {
+      const n = parseInt(m[1].replace(/[.,]/g, ""), 10);
+      if (!Number.isFinite(n)) continue;
+      // descartar números pequeños que claramente no son precio
+      if (wantsAlquiler && n >= 200 && n <= 10000) amounts.push(n);
+      else if (!wantsAlquiler && n >= 30000 && n <= 5000000) amounts.push(n);
+    }
+    const presupuestoMin = amounts.length > 0 ? Math.min(...amounts) : null;
+    const presupuestoMax = amounts.length > 0 ? Math.max(...amounts) : null;
+
+    // Zonas conocidas (barrios + localidades)
+    const zonasPref = Array.from(zonasConocidas).filter((z) => txt.includes(z));
+
+    const preferencias: ClientePrefs = {
+      presupuesto: { min: presupuestoMin, max: presupuestoMax },
+      habitaciones: habitacionesPref,
+      zonas: zonasPref,
+    };
+
     // Match para potenciales: solo si no es activo
     let matches: ClienteMatch[] = [];
     if (!activo) {
-      const wantsAlquiler =
-        base.tipo === "Interesado alquiler" ||
-        /alquiler/i.test(base.solicitud) ||
-        /alquiler/i.test(base.motivo);
-      const wantsVenta =
-        base.tipo === "Interesado Propiedades" ||
-        base.tipo === "Comprador" ||
-        /\b(compra|venta|comprar)\b/i.test(base.solicitud) ||
-        /\b(compra|venta|comprar)\b/i.test(base.motivo);
       const pool = wantsAlquiler ? activosAlquiler : wantsVenta ? activosVenta : [];
       const linkedSet = new Set(linkedInmuebles.map((i) => i.id));
       const cats = base.categoria.map((c) => c.toLowerCase());
@@ -281,24 +336,62 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
           let score = 0;
           razones.push(i.esAlquiler ? "Alquiler" : "Venta");
           score += 2;
+          // Categoría
           if (cats.length === 0) {
-            razones.push("Sin filtro de categoría");
+            // sin restricción
           } else if (cats.includes(i.categoria.toLowerCase())) {
             razones.push(`Categoría: ${i.categoria}`);
             score += 3;
           } else {
             score -= 5;
           }
+          // Zona
+          const barrioL = i.barrio.toLowerCase();
+          const localL = i.localidad.toLowerCase();
+          if (zonasPref.length > 0) {
+            if (zonasPref.some((z) => barrioL === z || localL === z)) {
+              razones.push(`Zona: ${i.barrio || i.localidad}`);
+              score += 4;
+            } else {
+              score -= 2;
+            }
+          }
+          // Presupuesto
+          const precio = i.precioFinal ?? i.precio;
+          if (presupuestoMax != null && precio != null) {
+            const tol = i.esAlquiler ? 0.15 : 0.2;
+            const techo = presupuestoMax * (1 + tol);
+            const suelo = (presupuestoMin ?? presupuestoMax) * (1 - tol);
+            if (precio <= techo && precio >= suelo) {
+              razones.push(`Precio: ${precio.toLocaleString("es-ES")} €`);
+              score += 4;
+            } else if (precio > presupuestoMax * 1.5) {
+              score -= 4;
+            } else {
+              score -= 1;
+            }
+          }
+          // Habitaciones
+          if (habitacionesPref != null && i.habitaciones != null) {
+            const diff = Math.abs(i.habitaciones - habitacionesPref);
+            if (diff === 0) {
+              razones.push(`${i.habitaciones} hab.`);
+              score += 3;
+            } else if (diff === 1) {
+              score += 1;
+            } else {
+              score -= 1;
+            }
+          }
           return { inmueble: i, razones, score };
         })
-        .filter((m) => m.score > 0)
+        .filter((m) => m.score >= 4)
         .sort((a, b) => b.score - a.score)
         .slice(0, 6);
     }
 
     // --- Clasificación derivada ----------------------------------------
     const tipoNorm = base.tipo.trim();
-    const txt = `${base.solicitud} ${base.motivo}`.toLowerCase();
     const reAlquiler = /alquil/;
     const reCompra = /\b(compra|venta|comprar|adquirir)\b/;
     const tieneLinkPropiedad =
@@ -346,27 +439,40 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
       estadoComercial,
       diasDesdeAlta,
       inmueblesVinculados: linkedInmuebles,
+      duplicados: 1,
+      preferencias,
     };
   });
 
   clientes.sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""));
 
-  // Dedupe: prioriza DNI, luego email, teléfono o nombre normalizado.
-  // Como ya están ordenados por fecha desc, el primero que entra es el más reciente.
+  // Dedupe: prioriza DNI > teléfono > email > nombre normalizado.
+  // El primero (más reciente) gana; los demás suman al contador de duplicados.
   const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
-  const seen = new Set<string>();
-  const unique: Cliente[] = [];
+  const normPhone = (s: string) => {
+    const digits = s.replace(/\D/g, "");
+    return digits.length >= 9 ? digits.slice(-9) : digits;
+  };
+  const map = new Map<string, Cliente>();
   for (const c of clientes) {
     const key =
       (c.dni && `dni:${norm(c.dni)}`) ||
+      (c.telefono && normPhone(c.telefono).length >= 9 && `tel:${normPhone(c.telefono)}`) ||
       (c.email && `mail:${norm(c.email)}`) ||
-      (c.telefono && `tel:${c.telefono.replace(/\D/g, "")}`) ||
       (c.nombre && `nom:${norm(c.nombre)}`) ||
       `id:${c.id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    unique.push(c);
+    const existing = map.get(key);
+    if (existing) {
+      existing.duplicados += 1;
+      // mergear inmuebles vinculados / matches únicos si el nuevo aporta info
+      if (existing.inmueblesVinculados.length === 0 && c.inmueblesVinculados.length > 0) {
+        existing.inmueblesVinculados = c.inmueblesVinculados;
+        existing.inmueblesActivos = c.inmueblesActivos;
+      }
+      continue;
+    }
+    map.set(key, c);
   }
 
-  return { clientes: unique };
+  return { clientes: Array.from(map.values()) };
 });
