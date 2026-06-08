@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -243,9 +243,8 @@ function ComercialesPage() {
               {agentes.map((a, idx) => {
                 const isOpen = selected === a.nombre;
                 return (
-                  <>
+                  <Fragment key={a.nombre}>
                     <tr
-                      key={a.nombre}
                       onClick={() => setSelected(isOpen ? null : a.nombre)}
                       className={`border-b border-border/60 hover:bg-accent/40 cursor-pointer ${
                         isOpen ? "bg-accent/30" : ""
