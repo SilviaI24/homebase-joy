@@ -7,7 +7,37 @@ import { NewInmuebleDialog } from "@/components/CreateDialogs";
 
 import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
 import { allInmueblesQuery } from "@/lib/queries";
-import { Search } from "lucide-react";
+import { Search, LayoutGrid, Columns3, Clock, AlertTriangle } from "lucide-react";
+
+const STALE_DAYS = 90;
+const DAY_MS = 1000 * 60 * 60 * 24;
+
+function daysSince(iso: string | null): number | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (isNaN(t)) return null;
+  return Math.floor((Date.now() - t) / DAY_MS);
+}
+
+type KanbanCol = "Activos" | "Reservados" | "Cerrados" | "Estancados";
+const KANBAN_COLS: { key: KanbanCol; label: string; tone: string; icon: any }[] = [
+  { key: "Activos", label: "Activos", tone: "border-emerald-500/40 bg-emerald-500/5", icon: LayoutGrid },
+  { key: "Reservados", label: "Reservados", tone: "border-amber-500/40 bg-amber-500/5", icon: Clock },
+  { key: "Cerrados", label: "Cerrados", tone: "border-blue-500/40 bg-blue-500/5", icon: Columns3 },
+  { key: "Estancados", label: `Estancados (>${STALE_DAYS}d)`, tone: "border-destructive/40 bg-destructive/5", icon: AlertTriangle },
+];
+
+function classifyKanban(i: Inmueble): KanbanCol | null {
+  const e = i.estatus;
+  if (e === "Reservado") return "Reservados";
+  if (e === "Vendido" || e === "Alquilado") return "Cerrados";
+  if (e === "Activo" || e === "Prospección") {
+    const d = daysSince(i.fechaInicio);
+    if (d !== null && d > STALE_DAYS) return "Estancados";
+    return "Activos";
+  }
+  return null;
+}
 
 
 export const Route = createFileRoute("/inmuebles/")({
