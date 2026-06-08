@@ -3,7 +3,13 @@ import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { NewClienteDialog } from "@/components/CreateDialogs";
-import { listClientes, type Cliente, type MiniInmueble } from "@/lib/clientes.functions";
+import {
+  listClientes,
+  type Cliente,
+  type MiniInmueble,
+  type Segmento,
+  type EstadoComercial,
+} from "@/lib/clientes.functions";
 
 import {
   Search,
@@ -12,7 +18,6 @@ import {
   IdCard,
   Building2,
   Paperclip,
-  X,
   FileText,
   Briefcase,
   Dog,
@@ -25,6 +30,14 @@ import {
   CheckCircle2,
   Clock,
   ArrowUpRight,
+  Home,
+  ShoppingCart,
+  KeyRound,
+  Flame,
+  UserPlus,
+  Snowflake,
+  XCircle,
+  TrendingUp,
 } from "lucide-react";
 import {
   CanalChip,
@@ -60,31 +73,144 @@ export const Route = createFileRoute("/clientes/")({
   ),
 });
 
-const ESTADO_TABS = ["Activos", "Todos"] as const;
-type EstadoTab = (typeof ESTADO_TABS)[number];
+// =============================================================
+// Configuración visual de segmentos y estados
+// =============================================================
+const SEG_META: Record<
+  Segmento,
+  { label: string; icon: typeof Home; color: string; chip: string; ring: string; tone: string }
+> = {
+  Propietario: {
+    label: "Propietarios",
+    icon: Home,
+    color: "text-emerald-600 dark:text-emerald-400",
+    chip: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
+    ring: "ring-emerald-500/30",
+    tone: "from-emerald-500/10 to-transparent",
+  },
+  Comprador: {
+    label: "Compradores",
+    icon: ShoppingCart,
+    color: "text-blue-600 dark:text-blue-400",
+    chip: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/20",
+    ring: "ring-blue-500/30",
+    tone: "from-blue-500/10 to-transparent",
+  },
+  Inquilino: {
+    label: "Inquilinos",
+    icon: KeyRound,
+    color: "text-amber-600 dark:text-amber-400",
+    chip: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20",
+    ring: "ring-amber-500/30",
+    tone: "from-amber-500/10 to-transparent",
+  },
+  Prospecto: {
+    label: "Prospectos",
+    icon: Flame,
+    color: "text-violet-600 dark:text-violet-400",
+    chip: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/20",
+    ring: "ring-violet-500/30",
+    tone: "from-violet-500/10 to-transparent",
+  },
+  Lead: {
+    label: "Leads",
+    icon: UserPlus,
+    color: "text-slate-600 dark:text-slate-400",
+    chip: "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/20",
+    ring: "ring-slate-500/30",
+    tone: "from-slate-500/10 to-transparent",
+  },
+  Descartado: {
+    label: "Descartados",
+    icon: XCircle,
+    color: "text-rose-600 dark:text-rose-400",
+    chip: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/20",
+    ring: "ring-rose-500/30",
+    tone: "from-rose-500/10 to-transparent",
+  },
+};
 
-const TIPO_TABS = [
+const EST_META: Record<EstadoComercial, { icon: typeof Clock; chip: string; dot: string }> = {
+  Cerrado: {
+    icon: CheckCircle2,
+    chip: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
+    dot: "bg-blue-500",
+  },
+  Activo: {
+    icon: TrendingUp,
+    chip: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+    dot: "bg-emerald-500",
+  },
+  "En curso": {
+    icon: Clock,
+    chip: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+    dot: "bg-amber-500",
+  },
+  Frío: {
+    icon: Snowflake,
+    chip: "bg-slate-500/15 text-slate-700 dark:text-slate-300",
+    dot: "bg-slate-400",
+  },
+  Descartado: {
+    icon: XCircle,
+    chip: "bg-rose-500/15 text-rose-700 dark:text-rose-400",
+    dot: "bg-rose-500",
+  },
+};
+
+const SEG_BAR: Record<Segmento, string> = {
+  Propietario: "bg-emerald-500",
+  Comprador: "bg-blue-500",
+  Inquilino: "bg-amber-500",
+  Prospecto: "bg-violet-500",
+  Lead: "bg-slate-400",
+  Descartado: "bg-rose-500",
+};
+
+const SEGMENTOS_TABS: Array<Segmento | "Todos"> = [
   "Todos",
   "Propietario",
   "Comprador",
-  "Interesado Propiedades",
-  "Interesado alquiler",
-  "Prospecciones",
-] as const;
+  "Inquilino",
+  "Prospecto",
+  "Lead",
+];
+const ESTADOS_TABS: Array<EstadoComercial | "Todos"> = [
+  "Todos",
+  "Activo",
+  "En curso",
+  "Cerrado",
+  "Frío",
+];
 
-function tipoBadge(t: string) {
-  const map: Record<string, string> = {
-    Propietario: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-    Comprador: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-    "Interesado Propiedades": "bg-violet-500/15 text-violet-600 dark:text-violet-400",
-    "Interesado alquiler": "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-    Prospecciones: "bg-slate-500/15 text-slate-600 dark:text-slate-400",
-    "Anular prospección": "bg-rose-500/15 text-rose-600 dark:text-rose-400",
-  };
-  const cls = map[t] ?? "bg-secondary text-secondary-foreground";
+function initials(name: string): string {
+  if (!name) return "—";
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("");
+}
+
+function SegmentoBadge({ s }: { s: Segmento }) {
+  const m = SEG_META[s];
+  const Icon = m.icon;
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${cls}`}>
-      {t || "Sin tipo"}
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${m.chip}`}
+    >
+      <Icon className="size-3" />
+      {s}
+    </span>
+  );
+}
+
+function EstadoBadge({ e }: { e: EstadoComercial }) {
+  const m = EST_META[e];
+  const Icon = m.icon;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${m.chip}`}
+    >
+      <Icon className="size-3" />
+      {e}
     </span>
   );
 }
@@ -95,11 +221,10 @@ function ClientesPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [q, setQ] = useState("");
-  const [estado, setEstado] = useState<EstadoTab>("Activos");
-  const [tipo, setTipo] = useState<string>("Todos");
+  const [seg, setSeg] = useState<Segmento | "Todos">("Todos");
+  const [estado, setEstado] = useState<EstadoComercial | "Todos">("Todos");
   const [selectedId, setSelectedId] = useState<string | null>(search.id ?? null);
 
-  // Deep-link desde SilvIA: ?id=... abre la ficha como overlay
   useEffect(() => {
     if (!search.id) return;
     const c = data.clientes.find((x) => x.id === search.id);
@@ -112,19 +237,38 @@ function ClientesPage() {
     navigate({ search: { id: id ?? undefined }, replace: true });
   }
 
-
-  const porEstado = useMemo(() => {
-    const activos = data.clientes.filter((c) => c.activo);
-    return { Activos: activos, Todos: data.clientes };
+  // KPIs por segmento (sobre todo el universo)
+  const segCounts = useMemo(() => {
+    const m: Record<Segmento, number> = {
+      Propietario: 0,
+      Comprador: 0,
+      Inquilino: 0,
+      Prospecto: 0,
+      Lead: 0,
+      Descartado: 0,
+    };
+    data.clientes.forEach((c) => {
+      m[c.segmento]++;
+    });
+    return m;
   }, [data.clientes]);
 
-  const baseSet = porEstado[estado];
+  const baseSet = useMemo(() => {
+    return data.clientes.filter((c) => {
+      if (seg === "Todos" ? c.segmento === "Descartado" : seg !== c.segmento) {
+        // Excluir "Descartado" cuando estamos en Todos a menos que se filtre estado descartado
+        if (seg === "Todos" && c.segmento === "Descartado" && estado !== "Descartado") return false;
+        if (seg !== "Todos" && seg !== c.segmento) return false;
+      }
+      return true;
+    });
+  }, [data.clientes, seg, estado]);
 
-  const conteoTipos = useMemo(() => {
+  const estadoCounts = useMemo(() => {
     const m: Record<string, number> = { Todos: baseSet.length };
-    TIPO_TABS.forEach((t) => t !== "Todos" && (m[t] = 0));
+    ESTADOS_TABS.forEach((e) => e !== "Todos" && (m[e] = 0));
     baseSet.forEach((c) => {
-      if (m[c.tipo] != null) m[c.tipo]++;
+      if (m[c.estadoComercial] != null) m[c.estadoComercial]++;
     });
     return m;
   }, [baseSet]);
@@ -132,7 +276,7 @@ function ClientesPage() {
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase();
     return baseSet.filter((c) => {
-      if (tipo !== "Todos" && c.tipo !== tipo) return false;
+      if (estado !== "Todos" && c.estadoComercial !== estado) return false;
       if (!n) return true;
       return (
         c.nombre.toLowerCase().includes(n) ||
@@ -143,7 +287,7 @@ function ClientesPage() {
         c.propiedadCalles.some((s) => s.toLowerCase().includes(n))
       );
     });
-  }, [baseSet, q, tipo]);
+  }, [baseSet, q, estado]);
 
   const selected = useMemo(
     () => data.clientes.find((c) => c.id === selectedId) ?? null,
@@ -152,24 +296,113 @@ function ClientesPage() {
 
   return (
     <AppShell title="Clientes">
-      {/* Estado tabs (segmented) */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
-          {ESTADO_TABS.map((e) => {
+      {/* ---------- KPIs por segmento ---------- */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+        {(["Propietario", "Comprador", "Inquilino", "Prospecto", "Lead"] as Segmento[]).map((s) => {
+          const m = SEG_META[s];
+          const Icon = m.icon;
+          const count = segCounts[s];
+          const total = data.clientes.length - segCounts.Descartado;
+          const pct = total ? Math.round((count / total) * 100) : 0;
+          const active = seg === s;
+          return (
+            <button
+              key={s}
+              onClick={() => {
+                setSeg(active ? "Todos" : s);
+                setEstado("Todos");
+              }}
+              className={`group relative text-left rounded-xl border border-border bg-card p-3 overflow-hidden transition-all hover:border-foreground/20 hover:shadow-sm ${
+                active ? `ring-2 ${m.ring}` : ""
+              }`}
+            >
+              <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${m.tone} opacity-60`} />
+              <div className="relative flex items-start justify-between gap-2">
+                <div>
+                  <div className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${m.color}`}>
+                    <Icon className="size-3.5" />
+                    {m.label}
+                  </div>
+                  <div className="mt-1 text-2xl font-bold tracking-tight">{count}</div>
+                  <div className="text-[11px] text-muted-foreground">{pct}% del total</div>
+                </div>
+                <ChevronRight
+                  className={`size-4 text-muted-foreground transition-transform ${
+                    active ? "rotate-90 text-foreground" : "group-hover:translate-x-0.5"
+                  }`}
+                />
+              </div>
+              <div className="relative mt-2 h-1 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full ${SEG_BAR[s]}`}
+                  style={{ width: `${Math.min(100, pct)}%` }}
+                />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ---------- Toolbar ---------- */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="relative flex-1 min-w-[240px] max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar por nombre, email, teléfono, DNI o referencia…"
+            className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => router.invalidate()}
+            className="h-9 px-3 rounded-md border border-input bg-background text-sm hover:bg-accent"
+          >
+            Refrescar
+          </button>
+          <NewClienteDialog />
+        </div>
+      </div>
+
+      {/* ---------- Filtros: segmento (chips) + estado ---------- */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <div className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-card p-1">
+          {SEGMENTOS_TABS.map((s) => {
+            const active = seg === s;
+            const count =
+              s === "Todos"
+                ? data.clientes.length - segCounts.Descartado
+                : segCounts[s as Segmento] ?? 0;
+            return (
+              <button
+                key={s}
+                onClick={() => setSeg(s)}
+                className={`px-2.5 h-7 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-1 ${
+                  active ? "bg-primary text-primary-foreground" : "text-foreground/70 hover:bg-accent"
+                }`}
+              >
+                {s}
+                <span className={`text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-card p-1">
+          {ESTADOS_TABS.map((e) => {
             const active = estado === e;
-            const count = porEstado[e].length;
+            const count = e === "Todos" ? baseSet.length : estadoCounts[e] ?? 0;
             return (
               <button
                 key={e}
-                onClick={() => {
-                  setEstado(e);
-                  setTipo("Todos");
-                }}
-                className={`px-3 h-8 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                  active ? "bg-primary text-primary-foreground shadow-sm" : "text-foreground/70 hover:bg-accent"
+                onClick={() => setEstado(e)}
+                className={`px-2.5 h-7 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-1 ${
+                  active ? "bg-foreground text-background" : "text-foreground/70 hover:bg-accent"
                 }`}
               >
-                {e === "Activos" && <CheckCircle2 className="size-3.5" />}
+                {e !== "Todos" && <span className={`inline-block size-1.5 rounded-full ${EST_META[e as EstadoComercial].dot}`} />}
                 {e}
                 <span className={`text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>
                   {count}
@@ -178,105 +411,77 @@ function ClientesPage() {
             );
           })}
         </div>
-        <div className="relative flex-1 min-w-[220px] max-w-sm ml-auto">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por nombre, email, tel, DNI, ref…"
-            className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
-        <button
-          onClick={() => router.invalidate()}
-          className="h-9 px-3 rounded-md border border-input bg-background text-sm hover:bg-accent"
-        >
-          Refrescar
-        </button>
-        <NewClienteDialog />
-      </div>
-
-
-      {/* Descripcion del estado */}
-      <p className="text-xs text-muted-foreground mb-3">
-        {estado === "Activos" && "Propietarios con inmueble activo o prospecciones en curso. Los clientes potenciales se gestionan desde SilvIA."}
-        {estado === "Todos" && "Todos los registros de clientes."}
-      </p>
-
-      {/* Tipo filter (secundario) */}
-      <div className="flex flex-wrap gap-1.5 mb-4 border-b border-border pb-2">
-        {TIPO_TABS.map((t) => {
-          const active = tipo === t;
-          const count = conteoTipos[t] ?? 0;
-          if (t !== "Todos" && count === 0) return null;
-          return (
-            <button
-              key={t}
-              onClick={() => setTipo(t)}
-              className={`px-3 h-8 rounded-md text-xs font-medium transition-colors ${
-                active ? "bg-accent text-foreground" : "text-foreground/60 hover:bg-accent/60"
-              }`}
-            >
-              {t}
-              <span className="ml-1.5 text-[10px] text-muted-foreground">{count}</span>
-            </button>
-          );
-        })}
-        <div className="ml-auto text-xs text-muted-foreground self-center">
+        <div className="ml-auto text-xs text-muted-foreground">
           {filtered.length} {filtered.length === 1 ? "resultado" : "resultados"}
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
+      {/* ---------- Tabla ---------- */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-muted-foreground">
-              <tr className="text-left">
-                <th className="px-3 py-2 font-medium">Nombre</th>
-                <th className="px-3 py-2 font-medium">Tipo</th>
-                <th className="px-3 py-2 font-medium">Contacto</th>
-                <th className="px-3 py-2 font-medium">Estado</th>
-                <th className="px-3 py-2 font-medium hidden md:table-cell">Motivo</th>
+              <tr className="text-left text-[11px] uppercase tracking-wide">
+                <th className="px-3 py-2.5 font-medium">Cliente</th>
+                <th className="px-3 py-2.5 font-medium">Segmento</th>
+                <th className="px-3 py-2.5 font-medium">Estado</th>
+                <th className="px-3 py-2.5 font-medium hidden md:table-cell">Inmuebles</th>
+                <th className="px-3 py-2.5 font-medium hidden lg:table-cell">Alta</th>
+                <th className="px-3 py-2.5 font-medium hidden xl:table-cell">Motivo</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((c) => {
                 const active = c.id === selectedId;
                 const hasSilvia = hasSilviaConversation(c);
+                const m = SEG_META[c.segmento];
                 return (
                   <tr
                     key={c.id}
                     onClick={() => selectCliente(c.id)}
-                    className={`border-t border-border cursor-pointer hover:bg-accent/40 ${
-                      active ? "bg-accent/60" : ""
+                    className={`border-t border-border cursor-pointer transition-colors ${
+                      active ? "bg-accent/60" : "hover:bg-accent/30"
                     }`}
                   >
-                    <td className="px-3 py-2 font-medium">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate">{c.nombre || "—"}</span>
-                        {hasSilvia && (
-                          <Link
-                            to="/silvia"
-                            onClick={(e) => e.stopPropagation()}
-                            title="Ver conversación con Silvia"
-                            className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-400 px-1.5 py-0.5 hover:bg-violet-500/20"
-                          >
-                            <Sparkles className="size-2.5" /> SilvIA
-                          </Link>
-                        )}
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`shrink-0 size-9 rounded-full grid place-items-center text-[11px] font-bold border ${m.chip}`}
+                        >
+                          {initials(c.nombre)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium truncate max-w-[200px]">
+                              {c.nombre || "—"}
+                            </span>
+                            {hasSilvia && (
+                              <Link
+                                to="/silvia"
+                                onClick={(e) => e.stopPropagation()}
+                                title="Ver conversación con SilvIA"
+                                className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-400 px-1.5 py-0.5 hover:bg-violet-500/20"
+                              >
+                                <Sparkles className="size-2.5" /> SilvIA
+                              </Link>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground truncate max-w-[220px]">
+                            {c.telefono || c.email || "Sin contacto"}
+                          </div>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-3 py-2">{tipoBadge(c.tipo)}</td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      <div className="flex flex-col gap-0.5">
-                        {c.telefono && <span>{c.telefono}</span>}
-                        {c.email && <span className="truncate max-w-[180px]">{c.email}</span>}
-                      </div>
+                    <td className="px-3 py-2.5">
+                      <SegmentoBadge s={c.segmento} />
                     </td>
-                    <td className="px-3 py-2 text-xs">
-                      {c.activo ? (
+                    <td className="px-3 py-2.5">
+                      <EstadoBadge e={c.estadoComercial} />
+                    </td>
+                    <td className="px-3 py-2.5 text-xs hidden md:table-cell">
+                      {c.inmueblesActivos.length > 0 ? (
                         <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                          <CheckCircle2 className="size-3.5" />
+                          <Building2 className="size-3.5" />
                           {c.inmueblesActivos.length} activo{c.inmueblesActivos.length !== 1 ? "s" : ""}
                         </span>
                       ) : c.matches.length > 0 ? (
@@ -288,7 +493,10 @@ function ClientesPage() {
                         <span className="text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground hidden md:table-cell truncate max-w-[260px]">
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground hidden lg:table-cell">
+                      {c.diasDesdeAlta != null ? `hace ${c.diasDesdeAlta}d` : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground hidden xl:table-cell truncate max-w-[260px]">
                       {c.motivo || "—"}
                     </td>
                   </tr>
@@ -296,8 +504,8 @@ function ClientesPage() {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-12 text-center text-sm text-muted-foreground">
-                    Sin resultados.
+                  <td colSpan={6} className="px-3 py-12 text-center text-sm text-muted-foreground">
+                    Sin resultados con los filtros actuales.
                   </td>
                 </tr>
               )}
@@ -315,6 +523,9 @@ function ClientesPage() {
   );
 }
 
+// =============================================================
+// Panel lateral de detalle
+// =============================================================
 function estatusClase(estatus: string) {
   const map: Record<string, string> = {
     Activo: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
@@ -390,33 +601,30 @@ function InmuebleCard({ p }: { p: MiniInmueble }) {
 }
 
 function ClienteDetalle({ cliente }: { cliente: Cliente }) {
+  const segMeta = SEG_META[cliente.segmento];
   return (
     <aside className="bg-card">
-      <header className="flex items-start justify-between gap-2 p-4 border-b border-border">
-        <div className="min-w-0">
-          <h2 className="font-semibold text-base truncate">{cliente.nombre || "Sin nombre"}</h2>
-          <div className="mt-1 flex items-center gap-2 flex-wrap">
-            {tipoBadge(cliente.tipo)}
-            {cliente.activo ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 rounded-full px-2 py-0.5">
-                <CheckCircle2 className="size-3" />
-                Activo
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 rounded-full px-2 py-0.5">
-                <Clock className="size-3" />
-                Potencial
-              </span>
-            )}
-            {cliente.trabajado && (
-              <span className="text-[10px] bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 rounded-full px-2 py-0.5">
-                {cliente.trabajado}
-              </span>
-            )}
+      <header className={`relative p-5 border-b border-border overflow-hidden`}>
+        <div className={`absolute inset-0 bg-gradient-to-br ${segMeta.tone} opacity-70 pointer-events-none`} />
+        <div className="relative flex items-start gap-3">
+          <div
+            className={`shrink-0 size-12 rounded-full grid place-items-center text-sm font-bold border ${segMeta.chip}`}
+          >
+            {initials(cliente.nombre)}
           </div>
-          {cliente.motivoActivo && (
-            <div className="text-[11px] text-muted-foreground mt-1">{cliente.motivoActivo}</div>
-          )}
+          <div className="min-w-0 flex-1">
+            <h2 className="font-semibold text-base truncate">{cliente.nombre || "Sin nombre"}</h2>
+            <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+              <SegmentoBadge s={cliente.segmento} />
+              <EstadoBadge e={cliente.estadoComercial} />
+              {cliente.trabajado && (
+                <span className="text-[10px] bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 rounded-full px-2 py-0.5">
+                  {cliente.trabajado}
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1.5">{cliente.segmentoMotivo}</div>
+          </div>
         </div>
       </header>
 
@@ -429,11 +637,17 @@ function ClienteDetalle({ cliente }: { cliente: Cliente }) {
           <Row
             icon={<CalendarDays className="size-3.5" />}
             label="Fecha alta"
-            value={cliente.fecha ? new Date(cliente.fecha).toLocaleDateString("es-ES") : ""}
+            value={
+              cliente.fecha
+                ? `${new Date(cliente.fecha).toLocaleDateString("es-ES")}${
+                    cliente.diasDesdeAlta != null ? ` · hace ${cliente.diasDesdeAlta}d` : ""
+                  }`
+                : ""
+            }
           />
         </Section>
 
-        {cliente.activo && (
+        {cliente.inmueblesActivos.length > 0 && (
           <Section title={`Propiedades activas (${cliente.inmueblesActivos.length})`}>
             <ul className="space-y-3">
               {cliente.inmueblesActivos.map((p) => (
@@ -445,7 +659,7 @@ function ClienteDetalle({ cliente }: { cliente: Cliente }) {
           </Section>
         )}
 
-        {!cliente.activo && (
+        {cliente.inmueblesActivos.length === 0 && cliente.matches.length > 0 && (
           <Section
             title={
               <span className="flex items-center gap-1.5">
@@ -454,36 +668,27 @@ function ClienteDetalle({ cliente }: { cliente: Cliente }) {
               </span>
             }
           >
-            {cliente.matches.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                Sin inmuebles activos que encajen con sus intereses
-                {cliente.categoria.length > 0 ? ` (${cliente.categoria.join(", ")})` : ""}.
-              </p>
-            ) : (
-              <>
-                <p className="text-[11px] text-muted-foreground mb-2">
-                  Inmuebles activos que encajan con sus intereses.
-                </p>
-                <ul className="space-y-3">
-                  {cliente.matches.map((m) => (
-                    <li key={m.inmueble.id} className="space-y-1.5">
-                      <InmuebleCard p={m.inmueble} />
-                      <div className="flex flex-wrap gap-1 pl-1">
-                        {m.razones.map((r, i) => (
-                          <span
-                            key={i}
-                            className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.5"
-                          >
-                            <Sparkles className="size-2.5" />
-                            {r}
-                          </span>
-                        ))}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
+            <p className="text-[11px] text-muted-foreground mb-2">
+              Inmuebles activos que encajan con sus intereses.
+            </p>
+            <ul className="space-y-3">
+              {cliente.matches.map((m) => (
+                <li key={m.inmueble.id} className="space-y-1.5">
+                  <InmuebleCard p={m.inmueble} />
+                  <div className="flex flex-wrap gap-1 pl-1">
+                    {m.razones.map((r, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.5"
+                      >
+                        <Sparkles className="size-2.5" />
+                        {r}
+                      </span>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
           </Section>
         )}
 
@@ -492,7 +697,7 @@ function ClienteDetalle({ cliente }: { cliente: Cliente }) {
             title={
               <span className="flex items-center gap-1.5">
                 <Sparkles className="size-3.5 text-violet-500" />
-                Conversación con Silvia
+                Conversación con SilvIA
                 <CanalChip canal={inferCanal(cliente)} />
                 <Link
                   to="/silvia"
