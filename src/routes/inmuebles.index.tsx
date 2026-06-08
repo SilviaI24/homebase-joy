@@ -15,7 +15,7 @@ export const Route = createFileRoute("/inmuebles/")({
       { name: "description", content: "Listado de inmuebles gestionados por El Sol Grupo." },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(inmueblesQuery),
+  loader: ({ context }) => context.queryClient.ensureQueryData(allInmueblesQuery),
   component: InmueblesPage,
   errorComponent: ({ error }) => (
     <AppShell title="Inmuebles">
