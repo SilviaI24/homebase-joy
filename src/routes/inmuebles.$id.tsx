@@ -287,7 +287,7 @@ function DetailView({
           {/* Galería */}
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="aspect-video">
-              <SafeImage src={mainImg ?? getPortada(inmueble)} fallbackSrc={getPortada({ imagen: null, tipo: inmueble.tipo })} alt={inmueble.calle || "Inmueble"} />
+              <SafeImage src={mainImg} alt={inmueble.calle || "Inmueble"} />
             </div>
             {detailReady && inmueble.imagenes.length > 1 && (
               <div className="p-2 flex gap-2 overflow-x-auto border-t border-border">
