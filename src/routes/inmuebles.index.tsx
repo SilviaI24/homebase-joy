@@ -175,11 +175,11 @@ function InmueblesPage() {
               )}
             </div>
             <div className="p-4 flex flex-col gap-2 flex-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <h3 className="font-semibold text-sm truncate">
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="font-semibold text-sm truncate min-w-0 flex-1">
                   {i.calle || "Sin dirección"} {i.numero && <span className="text-muted-foreground font-normal">{i.numero}</span>}
                 </h3>
-                <div className="text-base font-semibold text-primary whitespace-nowrap">
+                <div className="text-base font-semibold text-primary whitespace-nowrap shrink-0">
                   {formatEuro(i.precio)}
                 </div>
               </div>
