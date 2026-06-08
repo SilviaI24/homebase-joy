@@ -224,11 +224,21 @@ function ClientesPage() {
 }
 
 function ClienteDetalle({ cliente, onClose }: { cliente: Cliente; onClose: () => void }) {
-  const propTotal =
-    cliente.propiedadIds.length +
-    cliente.inmuebleCompradorIds.length +
-    cliente.propiedadAlquilerIds.length +
-    cliente.inmueblesIds.length;
+  const fetchByIds = useServerFn(getInmueblesByIds);
+  const allIds = useMemo(() => {
+    const ids = new Set<string>();
+    cliente.propiedadIds.forEach((id) => ids.add(id));
+    cliente.inmuebleCompradorIds.forEach((id) => ids.add(id));
+    cliente.propiedadAlquilerIds.forEach((id) => ids.add(id));
+    cliente.inmueblesIds.forEach((id) => ids.add(id));
+    return Array.from(ids);
+  }, [cliente]);
+  const { data: linkedData, isLoading: linkedLoading } = useQuery({
+    queryKey: ["inmuebles", "byIds", allIds],
+    queryFn: () => fetchByIds({ data: { ids: allIds } }),
+    enabled: allIds.length > 0,
+  });
+  const propiedades = linkedData?.inmuebles ?? [];
 
   return (
     <aside className="rounded-lg border border-border bg-card sticky top-4 self-start max-h-[calc(100vh-2rem)] overflow-auto">
