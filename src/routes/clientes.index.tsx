@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { listClientes, type Cliente } from "@/lib/clientes.functions";
-import { getInmueblesByIds } from "@/lib/inmuebles.functions";
+import { getInmueblesByIds, isAlquiler } from "@/lib/inmuebles.functions";
 import {
   Search,
   Mail,
@@ -20,6 +20,8 @@ import {
   CalendarDays,
   Loader2,
   MapPin,
+  ChevronRight,
+  Euro,
 } from "lucide-react";
 
 const clientesQuery = queryOptions({
