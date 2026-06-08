@@ -359,9 +359,9 @@ function SilviaPage() {
                       {isOpen ? "Ocultar transcripción" : "Ver transcripción"}
                     </button>
                     {isOpen && (
-                      <pre className="mt-2 rounded-md bg-muted/50 border border-border p-3 text-xs text-foreground/80 whitespace-pre-wrap font-sans max-h-80 overflow-auto">
-                        {c.conversaciones}
-                      </pre>
+                      <div className="mt-2 rounded-md bg-muted/40 border border-border p-3 max-h-96 overflow-auto">
+                        <Transcripcion text={c.conversaciones} />
+                      </div>
                     )}
                   </div>
                 )}
