@@ -81,20 +81,28 @@ function fmtDate(s: string | null): string {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  Activo: "#10b981",
-  Reservado: "#f59e0b",
-  Vendido: "#3b82f6",
-  Baja: "#94a3b8",
-  Alquilado: "#a855f7",
-  Prospección: "#ec4899",
+  Activo: "var(--primary)",
+  Reservado: "var(--gold)",
+  Vendido: "var(--chart-1)",
+  Baja: "var(--muted-foreground)",
+  Alquilado: "var(--chart-3)",
+  Prospección: "var(--chart-4)",
 };
 
+const C_PRIMARY = "var(--primary)";
+const C_GOLD = "var(--gold)";
+
+// Comisiones estimadas
+const COMISION_VENTA = 0.03; // 3% sobre precio venta
+const COMISION_ALQUILER_MESES = 1; // 1 mes de renta
+
 const TOOLTIP_STYLE = {
-  background: "hsl(var(--card))",
-  border: "1px solid hsl(var(--border))",
-  borderRadius: 10,
+  background: "var(--card)",
+  border: "1px solid var(--border)",
+  borderRadius: 12,
   fontSize: 12,
-  boxShadow: "0 8px 24px -8px rgb(0 0 0 / 0.12)",
+  color: "var(--foreground)",
+  boxShadow: "0 8px 24px -8px rgb(0 0 0 / 0.18)",
 } as const;
 
 function Dashboard() {
