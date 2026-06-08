@@ -27,3 +27,28 @@ export function toTitleCase(str: string): string {
 export function toTitleCaseArr(arr: string[]): string[] {
   return arr.map(toTitleCase);
 }
+
+/**
+ * Convierte texto largo a sentence case: mayúscula al inicio de cada frase,
+ * el resto en minúscula. Preserva siglas (palabras completamente en
+ * mayúsculas de 2-5 letras) y números/fechas.
+ */
+export function toSentenceCase(str: string): string {
+  if (!str) return str;
+  // Si el texto ya parece estar en sentence case razonable (pocas mayúsculas
+  // intermedias), lo dejamos tal cual.
+  const tokens = str.split(/(\s+)/);
+  const normalized = tokens
+    .map((tok) => {
+      if (/^\s+$/.test(tok)) return tok;
+      // Preserva siglas cortas
+      if (/^[A-ZÁÉÍÓÚÑ]{2,5}$/.test(tok)) return tok;
+      // Preserva tokens con dígitos (fechas, horas, refs)
+      if (/\d/.test(tok)) return tok;
+      return tok.toLowerCase();
+    })
+    .join("");
+  // Capitaliza inicio de cada frase (después de . ! ? o salto de línea).
+  return normalized.replace(/(^|[.!?]\s+|\n+\s*)(\p{Ll})/gu, (_m, sep, ch) => sep + ch.toUpperCase());
+}
+
