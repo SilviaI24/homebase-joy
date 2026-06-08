@@ -562,25 +562,88 @@ function Dashboard() {
         </Link>
       </div>
 
-      {/* Captaciones recientes */}
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Clock className="size-4 text-muted-foreground" /> Captaciones recientes
-          </h3>
-          <Link to="/inmuebles" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
-            Ver todas <ArrowRight className="size-3" />
-          </Link>
+      {/* Alertas + Captaciones recientes */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 rounded-lg border border-border bg-card overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Clock className="size-4 text-muted-foreground" /> Captaciones recientes
+            </h3>
+            <Link to="/inmuebles" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+              Ver todas <ArrowRight className="size-3" />
+            </Link>
+          </div>
+          <div className="divide-y divide-border">
+            {stats.recientes.length === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">Sin captaciones recientes.</div>
+            ) : (
+              stats.recientes.map((i) => <RecentRow key={i.id} i={i} />)
+            )}
+          </div>
         </div>
-        <div className="divide-y divide-border">
-          {stats.recientes.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">Sin captaciones recientes.</div>
-          ) : (
-            stats.recientes.map((i) => <RecentRow key={i.id} i={i} />)
-          )}
-        </div>
+
+        <AlertasPanel estancados={stats.estancados} />
       </div>
     </AppShell>
+  );
+}
+
+function HeroStat({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-primary-foreground/70">{label}</div>
+      <div
+        className={`mt-2 font-display font-semibold tabular-nums leading-none ${
+          highlight ? "text-4xl lg:text-5xl text-gold" : "text-3xl lg:text-4xl text-primary-foreground"
+        }`}
+      >
+        {value}
+      </div>
+      {sub && <div className="mt-2 text-xs text-primary-foreground/75 truncate">{sub}</div>}
+    </div>
+  );
+}
+
+function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: number }[] }) {
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <div className="px-5 py-3 border-b border-border">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <TrendingDown className="size-4 text-destructive" /> Inmuebles estancados
+        </h3>
+        <p className="text-[11px] text-muted-foreground mt-0.5">Activos sin escritura tras +90 días.</p>
+      </div>
+      {estancados.length === 0 ? (
+        <div className="p-6 text-center text-xs text-muted-foreground">Sin alertas. Cartera saludable.</div>
+      ) : (
+        <ul className="divide-y divide-border">
+          {estancados.map(({ i, dias }) => (
+            <li key={i.id}>
+              <Link
+                to="/inmuebles/$id"
+                params={{ id: i.id }}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
+              >
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive text-[11px] font-bold tabular-nums">
+                  {dias}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium truncate">
+                    {i.calle || "Sin dirección"} {i.numero}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {[i.barrio, i.localidad].filter(Boolean).join(" · ") || i.tipo}
+                  </div>
+                </div>
+                <div className="text-[11px] text-muted-foreground tabular-nums">
+                  {i.precio ? moneyShort(i.precio) : "—"}
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
