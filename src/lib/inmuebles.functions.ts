@@ -217,16 +217,24 @@ async function fetchInmueblesFiltered(): Promise<Inmueble[]> {
   return records.map(mapBase);
 }
 
-export const listInmuebles = createServerFn({ method: "GET" }).handler(async () => {
+// Devuelve ventas y alquileres en una sola petición a Airtable.
+// Las rutas comparten esta query para evitar refetches duplicados.
+export const listAllInmuebles = createServerFn({ method: "GET" }).handler(async () => {
   const all = await fetchInmueblesFiltered();
   const inmuebles = all.filter((i) => !isAlquiler(i.tipo));
-  return { inmuebles };
+  const alquileres = all.filter((i) => isAlquiler(i.tipo));
+  return { inmuebles, alquileres };
+});
+
+// Compat: ahora derivan del fetch combinado para reutilizar caché en servidor.
+export const listInmuebles = createServerFn({ method: "GET" }).handler(async () => {
+  const all = await fetchInmueblesFiltered();
+  return { inmuebles: all.filter((i) => !isAlquiler(i.tipo)) };
 });
 
 export const listAlquileres = createServerFn({ method: "GET" }).handler(async () => {
   const all = await fetchInmueblesFiltered();
-  const inmuebles = all.filter((i) => isAlquiler(i.tipo));
-  return { inmuebles };
+  return { inmuebles: all.filter((i) => isAlquiler(i.tipo)) };
 });
 
 export const getInmueble = createServerFn({ method: "GET" })

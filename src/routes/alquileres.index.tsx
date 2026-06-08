@@ -1,14 +1,11 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { listAlquileres, getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
+import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
+import { allInmueblesQuery } from "@/lib/queries";
 import { Building2, Search } from "lucide-react";
 
-const alquileresQuery = queryOptions({
-  queryKey: ["alquileres"],
-  queryFn: () => listAlquileres(),
-});
 
 export const Route = createFileRoute("/alquileres/")({
   head: () => ({
@@ -17,7 +14,7 @@ export const Route = createFileRoute("/alquileres/")({
       { name: "description", content: "Listado de alquileres gestionados por El Sol Grupo." },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(alquileresQuery),
+  loader: ({ context }) => context.queryClient.ensureQueryData(allInmueblesQuery),
   component: AlquileresPage,
   errorComponent: ({ error }) => (
     <AppShell title="Alquileres">
@@ -58,7 +55,9 @@ function statusBadge(estatus: string) {
 }
 
 function AlquileresPage() {
-  const { data } = useSuspenseQuery(alquileresQuery);
+  const { data: all } = useSuspenseQuery(allInmueblesQuery);
+  const data = { inmuebles: all.alquileres };
+
   const router = useRouter();
   const [q, setQ] = useState("");
   const [estatus, setEstatus] = useState<string>("Activo");

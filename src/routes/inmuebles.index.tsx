@@ -1,15 +1,12 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { SafeImage } from "@/components/SafeImage";
-import { listInmuebles, getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
+import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
+import { allInmueblesQuery } from "@/lib/queries";
 import { Search } from "lucide-react";
 
-const inmueblesQuery = queryOptions({
-  queryKey: ["inmuebles"],
-  queryFn: () => listInmuebles(),
-});
 
 export const Route = createFileRoute("/inmuebles/")({
   head: () => ({
@@ -18,7 +15,7 @@ export const Route = createFileRoute("/inmuebles/")({
       { name: "description", content: "Listado de inmuebles gestionados por El Sol Grupo." },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(inmueblesQuery),
+  loader: ({ context }) => context.queryClient.ensureQueryData(allInmueblesQuery),
   component: InmueblesPage,
   errorComponent: ({ error }) => (
     <AppShell title="Inmuebles">
@@ -59,7 +56,9 @@ function statusBadge(estatus: string) {
 }
 
 function InmueblesPage() {
-  const { data } = useSuspenseQuery(inmueblesQuery);
+  const { data: all } = useSuspenseQuery(allInmueblesQuery);
+  const data = { inmuebles: all.inmuebles };
+
   const router = useRouter();
   const [q, setQ] = useState("");
   const [estatus, setEstatus] = useState<string>("Activo");
