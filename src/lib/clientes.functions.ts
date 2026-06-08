@@ -249,6 +249,13 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
   const activosVenta = inmuebles.filter((i) => i.estatus === "Activo" && !i.esAlquiler);
   const activosAlquiler = inmuebles.filter((i) => i.estatus === "Activo" && i.esAlquiler);
 
+  // Diccionario de zonas (barrios + localidades) para detectar en texto libre.
+  const zonasConocidas = new Set<string>();
+  for (const i of inmuebles) {
+    if (i.barrio) zonasConocidas.add(i.barrio.toLowerCase());
+    if (i.localidad) zonasConocidas.add(i.localidad.toLowerCase());
+  }
+
   const clientes: Cliente[] = clienteRecords.map((r) => {
     const base = mapClienteBase(r);
     const linkedIds = new Set<string>([
