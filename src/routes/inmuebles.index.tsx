@@ -142,14 +142,18 @@ function InmueblesPage() {
             <button
               key={t}
               onClick={() => setCategoria(t)}
-              className={`px-3 h-8 rounded-md text-xs font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-colors ${
                 active
                   ? "bg-primary text-primary-foreground"
                   : "text-foreground/70 hover:bg-accent"
               }`}
             >
-              {t}
-              <span className={`ml-1.5 text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>
+              <span>{t}</span>
+              <span
+                className={`text-[10px] leading-none px-1.5 py-0.5 rounded-full ${
+                  active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}
+              >
                 {count}
               </span>
             </button>
