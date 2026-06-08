@@ -128,8 +128,9 @@ function VisitasPage() {
     return m;
   }, [inmData]);
 
-  const now = Date.now();
-  const startOfYear = new Date(new Date().getFullYear(), 0, 1).getTime();
+  // Estabilizamos `now` para que los useMemo no se recalculen en cada render.
+  const [now] = useState(() => Date.now());
+  const startOfYear = useMemo(() => new Date(new Date(now).getFullYear(), 0, 1).getTime(), [now]);
   const periodoStart =
     periodo === "30d"
       ? now - 30 * 86400000
