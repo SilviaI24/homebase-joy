@@ -121,6 +121,7 @@ type EstadoTab = (typeof ESTADO_TABS)[number];
 
 function SilviaPage() {
   const { data } = useSuspenseQuery(clientesQuery);
+  const { data: inmData } = useSuspenseQuery(allInmueblesQuery);
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<EstadoTab>("Pendientes");
   const [canalFilter, setCanalFilter] = useState<Canal | "Todos">("Todos");
@@ -128,12 +129,22 @@ function SilviaPage() {
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
   const [cualificados, setCualificados] = useState<Set<string>>(new Set());
 
-  // Solo clientes con conversación significativa de Silvia
+  const todosInmuebles = useMemo(
+    () => [...inmData.inmuebles, ...inmData.alquileres],
+    [inmData],
+  );
+
+  // Solo clientes con conversación significativa de Silvia, con detección de
+  // inmuebles mencionados en el texto libre.
   const leads = useMemo(() => {
     return data.clientes
       .filter((c) => (c.motivo?.trim().length ?? 0) > 0 || (c.conversaciones?.trim().length ?? 0) > 0)
-      .map((c) => ({ cliente: c, canal: inferCanal(c) }));
-  }, [data.clientes]);
+      .map((c) => {
+        const blob = `${c.motivo ?? ""}\n${c.solicitud ?? ""}\n${c.conversaciones ?? ""}`;
+        const mencionados = findMentionedInmuebles(blob, todosInmuebles);
+        return { cliente: c, canal: inferCanal(c), mencionados };
+      });
+  }, [data.clientes, todosInmuebles]);
 
   const filtered = useMemo(() => {
     const ql = q.toLowerCase().trim();
