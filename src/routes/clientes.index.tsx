@@ -158,6 +158,15 @@ const EST_META: Record<EstadoComercial, { icon: typeof Clock; chip: string; dot:
   },
 };
 
+const SEG_BAR: Record<Segmento, string> = {
+  Propietario: "bg-emerald-500",
+  Comprador: "bg-blue-500",
+  Inquilino: "bg-amber-500",
+  Prospecto: "bg-violet-500",
+  Lead: "bg-slate-400",
+  Descartado: "bg-rose-500",
+};
+
 const SEGMENTOS_TABS: Array<Segmento | "Todos"> = [
   "Todos",
   "Propietario",
