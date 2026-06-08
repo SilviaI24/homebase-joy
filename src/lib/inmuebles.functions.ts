@@ -121,25 +121,43 @@ function mapBase(r: { id: string; fields: Record<string, unknown> }): Inmueble {
   };
 }
 
-function getYearFromDate(dateStr: string | null): number | null {
-  if (!dateStr) return null;
-  const y = new Date(dateStr).getFullYear();
-  return isNaN(y) ? null : y;
+export function isAlquiler(tipo: string): boolean {
+  return /^\s*alquiler/i.test(tipo);
+}
+
+async function fetchInmueblesFiltered(): Promise<Inmueble[]> {
+  const currentYear = new Date().getFullYear();
+  const prevYear = currentYear - 1;
+  const formula = `OR(YEAR({Fecha de inicio})=${currentYear},YEAR({Fecha de inicio})=${prevYear})`;
+  const records: Array<{ id: string; fields: Record<string, unknown> }> = [];
+  let offset: string | undefined;
+  do {
+    const params = new URLSearchParams({
+      pageSize: "100",
+      filterByFormula: formula,
+    });
+    if (offset) params.set("offset", offset);
+    const page = (await airtableFetch(
+      `/v0/${BASE_ID}/${TABLES.inmuebles}?${params}`,
+    )) as {
+      records: Array<{ id: string; fields: Record<string, unknown> }>;
+      offset?: string;
+    };
+    records.push(...page.records);
+    offset = page.offset;
+  } while (offset && records.length < 2000);
+  return records.map(mapBase);
 }
 
 export const listInmuebles = createServerFn({ method: "GET" }).handler(async () => {
-  const params = new URLSearchParams({ pageSize: "100" });
-  const data = (await airtableFetch(
-    `/v0/${BASE_ID}/${TABLES.inmuebles}?${params}`,
-  )) as { records: Array<{ id: string; fields: Record<string, unknown> }> };
-  const currentYear = new Date().getFullYear();
-  const allowedYears = new Set([currentYear, currentYear - 1]);
-  const inmuebles = data.records
-    .map(mapBase)
-    .filter((i) => {
-      const year = getYearFromDate(i.fechaInicio);
-      return year != null && allowedYears.has(year);
-    });
+  const all = await fetchInmueblesFiltered();
+  const inmuebles = all.filter((i) => !isAlquiler(i.tipo));
+  return { inmuebles };
+});
+
+export const listAlquileres = createServerFn({ method: "GET" }).handler(async () => {
+  const all = await fetchInmueblesFiltered();
+  const inmuebles = all.filter((i) => isAlquiler(i.tipo));
   return { inmuebles };
 });
 
