@@ -39,6 +39,10 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/visitas/")({
+  // El dashboard depende de `Date.now()` y de la zona horaria del cliente,
+  // por lo que el render del servidor difería del cliente (heatmap, KPIs,
+  // "próximas 14d") y provocaba mismatches de hidratación.
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Visitas · El Sol Grupo CRM" },
@@ -54,6 +58,11 @@ export const Route = createFileRoute("/visitas/")({
     context.queryClient.ensureQueryData(allInmueblesQuery);
   },
   component: VisitasPage,
+  pendingComponent: () => (
+    <AppShell title="Visitas">
+      <div className="text-sm text-muted-foreground py-10 text-center">Cargando panel…</div>
+    </AppShell>
+  ),
   errorComponent: ({ error }) => (
     <AppShell title="Visitas">
       <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
@@ -119,8 +128,9 @@ function VisitasPage() {
     return m;
   }, [inmData]);
 
-  const now = Date.now();
-  const startOfYear = new Date(new Date().getFullYear(), 0, 1).getTime();
+  // Estabilizamos `now` para que los useMemo no se recalculen en cada render.
+  const [now] = useState(() => Date.now());
+  const startOfYear = useMemo(() => new Date(new Date(now).getFullYear(), 0, 1).getTime(), [now]);
   const periodoStart =
     periodo === "30d"
       ? now - 30 * 86400000
