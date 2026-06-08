@@ -67,10 +67,46 @@ export const ESTATUS_OPCIONES = [
 
 export const PUBLICACION_OPCIONES = ["SUBIR", "PUBLICADO"] as const;
 
+type AirtableAttachment = {
+  url?: string;
+  type?: string;
+  filename?: string;
+  thumbnails?: {
+    small?: { url?: string };
+    large?: { url?: string };
+    full?: { url?: string };
+  };
+};
+
+const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|avif|bmp|heic|heif)$/i;
+
+function isImageAttachment(att: AirtableAttachment): boolean {
+  if (att.type && att.type.startsWith("image/")) return true;
+  if (att.filename && IMAGE_EXT_RE.test(att.filename)) return true;
+  // Si no hay metadatos pero sí thumbnails, Airtable lo trata como imagen.
+  if (att.thumbnails && (att.thumbnails.large || att.thumbnails.full || att.thumbnails.small)) {
+    return true;
+  }
+  return false;
+}
+
+function attachmentUrl(att: AirtableAttachment): string | null {
+  return (
+    att.thumbnails?.large?.url ??
+    att.thumbnails?.full?.url ??
+    att.url ??
+    att.thumbnails?.small?.url ??
+    null
+  );
+}
+
 function pickAttachment(field: unknown): string | null {
-  if (Array.isArray(field) && field.length > 0) {
-    const att = field[0] as { url?: string; thumbnails?: { large?: { url?: string } } };
-    return att.thumbnails?.large?.url ?? att.url ?? null;
+  if (!Array.isArray(field)) return null;
+  for (const a of field) {
+    const att = a as AirtableAttachment;
+    if (!isImageAttachment(att)) continue;
+    const url = attachmentUrl(att);
+    if (url) return url;
   }
   return null;
 }
@@ -79,8 +115,9 @@ function pickAllAttachments(field: unknown): string[] {
   if (!Array.isArray(field)) return [];
   return field
     .map((a) => {
-      const att = a as { url?: string; thumbnails?: { large?: { url?: string } } };
-      return att.thumbnails?.large?.url ?? att.url ?? null;
+      const att = a as AirtableAttachment;
+      if (!isImageAttachment(att)) return null;
+      return attachmentUrl(att);
     })
     .filter((u): u is string => !!u);
 }
@@ -147,29 +184,6 @@ export function getCategoria(tipo: string): Categoria | "Otros" {
   return "Otros";
 }
 
-// Imagen de portada por defecto cuando el inmueble no trae foto.
-// URLs estables de Unsplash, optimizadas para tarjetas (aspect-video).
-const FALLBACK_PORTADAS: Record<Categoria | "Otros", string> = {
-  Pisos:
-    "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=70",
-  Casas:
-    "https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1200&q=70",
-  Terrenos:
-    "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=70",
-  Garajes:
-    "https://images.unsplash.com/photo-1545179605-1296651e9d43?auto=format&fit=crop&w=1200&q=70",
-  Trasteros:
-    "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=70",
-  Locales:
-    "https://images.unsplash.com/photo-1604328698692-f76ea9498e76?auto=format&fit=crop&w=1200&q=70",
-  Otros:
-    "https://images.unsplash.com/photo-1572120360610-d971b9d7767c?auto=format&fit=crop&w=1200&q=70",
-};
-
-export function getPortada(inmueble: Pick<Inmueble, "imagen" | "tipo">): string {
-  if (inmueble.imagen) return inmueble.imagen;
-  return FALLBACK_PORTADAS[getCategoria(inmueble.tipo)];
-}
 
 async function fetchInmueblesFiltered(): Promise<Inmueble[]> {
   const currentYear = new Date().getFullYear();
