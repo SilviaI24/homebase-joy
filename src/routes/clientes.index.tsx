@@ -2,7 +2,9 @@ import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { NewClienteDialog } from "@/components/CreateDialogs";
 import { listClientes, type Cliente, type MiniInmueble } from "@/lib/clientes.functions";
+
 import {
   Search,
   Mail,
@@ -191,7 +193,9 @@ function ClientesPage() {
         >
           Refrescar
         </button>
+        <NewClienteDialog />
       </div>
+
 
       {/* Descripcion del estado */}
       <p className="text-xs text-muted-foreground mb-3">
