@@ -115,22 +115,48 @@ function InmueblesPage() {
     return map;
   }, [data.inmuebles, estatus]);
 
+  const matchesSearch = (i: Inmueble, needle: string) => {
+    if (!needle) return true;
+    return (
+      i.ref.toLowerCase().includes(needle) ||
+      i.calle.toLowerCase().includes(needle) ||
+      i.localidad.toLowerCase().includes(needle) ||
+      i.barrio.toLowerCase().includes(needle) ||
+      i.tipo.toLowerCase().includes(needle) ||
+      i.propietario.toLowerCase().includes(needle)
+    );
+  };
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return data.inmuebles.filter((i: Inmueble) => {
       if (estatus !== "Todos" && i.estatus !== estatus) return false;
       if (categoria !== "Todas" && getCategoria(i.tipo) !== categoria) return false;
-      if (!needle) return true;
-      return (
-        i.ref.toLowerCase().includes(needle) ||
-        i.calle.toLowerCase().includes(needle) ||
-        i.localidad.toLowerCase().includes(needle) ||
-        i.barrio.toLowerCase().includes(needle) ||
-        i.tipo.toLowerCase().includes(needle) ||
-        i.propietario.toLowerCase().includes(needle)
-      );
+      return matchesSearch(i, needle);
     });
   }, [data.inmuebles, q, estatus, categoria]);
+
+  const kanbanGroups = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const groups: Record<KanbanCol, Inmueble[]> = {
+      Activos: [], Reservados: [], Cerrados: [], Estancados: [],
+    };
+    data.inmuebles.forEach((i) => {
+      if (categoria !== "Todas" && getCategoria(i.tipo) !== categoria) return;
+      if (!matchesSearch(i, needle)) return;
+      const col = classifyKanban(i);
+      if (col) groups[col].push(i);
+    });
+    // Sort oldest first by fechaInicio
+    (Object.keys(groups) as KanbanCol[]).forEach((k) => {
+      groups[k].sort((a, b) => {
+        const da = Date.parse(a.fechaInicio || "") || Infinity;
+        const db = Date.parse(b.fechaInicio || "") || Infinity;
+        return da - db;
+      });
+    });
+    return groups;
+  }, [data.inmuebles, q, categoria]);
 
   const tabs: string[] = ["Todas", ...CATEGORIAS];
 
