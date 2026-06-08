@@ -1,8 +1,10 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
+import { queryOptions, useSuspenseQuery, useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { listClientes, type Cliente } from "@/lib/clientes.functions";
+import { getInmueblesByIds } from "@/lib/inmuebles.functions";
 import {
   Search,
   Mail,
@@ -16,6 +18,8 @@ import {
   Dog,
   ShieldCheck,
   CalendarDays,
+  Loader2,
+  MapPin,
 } from "lucide-react";
 
 const clientesQuery = queryOptions({
