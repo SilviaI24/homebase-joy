@@ -2,13 +2,19 @@ import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { Building2, LayoutDashboard, Users, CalendarDays, UserCog } from "lucide-react";
 
-const nav = [
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  disabled?: boolean;
+};
+const nav: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/inmuebles", label: "Inmuebles", icon: Building2 },
   { to: "/clientes", label: "Clientes", icon: Users, disabled: true },
   { to: "/visitas", label: "Visitas", icon: CalendarDays, disabled: true },
   { to: "/agentes", label: "Agentes", icon: UserCog, disabled: true },
-] as const;
+];
 
 export function AppShell({ title, children }: { title: string; children: ReactNode }) {
   return (
