@@ -61,7 +61,8 @@ function InmueblesPage() {
   const { data } = useSuspenseQuery(inmueblesQuery);
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [estatus, setEstatus] = useState<string>("Todos");
+  const [estatus, setEstatus] = useState<string>("Activo");
+  const [categoria, setCategoria] = useState<string>("Todas");
 
   const estatuses = useMemo(() => {
     const s = new Set<string>();
@@ -69,10 +70,23 @@ function InmueblesPage() {
     return ["Todos", ...Array.from(s).sort()];
   }, [data.inmuebles]);
 
+  const conteoPorCategoria = useMemo(() => {
+    const base = data.inmuebles.filter((i) => estatus === "Todos" || i.estatus === estatus);
+    const map: Record<string, number> = { Todas: base.length };
+    CATEGORIAS.forEach((c) => (map[c] = 0));
+    map["Otros"] = 0;
+    base.forEach((i) => {
+      const c = getCategoria(i.tipo);
+      map[c] = (map[c] ?? 0) + 1;
+    });
+    return map;
+  }, [data.inmuebles, estatus]);
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return data.inmuebles.filter((i: Inmueble) => {
       if (estatus !== "Todos" && i.estatus !== estatus) return false;
+      if (categoria !== "Todas" && getCategoria(i.tipo) !== categoria) return false;
       if (!needle) return true;
       return (
         i.ref.toLowerCase().includes(needle) ||
@@ -83,11 +97,13 @@ function InmueblesPage() {
         i.propietario.toLowerCase().includes(needle)
       );
     });
-  }, [data.inmuebles, q, estatus]);
+  }, [data.inmuebles, q, estatus, categoria]);
+
+  const tabs: string[] = ["Todas", ...CATEGORIAS];
 
   return (
     <AppShell title="Inmuebles">
-      <div className="flex flex-wrap items-center gap-3 mb-5">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
@@ -115,6 +131,29 @@ function InmueblesPage() {
         >
           Refrescar
         </button>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5 mb-5 border-b border-border pb-2">
+        {tabs.map((t) => {
+          const active = categoria === t;
+          const count = conteoPorCategoria[t] ?? 0;
+          return (
+            <button
+              key={t}
+              onClick={() => setCategoria(t)}
+              className={`px-3 h-8 rounded-md text-xs font-medium transition-colors ${
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground/70 hover:bg-accent"
+              }`}
+            >
+              {t}
+              <span className={`ml-1.5 text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
