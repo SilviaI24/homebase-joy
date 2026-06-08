@@ -19,6 +19,8 @@ export type MiniInmueble = {
   precio: number | null;
   precioFinal: number | null;
   imagen: string | null;
+  habitaciones: number | null;
+  superficie: number | null;
 };
 
 export type ClienteMatch = {
