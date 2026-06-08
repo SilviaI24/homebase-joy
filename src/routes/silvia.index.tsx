@@ -393,6 +393,7 @@ function SilviaPage() {
                 <footer className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-t border-border bg-muted/20 rounded-b-lg">
                   <Link
                     to="/clientes"
+                    search={{ id: c.id }}
                     className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
                   >
                     Ver ficha completa <ArrowRight className="size-3" />
