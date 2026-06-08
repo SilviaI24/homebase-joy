@@ -82,7 +82,10 @@ export const Route = createFileRoute("/silvia/")({
       },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(clientesQuery),
+  loader: ({ context }) => {
+    context.queryClient.ensureQueryData(clientesQuery);
+    context.queryClient.ensureQueryData(allInmueblesQuery);
+  },
   component: SilviaPage,
   errorComponent: ({ error }) => (
     <AppShell title="SilvIA">
