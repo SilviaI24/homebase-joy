@@ -92,6 +92,14 @@ const agentesQuery = queryOptions({
   staleTime: 5 * 60_000,
 });
 
+const visitasQuery = (id: string) =>
+  queryOptions({
+    queryKey: ["visitas", "inmueble", id],
+    queryFn: () => listVisitasByInmueble({ data: { id } }),
+    staleTime: 60_000,
+  });
+
+
 export const Route = createFileRoute("/inmuebles/$id")({
   head: () => ({
     meta: [{ title: "Ficha de inmueble · El Sol Grupo CRM" }],
