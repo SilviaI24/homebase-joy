@@ -169,7 +169,7 @@ function InmueblesPage() {
                 </div>
               )}
             </div>
-          </article>
+          </Link>
         ))}
       </div>
 
