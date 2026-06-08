@@ -3,6 +3,8 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { SafeImage } from "@/components/SafeImage";
+import { NewInmuebleDialog } from "@/components/CreateDialogs";
+
 import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
 import { allInmueblesQuery } from "@/lib/queries";
 import { Search } from "lucide-react";
@@ -131,7 +133,9 @@ function InmueblesPage() {
         >
           Refrescar
         </button>
+        <NewInmuebleDialog />
       </div>
+
 
       <div className="flex flex-wrap gap-1.5 mb-5 border-b border-border pb-2">
         {tabs.map((t) => {
