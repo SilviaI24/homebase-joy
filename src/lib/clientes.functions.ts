@@ -296,7 +296,57 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
         .slice(0, 6);
     }
 
-    return { ...base, activo, motivoActivo, inmueblesActivos, matches };
+    // --- Clasificación derivada ----------------------------------------
+    const tipoNorm = base.tipo.trim();
+    const txt = `${base.solicitud} ${base.motivo}`.toLowerCase();
+    const reAlquiler = /alquil/;
+    const reCompra = /\b(compra|venta|comprar|adquirir)\b/;
+    const tieneLinkPropiedad =
+      base.propiedadIds.length > 0 || base.propiedadAlquilerIds.length > 0;
+    const tieneLinkComprador = base.inmuebleCompradorIds.length > 0;
+
+    let segmento: Segmento = "Lead";
+    let segmentoMotivo = "Sin clasificación explícita";
+    if (tipoNorm === "Anular prospección") {
+      segmento = "Descartado";
+      segmentoMotivo = "Marcado como anular prospección";
+    } else if (tipoNorm === "Propietario" || tieneLinkPropiedad) {
+      segmento = "Propietario";
+      segmentoMotivo = tipoNorm === "Propietario" ? "Tipo: Propietario" : "Tiene inmueble vinculado como propietario";
+    } else if (tipoNorm === "Prospecciones") {
+      segmento = "Prospecto";
+      segmentoMotivo = "Tipo: Prospección";
+    } else if (tipoNorm === "Interesado alquiler" || reAlquiler.test(txt)) {
+      segmento = "Inquilino";
+      segmentoMotivo = tipoNorm === "Interesado alquiler" ? "Tipo: Interesado alquiler" : "Solicitud menciona alquiler";
+    } else if (tipoNorm === "Comprador" || tipoNorm === "Interesado Propiedades" || tieneLinkComprador || reCompra.test(txt)) {
+      segmento = "Comprador";
+      segmentoMotivo = tipoNorm ? `Tipo: ${tipoNorm}` : "Solicitud de compra/venta";
+    }
+
+    // Estado comercial
+    const cerrado = linkedInmuebles.some((i) => i.estatus === "Vendido" || i.estatus === "Alquilado");
+    const tieneActivo = inmueblesActivos.length > 0;
+    const fechaMs = base.fecha ? new Date(base.fecha).getTime() : 0;
+    const diasDesdeAlta = fechaMs ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000)) : null;
+    let estadoComercial: EstadoComercial = "Frío";
+    if (segmento === "Descartado") estadoComercial = "Descartado";
+    else if (cerrado) estadoComercial = "Cerrado";
+    else if (tieneActivo) estadoComercial = "Activo";
+    else if (diasDesdeAlta != null && diasDesdeAlta <= 30) estadoComercial = "En curso";
+
+    return {
+      ...base,
+      activo,
+      motivoActivo,
+      inmueblesActivos,
+      matches,
+      segmento,
+      segmentoMotivo,
+      estadoComercial,
+      diasDesdeAlta,
+      inmueblesVinculados: linkedInmuebles,
+    };
   });
 
   clientes.sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""));
