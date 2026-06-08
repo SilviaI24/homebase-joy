@@ -296,13 +296,13 @@ function ComercialesPage() {
                       </td>
                     </tr>
                     {isOpen && (
-                      <tr key={`${a.nombre}-detail`}>
+                      <tr>
                         <td colSpan={7} className="bg-muted/30 px-5 py-4">
                           <AgenteDetail agente={a} />
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>
