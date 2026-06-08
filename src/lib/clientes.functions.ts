@@ -120,6 +120,15 @@ function pickAttachment(field: unknown): string | null {
   return null;
 }
 
+function parseIntSafe(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const m = v.match(/\d+/);
+    if (m) return parseInt(m[0], 10);
+  }
+  return null;
+}
+
 function mapInmuebleMini(r: { id: string; fields: Record<string, unknown> }): MiniInmueble {
   const f = r.fields;
   const tipo = String(f["Tipo de inmueble (desplegable)"] ?? "");
@@ -137,6 +146,8 @@ function mapInmuebleMini(r: { id: string; fields: Record<string, unknown> }): Mi
     precio: typeof f["Precio"] === "number" ? (f["Precio"] as number) : null,
     precioFinal: typeof f["Precio Final "] === "number" ? (f["Precio Final "] as number) : null,
     imagen: pickAttachment(f["Imágenes"]),
+    habitaciones: parseIntSafe(f["Habitaciones / dormitorios"]),
+    superficie: parseIntSafe(f["Superficie"]),
   };
 }
 
