@@ -2,7 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { SafeImage } from "@/components/SafeImage";
+import { NewVisitaDialog } from "@/components/CreateDialogs";
 import { listClientes } from "@/lib/clientes.functions";
+import { allInmueblesQuery } from "@/lib/queries";
+import type { Inmueble } from "@/lib/inmuebles.functions";
 import {
   Sparkles,
   Phone,
@@ -19,6 +23,8 @@ import {
   UserCog,
   Tag,
   CalendarDays,
+  MessageSquare,
+  CalendarPlus,
 } from "lucide-react";
 import {
   CanalChip,
@@ -32,6 +38,40 @@ const clientesQuery = queryOptions({
   queryFn: () => listClientes(),
 });
 
+// Detecta inmuebles mencionados en el texto libre de la conversación buscando
+// coincidencias de la calle, referencia o barrio del inmueble.
+function findMentionedInmuebles(text: string, inmuebles: Inmueble[]): Inmueble[] {
+  const haystack = (text || "").toLowerCase();
+  if (!haystack.trim()) return [];
+  const found = new Map<string, Inmueble>();
+  for (const inm of inmuebles) {
+    if (found.has(inm.id)) continue;
+    const candidatos: string[] = [];
+    // Referencia (#1234)
+    if (inm.ref && inm.ref.length >= 3) candidatos.push(inm.ref.toLowerCase());
+    // Calle (sin "calle", "av", "c/", etc.) — usamos la palabra clave principal
+    const calle = (inm.calle || "")
+      .toLowerCase()
+      .replace(/^(calle|c\/|c\.|avda?\.?|avenida|plaza|paseo|camino|carretera|ctra\.?|ronda|travesía|travesia)\s+/i, "")
+      .trim();
+    if (calle.length >= 4) candidatos.push(calle);
+    for (const needle of candidatos) {
+      // Match con límite de palabra para evitar falsos positivos
+      const re = new RegExp(`(?:^|[^a-záéíóúñ0-9])${escapeReg(needle)}(?:[^a-záéíóúñ0-9]|$)`, "i");
+      if (re.test(haystack)) {
+        found.set(inm.id, inm);
+        break;
+      }
+    }
+  }
+  return Array.from(found.values()).slice(0, 6);
+}
+
+function escapeReg(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+
 export const Route = createFileRoute("/silvia/")({
   head: () => ({
     meta: [
@@ -42,7 +82,10 @@ export const Route = createFileRoute("/silvia/")({
       },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(clientesQuery),
+  loader: ({ context }) => {
+    context.queryClient.ensureQueryData(clientesQuery);
+    context.queryClient.ensureQueryData(allInmueblesQuery);
+  },
   component: SilviaPage,
   errorComponent: ({ error }) => (
     <AppShell title="SilvIA">
@@ -78,6 +121,7 @@ type EstadoTab = (typeof ESTADO_TABS)[number];
 
 function SilviaPage() {
   const { data } = useSuspenseQuery(clientesQuery);
+  const { data: inmData } = useSuspenseQuery(allInmueblesQuery);
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<EstadoTab>("Pendientes");
   const [canalFilter, setCanalFilter] = useState<Canal | "Todos">("Todos");
@@ -85,12 +129,22 @@ function SilviaPage() {
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
   const [cualificados, setCualificados] = useState<Set<string>>(new Set());
 
-  // Solo clientes con conversación significativa de Silvia
+  const todosInmuebles = useMemo(
+    () => [...inmData.inmuebles, ...inmData.alquileres],
+    [inmData],
+  );
+
+  // Solo clientes con conversación significativa de Silvia, con detección de
+  // inmuebles mencionados en el texto libre.
   const leads = useMemo(() => {
     return data.clientes
       .filter((c) => (c.motivo?.trim().length ?? 0) > 0 || (c.conversaciones?.trim().length ?? 0) > 0)
-      .map((c) => ({ cliente: c, canal: inferCanal(c) }));
-  }, [data.clientes]);
+      .map((c) => {
+        const blob = `${c.motivo ?? ""}\n${c.solicitud ?? ""}\n${c.conversaciones ?? ""}`;
+        const mencionados = findMentionedInmuebles(blob, todosInmuebles);
+        return { cliente: c, canal: inferCanal(c), mencionados };
+      });
+  }, [data.clientes, todosInmuebles]);
 
   const filtered = useMemo(() => {
     const ql = q.toLowerCase().trim();
@@ -232,7 +286,7 @@ function SilviaPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(({ cliente: c, canal }) => {
+          {filtered.map(({ cliente: c, canal, mencionados }) => {
             const isOpen = expanded.has(c.id);
             const isArchived = archivados.has(c.id);
             const isCualified = cualificados.has(c.id);
@@ -340,6 +394,68 @@ function SilviaPage() {
                         <Transcripcion text={c.conversaciones} />
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Inmuebles mencionados en la conversación */}
+                {mencionados.length > 0 && (
+                  <div className="px-4 pb-3 border-t border-border pt-3">
+                    <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
+                      <MessageSquare className="size-3 text-primary" />
+                      Inmuebles mencionados ({mencionados.length})
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {mencionados.map((inm) => (
+                        <div
+                          key={inm.id}
+                          className="rounded-md border border-primary/30 bg-primary/[0.03] overflow-hidden flex"
+                        >
+                          <Link
+                            to="/inmuebles/$id"
+                            params={{ id: inm.id }}
+                            className="flex items-stretch gap-2 flex-1 min-w-0 hover:bg-primary/[0.06] transition-colors"
+                          >
+                            <div className="w-16 shrink-0 bg-muted">
+                              <SafeImage src={inm.imagen} alt={inm.calle || inm.ref} />
+                            </div>
+                            <div className="flex-1 min-w-0 py-2 pr-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-mono text-muted-foreground">#{inm.ref}</span>
+                                <span className="text-[10px] text-muted-foreground">{inm.estatus}</span>
+                              </div>
+                              <div className="text-xs font-semibold truncate">
+                                {inm.calle} {inm.numero}
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                <span className="inline-flex items-center gap-0.5">
+                                  <MapPin className="size-2.5" />
+                                  {inm.barrio || inm.localidad || "—"}
+                                </span>
+                                <span className="inline-flex items-center gap-0.5 font-semibold text-primary">
+                                  <Euro className="size-2.5" />
+                                  {moneyShort(inm.precioFinal ?? inm.precio)}
+                                </span>
+                              </div>
+                            </div>
+                          </Link>
+                          <div className="flex items-center pr-2">
+                            <NewVisitaDialog
+                              defaultInmuebleId={inm.id}
+                              defaultClienteId={c.id}
+                              trigger={
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 cursor-pointer transition-opacity whitespace-nowrap"
+                                  title={`Agendar visita de ${c.nombre || "cliente"} a ${inm.calle}`}
+                                >
+                                  <CalendarPlus className="size-3" /> Cita
+                                </button>
+                              }
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 

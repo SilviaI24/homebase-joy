@@ -490,9 +490,11 @@ export function NewInmuebleDialog({
 // ============= NEW VISITA =============
 export function NewVisitaDialog({
   defaultInmuebleId,
+  defaultClienteId,
   trigger,
 }: {
   defaultInmuebleId?: string;
+  defaultClienteId?: string;
   trigger?: ReactNode;
 }) {
   const qc = useQueryClient();
@@ -505,6 +507,7 @@ export function NewVisitaDialog({
     fecha: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
     estado: "Pendiente",
     inmueblesIds: defaultInmuebleId ? [defaultInmuebleId] : [],
+    clientesIds: defaultClienteId ? [defaultClienteId] : [],
   });
   const [inmFilter, setInmFilter] = useState("");
   const [cliFilter, setCliFilter] = useState("");
@@ -542,7 +545,7 @@ export function NewVisitaDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      {trigger ?? <NewButton>Nueva visita</NewButton>}
+      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : <NewButton>Nueva visita</NewButton>}
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Nueva visita</DialogTitle>
