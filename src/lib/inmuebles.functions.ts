@@ -125,6 +125,28 @@ export function isAlquiler(tipo: string): boolean {
   return /^\s*alquiler/i.test(tipo);
 }
 
+export const CATEGORIAS = [
+  "Pisos",
+  "Casas",
+  "Terrenos",
+  "Garajes",
+  "Trasteros",
+  "Locales",
+] as const;
+export type Categoria = (typeof CATEGORIAS)[number];
+
+export function getCategoria(tipo: string): Categoria | "Otros" {
+  const t = tipo.toLowerCase().replace(/^\s*alquiler\s+/, "").trim();
+  if (t.startsWith("piso")) return "Pisos";
+  if (t.startsWith("chalet") || t.startsWith("casa")) return "Casas";
+  if (t.startsWith("terreno")) return "Terrenos";
+  if (t.startsWith("garaje")) return "Garajes";
+  if (t.startsWith("trastero")) return "Trasteros";
+  if (t.startsWith("local") || t.startsWith("nave") || t.startsWith("oficina") || t.startsWith("edificio"))
+    return "Locales";
+  return "Otros";
+}
+
 async function fetchInmueblesFiltered(): Promise<Inmueble[]> {
   const currentYear = new Date().getFullYear();
   const prevYear = currentYear - 1;
