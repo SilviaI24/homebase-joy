@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InmueblesIndexRouteImport } from './routes/inmuebles.index'
+import { Route as AlquileresIndexRouteImport } from './routes/alquileres.index'
 import { Route as InmueblesIdRouteImport } from './routes/inmuebles.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const InmueblesIndexRoute = InmueblesIndexRouteImport.update({
   path: '/inmuebles/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AlquileresIndexRoute = AlquileresIndexRouteImport.update({
+  id: '/alquileres/',
+  path: '/alquileres/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InmueblesIdRoute = InmueblesIdRouteImport.update({
   id: '/inmuebles/$id',
   path: '/inmuebles/$id',
@@ -32,30 +38,34 @@ const InmueblesIdRoute = InmueblesIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/inmuebles/$id': typeof InmueblesIdRoute
+  '/alquileres/': typeof AlquileresIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/inmuebles/$id': typeof InmueblesIdRoute
+  '/alquileres': typeof AlquileresIndexRoute
   '/inmuebles': typeof InmueblesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/inmuebles/$id': typeof InmueblesIdRoute
+  '/alquileres/': typeof AlquileresIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/inmuebles/$id' | '/inmuebles/'
+  fullPaths: '/' | '/inmuebles/$id' | '/alquileres/' | '/inmuebles/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/inmuebles/$id' | '/inmuebles'
-  id: '__root__' | '/' | '/inmuebles/$id' | '/inmuebles/'
+  to: '/' | '/inmuebles/$id' | '/alquileres' | '/inmuebles'
+  id: '__root__' | '/' | '/inmuebles/$id' | '/alquileres/' | '/inmuebles/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   InmueblesIdRoute: typeof InmueblesIdRoute
+  AlquileresIndexRoute: typeof AlquileresIndexRoute
   InmueblesIndexRoute: typeof InmueblesIndexRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InmueblesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/alquileres/': {
+      id: '/alquileres/'
+      path: '/alquileres'
+      fullPath: '/alquileres/'
+      preLoaderRoute: typeof AlquileresIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inmuebles/$id': {
       id: '/inmuebles/$id'
       path: '/inmuebles/$id'
@@ -88,18 +105,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   InmueblesIdRoute: InmueblesIdRoute,
+  AlquileresIndexRoute: AlquileresIndexRoute,
   InmueblesIndexRoute: InmueblesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

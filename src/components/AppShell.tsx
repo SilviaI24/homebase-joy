@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { Building2, LayoutDashboard, Users, CalendarDays, UserCog } from "lucide-react";
+import { Building2, LayoutDashboard, Users, CalendarDays, UserCog, KeyRound } from "lucide-react";
 
 type NavItem = {
   to: string;
@@ -11,6 +11,7 @@ type NavItem = {
 const nav: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/inmuebles", label: "Inmuebles", icon: Building2 },
+  { to: "/alquileres", label: "Alquileres", icon: KeyRound },
   { to: "/clientes", label: "Clientes", icon: Users, disabled: true },
   { to: "/visitas", label: "Visitas", icon: CalendarDays, disabled: true },
   { to: "/agentes", label: "Agentes", icon: UserCog, disabled: true },
