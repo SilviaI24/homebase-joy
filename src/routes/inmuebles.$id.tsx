@@ -155,6 +155,19 @@ function formatDate(s: string | null) {
   }
 }
 
+function diffDays(a: string | null, b: string | null) {
+  if (!a || !b) return null;
+  const d1 = new Date(a).getTime();
+  const d2 = new Date(b).getTime();
+  if (isNaN(d1) || isNaN(d2)) return null;
+  return Math.max(0, Math.floor((d2 - d1) / 86400000));
+}
+
+function daysLabel(d: number | null) {
+  if (d == null) return "—";
+  return `${d} día${d === 1 ? "" : "s"}`;
+}
+
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="py-2 border-b border-border/50 last:border-0">
@@ -369,6 +382,8 @@ function DetailView({
             </div>
           </div>
 
+          <TiempoMercadoPanel inmueble={inmueble} detailReady={detailReady} />
+
           {/* Historial / fechas — visible solo cuando hay datos */}
           <div className="rounded-lg border border-border bg-card p-5">
             <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
@@ -481,6 +496,84 @@ function DetailView({
         </aside>
       </div>
     </AppShell>
+  );
+}
+
+function TiempoMercadoPanel({
+  inmueble,
+  detailReady,
+}: {
+  inmueble: InmuebleDetalle;
+  detailReady: boolean;
+}) {
+  const todayIso = new Date().toISOString();
+  const diasEnMercado = diffDays(inmueble.fechaInicio, todayIso);
+
+  const hitos: { label: string; from: string | null; to: string | null; tone?: Parameters<typeof StatBox>[0]["tone"] }[] = [
+    { label: "Captación → Exclusiva", from: inmueble.fechaInicio, to: inmueble.fechaExclusiva },
+    { label: "Exclusiva → Fin exclusividad", from: inmueble.fechaExclusiva, to: inmueble.fechaFinExclusiva },
+    { label: "Inicio → Reserva", from: inmueble.fechaInicio, to: inmueble.fechaReserva },
+    { label: "Reserva → Escritura", from: inmueble.fechaReserva, to: inmueble.fechaEscritura },
+    { label: "Ciclo total (inicio → escritura)", from: inmueble.fechaInicio, to: inmueble.fechaEscritura, tone: "primary" },
+  ];
+
+  const completados = hitos.filter((h) => h.from && h.to);
+
+  const statusTone: Parameters<typeof StatBox>[0]["tone"] =
+    inmueble.estatus === "Vendido" || inmueble.estatus === "Alquilado"
+      ? "emerald"
+      : inmueble.estatus === "Reservado"
+      ? "primary"
+      : inmueble.estatus === "Baja"
+      ? "destructive"
+      : "default";
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-5">
+      <h3 className="text-sm font-semibold mb-3">Tiempo en mercado</h3>
+
+      {!detailReady ? (
+        <div className="space-y-2">
+          <SkeletonLine className="w-1/3" />
+          <SkeletonLine className="w-1/2" />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <StatBox
+              label="Días desde alta"
+              value={daysLabel(diasEnMercado)}
+              tone={diasEnMercado != null && diasEnMercado > 180 ? "destructive" : statusTone}
+              hint={inmueble.estatus}
+            />
+            <StatBox
+              label="Estado actual"
+              value={inmueble.estatus || "—"}
+              tone={statusTone}
+            />
+          </div>
+
+          {completados.length > 0 && (
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
+                Duración entre hitos
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {completados.map((h) => (
+                  <StatBox
+                    key={h.label}
+                    label={h.label}
+                    value={daysLabel(diffDays(h.from, h.to))}
+                    tone={h.tone ?? "default"}
+                    hint={`${formatDate(h.from)} → ${formatDate(h.to)}`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
