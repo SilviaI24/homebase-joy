@@ -188,6 +188,54 @@ export const listAgentes = createServerFn({ method: "GET" }).handler(async () =>
   return { agentes };
 });
 
+export type Visita = {
+  id: string;
+  fecha: string | null;
+  estado: string;
+  comentarios: string;
+  actividad: string;
+  clientesNombres: string[];
+  clientesTelefonos: string[];
+  agentesMails: string[];
+};
+
+export const listVisitasByInmueble = createServerFn({ method: "GET" })
+  .inputValidator((d: { id: string }) => {
+    if (!d?.id) throw new Error("id requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const formula = `FIND("${data.id}", ARRAYJOIN({Inmuebles}))`;
+    const params = new URLSearchParams({
+      pageSize: "100",
+      filterByFormula: formula,
+    });
+    const res = (await airtableFetch(
+      `/v0/${BASE_ID}/${TABLES.visitas}?${params}`,
+    )) as { records: Array<{ id: string; fields: Record<string, unknown> }> };
+    const visitas: Visita[] = res.records.map((r) => {
+      const f = r.fields;
+      return {
+        id: r.id,
+        fecha: (f["Fecha y Hora"] as string) ?? null,
+        estado: String(f["Estado"] ?? ""),
+        comentarios: String(f["Comentarios"] ?? ""),
+        actividad: pickLookup(f["Actividad"]),
+        clientesNombres: Array.isArray(f["Nombre Clientes"])
+          ? (f["Nombre Clientes"] as string[])
+          : [],
+        clientesTelefonos: Array.isArray(f["Teléfono Clientes"])
+          ? (f["Teléfono Clientes"] as string[])
+          : [],
+        agentesMails: Array.isArray(f["Mail (from Agentes)"])
+          ? (f["Mail (from Agentes)"] as string[])
+          : [],
+      };
+    });
+    visitas.sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""));
+    return { visitas };
+  });
+
 export type UpdateInmueblePayload = {
   id: string;
   estatus?: string;
