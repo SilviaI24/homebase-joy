@@ -27,6 +27,25 @@ export type ClienteMatch = {
   score: number;
 };
 
+export const SEGMENTOS = [
+  "Propietario",
+  "Comprador",
+  "Inquilino",
+  "Prospecto",
+  "Lead",
+  "Descartado",
+] as const;
+export type Segmento = (typeof SEGMENTOS)[number];
+
+export const ESTADOS_COMERCIALES = [
+  "Cerrado",
+  "Activo",
+  "En curso",
+  "Frío",
+  "Descartado",
+] as const;
+export type EstadoComercial = (typeof ESTADOS_COMERCIALES)[number];
+
 export type Cliente = {
   id: string;
   nombre: string;
@@ -62,6 +81,12 @@ export type Cliente = {
   motivoActivo: string;
   inmueblesActivos: MiniInmueble[];
   matches: ClienteMatch[];
+  // Clasificación derivada
+  segmento: Segmento;
+  segmentoMotivo: string;
+  estadoComercial: EstadoComercial;
+  diasDesdeAlta: number | null;
+  inmueblesVinculados: MiniInmueble[];
 };
 
 export const TIPOS_CLIENTE = [
