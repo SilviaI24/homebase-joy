@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { airtableFetch, BASE_ID, TABLES } from "./airtable.server";
+import { toTitleCase, toTitleCaseArr } from "./format";
 
 export type VisitaFull = {
   id: string;
