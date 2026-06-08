@@ -15,6 +15,8 @@ import {
   Legend,
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
+import { NewVisitaDialog } from "@/components/CreateDialogs";
+
 import { visitasQuery, allInmueblesQuery } from "@/lib/queries";
 import type { VisitaFull } from "@/lib/visitas.functions";
 import {
