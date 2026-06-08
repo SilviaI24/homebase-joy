@@ -21,6 +21,7 @@ import {
   Bot,
   Tag,
   CalendarDays,
+  Globe,
 } from "lucide-react";
 
 const clientesQuery = queryOptions({
