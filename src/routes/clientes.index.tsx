@@ -30,6 +30,7 @@ import {
   inferCanal,
   hasSilviaConversation,
 } from "@/components/silvia/conversation";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 const clientesQuery = queryOptions({
   queryKey: ["clientes"],
