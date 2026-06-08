@@ -1,6 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Legend,
+} from "recharts";
 import { AppShell } from "@/components/AppShell";
 import { listInmuebles, getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
 import { listClientes } from "@/lib/clientes.functions";
@@ -8,13 +23,11 @@ import {
   Building2,
   Users,
   TrendingUp,
-  KeyRound,
   Sparkles,
   Wallet,
-  CheckCircle2,
   Clock,
   ArrowRight,
-  Tag,
+  UserCog,
 } from "lucide-react";
 
 const inmueblesQuery = queryOptions({
@@ -64,6 +77,15 @@ function fmtDate(s: string | null): string {
   }
 }
 
+const STATUS_COLORS: Record<string, string> = {
+  Activo: "#10b981",
+  Reservado: "#f59e0b",
+  Vendido: "#3b82f6",
+  Baja: "#94a3b8",
+  Alquilado: "#a855f7",
+  Prospección: "#ec4899",
+};
+
 function Dashboard() {
   const { data: inmData } = useSuspenseQuery(inmueblesQuery);
   const { data: cliData } = useSuspenseQuery(clientesQuery);
@@ -78,33 +100,84 @@ function Dashboard() {
     const precios = activos.map((i) => i.precio).filter((p): p is number => !!p && p > 0);
     const precioMedio = precios.length ? Math.round(precios.reduce((a, b) => a + b, 0) / precios.length) : 0;
 
-    // por categoría (sobre activos)
-    const porCategoria: Record<string, number> = {};
-    [...CATEGORIAS, "Otros"].forEach((c) => (porCategoria[c] = 0));
+    // Pie: distribución por estatus
+    const estatusCount: Record<string, number> = {};
+    inmuebles.forEach((i) => {
+      if (!i.estatus) return;
+      estatusCount[i.estatus] = (estatusCount[i.estatus] ?? 0) + 1;
+    });
+    const pieData = Object.entries(estatusCount)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+
+    // Bar: valor cartera activa por categoría
+    const valorPorCat: Record<string, number> = {};
+    [...CATEGORIAS, "Otros"].forEach((c) => (valorPorCat[c] = 0));
     activos.forEach((i) => {
       const c = getCategoria(i.tipo);
-      porCategoria[c] = (porCategoria[c] ?? 0) + 1;
+      valorPorCat[c] = (valorPorCat[c] ?? 0) + (i.precio ?? 0);
     });
+    const barData = Object.entries(valorPorCat)
+      .map(([cat, valor]) => ({ cat, valor, valorM: +(valor / 1_000_000).toFixed(2) }))
+      .filter((d) => d.valor > 0);
 
-    // recientes (por fecha de inicio)
+    // Series: captaciones por mes (últimos 12 meses)
+    const now = new Date();
+    const months: { key: string; label: string }[] = [];
+    for (let k = 11; k >= 0; k--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("es-ES", { month: "short", year: "2-digit" });
+      months.push({ key, label });
+    }
+    const captCount: Record<string, number> = {};
+    const ventaCount: Record<string, number> = {};
+    months.forEach((m) => {
+      captCount[m.key] = 0;
+      ventaCount[m.key] = 0;
+    });
+    inmuebles.forEach((i) => {
+      if (i.fechaInicio) {
+        const k = i.fechaInicio.slice(0, 7);
+        if (k in captCount) captCount[k]++;
+      }
+      if (i.fechaEscritura) {
+        const k = i.fechaEscritura.slice(0, 7);
+        if (k in ventaCount) ventaCount[k]++;
+      }
+    });
+    const seriesData = months.map((m) => ({
+      mes: m.label,
+      Captaciones: captCount[m.key],
+      Ventas: ventaCount[m.key],
+    }));
+
     const recientes = [...inmuebles]
       .filter((i) => i.fechaInicio)
       .sort((a, b) => (b.fechaInicio ?? "").localeCompare(a.fechaInicio ?? ""))
       .slice(0, 6);
 
-    return { inmuebles, activos, reservados, vendidos, valorCartera, precioMedio, porCategoria, recientes };
+    return {
+      inmuebles,
+      activos,
+      reservados,
+      vendidos,
+      valorCartera,
+      precioMedio,
+      pieData,
+      barData,
+      seriesData,
+      recientes,
+    };
   }, [inmData]);
 
   const cliStats = useMemo(() => {
     const c = cliData.clientes;
     const propietarios = c.filter((x) => x.tipo === "Propietario").length;
     const compradores = c.filter((x) => x.tipo === "Comprador" || x.tipo === "Interesado Propiedades").length;
-    const alquilerInt = c.filter((x) => x.tipo === "Interesado alquiler").length;
     const conConv = c.filter((x) => (x.conversaciones?.trim().length ?? 0) > 0 || (x.motivo?.trim().length ?? 0) > 0);
-    return { total: c.length, propietarios, compradores, alquilerInt, leadsSilvia: conConv.length };
+    return { total: c.length, propietarios, compradores, leadsSilvia: conConv.length };
   }, [cliData]);
-
-  const maxCat = Math.max(1, ...Object.values(stats.porCategoria));
 
   return (
     <AppShell title="Dashboard">
@@ -143,57 +216,126 @@ function Dashboard() {
         />
       </div>
 
-      {/* Estatus breakdown + categorías */}
+      {/* Charts row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <div className="rounded-lg border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-            <TrendingUp className="size-4 text-muted-foreground" /> Estado de la cartera
-          </h3>
-          <div className="space-y-3">
-            <StatusRow label="Activos" count={stats.activos.length} total={stats.inmuebles.length} color="bg-emerald-500" />
-            <StatusRow label="Reservados" count={stats.reservados.length} total={stats.inmuebles.length} color="bg-amber-500" />
-            <StatusRow label="Vendidos" count={stats.vendidos.length} total={stats.inmuebles.length} color="bg-blue-500" />
-          </div>
-        </div>
+        <ChartCard title="Distribución por estado" icon={TrendingUp} className="lg:col-span-1">
+          <ResponsiveContainer width="100%" height={240}>
+            <PieChart>
+              <Pie
+                data={stats.pieData}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={50}
+                outerRadius={90}
+                paddingAngle={2}
+              >
+                {stats.pieData.map((entry) => (
+                  <Cell key={entry.name} fill={STATUS_COLORS[entry.name] ?? "#cbd5e1"} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                formatter={(v: number) => [`${v} inmuebles`, ""]}
+              />
+              <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
 
-        <div className="rounded-lg border border-border bg-card p-5 lg:col-span-2">
-          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-            <Tag className="size-4 text-muted-foreground" /> Activos por categoría
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
-            {[...CATEGORIAS, "Otros"].map((cat) => {
-              const n = stats.porCategoria[cat] ?? 0;
-              const pct = (n / maxCat) * 100;
-              return (
-                <div key={cat}>
-                  <div className="flex items-baseline justify-between text-xs mb-1">
-                    <span className="text-foreground/80">{cat}</span>
-                    <span className="font-semibold tabular-nums">{n}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <ChartCard title="Valor de cartera activa por categoría" icon={Wallet} className="lg:col-span-2">
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={stats.barData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis dataKey="cat" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                stroke="hsl(var(--muted-foreground))"
+                tickFormatter={(v) => `${v}M`}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                formatter={(v: number) => [`${v}M €`, "Valor"]}
+              />
+              <Bar dataKey="valorM" fill="#10b981" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
       </div>
 
-      {/* Composición clientes + accesos */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <div className="rounded-lg border border-border bg-card p-5 lg:col-span-2">
-          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-            <Users className="size-4 text-muted-foreground" /> Composición de clientes
-          </h3>
-          <div className="grid grid-cols-3 gap-3">
-            <MiniStat label="Propietarios" value={cliStats.propietarios} icon={KeyRound} />
-            <MiniStat label="Compradores" value={cliStats.compradores} icon={CheckCircle2} />
-            <MiniStat label="Interés alquiler" value={cliStats.alquilerInt} icon={Clock} />
-          </div>
-        </div>
+      {/* Charts row 2 — evolución */}
+      <div className="mb-6">
+        <ChartCard title="Evolución de captaciones y ventas (últimos 12 meses)" icon={TrendingUp}>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={stats.seriesData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis dataKey="mes" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+              <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+              <Tooltip
+                contentStyle={{
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+              />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Line
+                type="monotone"
+                dataKey="Captaciones"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+                activeDot={{ r: 5 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="Ventas"
+                stroke="#10b981"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+                activeDot={{ r: 5 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
 
-        <div className="rounded-lg border border-border bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 p-5">
+      {/* Acceso comerciales + SilvIA */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <Link
+          to="/comerciales"
+          className="rounded-lg border border-border bg-gradient-to-br from-primary/10 to-primary/5 p-5 hover:border-primary/40 transition-colors group"
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow">
+              <UserCog className="size-5" />
+            </div>
+            <div className="flex-1">
+              <div className="text-sm font-semibold">Rendimiento por comercial</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                Cartera, valor gestionado y conversión por agente.
+              </div>
+              <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary group-hover:underline">
+                Ver ranking <ArrowRight className="size-3" />
+              </div>
+            </div>
+          </div>
+        </Link>
+
+        <Link
+          to="/silvia"
+          className="rounded-lg border border-border bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 p-5 hover:border-violet-500/40 transition-colors group"
+        >
           <div className="flex items-start gap-3">
             <div className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow">
               <Sparkles className="size-5" />
@@ -201,15 +343,12 @@ function Dashboard() {
             <div className="flex-1">
               <div className="text-sm font-semibold">SilvIA tiene {cliStats.leadsSilvia} conversaciones</div>
               <div className="text-xs text-muted-foreground mt-0.5">Revisa los leads y cualifícalos.</div>
-              <Link
-                to="/silvia"
-                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-violet-700 dark:text-violet-300 hover:underline"
-              >
+              <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-violet-700 dark:text-violet-300 group-hover:underline">
                 Ir a la bandeja <ArrowRight className="size-3" />
-              </Link>
+              </div>
             </div>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Captaciones recientes */}
@@ -280,30 +419,23 @@ function KpiCard({
   return <div className="rounded-lg border border-border bg-card p-4">{inner}</div>;
 }
 
-function StatusRow({ label, count, total, color }: { label: string; count: number; total: number; color: string }) {
-  const pct = total ? (count / total) * 100 : 0;
+function ChartCard({
+  title,
+  icon: Icon,
+  children,
+  className = "",
+}: {
+  title: string;
+  icon: typeof TrendingUp;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div>
-      <div className="flex items-baseline justify-between text-xs mb-1">
-        <span className="text-foreground/80">{label}</span>
-        <span className="tabular-nums text-muted-foreground">
-          <span className="font-semibold text-foreground">{count}</span> / {total}
-        </span>
-      </div>
-      <div className="h-2 rounded-full bg-muted overflow-hidden">
-        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function MiniStat({ label, value, icon: Icon }: { label: string; value: number; icon: typeof Users }) {
-  return (
-    <div className="rounded-md border border-border bg-background/50 p-3">
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        <Icon className="size-3" /> {label}
-      </div>
-      <div className="text-lg font-semibold tabular-nums mt-1">{value}</div>
+    <div className={`rounded-lg border border-border bg-card p-5 ${className}`}>
+      <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+        <Icon className="size-4 text-muted-foreground" /> {title}
+      </h3>
+      {children}
     </div>
   );
 }
@@ -325,6 +457,7 @@ function RecentRow({ i }: { i: Inmueble }) {
         </div>
         <div className="text-xs text-muted-foreground truncate">
           {[i.barrio, i.localidad].filter(Boolean).join(" · ") || "—"} · {i.tipo || "—"}
+          {i.agentesNombres.length > 0 && ` · ${i.agentesNombres.join(", ")}`}
         </div>
       </div>
       <div className="text-right shrink-0">
