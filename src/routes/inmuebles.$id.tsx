@@ -9,6 +9,7 @@ import {
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { SafeImage } from "@/components/SafeImage";
 import {
   getInmueble,
   listAgentes,
