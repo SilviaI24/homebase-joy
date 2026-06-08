@@ -23,6 +23,50 @@ export type Inmueble = {
   telefonoPropietario: string;
 };
 
+export type InmuebleDetalle = Inmueble & {
+  imagenes: string[];
+  agentesIds: string[];
+  agentesNombres: string[];
+  propietarioIds: string[];
+  emailPropietario: string;
+  certificacionEnergetica: string;
+  anoConstruccion: string;
+  gastosComunidad: string;
+  calefaccion: string;
+  orientacion: string;
+  garaje: string;
+  trastero: string;
+  ascensor: string;
+  armariosEmpotrados: string;
+  terraza: string;
+  balcon: string;
+  planta: string;
+  referenciaCatastral: string;
+  honorarios: string;
+  tipoExclusiva: string;
+  notaria: string;
+  observaciones: string;
+  llaves: string;
+  fechaInicio: string | null;
+  fechaExclusiva: string | null;
+  fechaFinExclusiva: string | null;
+  fechaReserva: string | null;
+  fechaEscritura: string | null;
+};
+
+export type Agente = { id: string; nombre: string; mail: string };
+
+export const ESTATUS_OPCIONES = [
+  "Activo",
+  "Reservado",
+  "Vendido",
+  "Baja",
+  "Prospección",
+  "Alquilado",
+] as const;
+
+export const PUBLICACION_OPCIONES = ["SUBIR", "PUBLICADO"] as const;
+
 function pickAttachment(field: unknown): string | null {
   if (Array.isArray(field) && field.length > 0) {
     const att = field[0] as { url?: string; thumbnails?: { large?: { url?: string } } };
@@ -31,43 +75,158 @@ function pickAttachment(field: unknown): string | null {
   return null;
 }
 
+function pickAllAttachments(field: unknown): string[] {
+  if (!Array.isArray(field)) return [];
+  return field
+    .map((a) => {
+      const att = a as { url?: string; thumbnails?: { large?: { url?: string } } };
+      return att.thumbnails?.large?.url ?? att.url ?? null;
+    })
+    .filter((u): u is string => !!u);
+}
+
 function pickLookup(field: unknown): string {
   if (Array.isArray(field)) return field.filter(Boolean).join(", ");
   return field == null ? "" : String(field);
 }
 
+function pickIds(field: unknown): string[] {
+  return Array.isArray(field) ? (field as string[]) : [];
+}
+
+function mapBase(r: { id: string; fields: Record<string, unknown> }): Inmueble {
+  const f = r.fields;
+  return {
+    id: r.id,
+    ref: String(f["Ref"] ?? ""),
+    calle: String(f["Calle"] ?? "").trim(),
+    numero: String(f["Numero"] ?? ""),
+    localidad: String(f["Localidad"] ?? ""),
+    barrio: String(f["Barrio"] ?? ""),
+    precio: typeof f["Precio"] === "number" ? (f["Precio"] as number) : null,
+    precioFinal:
+      typeof f["Precio Final "] === "number" ? (f["Precio Final "] as number) : null,
+    tipo: String(f["Tipo de inmueble (desplegable)"] ?? ""),
+    estatus: String(f["Estatus"] ?? ""),
+    publicacion: String(f["Publicación"] ?? ""),
+    estado: String(f["Estado"] ?? ""),
+    habitaciones: String(f["Habitaciones / dormitorios"] ?? ""),
+    banos: String(f["Baño"] ?? ""),
+    superficie: String(f["Superficie"] ?? ""),
+    imagen: pickAttachment(f["Imágenes"]),
+    descripcion: String(f["Descripción"] ?? ""),
+    propietario: pickLookup(f["Nombre Propietario"]),
+    telefonoPropietario: pickLookup(f["Teléfono Propietario"]),
+  };
+}
+
 export const listInmuebles = createServerFn({ method: "GET" }).handler(async () => {
-  // Pull a generous page; pagination later if needed.
   const params = new URLSearchParams({ pageSize: "100" });
   const data = (await airtableFetch(
     `/v0/${BASE_ID}/${TABLES.inmuebles}?${params}`,
   )) as { records: Array<{ id: string; fields: Record<string, unknown> }> };
+  return { inmuebles: data.records.map(mapBase) };
+});
 
-  const inmuebles: Inmueble[] = data.records.map((r) => {
+export const getInmueble = createServerFn({ method: "GET" })
+  .inputValidator((d: { id: string }) => {
+    if (!d?.id || typeof d.id !== "string") throw new Error("id requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const r = (await airtableFetch(
+      `/v0/${BASE_ID}/${TABLES.inmuebles}/${data.id}`,
+    )) as { id: string; fields: Record<string, unknown> };
+    const base = mapBase(r);
     const f = r.fields;
-    return {
-      id: r.id,
-      ref: String(f["Ref"] ?? ""),
-      calle: String(f["Calle"] ?? "").trim(),
-      numero: String(f["Numero"] ?? ""),
-      localidad: String(f["Localidad"] ?? ""),
-      barrio: String(f["Barrio"] ?? ""),
-      precio: typeof f["Precio"] === "number" ? (f["Precio"] as number) : null,
-      precioFinal:
-        typeof f["Precio Final "] === "number" ? (f["Precio Final "] as number) : null,
-      tipo: String(f["Tipo de inmueble (desplegable)"] ?? ""),
-      estatus: String(f["Estatus"] ?? ""),
-      publicacion: String(f["Publicación"] ?? ""),
-      estado: String(f["Estado"] ?? ""),
-      habitaciones: String(f["Habitaciones / dormitorios"] ?? ""),
-      banos: String(f["Baño"] ?? ""),
-      superficie: String(f["Superficie"] ?? ""),
-      imagen: pickAttachment(f["Imágenes"]),
-      descripcion: String(f["Descripción"] ?? ""),
-      propietario: pickLookup(f["Nombre Propietario"]),
-      telefonoPropietario: pickLookup(f["Teléfono Propietario"]),
+    const detalle: InmuebleDetalle = {
+      ...base,
+      imagenes: pickAllAttachments(f["Imágenes"]),
+      agentesIds: pickIds(f["Agentes Asignados"]),
+      agentesNombres: Array.isArray(f["Nombre Agente Asignado"])
+        ? (f["Nombre Agente Asignado"] as string[])
+        : [],
+      propietarioIds: pickIds(f["Propietario"]),
+      emailPropietario: pickLookup(f["Email Propietario"]),
+      certificacionEnergetica: String(f["Certificación energética"] ?? ""),
+      anoConstruccion: String(f["Año de construcción"] ?? ""),
+      gastosComunidad: String(f["Gastos de comunidad"] ?? ""),
+      calefaccion: String(f["Calefacción"] ?? ""),
+      orientacion: pickLookup(f["Orientación"]),
+      garaje: String(f["Garaje"] ?? ""),
+      trastero: String(f["Trastero"] ?? ""),
+      ascensor: String(f["Ascensor"] ?? ""),
+      armariosEmpotrados: String(f["Armarios empotrados"] ?? ""),
+      terraza: String(f["Terraza"] ?? ""),
+      balcon: String(f["Balcón"] ?? ""),
+      planta: String(f["Planta"] ?? ""),
+      referenciaCatastral: String(f["Referencia Catastral"] ?? ""),
+      honorarios: String(f["Honorarios"] ?? ""),
+      tipoExclusiva: String(f["Tipo de exclusiva"] ?? ""),
+      notaria: String(f["Notaría"] ?? ""),
+      observaciones: String(f["Observaciones"] ?? ""),
+      llaves: String(f["Llaves"] ?? ""),
+      fechaInicio: (f["Fecha de inicio"] as string) ?? null,
+      fechaExclusiva: (f["Fecha de autorización de venta ( exclusiva)"] as string) ?? null,
+      fechaFinExclusiva: (f["Fecha fin de exclusividad"] as string) ?? null,
+      fechaReserva: (f["Fecha Reserva"] as string) ?? null,
+      fechaEscritura: (f["Fecha Escritura"] as string) ?? null,
     };
+    return { inmueble: detalle };
   });
 
-  return { inmuebles };
+export const listAgentes = createServerFn({ method: "GET" }).handler(async () => {
+  const data = (await airtableFetch(
+    `/v0/${BASE_ID}/${TABLES.agentes}?pageSize=100`,
+  )) as { records: Array<{ id: string; fields: Record<string, unknown> }> };
+  const agentes: Agente[] = data.records.map((r) => ({
+    id: r.id,
+    nombre: String(r.fields["Nombre"] ?? "").trim() || "(sin nombre)",
+    mail: String(r.fields["Mail"] ?? ""),
+  }));
+  agentes.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  return { agentes };
 });
+
+export type UpdateInmueblePayload = {
+  id: string;
+  estatus?: string;
+  publicacion?: string;
+  precio?: number | null;
+  precioFinal?: number | null;
+  agentesIds?: string[];
+  observaciones?: string;
+};
+
+export const updateInmueble = createServerFn({ method: "POST" })
+  .inputValidator((d: UpdateInmueblePayload) => {
+    if (!d?.id) throw new Error("id requerido");
+    if (d.estatus && !ESTATUS_OPCIONES.includes(d.estatus as (typeof ESTATUS_OPCIONES)[number]))
+      throw new Error("Estatus inválido");
+    if (
+      d.publicacion &&
+      !PUBLICACION_OPCIONES.includes(d.publicacion as (typeof PUBLICACION_OPCIONES)[number])
+    )
+      throw new Error("Publicación inválida");
+    if (d.precio != null && (typeof d.precio !== "number" || d.precio < 0))
+      throw new Error("Precio inválido");
+    if (d.precioFinal != null && (typeof d.precioFinal !== "number" || d.precioFinal < 0))
+      throw new Error("Precio final inválido");
+    if (d.agentesIds && !Array.isArray(d.agentesIds)) throw new Error("Agentes inválidos");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const fields: Record<string, unknown> = {};
+    if (data.estatus !== undefined) fields["Estatus"] = data.estatus;
+    if (data.publicacion !== undefined) fields["Publicación"] = data.publicacion;
+    if (data.precio !== undefined) fields["Precio"] = data.precio;
+    if (data.precioFinal !== undefined) fields["Precio Final "] = data.precioFinal;
+    if (data.agentesIds !== undefined) fields["Agentes Asignados"] = data.agentesIds;
+    if (data.observaciones !== undefined) fields["Observaciones"] = data.observaciones;
+
+    const res = (await airtableFetch(`/v0/${BASE_ID}/${TABLES.inmuebles}/${data.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ fields }),
+    })) as { id: string };
+    return { ok: true, id: res.id };
+  });

@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
@@ -119,8 +119,10 @@ function InmueblesPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filtered.map((i) => (
-          <article
+          <Link
             key={i.id}
+            to="/inmuebles/$id"
+            params={{ id: i.id }}
             className="group rounded-lg border border-border bg-card overflow-hidden flex flex-col hover:shadow-md transition-shadow"
           >
             <div className="aspect-video bg-muted relative overflow-hidden">
@@ -167,7 +169,7 @@ function InmueblesPage() {
                 </div>
               )}
             </div>
-          </article>
+          </Link>
         ))}
       </div>
 
