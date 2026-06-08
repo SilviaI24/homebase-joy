@@ -283,12 +283,13 @@ function Dashboard() {
     // funnel: visitas -> reservas -> ventas
     const reservas = stats.reservados.length + stats.vendidos.length + stats.alquilados.length;
     const ventas = stats.vendidos.length + stats.alquilados.length;
+    const tasaCierre = v.length ? Math.round((ventas / v.length) * 100) : 0;
     const funnel = [
-      { name: "Visitas", value: v.length, fill: "#3b82f6" },
-      { name: "Reservas", value: reservas, fill: "#f59e0b" },
-      { name: "Cierres", value: ventas, fill: "#10b981" },
+      { name: "Visitas", value: v.length, fill: "var(--chart-3)" },
+      { name: "Reservas", value: reservas, fill: "var(--gold)" },
+      { name: "Cierres", value: ventas, fill: "var(--primary)" },
     ];
-    return { total: v.length, proximas, realizadas, tasaRealizadas, funnel };
+    return { total: v.length, proximas, realizadas, tasaRealizadas, funnel, tasaCierre };
   }, [visData, stats]);
 
   return (
