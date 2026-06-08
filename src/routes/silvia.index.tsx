@@ -257,7 +257,7 @@ function SilviaPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-sm truncate">{c.nombre || "Sin nombre"}</span>
-                        {canalChip(canal)}
+                        <CanalChip canal={canal} />
                         {c.tipo && (
                           <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                             {c.tipo}
