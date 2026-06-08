@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { airtableFetch, BASE_ID, TABLES } from "./airtable.server";
 import { getCategoria, isAlquiler, type Categoria } from "./inmuebles.functions";
+import { toTitleCase, toTitleCaseArr } from "./format";
 
 export type ClienteAttachment = { url: string; filename: string; type: string };
 
@@ -98,10 +99,10 @@ function mapInmuebleMini(r: { id: string; fields: Record<string, unknown> }): Mi
   return {
     id: r.id,
     ref: String(f["Ref"] ?? ""),
-    calle: String(f["Calle"] ?? "").trim(),
+    calle: toTitleCase(String(f["Calle"] ?? "").trim()),
     numero: String(f["Numero"] ?? ""),
-    barrio: String(f["Barrio"] ?? ""),
-    localidad: String(f["Localidad"] ?? ""),
+    barrio: toTitleCase(String(f["Barrio"] ?? "")),
+    localidad: toTitleCase(String(f["Localidad"] ?? "")),
     estatus: String(f["Estatus"] ?? ""),
     tipo,
     categoria: getCategoria(tipo),
@@ -117,27 +118,27 @@ function mapClienteBase(r: { id: string; fields: Record<string, unknown> }): Omi
   const atts = Array.isArray(f["Attachments"]) ? (f["Attachments"] as Array<{ url: string; filename: string; type: string }>) : [];
   return {
     id: r.id,
-    nombre: asStr(f["Nombre"]).trim(),
+    nombre: toTitleCase(asStr(f["Nombre"]).trim()),
     email: asStr(f["Email"]),
     telefono: asStr(f["Teléfono"]),
     dni: asStr(f["DNI"]),
     tipo: asStr(f["Tipo de cliente"]),
     fecha: (f["Fecha"] as string) ?? null,
-    motivo: asStr(f["Motivo de la llamada"]),
-    observaciones: asStr(f["Observaciones"]),
-    solicitud: asStr(f["Solicitud de llamada"]),
-    seccion: asStr(f["Seccion"]),
-    conversaciones: asStr(f["Conversaciones"]),
-    feedback: asStr(f["Feedback Comercial"]),
-    profesion: asStr(f["Profesión"]),
-    contratoTrabajo: asStr(f["Dispones de contrato de trabajo"]),
-    mascota: asStr(f["¿Tiene mascota?"]),
-    avalista: asStr(f["¿Dispones de avalista en caso de ser necesario?"]),
+    motivo: toTitleCase(asStr(f["Motivo de la llamada"])),
+    observaciones: toTitleCase(asStr(f["Observaciones"])),
+    solicitud: toTitleCase(asStr(f["Solicitud de llamada"])),
+    seccion: toTitleCase(asStr(f["Seccion"])),
+    conversaciones: toTitleCase(asStr(f["Conversaciones"])),
+    feedback: toTitleCase(asStr(f["Feedback Comercial"])),
+    profesion: toTitleCase(asStr(f["Profesión"])),
+    contratoTrabajo: toTitleCase(asStr(f["Dispones de contrato de trabajo"])),
+    mascota: toTitleCase(asStr(f["¿Tiene mascota?"])),
+    avalista: toTitleCase(asStr(f["¿Dispones de avalista en caso de ser necesario?"])),
     categoria: asArr(f["Categoría"]),
-    trabajado: asStr(f["Trabajado"]),
+    trabajado: toTitleCase(asStr(f["Trabajado"])),
     propiedadIds: asIds(f["Propiedad asociada"]),
     propiedadRefs: asArr(f["Ref (from Propiedad asociada)"]),
-    propiedadCalles: asArr(f["Calle (from Propiedad asociada)"]),
+    propiedadCalles: toTitleCaseArr(asArr(f["Calle (from Propiedad asociada)"])),
     inmuebleCompradorIds: asIds(f["Inmuebles/ comprador"]),
     propiedadAlquilerIds: asIds(f["Propiedad asociada alquiler"]),
     inmueblesIds: asIds(f["Inmuebles"]),

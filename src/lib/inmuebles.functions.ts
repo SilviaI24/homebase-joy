@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { airtableFetch, BASE_ID, TABLES } from "./airtable.server";
+import { toTitleCase, toTitleCaseArr } from "./format";
 
 export type Inmueble = {
   id: string;
@@ -139,29 +140,29 @@ function mapBase(r: { id: string; fields: Record<string, unknown> }): Inmueble {
   return {
     id: r.id,
     ref: String(f["Ref"] ?? ""),
-    calle: String(f["Calle"] ?? "").trim(),
+    calle: toTitleCase(String(f["Calle"] ?? "").trim()),
     numero: String(f["Numero"] ?? ""),
-    localidad: String(f["Localidad"] ?? ""),
-    barrio: String(f["Barrio"] ?? ""),
+    localidad: toTitleCase(String(f["Localidad"] ?? "")),
+    barrio: toTitleCase(String(f["Barrio"] ?? "")),
     precio: typeof f["Precio"] === "number" ? (f["Precio"] as number) : null,
     precioFinal:
       typeof f["Precio Final "] === "number" ? (f["Precio Final "] as number) : null,
     tipo: String(f["Tipo de inmueble (desplegable)"] ?? ""),
     estatus: String(f["Estatus"] ?? ""),
     publicacion: String(f["Publicación"] ?? ""),
-    estado: String(f["Estado"] ?? ""),
+    estado: toTitleCase(String(f["Estado"] ?? "")),
     habitaciones: String(f["Habitaciones / dormitorios"] ?? ""),
     banos: String(f["Baño"] ?? ""),
     superficie: String(f["Superficie"] ?? ""),
     imagen: pickAttachment(f["Imágenes"]),
-    descripcion: String(f["Descripción"] ?? ""),
-    propietario: pickLookup(f["Nombre Propietario"]),
+    descripcion: toTitleCase(String(f["Descripción"] ?? "")),
+    propietario: toTitleCase(pickLookup(f["Nombre Propietario"])),
     telefonoPropietario: pickLookup(f["Teléfono Propietario"]),
     fechaInicio: (f["Fecha de inicio"] as string) ?? null,
     fechaReserva: (f["Fecha Reserva"] as string) ?? null,
     fechaEscritura: (f["Fecha Escritura"] as string) ?? null,
     agentesNombres: Array.isArray(f["Nombre Agente Asignado"])
-      ? (f["Nombre Agente Asignado"] as string[]).map(String).filter(Boolean)
+      ? toTitleCaseArr((f["Nombre Agente Asignado"] as string[]).map(String).filter(Boolean))
       : [],
   };
 }
@@ -253,28 +254,28 @@ export const getInmueble = createServerFn({ method: "GET" })
       imagenes: pickAllAttachments(f["Imágenes"]),
       agentesIds: pickIds(f["Agentes Asignados"]),
       agentesNombres: Array.isArray(f["Nombre Agente Asignado"])
-        ? (f["Nombre Agente Asignado"] as string[])
+        ? toTitleCaseArr(f["Nombre Agente Asignado"] as string[])
         : [],
       propietarioIds: pickIds(f["Propietario"]),
       emailPropietario: pickLookup(f["Email Propietario"]),
-      certificacionEnergetica: String(f["Certificación energética"] ?? ""),
+      certificacionEnergetica: toTitleCase(String(f["Certificación energética"] ?? "")),
       anoConstruccion: String(f["Año de construcción"] ?? ""),
-      gastosComunidad: String(f["Gastos de comunidad"] ?? ""),
-      calefaccion: String(f["Calefacción"] ?? ""),
-      orientacion: pickLookup(f["Orientación"]),
-      garaje: String(f["Garaje"] ?? ""),
-      trastero: String(f["Trastero"] ?? ""),
-      ascensor: String(f["Ascensor"] ?? ""),
-      armariosEmpotrados: String(f["Armarios empotrados"] ?? ""),
-      terraza: String(f["Terraza"] ?? ""),
-      balcon: String(f["Balcón"] ?? ""),
-      planta: String(f["Planta"] ?? ""),
+      gastosComunidad: toTitleCase(String(f["Gastos de comunidad"] ?? "")),
+      calefaccion: toTitleCase(String(f["Calefacción"] ?? "")),
+      orientacion: toTitleCase(pickLookup(f["Orientación"])),
+      garaje: toTitleCase(String(f["Garaje"] ?? "")),
+      trastero: toTitleCase(String(f["Trastero"] ?? "")),
+      ascensor: toTitleCase(String(f["Ascensor"] ?? "")),
+      armariosEmpotrados: toTitleCase(String(f["Armarios empotrados"] ?? "")),
+      terraza: toTitleCase(String(f["Terraza"] ?? "")),
+      balcon: toTitleCase(String(f["Balcón"] ?? "")),
+      planta: toTitleCase(String(f["Planta"] ?? "")),
       referenciaCatastral: String(f["Referencia Catastral"] ?? ""),
-      honorarios: String(f["Honorarios"] ?? ""),
-      tipoExclusiva: String(f["Tipo de exclusiva"] ?? ""),
-      notaria: String(f["Notaría"] ?? ""),
-      observaciones: String(f["Observaciones"] ?? ""),
-      llaves: String(f["Llaves"] ?? ""),
+      honorarios: toTitleCase(String(f["Honorarios"] ?? "")),
+      tipoExclusiva: toTitleCase(String(f["Tipo de exclusiva"] ?? "")),
+      notaria: toTitleCase(String(f["Notaría"] ?? "")),
+      observaciones: toTitleCase(String(f["Observaciones"] ?? "")),
+      llaves: toTitleCase(String(f["Llaves"] ?? "")),
       fechaInicio: (f["Fecha de inicio"] as string) ?? null,
       fechaExclusiva: (f["Fecha de autorización de venta ( exclusiva)"] as string) ?? null,
       fechaFinExclusiva: (f["Fecha fin de exclusividad"] as string) ?? null,
@@ -290,7 +291,7 @@ export const listAgentes = createServerFn({ method: "GET" }).handler(async () =>
   )) as { records: Array<{ id: string; fields: Record<string, unknown> }> };
   const agentes: Agente[] = data.records.map((r) => ({
     id: r.id,
-    nombre: String(r.fields["Nombre"] ?? "").trim() || "(sin nombre)",
+    nombre: toTitleCase(String(r.fields["Nombre"] ?? "").trim()) || "(sin nombre)",
     mail: String(r.fields["Mail"] ?? ""),
   }));
   agentes.sort((a, b) => a.nombre.localeCompare(b.nombre));

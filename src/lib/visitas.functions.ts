@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { airtableFetch, BASE_ID, TABLES } from "./airtable.server";
+import { toTitleCase, toTitleCaseArr } from "./format";
 
 export type VisitaFull = {
   id: string;
@@ -35,14 +36,16 @@ function mapVisita(r: { id: string; fields: Record<string, unknown> }): VisitaFu
     id: r.id,
     fecha: (f["Fecha y Hora"] as string) ?? null,
     estado: String(f["Estado"] ?? ""),
-    comentarios: String(f["Comentarios"] ?? ""),
-    actividad: Array.isArray(f["Actividad"])
-      ? (f["Actividad"] as string[]).join(", ")
-      : String(f["Actividad"] ?? ""),
+    comentarios: toTitleCase(String(f["Comentarios"] ?? "")),
+    actividad: toTitleCase(
+      Array.isArray(f["Actividad"])
+        ? (f["Actividad"] as string[]).join(", ")
+        : String(f["Actividad"] ?? ""),
+    ),
     inmuebleIds: asArr(f["Inmuebles"]),
-    inmuebleCalles: asArr(f["Calle del Inmueble"]),
+    inmuebleCalles: toTitleCaseArr(asArr(f["Calle del Inmueble"])),
     inmuebleNumeros: asArr(f["Numero"]),
-    clientesNombres: asArr(f["Nombre Clientes"]),
+    clientesNombres: toTitleCaseArr(asArr(f["Nombre Clientes"])),
     clientesTelefonos: asArr(f["Teléfono Clientes"]),
     agentesIds: asArr(f["Agentes"]),
     agentesMails: asArr(f["Mail (from Agentes)"]),
