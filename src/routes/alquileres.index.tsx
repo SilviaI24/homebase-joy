@@ -1,14 +1,11 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { listAlquileres, getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
+import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
+import { allInmueblesQuery } from "@/lib/queries";
 import { Building2, Search } from "lucide-react";
 
-const alquileresQuery = queryOptions({
-  queryKey: ["alquileres"],
-  queryFn: () => listAlquileres(),
-});
 
 export const Route = createFileRoute("/alquileres/")({
   head: () => ({
