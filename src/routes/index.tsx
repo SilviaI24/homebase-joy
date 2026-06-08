@@ -601,7 +601,7 @@ function KpiCard({
   value: string;
   hint?: string;
   to?: string;
-  tone?: "primary" | "emerald" | "blue" | "violet";
+  tone?: "primary" | "gold";
   sparkData?: { i: number; v: number }[];
   sparkColor?: string;
   delta?: number;
@@ -609,9 +609,7 @@ function KpiCard({
 }) {
   const toneMap: Record<string, string> = {
     primary: "text-primary bg-primary/10",
-    emerald: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
-    blue: "text-blue-600 dark:text-blue-400 bg-blue-500/10",
-    violet: "text-violet-600 dark:text-violet-400 bg-violet-500/10",
+    gold: "text-gold-foreground bg-gold/25",
   };
   const positive = (delta ?? 0) >= 0;
   const inner = (
