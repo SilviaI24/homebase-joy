@@ -340,7 +340,7 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
       activo,
       motivoActivo,
       inmueblesActivos,
-      matches,
+      matches: cerrado ? [] : matches,
       segmento,
       segmentoMotivo,
       estadoComercial,
