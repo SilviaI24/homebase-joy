@@ -22,7 +22,6 @@ import {
 } from "@/lib/inmuebles.functions";
 import {
   ArrowLeft,
-  Building2,
   Calendar,
   CalendarDays,
   MapPin,
