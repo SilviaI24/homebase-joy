@@ -195,6 +195,7 @@ function ComercialesPage() {
         let card = byName.get(key);
         if (!card) {
           card = {
+            id: null,
             nombre: key,
             mail: "",
             activos: 0,
@@ -207,6 +208,7 @@ function ComercialesPage() {
           };
           byName.set(key, card);
         }
+
         card.inmuebles.push(i);
         if (i.estatus === "Activo") {
           card.activos++;
