@@ -110,7 +110,7 @@ const SEG_META: Record<
     icon: Flame,
     color: "text-primary",
     chip: "bg-primary/15 text-primary border-primary/20",
-    ring: "ring-violet-500/30",
+    ring: "ring-primary/30",
     tone: "from-violet-500/10 to-transparent",
   },
   Lead: {
