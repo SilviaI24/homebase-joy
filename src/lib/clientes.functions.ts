@@ -331,46 +331,39 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
       const cats = base.categoria.map((c) => c.toLowerCase());
       matches = pool
         .filter((i) => !linkedSet.has(i.id))
-        .map<ClienteMatch>((i) => {
+        .map<ClienteMatch | null>((i) => {
           const razones: string[] = [];
           let score = 0;
           razones.push(i.esAlquiler ? "Alquiler" : "Venta");
-          score += 2;
-          // Categoría
-          if (cats.length === 0) {
-            // sin restricción
-          } else if (cats.includes(i.categoria.toLowerCase())) {
+          score += 1;
+
+          // Categoría: si el cliente especifica categorías, es obligatorio coincidir
+          if (cats.length > 0) {
+            if (!cats.includes(i.categoria.toLowerCase())) return null;
             razones.push(`Categoría: ${i.categoria}`);
             score += 3;
-          } else {
-            score -= 5;
           }
-          // Zona
+
+          // Zona: si hay zonas preferidas, es obligatorio coincidir
           const barrioL = i.barrio.toLowerCase();
           const localL = i.localidad.toLowerCase();
           if (zonasPref.length > 0) {
-            if (zonasPref.some((z) => barrioL === z || localL === z)) {
-              razones.push(`Zona: ${i.barrio || i.localidad}`);
-              score += 4;
-            } else {
-              score -= 2;
-            }
+            if (!zonasPref.some((z) => barrioL === z || localL === z)) return null;
+            razones.push(`Zona: ${i.barrio || i.localidad}`);
+            score += 4;
           }
-          // Presupuesto
+
+          // Presupuesto: ±10% estricto. Si hay presupuesto y precio fuera de rango, se descarta.
           const precio = i.precioFinal ?? i.precio;
-          if (presupuestoMax != null && precio != null) {
-            const tol = i.esAlquiler ? 0.15 : 0.2;
-            const techo = presupuestoMax * (1 + tol);
-            const suelo = (presupuestoMin ?? presupuestoMax) * (1 - tol);
-            if (precio <= techo && precio >= suelo) {
-              razones.push(`Precio: ${precio.toLocaleString("es-ES")} €`);
-              score += 4;
-            } else if (precio > presupuestoMax * 1.5) {
-              score -= 4;
-            } else {
-              score -= 1;
-            }
+          if (presupuestoMax != null) {
+            if (precio == null) return null;
+            const techo = presupuestoMax * 1.1;
+            const suelo = (presupuestoMin ?? presupuestoMax) * 0.9;
+            if (precio > techo || precio < suelo) return null;
+            razones.push(`Precio: ${precio.toLocaleString("es-ES")} €`);
+            score += 4;
           }
+
           // Habitaciones
           if (habitacionesPref != null && i.habitaciones != null) {
             const diff = Math.abs(i.habitaciones - habitacionesPref);
@@ -380,12 +373,12 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
             } else if (diff === 1) {
               score += 1;
             } else {
-              score -= 1;
+              score -= 2;
             }
           }
           return { inmueble: i, razones, score };
         })
-        .filter((m) => m.score >= 4)
+        .filter((m): m is ClienteMatch => m !== null && m.score >= 4)
         .sort((a, b) => b.score - a.score)
         .slice(0, 6);
     }
