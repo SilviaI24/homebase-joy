@@ -111,7 +111,7 @@ const SEG_META: Record<
     color: "text-primary",
     chip: "bg-primary/15 text-primary border-primary/20",
     ring: "ring-primary/30",
-    tone: "from-violet-500/10 to-transparent",
+    tone: "from-primary/10 to-transparent",
   },
   Lead: {
     label: "Leads",
@@ -125,9 +125,9 @@ const SEG_META: Record<
     label: "Descartados",
     icon: XCircle,
     color: "text-destructive",
-    chip: "bg-destructive/15 text-destructive border-rose-500/20",
+    chip: "bg-destructive/15 text-destructive border-destructive/20",
     ring: "ring-destructive/30",
-    tone: "from-rose-500/10 to-transparent",
+    tone: "from-destructive/10 to-transparent",
   },
 };
 
