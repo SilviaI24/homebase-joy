@@ -603,3 +603,78 @@ function LeadCard({
     </article>
   );
 }
+
+// Mapeo de segmento UI → valor del campo "Tipo de cliente" en Airtable
+const SEGMENTO_A_TIPO: Record<string, string> = {
+  Propietario: "Propietario",
+  Comprador: "Comprador",
+  Inquilino: "Interesado alquiler",
+  Prospecto: "Prospecciones",
+  Descartado: "Anular prospección",
+};
+
+function OrigenBadgeEditor({
+  cliente,
+  mut,
+}: {
+  cliente: Cliente;
+  mut: {
+    isPending: boolean;
+    mutate: (vars: { data: { clienteId: string; tipo?: string } }) => void;
+  };
+}) {
+  const [open, setOpen] = useState(false);
+  const o = ORIGEN_META[cliente.segmento] ?? ORIGEN_META.Lead;
+  const opciones = ["Propietario", "Comprador", "Inquilino", "Prospecto", "Descartado"] as const;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          title={`${o.descripcion}${cliente.segmentoMotivo ? ` · ${cliente.segmentoMotivo}` : ""}${cliente.tipo ? ` · Origen Airtable: ${cliente.tipo}` : ""} · Click para reclasificar`}
+          className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border cursor-pointer hover:opacity-80 ${o.cls}`}
+        >
+          <o.icon className="size-3" /> {o.label}
+          <Pencil className="size-2.5 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-60 p-2">
+        <div className="text-[11px] font-medium text-muted-foreground px-1 pb-1.5">
+          Reclasificar origen
+        </div>
+        <div className="space-y-0.5">
+          {opciones.map((seg) => {
+            const m = ORIGEN_META[seg];
+            const tipoAirtable = SEGMENTO_A_TIPO[seg];
+            const isCurrent = cliente.segmento === seg;
+            return (
+              <button
+                key={seg}
+                disabled={mut.isPending || isCurrent}
+                onClick={() => {
+                  mut.mutate({ data: { clienteId: cliente.id, tipo: tipoAirtable } });
+                  setOpen(false);
+                }}
+                className={`w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isCurrent ? "bg-muted" : ""
+                }`}
+              >
+                <span className={`inline-flex items-center justify-center size-5 rounded border ${m.cls}`}>
+                  <m.icon className="size-3" />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block font-medium">{m.label}</span>
+                  <span className="block text-[10px] text-muted-foreground line-clamp-1">
+                    {m.descripcion}
+                  </span>
+                </span>
+                {isCurrent && <CheckCircle2 className="size-3.5 text-emerald-600" />}
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
