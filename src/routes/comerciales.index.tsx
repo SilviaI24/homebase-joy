@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -9,37 +9,50 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
   Legend,
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
 import { type Inmueble } from "@/lib/inmuebles.functions";
-import { allInmueblesQuery } from "@/lib/queries";
+import { allInmueblesQuery, agentesQuery, visitasQuery } from "@/lib/queries";
 import {
-  UserCog,
+  Users,
   Building2,
   Wallet,
-  TrendingUp,
-  Trophy,
+  CalendarCheck,
+  MapPin,
+  Mail,
+  Search,
+  Sparkles,
+  Activity,
+  KeyRound,
+  HandCoins,
+  FileSignature,
   ArrowRight,
-  CheckCircle2,
-  Clock,
 } from "lucide-react";
-
 
 export const Route = createFileRoute("/comerciales/")({
   head: () => ({
     meta: [
-      { title: "Rendimiento por comercial · El Sol Grupo CRM" },
+      { title: "Equipo comercial · El Sol Grupo CRM" },
       {
         name: "description",
-        content: "Cartera, valor gestionado y conversión por agente comercial.",
+        content:
+          "Transparencia total: directorio del equipo, métricas agregadas y actividad del grupo El Sol.",
       },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(allInmueblesQuery),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(allInmueblesQuery),
+      context.queryClient.ensureQueryData(agentesQuery),
+      context.queryClient.ensureQueryData(visitasQuery),
+    ]),
   component: ComercialesPage,
   errorComponent: ({ error }) => (
-    <AppShell title="Comerciales">
+    <AppShell title="Equipo comercial">
       <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
         Error cargando datos: {error.message}
       </div>
@@ -52,124 +65,299 @@ function moneyShort(v: number): string {
   if (v >= 1_000) return `${Math.round(v / 1_000)}k €`;
   return `${v} €`;
 }
-function moneyFull(v: number): string {
-  return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
-}
-
-type AgenteStats = {
-  nombre: string;
-  total: number;
-  activos: Inmueble[];
-  reservados: Inmueble[];
-  vendidos: Inmueble[];
-  bajas: Inmueble[];
-  valorActivo: number;
-  valorVendido: number;
-  conversion: number; // vendidos / cerrables
-};
 
 const SIN_ASIGNAR = "Sin asignar";
 
+type AgenteCard = {
+  nombre: string;
+  mail: string;
+  activos: number;
+  reservados: number;
+  cerrados: number; // vendidos + alquilados
+  valorActivo: number;
+  visitas30d: number;
+  zonas: string[];
+  inmuebles: Inmueble[];
+};
+
+const ESTADO_COLORS: Record<string, string> = {
+  Activo: "#10b981",
+  Reservado: "#f59e0b",
+  Vendido: "#3b82f6",
+  Alquilado: "#8b5cf6",
+  Prospección: "#06b6d4",
+  Baja: "#94a3b8",
+};
+
 function ComercialesPage() {
   const { data: all } = useSuspenseQuery(allInmueblesQuery);
-  const data = { inmuebles: all.inmuebles };
+  const { data: ag } = useSuspenseQuery(agentesQuery);
+  const { data: vs } = useSuspenseQuery(visitasQuery);
 
-  const [selected, setSelected] = useState<string | null>(null);
+  const inmuebles = all.inmuebles;
+  const visitas = vs.visitas;
+  const [query, setQuery] = useState("");
 
-  const agentes = useMemo<AgenteStats[]>(() => {
-    const map = new Map<string, Inmueble[]>();
-    data.inmuebles.forEach((i) => {
+  // Map mail -> nombre para resolver visitas (visitas traen mails de agentes)
+  const mailToNombre = useMemo(() => {
+    const m = new Map<string, string>();
+    ag.agentes.forEach((a) => {
+      if (a.mail) m.set(a.mail.toLowerCase(), a.nombre);
+    });
+    return m;
+  }, [ag.agentes]);
+
+  // KPIs agregados del grupo
+  const totals = useMemo(() => {
+    const now = new Date();
+    const d30 = new Date(now);
+    d30.setDate(d30.getDate() - 30);
+    const dMes = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    let activos = 0;
+    let valorActivo = 0;
+    let captacionesMes = 0;
+    let cierresMes = 0;
+    inmuebles.forEach((i) => {
+      if (i.estatus === "Activo") {
+        activos++;
+        valorActivo += i.precio ?? 0;
+      }
+      if (i.fechaInicio && new Date(i.fechaInicio) >= dMes) captacionesMes++;
+      if (
+        i.fechaEscritura &&
+        new Date(i.fechaEscritura) >= dMes &&
+        (i.estatus === "Vendido" || i.estatus === "Alquilado")
+      )
+        cierresMes++;
+    });
+    const visitas30 = visitas.filter(
+      (v) => v.fecha && new Date(v.fecha) >= d30,
+    ).length;
+
+    return {
+      comerciales: ag.agentes.length,
+      activos,
+      valorActivo,
+      visitas30,
+      captacionesMes,
+      cierresMes,
+    };
+  }, [inmuebles, visitas, ag.agentes]);
+
+  // Mix por estado
+  const mixEstado = useMemo(() => {
+    const m = new Map<string, number>();
+    inmuebles.forEach((i) => m.set(i.estatus || "—", (m.get(i.estatus || "—") ?? 0) + 1));
+    return Array.from(m.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [inmuebles]);
+
+  // Distribución por zona (top localidades)
+  const mixZona = useMemo(() => {
+    const m = new Map<string, number>();
+    inmuebles.forEach((i) => {
+      const z = i.localidad?.trim() || "Sin zona";
+      m.set(z, (m.get(z) ?? 0) + 1);
+    });
+    return Array.from(m.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+  }, [inmuebles]);
+
+  // Directorio del equipo (alfabético, sin ranking)
+  const directorio = useMemo<AgenteCard[]>(() => {
+    const byName = new Map<string, AgenteCard>();
+    ag.agentes.forEach((a) => {
+      byName.set(a.nombre, {
+        nombre: a.nombre,
+        mail: a.mail,
+        activos: 0,
+        reservados: 0,
+        cerrados: 0,
+        valorActivo: 0,
+        visitas30d: 0,
+        zonas: [],
+        inmuebles: [],
+      });
+    });
+    const zonaSet = new Map<string, Set<string>>();
+    inmuebles.forEach((i) => {
       const nombres = i.agentesNombres.length > 0 ? i.agentesNombres : [SIN_ASIGNAR];
       nombres.forEach((n) => {
         const key = n.trim() || SIN_ASIGNAR;
-        if (!map.has(key)) map.set(key, []);
-        map.get(key)!.push(i);
+        let card = byName.get(key);
+        if (!card) {
+          card = {
+            nombre: key,
+            mail: "",
+            activos: 0,
+            reservados: 0,
+            cerrados: 0,
+            valorActivo: 0,
+            visitas30d: 0,
+            zonas: [],
+            inmuebles: [],
+          };
+          byName.set(key, card);
+        }
+        card.inmuebles.push(i);
+        if (i.estatus === "Activo") {
+          card.activos++;
+          card.valorActivo += i.precio ?? 0;
+        } else if (i.estatus === "Reservado") {
+          card.reservados++;
+        } else if (i.estatus === "Vendido" || i.estatus === "Alquilado") {
+          card.cerrados++;
+        }
+        if (i.localidad) {
+          if (!zonaSet.has(key)) zonaSet.set(key, new Set());
+          zonaSet.get(key)!.add(i.localidad);
+        }
       });
     });
-    const list: AgenteStats[] = [];
-    map.forEach((items, nombre) => {
-      const activos = items.filter((i) => i.estatus === "Activo");
-      const reservados = items.filter((i) => i.estatus === "Reservado");
-      const vendidos = items.filter((i) => i.estatus === "Vendido");
-      const bajas = items.filter((i) => i.estatus === "Baja");
-      const valorActivo = activos.reduce((s, i) => s + (i.precio ?? 0), 0);
-      const valorVendido = vendidos.reduce((s, i) => s + (i.precioFinal ?? i.precio ?? 0), 0);
-      const cerrables = activos.length + reservados.length + vendidos.length;
-      const conversion = cerrables ? (vendidos.length / cerrables) * 100 : 0;
-      list.push({
-        nombre,
-        total: items.length,
-        activos,
-        reservados,
-        vendidos,
-        bajas,
-        valorActivo,
-        valorVendido,
-        conversion,
+    // Visitas últimos 30 días por comercial (vía mail)
+    const now = new Date();
+    const d30 = new Date(now);
+    d30.setDate(d30.getDate() - 30);
+    visitas.forEach((v) => {
+      if (!v.fecha || new Date(v.fecha) < d30) return;
+      v.agentesMails.forEach((m) => {
+        const nombre = mailToNombre.get(m.toLowerCase());
+        if (!nombre) return;
+        const c = byName.get(nombre);
+        if (c) c.visitas30d++;
       });
     });
-    list.sort((a, b) => b.valorActivo - a.valorActivo);
+    const list = Array.from(byName.values()).map((c) => ({
+      ...c,
+      zonas: Array.from(zonaSet.get(c.nombre) ?? []).slice(0, 4),
+    }));
+    list.sort((a, b) => a.nombre.localeCompare(b.nombre));
     return list;
-  }, [data.inmuebles]);
+  }, [ag.agentes, inmuebles, visitas, mailToNombre]);
 
-  const totals = useMemo(() => {
-    return agentes.reduce(
-      (acc, a) => {
-        acc.activos += a.activos.length;
-        acc.vendidos += a.vendidos.length;
-        acc.valorActivo += a.valorActivo;
-        return acc;
-      },
-      { activos: 0, vendidos: 0, valorActivo: 0 },
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return directorio;
+    return directorio.filter(
+      (c) =>
+        c.nombre.toLowerCase().includes(q) ||
+        c.mail.toLowerCase().includes(q) ||
+        c.zonas.some((z) => z.toLowerCase().includes(q)),
     );
-  }, [agentes]);
+  }, [directorio, query]);
 
-  const barData = useMemo(
-    () =>
-      agentes.slice(0, 10).map((a) => ({
-        nombre: a.nombre.split(" ")[0],
-        Activos: a.activos.length,
-        Reservados: a.reservados.length,
-        Vendidos: a.vendidos.length,
-      })),
-    [agentes],
-  );
-
-  const valorData = useMemo(
-    () =>
-      agentes.slice(0, 10).map((a) => ({
-        nombre: a.nombre.split(" ")[0],
-        valorM: +(a.valorActivo / 1_000_000).toFixed(2),
-      })),
-    [agentes],
-  );
-
-  const top = agentes[0];
+  // Actividad reciente (timeline transversal)
+  const actividad = useMemo(() => {
+    type Evt = {
+      key: string;
+      fecha: Date;
+      tipo: "captacion" | "reserva" | "cierre" | "visita";
+      titulo: string;
+      sub: string;
+      agentes: string[];
+      to?: { id: string };
+    };
+    const evts: Evt[] = [];
+    inmuebles.forEach((i) => {
+      if (i.fechaInicio) {
+        evts.push({
+          key: `c-${i.id}`,
+          fecha: new Date(i.fechaInicio),
+          tipo: "captacion",
+          titulo: `Captación · ${i.calle} ${i.numero}`.trim(),
+          sub: i.localidad || "",
+          agentes: i.agentesNombres,
+          to: { id: i.id },
+        });
+      }
+      if (i.fechaReserva) {
+        evts.push({
+          key: `r-${i.id}`,
+          fecha: new Date(i.fechaReserva),
+          tipo: "reserva",
+          titulo: `Reserva · ${i.calle} ${i.numero}`.trim(),
+          sub: i.localidad || "",
+          agentes: i.agentesNombres,
+          to: { id: i.id },
+        });
+      }
+      if (i.fechaEscritura) {
+        evts.push({
+          key: `e-${i.id}`,
+          fecha: new Date(i.fechaEscritura),
+          tipo: "cierre",
+          titulo: `${i.estatus === "Alquilado" ? "Alquiler firmado" : "Escritura"} · ${i.calle} ${i.numero}`.trim(),
+          sub: i.localidad || "",
+          agentes: i.agentesNombres,
+          to: { id: i.id },
+        });
+      }
+    });
+    visitas.forEach((v) => {
+      if (!v.fecha) return;
+      const nombres = v.agentesMails
+        .map((m) => mailToNombre.get(m.toLowerCase()))
+        .filter((n): n is string => !!n);
+      evts.push({
+        key: `v-${v.id}`,
+        fecha: new Date(v.fecha),
+        tipo: "visita",
+        titulo: `Visita · ${v.inmuebleCalles[0] ?? "Inmueble"} ${v.inmuebleNumeros[0] ?? ""}`.trim(),
+        sub: v.clientesNombres.join(", ") || v.estado,
+        agentes: nombres,
+        to: v.inmuebleIds[0] ? { id: v.inmuebleIds[0] } : undefined,
+      });
+    });
+    evts.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
+    return evts.slice(0, 30);
+  }, [inmuebles, visitas, mailToNombre]);
 
   return (
-    <AppShell title="Rendimiento por comercial">
-      {/* KPIs globales */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Kpi icon={UserCog} label="Comerciales activos" value={agentes.length.toString()} tone="primary" />
-        <Kpi icon={Building2} label="Inmuebles activos" value={totals.activos.toString()} tone="emerald" />
-        <Kpi icon={Wallet} label="Valor gestionado" value={moneyShort(totals.valorActivo)} tone="blue" />
-        <Kpi
-          icon={Trophy}
-          label="Top comercial"
-          value={top ? top.nombre.split(" ")[0] : "—"}
-          hint={top ? `${top.activos.length} activos · ${moneyShort(top.valorActivo)}` : ""}
-          tone="violet"
-        />
+    <AppShell title="Equipo comercial">
+      {/* Banner transparencia */}
+      <div className="mb-6 rounded-xl border border-border bg-card p-4 flex items-start gap-3">
+        <div className="size-9 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <Sparkles className="size-4" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">Transparencia total del Grupo El Sol</div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            Todo el equipo accede a la misma información: cartera completa, actividad reciente y métricas agregadas. Sin rankings, sin silos.
+          </div>
+        </div>
       </div>
 
-      {/* Charts */}
+      {/* KPIs agregados del grupo */}
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
+        <Kpi icon={Users} label="Comerciales" value={totals.comerciales.toString()} tone="primary" />
+        <Kpi icon={Building2} label="Inmuebles activos" value={totals.activos.toString()} tone="emerald" />
+        <Kpi icon={Wallet} label="Valor cartera" value={moneyShort(totals.valorActivo)} tone="blue" />
+        <Kpi icon={CalendarCheck} label="Visitas (30d)" value={totals.visitas30.toString()} tone="violet" />
+        <Kpi icon={KeyRound} label="Captaciones mes" value={totals.captacionesMes.toString()} tone="amber" />
+        <Kpi icon={FileSignature} label="Cierres mes" value={totals.cierresMes.toString()} tone="rose" />
+      </div>
+
+      {/* Métricas agregadas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <ChartCard title="Inmuebles por comercial (top 10)" icon={Building2}>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={barData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-              <XAxis dataKey="nombre" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+        <ChartCard title="Mix de cartera por estado" icon={Activity}>
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie
+                data={mixEstado}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={60}
+                outerRadius={95}
+                paddingAngle={2}
+              >
+                {mixEstado.map((e) => (
+                  <Cell key={e.name} fill={ESTADO_COLORS[e.name] ?? "#64748b"} />
+                ))}
+              </Pie>
               <Tooltip
                 contentStyle={{
                   background: "hsl(var(--card))",
@@ -179,28 +367,21 @@ function ComercialesPage() {
                 }}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="Activos" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Reservados" stackId="a" fill="#f59e0b" />
-              <Bar dataKey="Vendidos" stackId="a" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-            </BarChart>
+            </PieChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Valor de cartera activa por comercial (M€)" icon={Wallet}>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart
-              data={valorData}
-              layout="vertical"
-              margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
-            >
+        <ChartCard title="Distribución por zona (top 8)" icon={MapPin}>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={mixZona} layout="vertical" margin={{ left: 10, right: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+              <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
               <YAxis
                 type="category"
-                dataKey="nombre"
+                dataKey="name"
                 tick={{ fontSize: 11 }}
                 stroke="hsl(var(--muted-foreground))"
-                width={80}
+                width={110}
               />
               <Tooltip
                 contentStyle={{
@@ -209,161 +390,192 @@ function ComercialesPage() {
                   borderRadius: 8,
                   fontSize: 12,
                 }}
-                formatter={(v: number) => [`${v} M€`, "Valor"]}
               />
-              <Bar dataKey="valorM" fill="hsl(var(--primary))" radius={[0, 6, 6, 0]} />
+              <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
 
-      {/* Ranking */}
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Trophy className="size-4 text-muted-foreground" /> Ranking de comerciales
-          </h3>
-          <span className="text-xs text-muted-foreground">{agentes.length} comerciales</span>
+      {/* Directorio del equipo + actividad */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        {/* Directorio */}
+        <div className="xl:col-span-2 rounded-xl border border-border bg-card overflow-hidden">
+          <div className="px-5 py-3 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Users className="size-4 text-muted-foreground" /> Directorio del equipo
+              <span className="text-xs text-muted-foreground font-normal">· {filtered.length} comerciales</span>
+            </h3>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar por nombre, mail o zona"
+                className="h-8 w-64 max-w-full rounded-md border border-border bg-background pl-8 pr-2 text-xs outline-none focus:border-foreground/30"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
+            {filtered.map((c) => (
+              <AgenteCardView key={c.nombre} card={c} />
+            ))}
+            {filtered.length === 0 && (
+              <div className="col-span-full text-center text-xs text-muted-foreground py-8">
+                Sin coincidencias.
+              </div>
+            )}
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-xs text-muted-foreground border-b border-border">
-                <th className="text-left font-medium px-5 py-2">Comercial</th>
-                <th className="text-right font-medium px-3 py-2">Activos</th>
-                <th className="text-right font-medium px-3 py-2">Reservados</th>
-                <th className="text-right font-medium px-3 py-2">Vendidos</th>
-                <th className="text-right font-medium px-3 py-2">Valor activo</th>
-                <th className="text-right font-medium px-3 py-2">Conversión</th>
-                <th className="px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {agentes.map((a, idx) => {
-                const isOpen = selected === a.nombre;
-                return (
-                  <Fragment key={a.nombre}>
-                    <tr
-                      onClick={() => setSelected(isOpen ? null : a.nombre)}
-                      className={`border-b border-border/60 hover:bg-accent/40 cursor-pointer ${
-                        isOpen ? "bg-accent/30" : ""
-                      }`}
+
+        {/* Actividad reciente */}
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Activity className="size-4 text-muted-foreground" /> Actividad reciente
+            </h3>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Grupo</span>
+          </div>
+          <ol className="divide-y divide-border max-h-[640px] overflow-y-auto">
+            {actividad.map((e) => (
+              <li key={e.key} className="px-4 py-3 hover:bg-accent/40 transition-colors">
+                <div className="flex items-start gap-3">
+                  <ActividadIcon tipo={e.tipo} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium truncate">{e.titulo}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {e.sub}
+                      {e.agentes.length > 0 && <> · {e.agentes.join(", ")}</>}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground/80 mt-0.5">
+                      {e.fecha.toLocaleDateString("es-ES", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </div>
+                  </div>
+                  {e.to && (
+                    <Link
+                      to="/inmuebles/$id"
+                      params={{ id: e.to.id }}
+                      className="text-muted-foreground hover:text-foreground shrink-0"
                     >
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`flex size-7 items-center justify-center rounded-full text-[11px] font-semibold ${
-                              idx === 0
-                                ? "bg-amber-500/20 text-amber-700 dark:text-amber-400"
-                                : idx === 1
-                                  ? "bg-slate-400/20 text-slate-700 dark:text-slate-300"
-                                  : idx === 2
-                                    ? "bg-orange-600/20 text-orange-700 dark:text-orange-400"
-                                    : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {idx + 1}
-                          </div>
-                          <span className={`font-medium ${a.nombre === SIN_ASIGNAR ? "italic text-muted-foreground" : ""}`}>
-                            {a.nombre}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="text-right px-3 py-3 tabular-nums">{a.activos.length}</td>
-                      <td className="text-right px-3 py-3 tabular-nums text-amber-600 dark:text-amber-400">
-                        {a.reservados.length}
-                      </td>
-                      <td className="text-right px-3 py-3 tabular-nums text-blue-600 dark:text-blue-400 font-semibold">
-                        {a.vendidos.length}
-                      </td>
-                      <td className="text-right px-3 py-3 tabular-nums font-semibold">
-                        {moneyShort(a.valorActivo)}
-                      </td>
-                      <td className="text-right px-3 py-3">
-                        <div className="inline-flex items-center gap-2">
-                          <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-emerald-500 rounded-full"
-                              style={{ width: `${Math.min(100, a.conversion)}%` }}
-                            />
-                          </div>
-                          <span className="tabular-nums text-xs w-10 text-right">{a.conversion.toFixed(0)}%</span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-muted-foreground">
-                        <ArrowRight className={`size-4 transition-transform ${isOpen ? "rotate-90" : ""}`} />
-                      </td>
-                    </tr>
-                    {isOpen && (
-                      <tr>
-                        <td colSpan={7} className="bg-muted/30 px-5 py-4">
-                          <AgenteDetail agente={a} />
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+                      <ArrowRight className="size-3.5" />
+                    </Link>
+                  )}
+                </div>
+              </li>
+            ))}
+            {actividad.length === 0 && (
+              <li className="px-4 py-8 text-center text-xs text-muted-foreground">
+                Sin actividad reciente.
+              </li>
+            )}
+          </ol>
         </div>
       </div>
     </AppShell>
   );
 }
 
-function AgenteDetail({ agente }: { agente: AgenteStats }) {
+function AgenteCardView({ card }: { card: AgenteCard }) {
+  const isSinAsignar = card.nombre === SIN_ASIGNAR;
+  const initials = card.nombre
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s) => s[0]?.toUpperCase())
+    .join("");
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-        <Stat icon={Clock} label="Activos" value={`${agente.activos.length}`} />
-        <Stat icon={Clock} label="Reservados" value={`${agente.reservados.length}`} />
-        <Stat icon={CheckCircle2} label="Vendidos" value={`${agente.vendidos.length}`} />
-        <Stat icon={TrendingUp} label="Valor cerrado" value={moneyShort(agente.valorVendido)} />
-      </div>
-      {agente.activos.length > 0 && (
-        <div>
-          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
-            Cartera activa ({agente.activos.length})
+    <div className="rounded-lg border border-border bg-background p-4 hover:border-foreground/30 transition-colors">
+      <div className="flex items-start gap-3">
+        <div
+          className={`size-10 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
+            isSinAsignar ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
+          }`}
+        >
+          {initials || "—"}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className={`text-sm font-semibold truncate ${isSinAsignar ? "italic text-muted-foreground" : ""}`}>
+            {card.nombre}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {agente.activos.slice(0, 9).map((i) => (
-              <Link
-                key={i.id}
-                to="/inmuebles/$id"
-                params={{ id: i.id }}
-                className="flex items-center justify-between gap-2 rounded-md border border-border bg-background p-2 hover:border-foreground/30 transition-colors"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium truncate">
-                    {i.calle} {i.numero}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground truncate">
-                    {i.ref && `#${i.ref} · `}{i.tipo}
-                  </div>
-                </div>
-                <div className="text-xs font-semibold tabular-nums shrink-0">
-                  {i.precio ? moneyFull(i.precio) : "—"}
-                </div>
-              </Link>
-            ))}
-          </div>
-          {agente.activos.length > 9 && (
-            <div className="text-[11px] text-muted-foreground mt-2">+ {agente.activos.length - 9} más</div>
+          {card.mail && (
+            <a
+              href={`mailto:${card.mail}`}
+              className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 truncate"
+            >
+              <Mail className="size-3" /> {card.mail}
+            </a>
           )}
         </div>
-      )}
+      </div>
+      <div className="grid grid-cols-4 gap-2 mt-3">
+        <Mini label="Activos" value={card.activos} tone="emerald" />
+        <Mini label="Reserv." value={card.reservados} tone="amber" />
+        <Mini label="Cerrados" value={card.cerrados} tone="blue" />
+        <Mini label="Visitas 30d" value={card.visitas30d} tone="violet" />
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-2 text-[11px]">
+        <div className="text-muted-foreground truncate">
+          <Wallet className="size-3 inline mr-1" />
+          {moneyShort(card.valorActivo)} <span className="text-muted-foreground/70">en cartera</span>
+        </div>
+        {card.zonas.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap justify-end">
+            {card.zonas.slice(0, 2).map((z) => (
+              <span
+                key={z}
+                className="px-1.5 py-0.5 rounded border border-border bg-muted/40 text-[10px] truncate max-w-[90px]"
+              >
+                {z}
+              </span>
+            ))}
+            {card.zonas.length > 2 && (
+              <span className="text-[10px] text-muted-foreground">+{card.zonas.length - 2}</span>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function Stat({ icon: Icon, label, value }: { icon: typeof Clock; label: string; value: string }) {
+function Mini({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "emerald" | "amber" | "blue" | "violet";
+}) {
+  const toneMap: Record<string, string> = {
+    emerald: "text-emerald-700 dark:text-emerald-400",
+    amber: "text-amber-700 dark:text-amber-400",
+    blue: "text-blue-700 dark:text-blue-400",
+    violet: "text-violet-700 dark:text-violet-400",
+  };
   return (
-    <div className="rounded-md border border-border bg-background/60 p-2.5">
-      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-        <Icon className="size-3" /> {label}
-      </div>
-      <div className="text-sm font-semibold tabular-nums mt-1">{value}</div>
+    <div className="rounded-md border border-border bg-card px-2 py-1.5 text-center">
+      <div className={`text-sm font-semibold tabular-nums ${toneMap[tone]}`}>{value}</div>
+      <div className="text-[10px] text-muted-foreground leading-none mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function ActividadIcon({ tipo }: { tipo: "captacion" | "reserva" | "cierre" | "visita" }) {
+  const map = {
+    captacion: { Icon: KeyRound, cls: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400" },
+    reserva: { Icon: HandCoins, cls: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
+    cierre: { Icon: FileSignature, cls: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
+    visita: { Icon: CalendarCheck, cls: "bg-violet-500/10 text-violet-700 dark:text-violet-400" },
+  } as const;
+  const { Icon, cls } = map[tipo];
+  return (
+    <div className={`size-7 rounded-md flex items-center justify-center shrink-0 ${cls}`}>
+      <Icon className="size-3.5" />
     </div>
   );
 }
@@ -372,31 +584,30 @@ function Kpi({
   icon: Icon,
   label,
   value,
-  hint,
   tone = "primary",
 }: {
   icon: typeof Building2;
   label: string;
   value: string;
-  hint?: string;
-  tone?: "primary" | "emerald" | "blue" | "violet";
+  tone?: "primary" | "emerald" | "blue" | "violet" | "amber" | "rose";
 }) {
   const toneMap: Record<string, string> = {
     primary: "text-primary bg-primary/10",
     emerald: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
     blue: "text-blue-600 dark:text-blue-400 bg-blue-500/10",
     violet: "text-violet-600 dark:text-violet-400 bg-violet-500/10",
+    amber: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
+    rose: "text-rose-600 dark:text-rose-400 bg-rose-500/10",
   };
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-muted-foreground font-medium">{label}</div>
-        <div className={`size-8 rounded-md flex items-center justify-center ${toneMap[tone]}`}>
-          <Icon className="size-4" />
+    <div className="rounded-lg border border-border bg-card p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[11px] text-muted-foreground font-medium truncate">{label}</div>
+        <div className={`size-7 rounded-md flex items-center justify-center ${toneMap[tone]}`}>
+          <Icon className="size-3.5" />
         </div>
       </div>
-      <div className="mt-2 text-2xl font-semibold tabular-nums truncate">{value}</div>
-      {hint && <div className="mt-0.5 text-[11px] text-muted-foreground truncate">{hint}</div>}
+      <div className="mt-1.5 text-xl font-semibold tabular-nums truncate">{value}</div>
     </div>
   );
 }
@@ -407,11 +618,11 @@ function ChartCard({
   children,
 }: {
   title: string;
-  icon: typeof TrendingUp;
+  icon: typeof Activity;
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
         <Icon className="size-4 text-muted-foreground" /> {title}
       </h3>
