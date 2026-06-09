@@ -21,7 +21,7 @@ import { AppShell } from "@/components/AppShell";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
 import { Input } from "@/components/ui/input";
 
-import { visitasQuery, allInmueblesQuery } from "@/lib/queries";
+import { visitasQuery, allInmueblesQuery, agentesQuery } from "@/lib/queries";
 import type { VisitaFull } from "@/lib/visitas.functions";
 import {
   CalendarDays,
