@@ -343,16 +343,17 @@ function LeadCard({
                   <span className="opacity-70">· {ultimaNota.fecha}</span>
                 </span>
               )}
-              {cliente.tipo && (
-                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                  {cliente.tipo}
-                </span>
-              )}
-              {cliente.segmento && cliente.segmento !== "Lead" && (
-                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                  {cliente.segmento}
-                </span>
-              )}
+              {(() => {
+                const o = ORIGEN_META[cliente.segmento] ?? ORIGEN_META.Lead;
+                return (
+                  <span
+                    className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border ${o.cls}`}
+                    title={`${o.descripcion}${cliente.segmentoMotivo ? ` · ${cliente.segmentoMotivo}` : ""}${cliente.tipo ? ` · Origen Airtable: ${cliente.tipo}` : ""}`}
+                  >
+                    <o.icon className="size-3" /> {o.label}
+                  </span>
+                );
+              })()}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
               {cliente.telefono && (
