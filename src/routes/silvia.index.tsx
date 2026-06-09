@@ -32,6 +32,8 @@ import {
   inferCanal,
   type Canal,
 } from "@/components/silvia/conversation";
+import { AsignarLeadButton } from "@/components/AsignarLeadButton";
+
 
 const clientesQuery = queryOptions({
   queryKey: ["clientes"],
