@@ -21,6 +21,12 @@ import {
   ArrowRight,
   Users,
   Inbox,
+  Home,
+  ShoppingCart,
+  KeyRound,
+  Search as SearchIcon,
+  HelpCircle,
+  Ban,
 } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
@@ -88,6 +94,48 @@ const ESTADO_META: Record<
     cls: "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/30",
     icon: XCircle,
     label: "Descartado",
+  },
+};
+
+const ORIGEN_META: Record<
+  string,
+  { cls: string; icon: typeof Clock; label: string; descripcion: string }
+> = {
+  Propietario: {
+    cls: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30",
+    icon: Home,
+    label: "Propietario",
+    descripcion: "Dueño de un inmueble que quiere vender o alquilar con nosotros",
+  },
+  Comprador: {
+    cls: "bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400 border-fuchsia-500/30",
+    icon: ShoppingCart,
+    label: "Comprador",
+    descripcion: "Interesado en comprar un inmueble",
+  },
+  Inquilino: {
+    cls: "bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/30",
+    icon: KeyRound,
+    label: "Inquilino",
+    descripcion: "Interesado en alquilar un inmueble",
+  },
+  Prospecto: {
+    cls: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30",
+    icon: SearchIcon,
+    label: "Prospección",
+    descripcion: "Captación: posible propietario a contactar para incorporar a cartera",
+  },
+  Lead: {
+    cls: "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/30",
+    icon: HelpCircle,
+    label: "Lead sin clasificar",
+    descripcion: "Contacto entrante sin tipo definido todavía",
+  },
+  Descartado: {
+    cls: "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30",
+    icon: Ban,
+    label: "Descartado",
+    descripcion: "Contacto descartado o anulado",
   },
 };
 
@@ -343,16 +391,17 @@ function LeadCard({
                   <span className="opacity-70">· {ultimaNota.fecha}</span>
                 </span>
               )}
-              {cliente.tipo && (
-                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                  {cliente.tipo}
-                </span>
-              )}
-              {cliente.segmento && cliente.segmento !== "Lead" && (
-                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                  {cliente.segmento}
-                </span>
-              )}
+              {(() => {
+                const o = ORIGEN_META[cliente.segmento] ?? ORIGEN_META.Lead;
+                return (
+                  <span
+                    className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border ${o.cls}`}
+                    title={`${o.descripcion}${cliente.segmentoMotivo ? ` · ${cliente.segmentoMotivo}` : ""}${cliente.tipo ? ` · Origen Airtable: ${cliente.tipo}` : ""}`}
+                  >
+                    <o.icon className="size-3" /> {o.label}
+                  </span>
+                );
+              })()}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
               {cliente.telefono && (
