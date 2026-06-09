@@ -109,6 +109,18 @@ function formatFecha(iso: string | null): string {
   });
 }
 
+function extraerUltimaNota(
+  obs: string,
+): { fecha: string; texto: string } | null {
+  if (!obs || !obs.trim()) return null;
+  const lines = obs.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const m = lines[i].trim().match(/^\[([^\]]+)\]\s*(.+)$/);
+    if (m) return { fecha: m[1], texto: m[2] };
+  }
+  return null;
+}
+
 function MisLeadsPage() {
   const { data } = useSuspenseQuery(clientesQuery);
   const { data: ag } = useSuspenseQuery(agentesQuery);
