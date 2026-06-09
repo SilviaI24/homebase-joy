@@ -51,9 +51,9 @@ function suggestionFor(dias: number): Suggestion {
 }
 
 const toneStyles: Record<Suggestion["tone"], string> = {
-  warning: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
-  danger: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30",
-  critical: "bg-destructive/10 text-destructive border-destructive/40",
+  warning: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+  danger: "border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-300",
+  critical: "border-destructive/40 bg-destructive/10 text-destructive",
 };
 
 type Props = { inmuebles: Inmueble[]; staleDays?: number };
@@ -96,12 +96,12 @@ export function RecordatoriosEstancados({ inmuebles, staleDays = 90 }: Props) {
   };
 
   return (
-    <div className="mb-5 rounded-xl border border-destructive/30 bg-gradient-to-br from-destructive/5 to-transparent overflow-hidden">
+    <div className="mb-5 overflow-hidden rounded-xl border border-destructive/30 bg-card shadow-sm">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-destructive/5 transition-colors"
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted"
       >
-        <div className="size-9 rounded-lg bg-destructive/15 text-destructive flex items-center justify-center">
+        <div className="flex size-9 items-center justify-center rounded-lg border border-destructive/20 bg-destructive/10 text-destructive">
           <AlertTriangle className="size-5" />
         </div>
         <div className="flex-1 min-w-0">
