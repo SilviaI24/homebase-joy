@@ -1043,7 +1043,7 @@ function StatBox({
 }) {
   const toneCls =
     tone === "emerald"
-      ? "text-emerald-600 dark:text-emerald-400"
+      ? "text-emerald-700 dark:text-emerald-300"
       : tone === "primary"
       ? "text-primary"
       : tone === "destructive"
@@ -1051,10 +1051,26 @@ function StatBox({
       : tone === "muted"
       ? "text-muted-foreground"
       : "text-foreground";
+  const accent =
+    tone === "emerald"
+      ? "before:bg-emerald-500"
+      : tone === "primary"
+      ? "before:bg-primary"
+      : tone === "destructive"
+      ? "before:bg-destructive"
+      : tone === "muted"
+      ? "before:bg-muted-foreground/40"
+      : "before:bg-border";
   return (
-    <div className="rounded-md border border-border bg-background px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={`text-lg font-semibold leading-tight ${toneCls}`}>{value}</div>
+    <div
+      className={`relative rounded-md border border-border bg-background px-3 py-2.5 overflow-hidden before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] ${accent}`}
+    >
+      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground">
+        {label}
+      </div>
+      <div className={`text-lg font-display font-semibold leading-tight mt-0.5 tabular-nums ${toneCls}`}>
+        {value}
+      </div>
       {hint && <div className="text-[10px] text-muted-foreground mt-0.5">{hint}</div>}
     </div>
   );
