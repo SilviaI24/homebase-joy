@@ -299,11 +299,26 @@ function LeadCard({
     });
   }
 
+  const ultimaNota = extraerUltimaNota(cliente.observaciones);
+  const esContactado = estado === "Contactado";
+
   return (
-    <article className="rounded-lg border border-border bg-card hover:border-foreground/20 transition-colors">
+    <article
+      className={`rounded-lg border bg-card hover:border-foreground/20 transition-colors ${
+        esContactado
+          ? "border-emerald-500/40 ring-1 ring-emerald-500/20 shadow-sm"
+          : "border-border"
+      }`}
+    >
       <header className="flex items-start justify-between gap-3 p-4">
         <div className="flex items-start gap-3 min-w-0 flex-1">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-amber-200/30 text-primary text-sm font-semibold">
+          <div
+            className={`flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+              esContactado
+                ? "bg-emerald-500/15 text-emerald-600"
+                : "bg-gradient-to-br from-primary/20 to-amber-200/30 text-primary"
+            }`}
+          >
             {cliente.nombre.charAt(0).toUpperCase() || "?"}
           </div>
           <div className="min-w-0 flex-1">
@@ -316,6 +331,18 @@ function LeadCard({
               >
                 <meta.icon className="size-3" /> {meta.label}
               </span>
+              {ultimaNota && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30"
+                  title={ultimaNota.texto}
+                >
+                  <MessageSquare className="size-3" />
+                  <span className="truncate max-w-[140px]">
+                    {ultimaNota.texto}
+                  </span>
+                  <span className="opacity-70">· {ultimaNota.fecha}</span>
+                </span>
+              )}
               {cliente.tipo && (
                 <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                   {cliente.tipo}
