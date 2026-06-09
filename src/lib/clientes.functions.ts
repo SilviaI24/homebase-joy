@@ -328,7 +328,7 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
       return n;
     };
     // Rangos: "200-250k", "180.000 a 220.000 €", "entre 180 y 220 mil"
-    const rangeRe = /(\d{1,7}(?:[.,]\d{1,3})*)\s*(?:-|–|a|y|hasta)\s*(\d{1,7}(?:[.,]\d{1,3})*)\s*(k|m|mil|mill(?:on|ones)?)?\s*(?:€|eur|euros)?/gi;
+    const rangeRe = /(\d{1,7}(?:[.,]\d{1,3})*)\s*(?:-|–|a|y|hasta)\s*(\d{1,7}(?:[.,]\d{1,3})*)\s*(mill(?:on|ones)?|mil|k|m)?\b\s*(?:€|eur|euros)?/gi;
     const consumed: Array<[number, number]> = [];
     for (const m of txt.matchAll(rangeRe)) {
       const suf = m[3] ?? "";
@@ -339,7 +339,7 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
       if (m.index != null) consumed.push([m.index, m.index + m[0].length]);
     }
     // Importes sueltos con sufijo k/M/mil/€
-    const moneyRe = /(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(k|m|mil|mill(?:on|ones)?)?\s*(€|eur|euros)?/gi;
+    const moneyRe = /(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(mill(?:on|ones)?|mil|k|m)?\b\s*(€|eur|euros)?/gi;
     for (const m of txt.matchAll(moneyRe)) {
       if (m.index != null && consumed.some(([s, e]) => m.index! >= s && m.index! < e)) continue;
       const suf = m[2] ?? "";
