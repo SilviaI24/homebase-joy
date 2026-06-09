@@ -21,6 +21,12 @@ import {
   ArrowRight,
   Users,
   Inbox,
+  Home,
+  ShoppingCart,
+  KeyRound,
+  Search as SearchIcon,
+  HelpCircle,
+  Ban,
 } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
