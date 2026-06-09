@@ -66,7 +66,7 @@ export function AppShell({ title, subtitle, actions, children }: { title: string
         </div>
       </aside>
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card/40 backdrop-blur-sm sticky top-0 z-20">
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-card px-6 shadow-sm">
           <div className="min-w-0">
             <h1 className="font-display text-lg font-semibold tracking-tight truncate">{title}</h1>
             {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
