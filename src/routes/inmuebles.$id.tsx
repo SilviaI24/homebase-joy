@@ -344,97 +344,171 @@ function DetailView({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Columna principal */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Galería */}
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="aspect-video">
+          {/* Hero: imagen con overlay */}
+          <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+            <div className="relative aspect-[16/9] bg-muted">
               <SafeImage src={mainImg} alt={inmueble.calle || "Inmueble"} />
+              {/* Top chips */}
+              <div className="absolute inset-x-0 top-0 p-4 flex items-start justify-between pointer-events-none">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold shadow-sm ${statusTint(
+                    inmueble.estatus,
+                  )}`}
+                >
+                  <span className="size-1.5 rounded-full bg-current opacity-80" />
+                  {inmueble.estatus || "—"}
+                </span>
+                {inmueble.ref && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold bg-background text-foreground border border-border/60 px-2 py-1 rounded-full shadow-sm">
+                    <Hash className="size-3" />
+                    {inmueble.ref}
+                  </span>
+                )}
+              </div>
+              {/* Bottom overlay */}
+              <div className="absolute inset-x-0 bottom-0 px-6 pt-20 pb-5 bg-gradient-to-t from-black/85 via-black/55 to-transparent text-white">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div className="min-w-0">
+                    <h2 className="font-display text-2xl sm:text-3xl font-semibold leading-tight tracking-tight">
+                      {inmueble.calle || "Sin dirección"}{" "}
+                      {inmueble.numero && (
+                        <span className="text-white/80 font-normal">{inmueble.numero}</span>
+                      )}
+                    </h2>
+                    <div className="text-sm text-white/85 flex items-center gap-1.5 mt-1">
+                      <MapPin className="size-3.5" />
+                      {[inmueble.barrio, inmueble.localidad].filter(Boolean).join(", ") || "—"}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="font-display text-3xl sm:text-4xl font-bold leading-none tracking-tight tabular-nums">
+                      {formatEuro(inmueble.precio)}
+                    </div>
+                    {inmueble.precioFinal ? (
+                      <div className="text-[11px] text-white/75 mt-1">
+                        Cerrado en {formatEuro(inmueble.precioFinal)}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                {(inmueble.habitaciones || inmueble.banos || inmueble.superficie || inmueble.tipo) && (
+                  <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/90">
+                    {inmueble.tipo && (
+                      <span className="inline-flex items-center gap-1.5 font-medium">{inmueble.tipo}</span>
+                    )}
+                    {inmueble.habitaciones && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <BedDouble className="size-4" /> {inmueble.habitaciones} hab.
+                      </span>
+                    )}
+                    {inmueble.banos && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Bath className="size-4" /> {inmueble.banos} baños
+                      </span>
+                    )}
+                    {inmueble.superficie && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Ruler className="size-4" /> {inmueble.superficie} m²
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             {detailReady && inmueble.imagenes.length > 1 && (
-              <div className="p-2 flex gap-2 overflow-x-auto border-t border-border">
-                {inmueble.imagenes.map((src) => (
-                  <button
-                    key={src}
-                    onClick={() => setMainImg(src)}
-                    className={`shrink-0 size-16 rounded overflow-hidden border-2 transition-colors ${
-                      mainImg === src ? "border-primary" : "border-border hover:border-muted-foreground/40"
-                    }`}
-                  >
-                    <SafeImage src={src} alt="" />
-                  </button>
-                ))}
+              <div className="p-3 flex gap-2 overflow-x-auto border-t border-border bg-card">
+                {inmueble.imagenes.map((src) => {
+                  const active = mainImg === src;
+                  return (
+                    <button
+                      key={src}
+                      onClick={() => setMainImg(src)}
+                      className={`shrink-0 size-16 rounded-md overflow-hidden border-2 transition-all ${
+                        active
+                          ? "border-primary ring-2 ring-primary/30"
+                          : "border-border hover:border-primary/60 opacity-80 hover:opacity-100"
+                      }`}
+                    >
+                      <SafeImage src={src} alt="" />
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Cabecera (siempre disponible desde lista) */}
-          <div className="rounded-lg border border-border bg-card p-5">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <div>
-                <h2 className="text-xl font-semibold">
-                  {inmueble.calle || "Sin dirección"} {inmueble.numero}
-                </h2>
-                <div className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                  <MapPin className="size-3.5" />
-                  {[inmueble.barrio, inmueble.localidad].filter(Boolean).join(", ") || "—"}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-semibold text-primary">{formatEuro(inmueble.precio)}</div>
-                {inmueble.precioFinal ? (
-                  <div className="text-xs text-muted-foreground">Final: {formatEuro(inmueble.precioFinal)}</div>
-                ) : null}
-              </div>
-            </div>
-            {detailReady ? (
-              inmueble.descripcion && (
-                <p className="mt-4 text-sm leading-relaxed whitespace-pre-line text-foreground/90">
+          {/* Descripción */}
+          {(detailReady && inmueble.descripcion) || !detailReady ? (
+            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+              <h3 className="font-display text-base font-semibold mb-3">Descripción</h3>
+              {detailReady ? (
+                <p className="text-sm leading-relaxed whitespace-pre-line text-foreground/85">
                   {inmueble.descripcion}
                 </p>
-              )
-            ) : (
-              <div className="mt-4 space-y-2">
-                <SkeletonLine className="w-full" />
-                <SkeletonLine className="w-11/12" />
-                <SkeletonLine className="w-3/4" />
-              </div>
-            )}
-          </div>
-
-          {/* Características */}
-          <div className="rounded-lg border border-border bg-card p-5">
-            <h3 className="text-sm font-semibold mb-3">Características</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6">
-              <Field label="Tipo" value={inmueble.tipo} />
-              <Field label="Habitaciones" value={inmueble.habitaciones} />
-              <Field label="Baños" value={inmueble.banos} />
-              <Field label="Superficie" value={inmueble.superficie ? `${inmueble.superficie} m²` : ""} />
-              {detailReady && (
-                <>
-                  <Field label="Planta" value={inmueble.planta} />
-                  <Field label="Estado" value={inmueble.estado} />
-                  <Field label="Año construcción" value={inmueble.anoConstruccion} />
-                  <Field label="Cert. energética" value={inmueble.certificacionEnergetica} />
-                  <Field label="Calefacción" value={inmueble.calefaccion} />
-                  <Field label="Orientación" value={inmueble.orientacion} />
-                  <Field label="Garaje" value={inmueble.garaje} />
-                  <Field label="Trastero" value={inmueble.trastero} />
-                  <Field label="Ascensor" value={inmueble.ascensor} />
-                  <Field label="Armarios" value={inmueble.armariosEmpotrados} />
-                  <Field label="Terraza" value={inmueble.terraza} />
-                  <Field label="Balcón" value={inmueble.balcon} />
-                  <Field label="Gastos com." value={inmueble.gastosComunidad} />
-                  <Field label="Ref. catastral" value={inmueble.referenciaCatastral} />
-                </>
+              ) : (
+                <div className="space-y-2">
+                  <SkeletonLine className="w-full" />
+                  <SkeletonLine className="w-11/12" />
+                  <SkeletonLine className="w-3/4" />
+                </div>
               )}
             </div>
+          ) : null}
+
+          {/* Características */}
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <h3 className="font-display text-base font-semibold mb-4">Características</h3>
+            {(() => {
+              const specs: { label: string; value: React.ReactNode }[] = [
+                { label: "Tipo", value: inmueble.tipo },
+                { label: "Habitaciones", value: inmueble.habitaciones },
+                { label: "Baños", value: inmueble.banos },
+                { label: "Superficie", value: inmueble.superficie ? `${inmueble.superficie} m²` : "" },
+              ];
+              if (detailReady) {
+                specs.push(
+                  { label: "Planta", value: inmueble.planta },
+                  { label: "Estado", value: inmueble.estado },
+                  { label: "Año construcción", value: inmueble.anoConstruccion },
+                  { label: "Cert. energética", value: inmueble.certificacionEnergetica },
+                  { label: "Calefacción", value: inmueble.calefaccion },
+                  { label: "Orientación", value: inmueble.orientacion },
+                  { label: "Garaje", value: inmueble.garaje },
+                  { label: "Trastero", value: inmueble.trastero },
+                  { label: "Ascensor", value: inmueble.ascensor },
+                  { label: "Armarios", value: inmueble.armariosEmpotrados },
+                  { label: "Terraza", value: inmueble.terraza },
+                  { label: "Balcón", value: inmueble.balcon },
+                  { label: "Gastos com.", value: inmueble.gastosComunidad },
+                  { label: "Ref. catastral", value: inmueble.referenciaCatastral },
+                );
+              }
+              const filled = specs.filter(
+                (s) => s.value != null && s.value !== "" && s.value !== 0,
+              );
+              if (filled.length === 0) {
+                return (
+                  <div className="text-sm text-muted-foreground">
+                    Sin características registradas.
+                  </div>
+                );
+              }
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {filled.map((s) => (
+                    <Spec key={s.label} label={s.label} value={s.value} />
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           <TiempoMercadoPanel inmueble={inmueble} detailReady={detailReady} />
 
           {/* Historial / fechas — visible solo cuando hay datos */}
-          <div className="rounded-lg border border-border bg-card p-5">
-            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <Calendar className="size-4" /> Historial
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <h3 className="font-display text-base font-semibold mb-4 flex items-center gap-2">
+              <Calendar className="size-4 text-primary" /> Historial
             </h3>
             {detailReady ? (
               <>
