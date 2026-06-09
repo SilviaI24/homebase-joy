@@ -18,11 +18,11 @@ export type VisitaFull = {
 };
 
 const ESTADOS_VISITA = [
-  "Confirmada",
   "Pendiente",
-  "Realizada",
-  "Cancelada",
-  "No realizada",
+  "Confirmada",
+  "Completado",
+  "Anulada",
+  "Borrada",
 ] as const;
 export type EstadoVisita = (typeof ESTADOS_VISITA)[number] | string;
 

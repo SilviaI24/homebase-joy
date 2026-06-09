@@ -72,15 +72,21 @@ export const Route = createFileRoute("/visitas/")({
   ),
 });
 
+// Estados reales de Airtable, ordenados por ciclo de vida de la visita:
+// Pendiente → Confirmada → Completado · Anulada / Borrada (terminales negativos)
 const ESTADO_COLORS: Record<string, string> = {
-  Confirmada: "#10b981",
-  Pendiente: "#f59e0b",
-  Realizada: "#3b82f6",
-  Cancelada: "#ef4444",
-  "No realizada": "#94a3b8",
+  Pendiente: "#f59e0b",   // ámbar — a la espera de confirmación
+  Confirmada: "#3b82f6",  // azul — agendada y confirmada
+  Completado: "#10b981",  // verde — visita realizada con éxito
+  Anulada: "#ef4444",     // rojo — cancelada por cliente / agente
+  Borrada: "#94a3b8",     // gris — descartada del sistema
 };
 
-const ESTADOS = ["Confirmada", "Pendiente", "Realizada", "Cancelada", "No realizada"] as const;
+const ESTADOS = ["Pendiente", "Confirmada", "Completado", "Anulada", "Borrada"] as const;
+// Agrupaciones semánticas para KPIs
+const ESTADOS_EXITO = new Set(["Completado"]);
+const ESTADOS_CANCELACION = new Set(["Anulada", "Borrada"]);
+const ESTADOS_AGENDADA = new Set(["Confirmada", "Pendiente"]);
 const DOW = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 const tooltipStyle = {
@@ -170,12 +176,8 @@ function VisitasPage() {
     );
 
     const pasadasPeriodo = enPeriodo.filter((v) => v.fecha && new Date(v.fecha).getTime() < now);
-    const confirmadas = pasadasPeriodo.filter(
-      (v) => v.estado === "Confirmada" || v.estado === "Realizada",
-    );
-    const canceladas = pasadasPeriodo.filter(
-      (v) => v.estado === "Cancelada" || v.estado === "No realizada",
-    );
+    const confirmadas = pasadasPeriodo.filter((v) => ESTADOS_EXITO.has(v.estado));
+    const canceladas = pasadasPeriodo.filter((v) => ESTADOS_CANCELACION.has(v.estado));
     const ratioConfirm = pasadasPeriodo.length
       ? Math.round((confirmadas.length / pasadasPeriodo.length) * 100)
       : 0;
@@ -208,8 +210,8 @@ function VisitasPage() {
       const k = v.fecha.slice(0, 7);
       if (!(k in monthCount)) return;
       monthCount[k].total++;
-      if (v.estado === "Confirmada" || v.estado === "Realizada") monthCount[k].confirmadas++;
-      if (v.estado === "Cancelada" || v.estado === "No realizada") monthCount[k].canceladas++;
+      if (ESTADOS_EXITO.has(v.estado)) monthCount[k].confirmadas++;
+      if (ESTADOS_CANCELACION.has(v.estado)) monthCount[k].canceladas++;
     });
     const seriesData = months.map((m) => ({
       mes: m.label,
@@ -243,7 +245,7 @@ function VisitasPage() {
         if (!m) return;
         const p = agCount.get(m) ?? { count: 0, realizadas: 0 };
         p.count += 1;
-        if (v.estado === "Realizada" || v.estado === "Confirmada") p.realizadas += 1;
+        if (ESTADOS_EXITO.has(v.estado)) p.realizadas += 1;
         agCount.set(m, p);
       }),
     );
