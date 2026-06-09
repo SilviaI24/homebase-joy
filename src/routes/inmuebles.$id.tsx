@@ -170,17 +170,57 @@ function daysLabel(d: number | null) {
   return `${d} día${d === 1 ? "" : "s"}`;
 }
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
+function Field({
+  label,
+  value,
+  hideEmpty = false,
+}: {
+  label: string;
+  value: React.ReactNode;
+  hideEmpty?: boolean;
+}) {
+  const isEmpty =
+    value == null ||
+    value === "" ||
+    (typeof value === "number" && value === 0);
+  if (hideEmpty && isEmpty) return null;
   return (
-    <div className="py-2 border-b border-border/50 last:border-0">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="text-sm mt-0.5">{value || <span className="text-muted-foreground">—</span>}</div>
+    <div className="py-2 border-b border-border/40 last:border-0">
+      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground">
+        {label}
+      </div>
+      <div className="text-sm mt-1 font-medium text-foreground">
+        {isEmpty ? <span className="text-muted-foreground/60 font-normal">—</span> : value}
+      </div>
+    </div>
+  );
+}
+
+function Spec({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="rounded-md border border-border bg-background px-3 py-2.5">
+      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground">
+        {label}
+      </div>
+      <div className="text-sm font-semibold text-foreground mt-1 truncate">{value}</div>
     </div>
   );
 }
 
 function SkeletonLine({ className = "" }: { className?: string }) {
   return <div className={`h-3 rounded bg-muted animate-pulse ${className}`} />;
+}
+
+function statusTint(estatus: string) {
+  const map: Record<string, string> = {
+    Activo: "bg-emerald-600 text-white",
+    Reservado: "bg-amber-500 text-white",
+    Vendido: "bg-blue-600 text-white",
+    Alquilado: "bg-blue-600 text-white",
+    Baja: "bg-muted text-muted-foreground",
+    Prospección: "bg-secondary text-secondary-foreground",
+  };
+  return map[estatus] ?? "bg-secondary text-secondary-foreground";
 }
 
 function InmuebleDetail() {
