@@ -288,7 +288,7 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
     }
 
     // --- Extracción de preferencias desde texto libre ---------------------
-    const txtRaw = `${base.solicitud} ${base.motivo} ${base.observaciones} ${base.feedback}`;
+    const txtRaw = `${base.solicitud} ${base.motivo} ${base.observaciones} ${base.feedback} ${base.conversaciones}`;
     const txt = txtRaw.toLowerCase();
     const wantsAlquiler =
       base.tipo === "Interesado alquiler" || /alquil/i.test(txtRaw);
