@@ -29,7 +29,7 @@ import { AsignarLeadButton } from "@/components/AsignarLeadButton";
 import { agentesQuery } from "@/lib/queries";
 import { listClientes, type Cliente } from "@/lib/clientes.functions";
 import {
-  ESTADOS_SEGUIMIENTO,
+  
   updateClienteSeguimiento,
   type EstadoSeguimiento,
 } from "@/lib/mutations.functions";
