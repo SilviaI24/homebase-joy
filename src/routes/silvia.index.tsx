@@ -110,6 +110,10 @@ const GENERIC_LOCATIONS = new Set([
   "norte", "sur", "este", "oeste",
 ]);
 
+function comercialStatus(inm: Inmueble): string {
+  return normalize(inm.estatus || inm.estado);
+}
+
 // Detecta inmuebles mencionados en el texto libre de la conversación.
 // Reglas de alta precisión (preferimos no mostrar a mostrar falsos positivos):
 //   1. Referencia exacta del inmueble (#1234) — máxima confianza.
@@ -217,14 +221,18 @@ function SilviaPage() {
   // baja o ya alquilados). Si existen duplicados de referencia, nos quedamos
   // con el activo.
   const todosInmuebles = useMemo(() => {
-    const ESTADOS_EXCLUIDOS = new Set(["Vendido", "Baja", "Alquilado"]);
+    const ESTADOS_EXCLUIDOS = new Set(["vendido", "baja", "alquilado"]);
     const activos = [...inmData.inmuebles, ...inmData.alquileres].filter(
-      (i) => !ESTADOS_EXCLUIDOS.has(i.estado),
+      (i) => !ESTADOS_EXCLUIDOS.has(comercialStatus(i)),
     );
     // Dedupe por referencia: si dos inmuebles activos comparten ref,
-    // priorizamos "Activo" > "Reservado" > resto.
-    const prioridad = (e: string) =>
-      e === "Activo" ? 0 : e === "Reservado" ? 1 : 2;
+    // priorizamos el estatus comercial real "Activo" > "Reservado" > resto.
+    const prioridad = (i: (typeof activos)[number]) => {
+      const status = comercialStatus(i);
+      if (status === "activo") return 0;
+      if (status === "reservado") return 1;
+      return 2;
+    };
     const porRef = new Map<string, (typeof activos)[number]>();
     for (const i of activos) {
       const key = (i.ref || "").trim().toLowerCase();
@@ -233,7 +241,7 @@ function SilviaPage() {
         continue;
       }
       const prev = porRef.get(key);
-      if (!prev || prioridad(i.estado) < prioridad(prev.estado)) {
+      if (!prev || prioridad(i) < prioridad(prev)) {
         porRef.set(key, i);
       }
     }
