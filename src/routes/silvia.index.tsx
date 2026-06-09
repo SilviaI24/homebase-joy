@@ -325,7 +325,7 @@ function SilviaPage() {
       {/* Header con stats */}
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow">
+          <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent text-white shadow">
             <Sparkles className="size-5" />
           </div>
           <div>
@@ -420,7 +420,7 @@ function SilviaPage() {
                 {/* Header tarjeta */}
                 <header className="flex items-start justify-between gap-3 p-4">
                   <div className="flex items-start gap-3 min-w-0 flex-1">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 text-violet-700 dark:text-violet-300 text-sm font-semibold">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-accent/30 text-primary text-sm font-semibold">
                       {c.nombre.charAt(0).toUpperCase() || "?"}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -481,7 +481,7 @@ function SilviaPage() {
                     {c.categoria.map((cat) => (
                       <span
                         key={cat}
-                        className="inline-flex items-center gap-1 text-[11px] bg-violet-500/10 text-violet-700 dark:text-violet-400 px-2 py-0.5 rounded-full"
+                        className="inline-flex items-center gap-1 text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full"
                       >
                         <Tag className="size-3" />
                         {cat}
@@ -579,7 +579,7 @@ function SilviaPage() {
                 {c.matches.length > 0 && (
                   <div className="px-4 pb-3 border-t border-border pt-3">
                     <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
-                      <Sparkles className="size-3 text-violet-500" />
+                      <Sparkles className="size-3 text-primary" />
                       Posibles matches ({c.matches.length})
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -606,7 +606,7 @@ function SilviaPage() {
                               {m.razones.slice(0, 2).map((r, i) => (
                                 <span
                                   key={i}
-                                  className="text-[9px] bg-violet-500/10 text-violet-700 dark:text-violet-400 px-1.5 py-0.5 rounded"
+                                  className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded"
                                 >
                                   {r}
                                 </span>

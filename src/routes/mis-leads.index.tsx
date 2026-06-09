@@ -111,7 +111,7 @@ const ORIGEN_META: Record<
     descripcion: "Dueño de un inmueble que quiere vender o alquilar con nosotros",
   },
   Comprador: {
-    cls: "bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400 border-fuchsia-500/30",
+    cls: "bg-accent/20 text-accent-foreground border-accent/40",
     icon: ShoppingCart,
     label: "Comprador",
     descripcion: "Interesado en comprar un inmueble",
@@ -135,7 +135,7 @@ const ORIGEN_META: Record<
     descripcion: "Contacto entrante sin tipo definido todavía",
   },
   Descartado: {
-    cls: "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30",
+    cls: "bg-destructive/10 text-destructive border-destructive/30",
     icon: Ban,
     label: "Descartado",
     descripcion: "Contacto descartado o anulado",
@@ -429,7 +429,7 @@ function LeadCard({
               </span>
               {ultimaNota && (
                 <span
-                  className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30"
+                  className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border bg-accent/20 text-accent-foreground border-accent/40"
                   title={ultimaNota.texto}
                 >
                   <MessageSquare className="size-3" />
@@ -483,7 +483,7 @@ function LeadCard({
           {cliente.categoria.map((cat) => (
             <span
               key={cat}
-              className="inline-flex items-center gap-1 text-[11px] bg-violet-500/10 text-violet-700 dark:text-violet-400 px-2 py-0.5 rounded-full"
+              className="inline-flex items-center gap-1 text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full"
             >
               <Tag className="size-3" /> {cat}
             </span>

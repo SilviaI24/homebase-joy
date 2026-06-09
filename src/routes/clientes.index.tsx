@@ -108,8 +108,8 @@ const SEG_META: Record<
   Prospecto: {
     label: "Prospectos",
     icon: Flame,
-    color: "text-violet-600 dark:text-violet-400",
-    chip: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/20",
+    color: "text-primary",
+    chip: "bg-primary/15 text-primary border-primary/20",
     ring: "ring-violet-500/30",
     tone: "from-violet-500/10 to-transparent",
   },
@@ -124,9 +124,9 @@ const SEG_META: Record<
   Descartado: {
     label: "Descartados",
     icon: XCircle,
-    color: "text-rose-600 dark:text-rose-400",
-    chip: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/20",
-    ring: "ring-rose-500/30",
+    color: "text-destructive",
+    chip: "bg-destructive/15 text-destructive border-rose-500/20",
+    ring: "ring-destructive/30",
     tone: "from-rose-500/10 to-transparent",
   },
 };
@@ -154,8 +154,8 @@ const EST_META: Record<EstadoComercial, { icon: typeof Clock; chip: string; dot:
   },
   Descartado: {
     icon: XCircle,
-    chip: "bg-rose-500/15 text-rose-700 dark:text-rose-400",
-    dot: "bg-rose-500",
+    chip: "bg-destructive/15 text-destructive",
+    dot: "bg-destructive",
   },
 };
 
@@ -163,9 +163,9 @@ const SEG_BAR: Record<Segmento, string> = {
   Propietario: "bg-emerald-500",
   Comprador: "bg-blue-500",
   Inquilino: "bg-amber-500",
-  Prospecto: "bg-violet-500",
+  Prospecto: "bg-primary",
   Lead: "bg-slate-400",
-  Descartado: "bg-rose-500",
+  Descartado: "bg-destructive",
 };
 
 const SEGMENTOS_TABS: Array<Segmento | "Todos"> = [
@@ -461,7 +461,7 @@ function ClientesPage() {
                                 to="/silvia"
                                 onClick={(e) => e.stopPropagation()}
                                 title="Ver conversación con SilvIA"
-                                className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-400 px-1.5 py-0.5 hover:bg-violet-500/20"
+                                className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-primary/10 text-primary px-1.5 py-0.5 hover:bg-primary/20"
                               >
                                 <Sparkles className="size-2.5" /> SilvIA
                               </Link>
@@ -486,7 +486,7 @@ function ClientesPage() {
                           {c.inmueblesActivos.length} activo{c.inmueblesActivos.length !== 1 ? "s" : ""}
                         </span>
                       ) : c.matches.length > 0 && c.estadoComercial !== "Cerrado" ? (
-                        <span className="inline-flex items-center gap-1 text-violet-600 dark:text-violet-400">
+                        <span className="inline-flex items-center gap-1 text-primary">
                           <Sparkles className="size-3.5" />
                           {c.matches.length} match
                         </span>
@@ -534,7 +534,7 @@ function estatusClase(estatus: string) {
     Vendido: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
     Alquilado: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
     Baja: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
-    Prospección: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+    Prospección: "bg-primary/10 text-primary",
   };
   return map[estatus] ?? "bg-secondary text-secondary-foreground";
 }
@@ -693,7 +693,7 @@ function ClienteDetalle({ cliente }: { cliente: Cliente }) {
           <Section
             title={
               <span className="flex items-center gap-1.5">
-                <Sparkles className="size-3.5 text-violet-500" />
+                <Sparkles className="size-3.5 text-primary" />
                 Posibles matches ({cliente.matches.length})
               </span>
             }
@@ -709,7 +709,7 @@ function ClienteDetalle({ cliente }: { cliente: Cliente }) {
                     {m.razones.map((r, i) => (
                       <span
                         key={i}
-                        className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 px-2 py-0.5"
+                        className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-primary/10 text-primary px-2 py-0.5"
                       >
                         <Sparkles className="size-2.5" />
                         {r}
@@ -726,12 +726,12 @@ function ClienteDetalle({ cliente }: { cliente: Cliente }) {
           <Section
             title={
               <span className="flex items-center gap-1.5">
-                <Sparkles className="size-3.5 text-violet-500" />
+                <Sparkles className="size-3.5 text-primary" />
                 Conversación con SilvIA
                 <CanalChip canal={inferCanal(cliente)} />
                 <Link
                   to="/silvia"
-                  className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-violet-700 dark:text-violet-400 hover:underline"
+                  className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
                 >
                   Abrir en SilvIA <ArrowUpRight className="size-3" />
                 </Link>
