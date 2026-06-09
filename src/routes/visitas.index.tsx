@@ -21,7 +21,7 @@ import { AppShell } from "@/components/AppShell";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
 import { Input } from "@/components/ui/input";
 
-import { visitasQuery, allInmueblesQuery } from "@/lib/queries";
+import { visitasQuery, allInmueblesQuery, agentesQuery } from "@/lib/queries";
 import type { VisitaFull } from "@/lib/visitas.functions";
 import {
   CalendarDays,
@@ -120,6 +120,14 @@ function fmtTime(s: string | null) {
 function VisitasPage() {
   const { data: vData } = useSuspenseQuery(visitasQuery);
   const { data: inmData } = useSuspenseQuery(allInmueblesQuery);
+  const { data: agData } = useSuspenseQuery(agentesQuery);
+  const mailToNombre = useMemo(() => {
+    const m = new Map<string, string>();
+    agData.agentes.forEach((a) => {
+      if (a.mail) m.set(a.mail.toLowerCase(), a.nombre);
+    });
+    return m;
+  }, [agData]);
   const [periodo, setPeriodo] = useState<"30d" | "90d" | "ytd" | "12m">("90d");
   const [estadoFilter, setEstadoFilter] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -252,7 +260,7 @@ function VisitasPage() {
     const topAgentes = Array.from(agCount.entries())
       .map(([mail, p]) => ({
         mail,
-        label: mail.split("@")[0],
+        label: mailToNombre.get(mail.toLowerCase()) ?? mail.split("@")[0],
         count: p.count,
         ratio: p.count ? Math.round((p.realizadas / p.count) * 100) : 0,
       }))
@@ -260,16 +268,19 @@ function VisitasPage() {
       .slice(0, 8);
     const maxTopAg = topAgentes[0]?.count ?? 1;
 
-    // Heatmap: día de la semana × franja horaria
+    // Heatmap: día de la semana × franja horaria (últimos 3 meses, independiente del periodo)
     const HOURS = [
       { key: "M", label: "Mañana", from: 8, to: 12 },
       { key: "D", label: "Mediodía", from: 12, to: 16 },
       { key: "T", label: "Tarde", from: 16, to: 20 },
       { key: "N", label: "Noche", from: 20, to: 24 },
     ];
+    const heatStart = now - 90 * 86400000;
     const heat: number[][] = Array.from({ length: 7 }, () => Array(HOURS.length).fill(0));
-    enPeriodo.forEach((v) => {
+    visitas.forEach((v) => {
       if (!v.fecha) return;
+      const t = new Date(v.fecha).getTime();
+      if (t < heatStart || t > now) return;
       const d = new Date(v.fecha);
       const dow = (d.getDay() + 6) % 7; // Lun=0
       const h = d.getHours();
@@ -299,7 +310,7 @@ function VisitasPage() {
       heatMax,
       heatHours: HOURS,
     };
-  }, [visitas, periodoStart, periodoDays, inmIndex, now]);
+  }, [visitas, periodoStart, periodoDays, inmIndex, now, mailToNombre]);
 
   const filteredActividad = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -474,7 +485,7 @@ function VisitasPage() {
 
       {/* Heatmap + Top inmuebles + Top agentes */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <ChartCard title="Mapa de actividad" subtitle="Cuándo se concentran las visitas" icon={Flame}>
+        <ChartCard title="Mapa de actividad" subtitle="Últimos 3 meses · día × franja horaria" icon={Flame}>
           <div className="mt-2">
             <div className="grid grid-cols-[auto_repeat(4,1fr)] gap-1 text-[10px]">
               <div></div>
