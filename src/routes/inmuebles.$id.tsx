@@ -33,6 +33,11 @@ import {
   Save,
   Loader2,
   User,
+  BedDouble,
+  Bath,
+  Ruler,
+  Hash,
+  Check,
 } from "lucide-react";
 
 // Build a detail placeholder from a list row so the page renders instantly.
