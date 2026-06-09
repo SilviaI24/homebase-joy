@@ -181,6 +181,7 @@ function MisLeadsPage() {
   const [estadoFilter, setEstadoFilter] = useState<EstadoSeguimiento | "Todos">(
     "Todos",
   );
+  const [origenFilter, setOrigenFilter] = useState<string>("Todos");
 
   const agentes = ag.agentes;
   const agenteId = agenteParam ?? agentes[0]?.id ?? "";
@@ -203,10 +204,24 @@ function MisLeadsPage() {
     return m;
   }, [misLeads]);
 
+  const origenCounts = useMemo(() => {
+    const m: Record<string, number> = { Todos: misLeads.length };
+    Object.keys(ORIGEN_META).forEach((k) => (m[k] = 0));
+    misLeads.forEach(({ cliente }) => {
+      const k = ORIGEN_META[cliente.segmento] ? cliente.segmento : "Lead";
+      m[k] = (m[k] ?? 0) + 1;
+    });
+    return m;
+  }, [misLeads]);
+
   const filtered = useMemo(() => {
     const ql = q.trim().toLowerCase();
     return misLeads.filter(({ cliente: c, estado }) => {
       if (estadoFilter !== "Todos" && estado !== estadoFilter) return false;
+      if (origenFilter !== "Todos") {
+        const seg = ORIGEN_META[c.segmento] ? c.segmento : "Lead";
+        if (seg !== origenFilter) return false;
+      }
       if (!ql) return true;
       return (
         c.nombre.toLowerCase().includes(ql) ||
@@ -215,7 +230,7 @@ function MisLeadsPage() {
         c.motivo.toLowerCase().includes(ql)
       );
     });
-  }, [misLeads, q, estadoFilter]);
+  }, [misLeads, q, estadoFilter, origenFilter]);
 
   return (
     <AppShell title="Mis leads" subtitle="Bandeja personal del comercial">
