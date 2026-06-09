@@ -218,9 +218,26 @@ function SilviaPage() {
   // con el activo.
   const todosInmuebles = useMemo(() => {
     const ESTADOS_EXCLUIDOS = new Set(["Vendido", "Baja", "Alquilado"]);
-    return [...inmData.inmuebles, ...inmData.alquileres].filter(
+    const activos = [...inmData.inmuebles, ...inmData.alquileres].filter(
       (i) => !ESTADOS_EXCLUIDOS.has(i.estado),
     );
+    // Dedupe por referencia: si dos inmuebles activos comparten ref,
+    // priorizamos "Activo" > "Reservado" > resto.
+    const prioridad = (e: string) =>
+      e === "Activo" ? 0 : e === "Reservado" ? 1 : 2;
+    const porRef = new Map<string, (typeof activos)[number]>();
+    for (const i of activos) {
+      const key = (i.ref || "").trim().toLowerCase();
+      if (!key) {
+        porRef.set(i.id, i);
+        continue;
+      }
+      const prev = porRef.get(key);
+      if (!prev || prioridad(i.estado) < prioridad(prev.estado)) {
+        porRef.set(key, i);
+      }
+    }
+    return Array.from(porRef.values());
   }, [inmData]);
 
   // Solo clientes con conversación significativa de Silvia, con detección de
