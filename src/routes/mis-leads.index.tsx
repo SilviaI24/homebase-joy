@@ -97,6 +97,48 @@ const ESTADO_META: Record<
   },
 };
 
+const ORIGEN_META: Record<
+  string,
+  { cls: string; icon: typeof Clock; label: string; descripcion: string }
+> = {
+  Propietario: {
+    cls: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30",
+    icon: Home,
+    label: "Propietario",
+    descripcion: "Dueño de un inmueble que quiere vender o alquilar con nosotros",
+  },
+  Comprador: {
+    cls: "bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400 border-fuchsia-500/30",
+    icon: ShoppingCart,
+    label: "Comprador",
+    descripcion: "Interesado en comprar un inmueble",
+  },
+  Inquilino: {
+    cls: "bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/30",
+    icon: KeyRound,
+    label: "Inquilino",
+    descripcion: "Interesado en alquilar un inmueble",
+  },
+  Prospecto: {
+    cls: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30",
+    icon: SearchIcon,
+    label: "Prospección",
+    descripcion: "Captación: posible propietario a contactar para incorporar a cartera",
+  },
+  Lead: {
+    cls: "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/30",
+    icon: HelpCircle,
+    label: "Lead sin clasificar",
+    descripcion: "Contacto entrante sin tipo definido todavía",
+  },
+  Descartado: {
+    cls: "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30",
+    icon: Ban,
+    label: "Descartado",
+    descripcion: "Contacto descartado o anulado",
+  },
+};
+
 function inferEstado(c: Cliente): EstadoSeguimiento {
   const t = c.trabajado.toLowerCase();
   if (t.includes("descart")) return "Descartado";
