@@ -147,7 +147,7 @@ function linkify(text: string) {
         href={p}
         target="_blank"
         rel="noreferrer"
-        className="text-violet-600 dark:text-violet-400 hover:underline break-all"
+        className="text-primary hover:underline break-all"
       >
         {p}
       </a>
@@ -181,7 +181,7 @@ export function Transcripcion({ text }: { text: string }) {
           case "ref":
             return (
               <div key={i} className="pl-3">
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold bg-violet-500/10 text-violet-700 dark:text-violet-400 px-2 py-0.5 rounded">
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded">
                   Ref. {b.text}
                 </span>
               </div>

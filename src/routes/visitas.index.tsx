@@ -576,7 +576,7 @@ function VisitasPage() {
                     </div>
                     <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-400"
+                        className="h-full bg-gradient-to-r from-primary to-accent"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -685,7 +685,7 @@ function KpiCard({
   const toneMap: Record<string, string> = {
     primary: "text-primary bg-primary/10",
     emerald: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
-    violet: "text-violet-600 dark:text-violet-400 bg-violet-500/10",
+    violet: "text-primary bg-primary/10",
     amber: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
   };
   const positive = (delta ?? 0) >= 0;

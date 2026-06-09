@@ -572,7 +572,7 @@ function Mini({
     emerald: "text-emerald-700 dark:text-emerald-400",
     amber: "text-amber-700 dark:text-amber-400",
     blue: "text-blue-700 dark:text-blue-400",
-    violet: "text-violet-700 dark:text-violet-400",
+    violet: "text-primary",
   };
   return (
     <div className="rounded-md border border-border bg-card px-2 py-1.5 text-center">
@@ -587,7 +587,7 @@ function ActividadIcon({ tipo }: { tipo: "captacion" | "reserva" | "cierre" | "v
     captacion: { Icon: KeyRound, cls: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400" },
     reserva: { Icon: HandCoins, cls: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
     cierre: { Icon: FileSignature, cls: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
-    visita: { Icon: CalendarCheck, cls: "bg-violet-500/10 text-violet-700 dark:text-violet-400" },
+    visita: { Icon: CalendarCheck, cls: "bg-primary/10 text-primary" },
   } as const;
   const { Icon, cls } = map[tipo];
   return (
@@ -612,9 +612,9 @@ function Kpi({
     primary: "text-primary bg-primary/10",
     emerald: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
     blue: "text-blue-600 dark:text-blue-400 bg-blue-500/10",
-    violet: "text-violet-600 dark:text-violet-400 bg-violet-500/10",
+    violet: "text-primary bg-primary/10",
     amber: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
-    rose: "text-rose-600 dark:text-rose-400 bg-rose-500/10",
+    rose: "text-destructive bg-destructive/10",
   };
   return (
     <div className="rounded-lg border border-border bg-card p-3">
