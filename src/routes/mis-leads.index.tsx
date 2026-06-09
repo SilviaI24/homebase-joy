@@ -416,35 +416,44 @@ function LeadCard({
           Ver ficha completa <ArrowRight className="size-3" />
         </Link>
         <div className="flex flex-wrap items-center gap-1.5">
-          {/* Estado */}
-          <div className="inline-flex rounded-md border border-border bg-background p-0.5">
-            {ESTADOS_SEGUIMIENTO.map((e) => {
-              const m = ESTADO_META[e];
-              const active = e === estado;
-              return (
+          {/* Acciones contextuales según estado */}
+          {estado === "Descartado" ? (
+            <button
+              onClick={() => cambiarEstado("Pendiente")}
+              disabled={mut.isPending}
+              className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer transition-colors"
+            >
+              <Clock className="size-3" /> Reabrir
+            </button>
+          ) : (
+            <>
+              {estado === "Pendiente" && (
                 <button
-                  key={e}
-                  onClick={() => cambiarEstado(e)}
+                  onClick={() => cambiarEstado("Contactado")}
                   disabled={mut.isPending}
-                  className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-[5px] transition-colors cursor-pointer ${
-                    active
-                      ? m.cls
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                  title={`Marcar como ${e.toLowerCase()}`}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 cursor-pointer transition-colors"
+                  title="Marcar como contactado"
                 >
-                  <m.icon className="size-3" /> {e}
+                  <CheckCircle2 className="size-3" /> Marcar contactado
                 </button>
-              );
-            })}
-          </div>
-          {/* Nota */}
-          <button
-            onClick={() => setNotaOpen((o) => !o)}
-            className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer transition-colors"
-          >
-            <StickyNote className="size-3" /> Nota
-          </button>
+              )}
+              <button
+                onClick={() => setNotaOpen((o) => !o)}
+                className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer transition-colors"
+              >
+                <StickyNote className="size-3" />
+                {cliente.observaciones ? "Editar seguimiento" : "Añadir nota"}
+              </button>
+              <button
+                onClick={() => cambiarEstado("Descartado")}
+                disabled={mut.isPending}
+                className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-slate-500/10 text-slate-600 dark:text-slate-400 hover:bg-slate-500/20 cursor-pointer transition-colors"
+                title="Descartar lead"
+              >
+                <XCircle className="size-3" /> Descartar
+              </button>
+            </>
+          )}
           {/* Visita */}
           <NewVisitaDialog
             defaultClienteId={cliente.id}
