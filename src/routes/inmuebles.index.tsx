@@ -76,14 +76,14 @@ function formatEuro(n: number | null) {
 
 function statusBadge(estatus: string) {
   const map: Record<string, string> = {
-    Activo: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-    Baja: "bg-muted text-muted-foreground",
-    Reservado: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-    Vendido: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+    Activo: "bg-emerald-600 text-white border-emerald-700",
+    Baja: "bg-muted text-foreground border-border",
+    Reservado: "bg-amber-500 text-white border-amber-600",
+    Vendido: "bg-blue-600 text-white border-blue-700",
   };
-  const cls = map[estatus] ?? "bg-secondary text-secondary-foreground";
+  const cls = map[estatus] ?? "bg-secondary text-secondary-foreground border-border";
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}>
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-sm ${cls}`}>
       {estatus || "—"}
     </span>
   );
@@ -253,16 +253,17 @@ function InmueblesPage() {
                 key={i.id}
                 to="/inmuebles/$id"
                 params={{ id: i.id }}
-                className="group rounded-lg border border-border bg-card overflow-hidden flex flex-col hover:shadow-md transition-shadow"
+                className="group overflow-hidden rounded-lg border border-border bg-card flex flex-col shadow-sm transition-shadow hover:shadow-md"
               >
                 <div className="aspect-video relative overflow-hidden">
                   <SafeImage src={i.imagen} alt={i.calle || i.ref} imgClassName="group-hover:scale-[1.02] transition-transform" />
                   <div className="absolute top-2 left-2 z-10">{statusBadge(i.estatus)}</div>
                   {i.ref && (
-                    <div className="absolute top-2 right-2 z-10 text-[11px] font-mono bg-background/90 text-foreground border border-border/60 backdrop-blur px-1.5 py-0.5 rounded shadow-sm">
+                    <div className="absolute top-2 right-2 z-10 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-mono font-semibold text-foreground shadow-sm">
                       #{i.ref}
                     </div>
                   )}
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
                 </div>
                 <div className="p-4 flex flex-col gap-2 flex-1">
                   <div className="flex items-baseline justify-between gap-3">
@@ -283,8 +284,8 @@ function InmueblesPage() {
                     {i.superficie && <span>{i.superficie} m²</span>}
                   </div>
                   {i.propietario && (
-                    <div className="mt-auto pt-2 text-[11px] text-muted-foreground border-t border-border/60">
-                      Propietario: <span className="text-foreground/80">{i.propietario}</span>
+                    <div className="mt-auto border-t border-border pt-2 text-[11px] text-muted-foreground">
+                      Propietario: <span className="text-foreground font-medium">{i.propietario}</span>
                     </div>
                   )}
                 </div>
