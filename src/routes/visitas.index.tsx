@@ -245,7 +245,7 @@ function VisitasPage() {
         if (!m) return;
         const p = agCount.get(m) ?? { count: 0, realizadas: 0 };
         p.count += 1;
-        if (v.estado === "Realizada" || v.estado === "Confirmada") p.realizadas += 1;
+        if (ESTADOS_EXITO.has(v.estado)) p.realizadas += 1;
         agCount.set(m, p);
       }),
     );
