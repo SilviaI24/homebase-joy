@@ -485,7 +485,7 @@ function VisitasPage() {
 
       {/* Heatmap + Top inmuebles + Top agentes */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <ChartCard title="Mapa de actividad" subtitle="Cuándo se concentran las visitas" icon={Flame}>
+        <ChartCard title="Mapa de actividad" subtitle="Últimos 3 meses · día × franja horaria" icon={Flame}>
           <div className="mt-2">
             <div className="grid grid-cols-[auto_repeat(4,1fr)] gap-1 text-[10px]">
               <div></div>
