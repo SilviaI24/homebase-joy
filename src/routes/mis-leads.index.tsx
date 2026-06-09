@@ -93,8 +93,10 @@ const ESTADO_META: Record<
 
 function inferEstado(c: Cliente): EstadoSeguimiento {
   const t = c.trabajado.toLowerCase();
-  if (t.includes("contact")) return "Contactado";
   if (t.includes("descart")) return "Descartado";
+  if (t.includes("contact")) return "Contactado";
+  // Si ya hay notas de seguimiento, el lead está en tratamiento
+  if (c.observaciones && c.observaciones.trim().length > 0) return "Contactado";
   return "Pendiente";
 }
 
