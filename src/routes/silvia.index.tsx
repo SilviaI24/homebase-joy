@@ -103,10 +103,19 @@ function tokenPattern(token: string): string {
   return `(?:${variants.join("|")})`;
 }
 
+// Términos geográficos demasiado genéricos para considerarse mención de un
+// inmueble concreto (aparecen en casi cualquier conversación).
+const GENERIC_LOCATIONS = new Set([
+  "centro", "gijon", "oviedo", "asturias", "españa", "espana",
+  "norte", "sur", "este", "oeste",
+]);
+
 // Detecta inmuebles mencionados en el texto libre de la conversación.
-// Mejoras: normaliza acentos, expande abreviaturas comunes de vía y permite
-// que la mención sea cualquiera de los tokens significativos del nombre de
-// la calle, además de coincidir por referencia, barrio o localidad.
+// Reglas de alta precisión (preferimos no mostrar a mostrar falsos positivos):
+//   1. Referencia exacta del inmueble (#1234) — máxima confianza.
+//   2. Frase completa del nombre de calle (sin prefijo) con tokens consecutivos.
+// Se descartan los matches por barrio / localidad o por una sola palabra
+// suelta porque generaban falsos positivos masivos (p.ej. "centro", "gijón").
 function findMentionedInmuebles(text: string, inmuebles: Inmueble[]): Inmueble[] {
   const haystack = ` ${normalize(text)} `;
   if (haystack.trim().length === 0) return [];
@@ -117,8 +126,9 @@ function findMentionedInmuebles(text: string, inmuebles: Inmueble[]): Inmueble[]
   for (const inm of inmuebles) {
     if (found.has(inm.id)) continue;
 
-    // 1) Referencia exacta (#1234) — alta confianza.
-    if (inm.ref && inm.ref.length >= 3) {
+    // 1) Referencia exacta (#1234) — alta confianza. Mínimo 4 chars para
+    // evitar que refs cortas (p.ej. "12") coincidan con números sueltos.
+    if (inm.ref && inm.ref.length >= 4) {
       const ref = normalize(inm.ref);
       const re = new RegExp(`${wb}#?${escapeReg(ref)}${we}`);
       if (re.test(haystack)) {
@@ -127,40 +137,23 @@ function findMentionedInmuebles(text: string, inmuebles: Inmueble[]): Inmueble[]
       }
     }
 
-    // 2) Calle completa (después de quitar prefijo) o sus tokens fuertes.
-    const tokens = streetTokens(inm.calle);
-    if (tokens.length > 0) {
-      // Frase completa primero (mayor precisión).
-      const fullPattern = tokens.map(tokenPattern).join("\\s+");
-      const reFull = new RegExp(`${wb}${fullPattern}${we}`);
-      if (reFull.test(haystack)) {
-        found.set(inm.id, inm);
-        continue;
-      }
-      // Token suelto largo (≥5) como pista válida.
-      const strong = tokens.find((t) => t.length >= 5);
-      if (strong) {
-        const re = new RegExp(`${wb}${tokenPattern(strong)}${we}`);
-        if (re.test(haystack)) {
-          found.set(inm.id, inm);
-          continue;
-        }
-      }
-    }
+    // 2) Frase completa de la calle (todos los tokens significativos
+    // consecutivos). Requiere al menos un token distintivo (no genérico
+    // ni stopword) para evitar coincidencias triviales.
+    const tokens = streetTokens(inm.calle).filter(
+      (t) => !GENERIC_LOCATIONS.has(t),
+    );
+    if (tokens.length === 0) continue;
 
-    // 3) Barrio o localidad (palabra completa, ≥4 chars).
-    for (const extra of [inm.barrio, inm.localidad]) {
-      const n = normalize(extra);
-      if (n.length < 4 || STOP_TOKENS.has(n)) continue;
-      const re = new RegExp(`${wb}${escapeReg(n)}${we}`);
-      if (re.test(haystack)) {
-        found.set(inm.id, inm);
-        break;
-      }
+    const fullPattern = tokens.map(tokenPattern).join("\\s+");
+    const reFull = new RegExp(`${wb}${fullPattern}${we}`);
+    if (reFull.test(haystack)) {
+      found.set(inm.id, inm);
     }
   }
   return Array.from(found.values()).slice(0, 6);
 }
+
 
 
 export const Route = createFileRoute("/silvia/")({
