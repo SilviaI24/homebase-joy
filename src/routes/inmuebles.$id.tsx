@@ -512,24 +512,31 @@ function DetailView({
             </h3>
             {detailReady ? (
               <>
-                <ol className="relative border-l border-border ml-2 space-y-4">
+                <ol className="relative ml-3 space-y-5 before:absolute before:left-0 before:top-1 before:bottom-1 before:w-px before:bg-border">
                   {[
                     { label: "Captación / inicio", date: inmueble.fechaInicio },
                     { label: "Autorización exclusiva", date: inmueble.fechaExclusiva },
                     { label: "Fin de exclusividad", date: inmueble.fechaFinExclusiva },
                     { label: "Reserva", date: inmueble.fechaReserva },
                     { label: "Escritura", date: inmueble.fechaEscritura },
-                  ].map((ev) => (
-                    <li key={ev.label} className="ml-4">
-                      <span
-                        className={`absolute -left-1.5 mt-1.5 size-3 rounded-full border-2 border-background ${
-                          ev.date ? "bg-primary" : "bg-muted"
-                        }`}
-                      />
-                      <div className="text-sm font-medium">{ev.label}</div>
-                      <div className="text-xs text-muted-foreground">{formatDate(ev.date)}</div>
-                    </li>
-                  ))}
+                  ].map((ev) => {
+                    const done = !!ev.date;
+                    return (
+                      <li key={ev.label} className="relative pl-6">
+                        <span
+                          className={`absolute -left-[7px] top-0.5 inline-flex items-center justify-center size-4 rounded-full ring-2 ring-card ${
+                            done ? "bg-primary text-primary-foreground" : "bg-muted border border-border"
+                          }`}
+                        >
+                          {done && <Check className="size-2.5" />}
+                        </span>
+                        <div className={`text-sm font-medium ${done ? "text-foreground" : "text-muted-foreground"}`}>
+                          {ev.label}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{formatDate(ev.date)}</div>
+                      </li>
+                    );
+                  })}
                 </ol>
                 {(inmueble.notaria || inmueble.honorarios || inmueble.tipoExclusiva || inmueble.llaves) && (
                   <div className="grid grid-cols-2 gap-x-6 mt-5 pt-4 border-t border-border">
