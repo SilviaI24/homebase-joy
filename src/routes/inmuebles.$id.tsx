@@ -584,7 +584,7 @@ function DetailView({
 
           {/* Propietario */}
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="text-sm font-semibold mb-3">Propietario</h3>
+            <h3 className="font-display text-base font-semibold mb-4">Propietario</h3>
             <Field label="Nombre" value={inmueble.propietario} />
             <Field
               label="Teléfono"
@@ -658,7 +658,7 @@ function TiempoMercadoPanel({
 
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-      <h3 className="text-sm font-semibold mb-3">Tiempo en mercado</h3>
+      <h3 className="font-display text-base font-semibold mb-4">Tiempo en mercado</h3>
 
       {!detailReady ? (
         <div className="space-y-2">
@@ -742,7 +742,7 @@ function ManagementPanel(props: {
 
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm sticky top-4">
-      <h3 className="text-sm font-semibold mb-4">Gestión</h3>
+      <h3 className="font-display text-base font-semibold mb-4">Gestión</h3>
 
       <div className="space-y-3">
         <div>
@@ -944,7 +944,7 @@ function VisitasPanel({ id }: { id: string }) {
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold flex items-center gap-2">
+        <h3 className="font-display text-base font-semibold flex items-center gap-2">
           <CalendarDays className="size-4" /> Visitas y actividad
         </h3>
         <div className="flex items-center gap-2">
