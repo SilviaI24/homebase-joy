@@ -3,6 +3,7 @@ import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { NewClienteDialog } from "@/components/CreateDialogs";
+import { SafeImage } from "@/components/SafeImage";
 import {
   listClientes,
   type Cliente,
