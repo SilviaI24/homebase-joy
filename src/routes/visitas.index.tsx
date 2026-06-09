@@ -210,8 +210,8 @@ function VisitasPage() {
       const k = v.fecha.slice(0, 7);
       if (!(k in monthCount)) return;
       monthCount[k].total++;
-      if (v.estado === "Confirmada" || v.estado === "Realizada") monthCount[k].confirmadas++;
-      if (v.estado === "Cancelada" || v.estado === "No realizada") monthCount[k].canceladas++;
+      if (ESTADOS_EXITO.has(v.estado)) monthCount[k].confirmadas++;
+      if (ESTADOS_CANCELACION.has(v.estado)) monthCount[k].canceladas++;
     });
     const seriesData = months.map((m) => ({
       mes: m.label,
