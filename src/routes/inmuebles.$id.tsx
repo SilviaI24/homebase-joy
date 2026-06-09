@@ -33,6 +33,11 @@ import {
   Save,
   Loader2,
   User,
+  BedDouble,
+  Bath,
+  Ruler,
+  Hash,
+  Check,
 } from "lucide-react";
 
 // Build a detail placeholder from a list row so the page renders instantly.
@@ -170,17 +175,57 @@ function daysLabel(d: number | null) {
   return `${d} día${d === 1 ? "" : "s"}`;
 }
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
+function Field({
+  label,
+  value,
+  hideEmpty = false,
+}: {
+  label: string;
+  value: React.ReactNode;
+  hideEmpty?: boolean;
+}) {
+  const isEmpty =
+    value == null ||
+    value === "" ||
+    (typeof value === "number" && value === 0);
+  if (hideEmpty && isEmpty) return null;
   return (
-    <div className="py-2 border-b border-border/50 last:border-0">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="text-sm mt-0.5">{value || <span className="text-muted-foreground">—</span>}</div>
+    <div className="py-2 border-b border-border/40 last:border-0">
+      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground">
+        {label}
+      </div>
+      <div className="text-sm mt-1 font-medium text-foreground">
+        {isEmpty ? <span className="text-muted-foreground/60 font-normal">—</span> : value}
+      </div>
+    </div>
+  );
+}
+
+function Spec({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="rounded-md border border-border bg-background px-3 py-2.5">
+      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground">
+        {label}
+      </div>
+      <div className="text-sm font-semibold text-foreground mt-1 truncate">{value}</div>
     </div>
   );
 }
 
 function SkeletonLine({ className = "" }: { className?: string }) {
   return <div className={`h-3 rounded bg-muted animate-pulse ${className}`} />;
+}
+
+function statusTint(estatus: string) {
+  const map: Record<string, string> = {
+    Activo: "bg-emerald-600 text-white",
+    Reservado: "bg-amber-500 text-white",
+    Vendido: "bg-blue-600 text-white",
+    Alquilado: "bg-blue-600 text-white",
+    Baja: "bg-muted text-muted-foreground",
+    Prospección: "bg-secondary text-secondary-foreground",
+  };
+  return map[estatus] ?? "bg-secondary text-secondary-foreground";
 }
 
 function InmuebleDetail() {
@@ -299,118 +344,199 @@ function DetailView({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Columna principal */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Galería */}
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="aspect-video">
+          {/* Hero: imagen con overlay */}
+          <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+            <div className="relative aspect-[16/9] bg-muted">
               <SafeImage src={mainImg} alt={inmueble.calle || "Inmueble"} />
+              {/* Top chips */}
+              <div className="absolute inset-x-0 top-0 p-4 flex items-start justify-between pointer-events-none">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold shadow-sm ${statusTint(
+                    inmueble.estatus,
+                  )}`}
+                >
+                  <span className="size-1.5 rounded-full bg-current opacity-80" />
+                  {inmueble.estatus || "—"}
+                </span>
+                {inmueble.ref && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold bg-background text-foreground border border-border/60 px-2 py-1 rounded-full shadow-sm">
+                    <Hash className="size-3" />
+                    {inmueble.ref}
+                  </span>
+                )}
+              </div>
+              {/* Bottom overlay */}
+              <div className="absolute inset-x-0 bottom-0 px-6 pt-20 pb-5 bg-gradient-to-t from-black/85 via-black/55 to-transparent text-white">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div className="min-w-0">
+                    <h2 className="font-display text-2xl sm:text-3xl font-semibold leading-tight tracking-tight">
+                      {inmueble.calle || "Sin dirección"}{" "}
+                      {inmueble.numero && (
+                        <span className="text-white/80 font-normal">{inmueble.numero}</span>
+                      )}
+                    </h2>
+                    <div className="text-sm text-white/85 flex items-center gap-1.5 mt-1">
+                      <MapPin className="size-3.5" />
+                      {[inmueble.barrio, inmueble.localidad].filter(Boolean).join(", ") || "—"}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="font-display text-3xl sm:text-4xl font-bold leading-none tracking-tight tabular-nums">
+                      {formatEuro(inmueble.precio)}
+                    </div>
+                    {inmueble.precioFinal ? (
+                      <div className="text-[11px] text-white/75 mt-1">
+                        Cerrado en {formatEuro(inmueble.precioFinal)}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                {(inmueble.habitaciones || inmueble.banos || inmueble.superficie || inmueble.tipo) && (
+                  <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/90">
+                    {inmueble.tipo && (
+                      <span className="inline-flex items-center gap-1.5 font-medium">{inmueble.tipo}</span>
+                    )}
+                    {inmueble.habitaciones && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <BedDouble className="size-4" /> {inmueble.habitaciones} hab.
+                      </span>
+                    )}
+                    {inmueble.banos && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Bath className="size-4" /> {inmueble.banos} baños
+                      </span>
+                    )}
+                    {inmueble.superficie && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Ruler className="size-4" /> {inmueble.superficie} m²
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             {detailReady && inmueble.imagenes.length > 1 && (
-              <div className="p-2 flex gap-2 overflow-x-auto border-t border-border">
-                {inmueble.imagenes.map((src) => (
-                  <button
-                    key={src}
-                    onClick={() => setMainImg(src)}
-                    className={`shrink-0 size-16 rounded overflow-hidden border-2 transition-colors ${
-                      mainImg === src ? "border-primary" : "border-border hover:border-muted-foreground/40"
-                    }`}
-                  >
-                    <SafeImage src={src} alt="" />
-                  </button>
-                ))}
+              <div className="p-3 flex gap-2 overflow-x-auto border-t border-border bg-card">
+                {inmueble.imagenes.map((src) => {
+                  const active = mainImg === src;
+                  return (
+                    <button
+                      key={src}
+                      onClick={() => setMainImg(src)}
+                      className={`shrink-0 size-16 rounded-md overflow-hidden border-2 transition-all ${
+                        active
+                          ? "border-primary ring-2 ring-primary/30"
+                          : "border-border hover:border-primary/60 opacity-80 hover:opacity-100"
+                      }`}
+                    >
+                      <SafeImage src={src} alt="" />
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Cabecera (siempre disponible desde lista) */}
-          <div className="rounded-lg border border-border bg-card p-5">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <div>
-                <h2 className="text-xl font-semibold">
-                  {inmueble.calle || "Sin dirección"} {inmueble.numero}
-                </h2>
-                <div className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                  <MapPin className="size-3.5" />
-                  {[inmueble.barrio, inmueble.localidad].filter(Boolean).join(", ") || "—"}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-semibold text-primary">{formatEuro(inmueble.precio)}</div>
-                {inmueble.precioFinal ? (
-                  <div className="text-xs text-muted-foreground">Final: {formatEuro(inmueble.precioFinal)}</div>
-                ) : null}
-              </div>
-            </div>
-            {detailReady ? (
-              inmueble.descripcion && (
-                <p className="mt-4 text-sm leading-relaxed whitespace-pre-line text-foreground/90">
+          {/* Descripción */}
+          {(detailReady && inmueble.descripcion) || !detailReady ? (
+            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+              <h3 className="font-display text-base font-semibold mb-3">Descripción</h3>
+              {detailReady ? (
+                <p className="text-sm leading-relaxed whitespace-pre-line text-foreground/85">
                   {inmueble.descripcion}
                 </p>
-              )
-            ) : (
-              <div className="mt-4 space-y-2">
-                <SkeletonLine className="w-full" />
-                <SkeletonLine className="w-11/12" />
-                <SkeletonLine className="w-3/4" />
-              </div>
-            )}
-          </div>
-
-          {/* Características */}
-          <div className="rounded-lg border border-border bg-card p-5">
-            <h3 className="text-sm font-semibold mb-3">Características</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6">
-              <Field label="Tipo" value={inmueble.tipo} />
-              <Field label="Habitaciones" value={inmueble.habitaciones} />
-              <Field label="Baños" value={inmueble.banos} />
-              <Field label="Superficie" value={inmueble.superficie ? `${inmueble.superficie} m²` : ""} />
-              {detailReady && (
-                <>
-                  <Field label="Planta" value={inmueble.planta} />
-                  <Field label="Estado" value={inmueble.estado} />
-                  <Field label="Año construcción" value={inmueble.anoConstruccion} />
-                  <Field label="Cert. energética" value={inmueble.certificacionEnergetica} />
-                  <Field label="Calefacción" value={inmueble.calefaccion} />
-                  <Field label="Orientación" value={inmueble.orientacion} />
-                  <Field label="Garaje" value={inmueble.garaje} />
-                  <Field label="Trastero" value={inmueble.trastero} />
-                  <Field label="Ascensor" value={inmueble.ascensor} />
-                  <Field label="Armarios" value={inmueble.armariosEmpotrados} />
-                  <Field label="Terraza" value={inmueble.terraza} />
-                  <Field label="Balcón" value={inmueble.balcon} />
-                  <Field label="Gastos com." value={inmueble.gastosComunidad} />
-                  <Field label="Ref. catastral" value={inmueble.referenciaCatastral} />
-                </>
+              ) : (
+                <div className="space-y-2">
+                  <SkeletonLine className="w-full" />
+                  <SkeletonLine className="w-11/12" />
+                  <SkeletonLine className="w-3/4" />
+                </div>
               )}
             </div>
+          ) : null}
+
+          {/* Características */}
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <h3 className="font-display text-base font-semibold mb-4">Características</h3>
+            {(() => {
+              const specs: { label: string; value: React.ReactNode }[] = [
+                { label: "Tipo", value: inmueble.tipo },
+                { label: "Habitaciones", value: inmueble.habitaciones },
+                { label: "Baños", value: inmueble.banos },
+                { label: "Superficie", value: inmueble.superficie ? `${inmueble.superficie} m²` : "" },
+              ];
+              if (detailReady) {
+                specs.push(
+                  { label: "Planta", value: inmueble.planta },
+                  { label: "Estado", value: inmueble.estado },
+                  { label: "Año construcción", value: inmueble.anoConstruccion },
+                  { label: "Cert. energética", value: inmueble.certificacionEnergetica },
+                  { label: "Calefacción", value: inmueble.calefaccion },
+                  { label: "Orientación", value: inmueble.orientacion },
+                  { label: "Garaje", value: inmueble.garaje },
+                  { label: "Trastero", value: inmueble.trastero },
+                  { label: "Ascensor", value: inmueble.ascensor },
+                  { label: "Armarios", value: inmueble.armariosEmpotrados },
+                  { label: "Terraza", value: inmueble.terraza },
+                  { label: "Balcón", value: inmueble.balcon },
+                  { label: "Gastos com.", value: inmueble.gastosComunidad },
+                  { label: "Ref. catastral", value: inmueble.referenciaCatastral },
+                );
+              }
+              const filled = specs.filter(
+                (s) => s.value != null && s.value !== "" && s.value !== 0,
+              );
+              if (filled.length === 0) {
+                return (
+                  <div className="text-sm text-muted-foreground">
+                    Sin características registradas.
+                  </div>
+                );
+              }
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {filled.map((s) => (
+                    <Spec key={s.label} label={s.label} value={s.value} />
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           <TiempoMercadoPanel inmueble={inmueble} detailReady={detailReady} />
 
           {/* Historial / fechas — visible solo cuando hay datos */}
-          <div className="rounded-lg border border-border bg-card p-5">
-            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <Calendar className="size-4" /> Historial
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <h3 className="font-display text-base font-semibold mb-4 flex items-center gap-2">
+              <Calendar className="size-4 text-primary" /> Historial
             </h3>
             {detailReady ? (
               <>
-                <ol className="relative border-l border-border ml-2 space-y-4">
+                <ol className="relative ml-3 space-y-5 before:absolute before:left-0 before:top-1 before:bottom-1 before:w-px before:bg-border">
                   {[
                     { label: "Captación / inicio", date: inmueble.fechaInicio },
                     { label: "Autorización exclusiva", date: inmueble.fechaExclusiva },
                     { label: "Fin de exclusividad", date: inmueble.fechaFinExclusiva },
                     { label: "Reserva", date: inmueble.fechaReserva },
                     { label: "Escritura", date: inmueble.fechaEscritura },
-                  ].map((ev) => (
-                    <li key={ev.label} className="ml-4">
-                      <span
-                        className={`absolute -left-1.5 mt-1.5 size-3 rounded-full border-2 border-background ${
-                          ev.date ? "bg-primary" : "bg-muted"
-                        }`}
-                      />
-                      <div className="text-sm font-medium">{ev.label}</div>
-                      <div className="text-xs text-muted-foreground">{formatDate(ev.date)}</div>
-                    </li>
-                  ))}
+                  ].map((ev) => {
+                    const done = !!ev.date;
+                    return (
+                      <li key={ev.label} className="relative pl-6">
+                        <span
+                          className={`absolute -left-[7px] top-0.5 inline-flex items-center justify-center size-4 rounded-full ring-2 ring-card ${
+                            done ? "bg-primary text-primary-foreground" : "bg-muted border border-border"
+                          }`}
+                        >
+                          {done && <Check className="size-2.5" />}
+                        </span>
+                        <div className={`text-sm font-medium ${done ? "text-foreground" : "text-muted-foreground"}`}>
+                          {ev.label}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{formatDate(ev.date)}</div>
+                      </li>
+                    );
+                  })}
                 </ol>
                 {(inmueble.notaria || inmueble.honorarios || inmueble.tipoExclusiva || inmueble.llaves) && (
                   <div className="grid grid-cols-2 gap-x-6 mt-5 pt-4 border-t border-border">
@@ -457,8 +583,8 @@ function DetailView({
           />
 
           {/* Propietario */}
-          <div className="rounded-lg border border-border bg-card p-5">
-            <h3 className="text-sm font-semibold mb-3">Propietario</h3>
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <h3 className="font-display text-base font-semibold mb-4">Propietario</h3>
             <Field label="Nombre" value={inmueble.propietario} />
             <Field
               label="Teléfono"
@@ -531,8 +657,8 @@ function TiempoMercadoPanel({
       : "default";
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
-      <h3 className="text-sm font-semibold mb-3">Tiempo en mercado</h3>
+    <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+      <h3 className="font-display text-base font-semibold mb-4">Tiempo en mercado</h3>
 
       {!detailReady ? (
         <div className="space-y-2">
@@ -615,8 +741,8 @@ function ManagementPanel(props: {
   }, [agentesIds, agentesQ.data]);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5 sticky top-4">
-      <h3 className="text-sm font-semibold mb-4">Gestión</h3>
+    <div className="rounded-xl border border-border bg-card p-6 shadow-sm sticky top-4">
+      <h3 className="font-display text-base font-semibold mb-4">Gestión</h3>
 
       <div className="space-y-3">
         <div>
@@ -816,9 +942,9 @@ function VisitasPanel({ id }: { id: string }) {
   }, [visitas, now]);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold flex items-center gap-2">
+        <h3 className="font-display text-base font-semibold flex items-center gap-2">
           <CalendarDays className="size-4" /> Visitas y actividad
         </h3>
         <div className="flex items-center gap-2">
@@ -917,7 +1043,7 @@ function StatBox({
 }) {
   const toneCls =
     tone === "emerald"
-      ? "text-emerald-600 dark:text-emerald-400"
+      ? "text-emerald-700 dark:text-emerald-300"
       : tone === "primary"
       ? "text-primary"
       : tone === "destructive"
@@ -925,10 +1051,26 @@ function StatBox({
       : tone === "muted"
       ? "text-muted-foreground"
       : "text-foreground";
+  const accent =
+    tone === "emerald"
+      ? "before:bg-emerald-500"
+      : tone === "primary"
+      ? "before:bg-primary"
+      : tone === "destructive"
+      ? "before:bg-destructive"
+      : tone === "muted"
+      ? "before:bg-muted-foreground/40"
+      : "before:bg-border";
   return (
-    <div className="rounded-md border border-border bg-background px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={`text-lg font-semibold leading-tight ${toneCls}`}>{value}</div>
+    <div
+      className={`relative rounded-md border border-border bg-background px-3 py-2.5 overflow-hidden before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] ${accent}`}
+    >
+      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground">
+        {label}
+      </div>
+      <div className={`text-lg font-display font-semibold leading-tight mt-0.5 tabular-nums ${toneCls}`}>
+        {value}
+      </div>
       {hint && <div className="text-[10px] text-muted-foreground mt-0.5">{hint}</div>}
     </div>
   );
