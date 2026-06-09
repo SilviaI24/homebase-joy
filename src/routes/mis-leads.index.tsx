@@ -305,6 +305,36 @@ function MisLeadsPage() {
         </div>
       </div>
 
+      {/* Filtros por origen */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium mr-1">
+          Origen
+        </span>
+        {(["Todos", ...Object.keys(ORIGEN_META)] as const).map((k) => {
+          const active = origenFilter === k;
+          const meta = k !== "Todos" ? ORIGEN_META[k as string] : null;
+          const count = origenCounts[k as string] ?? 0;
+          return (
+            <button
+              key={k}
+              onClick={() => setOrigenFilter(k as string)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
+                active
+                  ? meta
+                    ? meta.cls
+                    : "bg-foreground text-background border-foreground"
+                  : "bg-card border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {meta && <meta.icon className="size-3" />}
+              {meta ? meta.label : k}
+              <span className="opacity-70">· {count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+
       {/* Lista de leads */}
       {filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
