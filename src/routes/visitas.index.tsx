@@ -176,12 +176,8 @@ function VisitasPage() {
     );
 
     const pasadasPeriodo = enPeriodo.filter((v) => v.fecha && new Date(v.fecha).getTime() < now);
-    const confirmadas = pasadasPeriodo.filter(
-      (v) => v.estado === "Confirmada" || v.estado === "Realizada",
-    );
-    const canceladas = pasadasPeriodo.filter(
-      (v) => v.estado === "Cancelada" || v.estado === "No realizada",
-    );
+    const confirmadas = pasadasPeriodo.filter((v) => ESTADOS_EXITO.has(v.estado));
+    const canceladas = pasadasPeriodo.filter((v) => ESTADOS_CANCELACION.has(v.estado));
     const ratioConfirm = pasadasPeriodo.length
       ? Math.round((confirmadas.length / pasadasPeriodo.length) * 100)
       : 0;
