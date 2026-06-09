@@ -27,7 +27,10 @@ import {
   Search as SearchIcon,
   HelpCircle,
   Ban,
-} from "lucide-react";
+  Pencil,
+}  from "lucide-react";
+
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { AppShell } from "@/components/AppShell";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
