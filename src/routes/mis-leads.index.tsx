@@ -116,7 +116,7 @@ function MisLeadsPage() {
   const { agente: agenteParam } = Route.useSearch();
   const [q, setQ] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<EstadoSeguimiento | "Todos">(
-    "Pendiente",
+    "Todos",
   );
 
   const agentes = ag.agentes;
