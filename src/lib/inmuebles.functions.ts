@@ -149,7 +149,7 @@ function mapBase(r: { id: string; fields: Record<string, unknown> }): Inmueble {
     precioFinal:
       typeof f["Precio Final "] === "number" ? (f["Precio Final "] as number) : null,
     tipo: String(f["Tipo de inmueble (desplegable)"] ?? ""),
-    estatus: String(f["Estatus"] ?? ""),
+    estatus: toTitleCase(String(f["Estatus"] ?? "")),
     publicacion: String(f["Publicación"] ?? ""),
     estado: toTitleCase(String(f["Estado"] ?? "")),
     habitaciones: String(f["Habitaciones / dormitorios"] ?? ""),
