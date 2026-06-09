@@ -72,15 +72,21 @@ export const Route = createFileRoute("/visitas/")({
   ),
 });
 
+// Estados reales de Airtable, ordenados por ciclo de vida de la visita:
+// Pendiente → Confirmada → Completado · Anulada / Borrada (terminales negativos)
 const ESTADO_COLORS: Record<string, string> = {
-  Confirmada: "#10b981",
-  Pendiente: "#f59e0b",
-  Realizada: "#3b82f6",
-  Cancelada: "#ef4444",
-  "No realizada": "#94a3b8",
+  Pendiente: "#f59e0b",   // ámbar — a la espera de confirmación
+  Confirmada: "#3b82f6",  // azul — agendada y confirmada
+  Completado: "#10b981",  // verde — visita realizada con éxito
+  Anulada: "#ef4444",     // rojo — cancelada por cliente / agente
+  Borrada: "#94a3b8",     // gris — descartada del sistema
 };
 
-const ESTADOS = ["Confirmada", "Pendiente", "Realizada", "Cancelada", "No realizada"] as const;
+const ESTADOS = ["Pendiente", "Confirmada", "Completado", "Anulada", "Borrada"] as const;
+// Agrupaciones semánticas para KPIs
+const ESTADOS_EXITO = new Set(["Completado"]);
+const ESTADOS_CANCELACION = new Set(["Anulada", "Borrada"]);
+const ESTADOS_AGENDADA = new Set(["Confirmada", "Pendiente"]);
 const DOW = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 const tooltipStyle = {
