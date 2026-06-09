@@ -31,6 +31,7 @@ import {
   HandCoins,
   FileSignature,
   ArrowRight,
+  Inbox,
 } from "lucide-react";
 
 export const Route = createFileRoute("/comerciales/")({
