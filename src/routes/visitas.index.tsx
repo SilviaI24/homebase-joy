@@ -260,7 +260,7 @@ function VisitasPage() {
     const topAgentes = Array.from(agCount.entries())
       .map(([mail, p]) => ({
         mail,
-        label: mail.split("@")[0],
+        label: mailToNombre.get(mail.toLowerCase()) ?? mail.split("@")[0],
         count: p.count,
         ratio: p.count ? Math.round((p.realizadas / p.count) * 100) : 0,
       }))
@@ -268,13 +268,14 @@ function VisitasPage() {
       .slice(0, 8);
     const maxTopAg = topAgentes[0]?.count ?? 1;
 
-    // Heatmap: día de la semana × franja horaria
+    // Heatmap: día de la semana × franja horaria (últimos 3 meses, independiente del periodo)
     const HOURS = [
       { key: "M", label: "Mañana", from: 8, to: 12 },
       { key: "D", label: "Mediodía", from: 12, to: 16 },
       { key: "T", label: "Tarde", from: 16, to: 20 },
       { key: "N", label: "Noche", from: 20, to: 24 },
     ];
+    const heatStart = now - 90 * 86400000;
     const heat: number[][] = Array.from({ length: 7 }, () => Array(HOURS.length).fill(0));
     enPeriodo.forEach((v) => {
       if (!v.fecha) return;
