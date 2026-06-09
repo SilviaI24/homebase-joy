@@ -288,7 +288,7 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
     }
 
     // --- Extracción de preferencias desde texto libre ---------------------
-    const txtRaw = `${base.solicitud} ${base.motivo} ${base.observaciones} ${base.feedback}`;
+    const txtRaw = `${base.solicitud} ${base.motivo} ${base.observaciones} ${base.feedback} ${base.conversaciones}`;
     const txt = txtRaw.toLowerCase();
     const wantsAlquiler =
       base.tipo === "Interesado alquiler" || /alquil/i.test(txtRaw);
@@ -323,9 +323,11 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
       zonas: zonasPref,
     };
 
-    // Match para potenciales: solo si no es activo
+    // Match para potenciales: solo si no es activo, no es propietario, y tenemos presupuesto.
+    // Sin presupuesto detectado no se muestran matches para evitar ruido.
     let matches: ClienteMatch[] = [];
-    if (!activo) {
+    const puedeMatch = !activo && !esPropietario && presupuestoMax != null;
+    if (puedeMatch) {
       const pool = wantsAlquiler ? activosAlquiler : wantsVenta ? activosVenta : [];
       const linkedSet = new Set(linkedInmuebles.map((i) => i.id));
       const cats = base.categoria.map((c) => c.toLowerCase());
