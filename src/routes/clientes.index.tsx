@@ -546,13 +546,12 @@ function InmuebleCard({ p }: { p: MiniInmueble }) {
       className="group flex gap-3 rounded-xl border border-border bg-background p-3 hover:shadow-md hover:border-primary/30 transition-all"
     >
       <div className="shrink-0">
-        {p.imagen ? (
-          <img src={p.imagen} alt={p.calle || p.ref} className="h-20 w-28 rounded-lg object-cover" />
-        ) : (
-          <div className="h-20 w-28 rounded-lg bg-muted flex items-center justify-center">
-            <Building2 className="size-6 text-muted-foreground" />
-          </div>
-        )}
+        <SafeImage
+          src={p.imagen}
+          alt={p.calle || p.ref}
+          className="h-20 w-28 rounded-lg"
+          imgClassName="object-cover"
+        />
       </div>
       <div className="min-w-0 flex-1 flex flex-col justify-between">
         <div>
