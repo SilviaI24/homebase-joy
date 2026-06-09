@@ -310,7 +310,7 @@ function VisitasPage() {
       heatMax,
       heatHours: HOURS,
     };
-  }, [visitas, periodoStart, periodoDays, inmIndex, now]);
+  }, [visitas, periodoStart, periodoDays, inmIndex, now, mailToNombre]);
 
   const filteredActividad = useMemo(() => {
     const q = search.trim().toLowerCase();
