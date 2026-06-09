@@ -69,6 +69,7 @@ function moneyShort(v: number): string {
 const SIN_ASIGNAR = "Sin asignar";
 
 type AgenteCard = {
+  id: string | null; // null para "Sin asignar" o agentes externos
   nombre: string;
   mail: string;
   activos: number;
@@ -79,6 +80,7 @@ type AgenteCard = {
   zonas: string[];
   inmuebles: Inmueble[];
 };
+
 
 const ESTADO_COLORS: Record<string, string> = {
   Activo: "#10b981",
