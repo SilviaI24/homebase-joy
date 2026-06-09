@@ -189,3 +189,79 @@ export const createVisita = createServerFn({ method: "POST" })
     bust("visitas-all");
     return { id: res.records?.[0]?.id ?? "" };
   });
+
+// ------------------- ASIGNAR LEAD A AGENTES -------------------
+export type AssignClientePayload = {
+  clienteId: string;
+  agentesIds: string[]; // lista completa (reemplaza la actual)
+};
+
+export const assignClienteAgentes = createServerFn({ method: "POST" })
+  .inputValidator((d: AssignClientePayload) => {
+    if (!d?.clienteId) throw new Error("Cliente requerido");
+    if (!Array.isArray(d.agentesIds)) throw new Error("Agentes inválidos");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const fields: Record<string, unknown> = {
+      "Agentes (tabla agentes)": data.agentesIds,
+    };
+    await airtableFetch(`/v0/${BASE_ID}/${TABLES.clientes}/${data.clienteId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ fields, typecast: true }),
+    });
+    bust("clientes");
+    return { ok: true };
+  });
+
+// ------------------- SEGUIMIENTO DE LEAD -------------------
+// Estado de trabajo del lead (campo "Trabajado") + nota opcional que se
+// concatena al final de "Observaciones" con marca de tiempo.
+export const ESTADOS_SEGUIMIENTO = [
+  "Pendiente",
+  "Contactado",
+  "Descartado",
+] as const;
+export type EstadoSeguimiento = (typeof ESTADOS_SEGUIMIENTO)[number];
+
+export type SeguimientoPayload = {
+  clienteId: string;
+  estado?: EstadoSeguimiento;
+  nota?: string;
+  observacionesActuales?: string;
+};
+
+function formatNota(nota: string, observacionesActuales: string): string {
+  const ts = new Date().toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const linea = `[${ts}] ${toSentenceCase(nota.trim())}`;
+  const prev = observacionesActuales.trim();
+  return prev ? `${prev}\n${linea}` : linea;
+}
+
+export const updateClienteSeguimiento = createServerFn({ method: "POST" })
+  .inputValidator((d: SeguimientoPayload) => {
+    if (!d?.clienteId) throw new Error("Cliente requerido");
+    if (!d.estado && !d.nota) throw new Error("Nada que actualizar");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const fields: Record<string, unknown> = {};
+    if (data.estado) fields["Trabajado"] = data.estado;
+    const nota = strOpt(data.nota);
+    if (nota) {
+      fields["Observaciones"] = formatNota(nota, data.observacionesActuales ?? "");
+    }
+    await airtableFetch(`/v0/${BASE_ID}/${TABLES.clientes}/${data.clienteId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ fields, typecast: true }),
+    });
+    bust("clientes");
+    return { ok: true };
+  });
+
