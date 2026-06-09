@@ -301,15 +301,53 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
     const habMatch = txt.match(/(\d+)\s*(?:hab|dorm|habitaci|dormitor)/);
     const habitacionesPref = habMatch ? parseInt(habMatch[1], 10) : null;
 
-    // Presupuesto: capturar todos los importes en €
-    const moneyRe = /(\d{1,3}(?:[.,]\d{3})+|\d{4,7})\s*(?:€|eur|euros)?/gi;
+    // Presupuesto: capturar importes en varios formatos:
+    //   "200.000€", "200,000 eur", "230k", "1.2M", "150 mil"
+    // y rangos: "200-250k", "entre 180 y 220", "180.000 a 220.000".
     const amounts: number[] = [];
-    for (const m of txt.matchAll(moneyRe)) {
-      const n = parseInt(m[1].replace(/[.,]/g, ""), 10);
-      if (!Number.isFinite(n)) continue;
-      // descartar números pequeños que claramente no son precio
+    const pushAmount = (n: number) => {
+      if (!Number.isFinite(n)) return;
       if (wantsAlquiler && n >= 200 && n <= 10000) amounts.push(n);
       else if (!wantsAlquiler && n >= 30000 && n <= 5000000) amounts.push(n);
+    };
+    const parseNum = (raw: string, suffix: string): number | null => {
+      // raw puede ser "200", "200.000", "1,2", "1.2"
+      const s = raw.trim();
+      let n: number;
+      if (/^\d{1,3}(?:[.,]\d{3})+$/.test(s)) {
+        n = parseInt(s.replace(/[.,]/g, ""), 10);
+      } else if (/^\d+[.,]\d+$/.test(s)) {
+        n = parseFloat(s.replace(",", "."));
+      } else {
+        n = parseInt(s, 10);
+      }
+      if (!Number.isFinite(n)) return null;
+      const suf = suffix.toLowerCase();
+      if (suf === "k" || suf === "mil") n *= 1000;
+      else if (suf === "m" || suf === "mill" || suf === "millon" || suf === "millones") n *= 1_000_000;
+      return n;
+    };
+    // Rangos: "200-250k", "180.000 a 220.000 €", "entre 180 y 220 mil"
+    const rangeRe = /(\d{1,7}(?:[.,]\d{1,3})*)\s*(?:-|–|a|y|hasta)\s*(\d{1,7}(?:[.,]\d{1,3})*)\s*(k|m|mil|mill(?:on|ones)?)?\s*(?:€|eur|euros)?/gi;
+    const consumed: Array<[number, number]> = [];
+    for (const m of txt.matchAll(rangeRe)) {
+      const suf = m[3] ?? "";
+      const a = parseNum(m[1], suf);
+      const b = parseNum(m[2], suf);
+      if (a != null) pushAmount(a);
+      if (b != null) pushAmount(b);
+      if (m.index != null) consumed.push([m.index, m.index + m[0].length]);
+    }
+    // Importes sueltos con sufijo k/M/mil/€
+    const moneyRe = /(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(k|m|mil|mill(?:on|ones)?)?\s*(€|eur|euros)?/gi;
+    for (const m of txt.matchAll(moneyRe)) {
+      if (m.index != null && consumed.some(([s, e]) => m.index! >= s && m.index! < e)) continue;
+      const suf = m[2] ?? "";
+      const cur = m[3] ?? "";
+      // exigir señal monetaria: sufijo (k/M/mil) o símbolo €/eur
+      if (!suf && !cur) continue;
+      const n = parseNum(m[1], suf);
+      if (n != null) pushAmount(n);
     }
     const presupuestoMin = amounts.length > 0 ? Math.min(...amounts) : null;
     const presupuestoMax = amounts.length > 0 ? Math.max(...amounts) : null;
