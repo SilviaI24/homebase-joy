@@ -229,6 +229,7 @@ export type SeguimientoPayload = {
   estado?: EstadoSeguimiento;
   nota?: string;
   observacionesActuales?: string;
+  tipo?: string; // valor del campo "Tipo de cliente" en Airtable
 };
 
 function formatNota(nota: string, observacionesActuales: string): string {
@@ -247,12 +248,14 @@ function formatNota(nota: string, observacionesActuales: string): string {
 export const updateClienteSeguimiento = createServerFn({ method: "POST" })
   .inputValidator((d: SeguimientoPayload) => {
     if (!d?.clienteId) throw new Error("Cliente requerido");
-    if (!d.estado && !d.nota) throw new Error("Nada que actualizar");
+    if (!d.estado && !d.nota && !d.tipo) throw new Error("Nada que actualizar");
     return d;
   })
   .handler(async ({ data }) => {
     const fields: Record<string, unknown> = {};
     if (data.estado) fields["Trabajado"] = data.estado;
+    const tipo = strOpt(data.tipo);
+    if (tipo) fields["Tipo de cliente"] = tipo;
     const nota = strOpt(data.nota);
     if (nota) {
       fields["Observaciones"] = formatNota(nota, data.observacionesActuales ?? "");
