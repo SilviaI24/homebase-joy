@@ -38,26 +38,121 @@ const clientesQuery = queryOptions({
   queryFn: () => listClientes(),
 });
 
-// Detecta inmuebles mencionados en el texto libre de la conversación buscando
-// coincidencias de la calle, referencia o barrio del inmueble.
+// Normaliza texto: minúsculas, sin acentos/diacríticos, sin signos.
+function normalize(s: string): string {
+  return (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[·.,;:()¿?¡!"'`´]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function escapeReg(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Stopwords que no deben usarse como pista de calle por sí solas.
+const STOP_TOKENS = new Set([
+  "de", "del", "la", "las", "el", "los", "san", "santa", "santo", "y", "o",
+  "calle", "av", "avda", "avenida", "plaza", "pza", "paseo", "po", "camino",
+  "carretera", "ctra", "ronda", "travesia", "via", "vía", "urbanizacion",
+  "urb", "barrio", "edificio", "edif", "bloque", "esquina", "callejon",
+  "callejón", "glorieta", "parque",
+]);
+
+// Prefijos de vía a eliminar al inicio de un nombre de calle.
+const PREFIX_RE =
+  /^(calle|c\/|c\.|avda?\.?|avenida|av\.?|pza\.?|plaza|paseo|po\.?|camino|carretera|ctra\.?|ronda|travesia|travesía|trav\.?|via|vía|urbanizacion|urbanización|urb\.?|glorieta|callejon|callejón|edif\.?|edificio|bloque)\s+/i;
+
+// Equivalencias bidireccionales para que cualquiera de las variantes en el
+// texto del cliente se acepte como mención válida.
+const ALIAS_GROUPS: string[][] = [
+  ["avenida", "avda", "av"],
+  ["calle", "c"],
+  ["plaza", "pza"],
+  ["paseo", "po"],
+  ["carretera", "ctra"],
+  ["travesia", "trav"],
+  ["urbanizacion", "urb"],
+  ["edificio", "edif"],
+  ["sant", "san", "santa", "sta", "sto"],
+];
+
+function expandAlias(token: string): string[] {
+  for (const group of ALIAS_GROUPS) {
+    if (group.includes(token)) return group;
+  }
+  return [token];
+}
+
+// Devuelve los tokens "significativos" de un nombre de vía: sin prefijo,
+// sin stopwords y con longitud mínima.
+function streetTokens(calle: string): string[] {
+  const cleaned = normalize(calle).replace(PREFIX_RE, "").trim();
+  if (!cleaned) return [];
+  return cleaned
+    .split(" ")
+    .filter((t) => t.length >= 3 && !STOP_TOKENS.has(t));
+}
+
+// Construye un patrón regex con límites de palabra y aliasing.
+function tokenPattern(token: string): string {
+  const variants = expandAlias(token).map(escapeReg);
+  return `(?:${variants.join("|")})`;
+}
+
+// Detecta inmuebles mencionados en el texto libre de la conversación.
+// Mejoras: normaliza acentos, expande abreviaturas comunes de vía y permite
+// que la mención sea cualquiera de los tokens significativos del nombre de
+// la calle, además de coincidir por referencia, barrio o localidad.
 function findMentionedInmuebles(text: string, inmuebles: Inmueble[]): Inmueble[] {
-  const haystack = (text || "").toLowerCase();
-  if (!haystack.trim()) return [];
+  const haystack = ` ${normalize(text)} `;
+  if (haystack.trim().length === 0) return [];
   const found = new Map<string, Inmueble>();
+  const wb = "(?:^|[^a-z0-9ñ])";
+  const we = "(?:[^a-z0-9ñ]|$)";
+
   for (const inm of inmuebles) {
     if (found.has(inm.id)) continue;
-    const candidatos: string[] = [];
-    // Referencia (#1234)
-    if (inm.ref && inm.ref.length >= 3) candidatos.push(inm.ref.toLowerCase());
-    // Calle (sin "calle", "av", "c/", etc.) — usamos la palabra clave principal
-    const calle = (inm.calle || "")
-      .toLowerCase()
-      .replace(/^(calle|c\/|c\.|avda?\.?|avenida|plaza|paseo|camino|carretera|ctra\.?|ronda|travesía|travesia)\s+/i, "")
-      .trim();
-    if (calle.length >= 4) candidatos.push(calle);
-    for (const needle of candidatos) {
-      // Match con límite de palabra para evitar falsos positivos
-      const re = new RegExp(`(?:^|[^a-záéíóúñ0-9])${escapeReg(needle)}(?:[^a-záéíóúñ0-9]|$)`, "i");
+
+    // 1) Referencia exacta (#1234) — alta confianza.
+    if (inm.ref && inm.ref.length >= 3) {
+      const ref = normalize(inm.ref);
+      const re = new RegExp(`${wb}#?${escapeReg(ref)}${we}`);
+      if (re.test(haystack)) {
+        found.set(inm.id, inm);
+        continue;
+      }
+    }
+
+    // 2) Calle completa (después de quitar prefijo) o sus tokens fuertes.
+    const tokens = streetTokens(inm.calle);
+    if (tokens.length > 0) {
+      // Frase completa primero (mayor precisión).
+      const fullPattern = tokens.map(tokenPattern).join("\\s+");
+      const reFull = new RegExp(`${wb}${fullPattern}${we}`);
+      if (reFull.test(haystack)) {
+        found.set(inm.id, inm);
+        continue;
+      }
+      // Token suelto largo (≥5) como pista válida.
+      const strong = tokens.find((t) => t.length >= 5);
+      if (strong) {
+        const re = new RegExp(`${wb}${tokenPattern(strong)}${we}`);
+        if (re.test(haystack)) {
+          found.set(inm.id, inm);
+          continue;
+        }
+      }
+    }
+
+    // 3) Barrio o localidad (palabra completa, ≥4 chars).
+    for (const extra of [inm.barrio, inm.localidad]) {
+      const n = normalize(extra);
+      if (n.length < 4 || STOP_TOKENS.has(n)) continue;
+      const re = new RegExp(`${wb}${escapeReg(n)}${we}`);
       if (re.test(haystack)) {
         found.set(inm.id, inm);
         break;
@@ -65,10 +160,6 @@ function findMentionedInmuebles(text: string, inmuebles: Inmueble[]): Inmueble[]
     }
   }
   return Array.from(found.values()).slice(0, 6);
-}
-
-function escapeReg(s: string) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 
