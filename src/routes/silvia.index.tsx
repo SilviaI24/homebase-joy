@@ -213,10 +213,15 @@ function SilviaPage() {
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
   const [cualificados, setCualificados] = useState<Set<string>>(new Set());
 
-  const todosInmuebles = useMemo(
-    () => [...inmData.inmuebles, ...inmData.alquileres],
-    [inmData],
-  );
+  // Solo proponemos inmuebles "comerciables" (excluimos vendidos, dados de
+  // baja o ya alquilados). Si existen duplicados de referencia, nos quedamos
+  // con el activo.
+  const todosInmuebles = useMemo(() => {
+    const ESTADOS_EXCLUIDOS = new Set(["Vendido", "Baja", "Alquilado"]);
+    return [...inmData.inmuebles, ...inmData.alquileres].filter(
+      (i) => !ESTADOS_EXCLUIDOS.has(i.estado),
+    );
+  }, [inmData]);
 
   // Solo clientes con conversación significativa de Silvia, con detección de
   // inmuebles mencionados en el texto libre.
