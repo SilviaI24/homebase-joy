@@ -544,9 +544,19 @@ function AgenteCardView({ card }: { card: AgenteCard }) {
           </div>
         )}
       </div>
+      {card.id && (
+        <Link
+          to="/mis-leads"
+          search={{ agente: card.id }}
+          className="mt-3 inline-flex items-center justify-center gap-1 w-full text-[11px] font-medium px-2.5 py-1.5 rounded-md border border-border bg-card hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors"
+        >
+          <Inbox className="size-3" /> Ver leads asignados <ArrowRight className="size-3" />
+        </Link>
+      )}
     </div>
   );
 }
+
 
 function Mini({
   label,
