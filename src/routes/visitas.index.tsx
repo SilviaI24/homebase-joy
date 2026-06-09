@@ -120,6 +120,14 @@ function fmtTime(s: string | null) {
 function VisitasPage() {
   const { data: vData } = useSuspenseQuery(visitasQuery);
   const { data: inmData } = useSuspenseQuery(allInmueblesQuery);
+  const { data: agData } = useSuspenseQuery(agentesQuery);
+  const mailToNombre = useMemo(() => {
+    const m = new Map<string, string>();
+    agData.agentes.forEach((a) => {
+      if (a.mail) m.set(a.mail.toLowerCase(), a.nombre);
+    });
+    return m;
+  }, [agData]);
   const [periodo, setPeriodo] = useState<"30d" | "90d" | "ytd" | "12m">("90d");
   const [estadoFilter, setEstadoFilter] = useState<string | null>(null);
   const [search, setSearch] = useState("");
