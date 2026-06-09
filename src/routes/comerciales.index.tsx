@@ -174,6 +174,7 @@ function ComercialesPage() {
     const byName = new Map<string, AgenteCard>();
     ag.agentes.forEach((a) => {
       byName.set(a.nombre, {
+        id: a.id,
         nombre: a.nombre,
         mail: a.mail,
         activos: 0,
@@ -184,6 +185,7 @@ function ComercialesPage() {
         zonas: [],
         inmuebles: [],
       });
+
     });
     const zonaSet = new Map<string, Set<string>>();
     inmuebles.forEach((i) => {
