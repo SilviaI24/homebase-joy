@@ -583,7 +583,7 @@ function DetailView({
           />
 
           {/* Propietario */}
-          <div className="rounded-lg border border-border bg-card p-5">
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
             <h3 className="text-sm font-semibold mb-3">Propietario</h3>
             <Field label="Nombre" value={inmueble.propietario} />
             <Field
@@ -657,7 +657,7 @@ function TiempoMercadoPanel({
       : "default";
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
       <h3 className="text-sm font-semibold mb-3">Tiempo en mercado</h3>
 
       {!detailReady ? (
@@ -741,7 +741,7 @@ function ManagementPanel(props: {
   }, [agentesIds, agentesQ.data]);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5 sticky top-4">
+    <div className="rounded-xl border border-border bg-card p-6 shadow-sm sticky top-4">
       <h3 className="text-sm font-semibold mb-4">Gestión</h3>
 
       <div className="space-y-3">
@@ -942,7 +942,7 @@ function VisitasPanel({ id }: { id: string }) {
   }, [visitas, now]);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <CalendarDays className="size-4" /> Visitas y actividad
