@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { Building2, LayoutDashboard, Users, CalendarDays, UserCog, KeyRound, Sparkles } from "lucide-react";
+import { Building2, LayoutDashboard, Users, CalendarDays, UserCog, KeyRound, Sparkles, Inbox } from "lucide-react";
 
 type NavItem = {
   to: string;
@@ -14,9 +14,11 @@ const nav: NavItem[] = [
   { to: "/alquileres", label: "Alquileres", icon: KeyRound },
   { to: "/clientes", label: "Clientes", icon: Users },
   { to: "/silvia", label: "SilvIA", icon: Sparkles },
+  { to: "/mis-leads", label: "Mis leads", icon: Inbox },
   { to: "/comerciales", label: "Comerciales", icon: UserCog },
   { to: "/visitas", label: "Visitas", icon: CalendarDays },
 ];
+
 
 export function AppShell({ title, subtitle, actions, children }: { title: string; subtitle?: string; actions?: ReactNode; children: ReactNode }) {
   return (

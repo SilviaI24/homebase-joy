@@ -20,7 +20,7 @@ import {
   ArrowRight,
   UserCheck,
   Archive,
-  UserCog,
+  
   Tag,
   CalendarDays,
   MessageSquare,
@@ -32,6 +32,8 @@ import {
   inferCanal,
   type Canal,
 } from "@/components/silvia/conversation";
+import { AsignarLeadButton } from "@/components/AsignarLeadButton";
+
 
 const clientesQuery = queryOptions({
   queryKey: ["clientes"],
@@ -636,12 +638,8 @@ function SilviaPage() {
                         <UserCheck className="size-3" /> Cualificar
                       </button>
                     )}
-                    <button
-                      className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20 cursor-pointer transition-colors"
-                      title="Próximamente"
-                    >
-                      <UserCog className="size-3" /> Asignar
-                    </button>
+                    <AsignarLeadButton clienteId={c.id} agentesActuales={c.agentesIds} />
+
                     {!isArchived && (
                       <button
                         onClick={() => archivar(c.id)}

@@ -31,6 +31,7 @@ import {
   HandCoins,
   FileSignature,
   ArrowRight,
+  Inbox,
 } from "lucide-react";
 
 export const Route = createFileRoute("/comerciales/")({
@@ -69,6 +70,7 @@ function moneyShort(v: number): string {
 const SIN_ASIGNAR = "Sin asignar";
 
 type AgenteCard = {
+  id: string | null; // null para "Sin asignar" o agentes externos
   nombre: string;
   mail: string;
   activos: number;
@@ -79,6 +81,7 @@ type AgenteCard = {
   zonas: string[];
   inmuebles: Inmueble[];
 };
+
 
 const ESTADO_COLORS: Record<string, string> = {
   Activo: "#10b981",
@@ -172,6 +175,7 @@ function ComercialesPage() {
     const byName = new Map<string, AgenteCard>();
     ag.agentes.forEach((a) => {
       byName.set(a.nombre, {
+        id: a.id,
         nombre: a.nombre,
         mail: a.mail,
         activos: 0,
@@ -182,6 +186,7 @@ function ComercialesPage() {
         zonas: [],
         inmuebles: [],
       });
+
     });
     const zonaSet = new Map<string, Set<string>>();
     inmuebles.forEach((i) => {
@@ -191,6 +196,7 @@ function ComercialesPage() {
         let card = byName.get(key);
         if (!card) {
           card = {
+            id: null,
             nombre: key,
             mail: "",
             activos: 0,
@@ -203,6 +209,7 @@ function ComercialesPage() {
           };
           byName.set(key, card);
         }
+
         card.inmuebles.push(i);
         if (i.estatus === "Activo") {
           card.activos++;
@@ -538,9 +545,19 @@ function AgenteCardView({ card }: { card: AgenteCard }) {
           </div>
         )}
       </div>
+      {card.id && (
+        <Link
+          to="/mis-leads"
+          search={{ agente: card.id }}
+          className="mt-3 inline-flex items-center justify-center gap-1 w-full text-[11px] font-medium px-2.5 py-1.5 rounded-md border border-border bg-card hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors"
+        >
+          <Inbox className="size-3" /> Ver leads asignados <ArrowRight className="size-3" />
+        </Link>
+      )}
     </div>
   );
 }
+
 
 function Mini({
   label,

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VisitasIndexRouteImport } from './routes/visitas.index'
 import { Route as SilviaIndexRouteImport } from './routes/silvia.index'
+import { Route as MisLeadsIndexRouteImport } from './routes/mis-leads.index'
 import { Route as InmueblesIndexRouteImport } from './routes/inmuebles.index'
 import { Route as ComercialesIndexRouteImport } from './routes/comerciales.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
@@ -31,6 +32,11 @@ const VisitasIndexRoute = VisitasIndexRouteImport.update({
 const SilviaIndexRoute = SilviaIndexRouteImport.update({
   id: '/silvia/',
   path: '/silvia/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MisLeadsIndexRoute = MisLeadsIndexRouteImport.update({
+  id: '/mis-leads/',
+  path: '/mis-leads/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InmueblesIndexRoute = InmueblesIndexRouteImport.update({
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/clientes/': typeof ClientesIndexRoute
   '/comerciales/': typeof ComercialesIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
+  '/mis-leads/': typeof MisLeadsIndexRoute
   '/silvia/': typeof SilviaIndexRoute
   '/visitas/': typeof VisitasIndexRoute
 }
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/clientes': typeof ClientesIndexRoute
   '/comerciales': typeof ComercialesIndexRoute
   '/inmuebles': typeof InmueblesIndexRoute
+  '/mis-leads': typeof MisLeadsIndexRoute
   '/silvia': typeof SilviaIndexRoute
   '/visitas': typeof VisitasIndexRoute
 }
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/clientes/': typeof ClientesIndexRoute
   '/comerciales/': typeof ComercialesIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
+  '/mis-leads/': typeof MisLeadsIndexRoute
   '/silvia/': typeof SilviaIndexRoute
   '/visitas/': typeof VisitasIndexRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/clientes/'
     | '/comerciales/'
     | '/inmuebles/'
+    | '/mis-leads/'
     | '/silvia/'
     | '/visitas/'
   fileRoutesByTo: FileRoutesByTo
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/clientes'
     | '/comerciales'
     | '/inmuebles'
+    | '/mis-leads'
     | '/silvia'
     | '/visitas'
   id:
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/clientes/'
     | '/comerciales/'
     | '/inmuebles/'
+    | '/mis-leads/'
     | '/silvia/'
     | '/visitas/'
   fileRoutesById: FileRoutesById
@@ -130,6 +142,7 @@ export interface RootRouteChildren {
   ClientesIndexRoute: typeof ClientesIndexRoute
   ComercialesIndexRoute: typeof ComercialesIndexRoute
   InmueblesIndexRoute: typeof InmueblesIndexRoute
+  MisLeadsIndexRoute: typeof MisLeadsIndexRoute
   SilviaIndexRoute: typeof SilviaIndexRoute
   VisitasIndexRoute: typeof VisitasIndexRoute
 }
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/silvia'
       fullPath: '/silvia/'
       preLoaderRoute: typeof SilviaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mis-leads/': {
+      id: '/mis-leads/'
+      path: '/mis-leads'
+      fullPath: '/mis-leads/'
+      preLoaderRoute: typeof MisLeadsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inmuebles/': {
@@ -202,6 +222,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientesIndexRoute: ClientesIndexRoute,
   ComercialesIndexRoute: ComercialesIndexRoute,
   InmueblesIndexRoute: InmueblesIndexRoute,
+  MisLeadsIndexRoute: MisLeadsIndexRoute,
   SilviaIndexRoute: SilviaIndexRoute,
   VisitasIndexRoute: VisitasIndexRoute,
 }
