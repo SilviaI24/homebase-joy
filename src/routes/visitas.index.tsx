@@ -277,8 +277,10 @@ function VisitasPage() {
     ];
     const heatStart = now - 90 * 86400000;
     const heat: number[][] = Array.from({ length: 7 }, () => Array(HOURS.length).fill(0));
-    enPeriodo.forEach((v) => {
+    visitas.forEach((v) => {
       if (!v.fecha) return;
+      const t = new Date(v.fecha).getTime();
+      if (t < heatStart || t > now) return;
       const d = new Date(v.fecha);
       const dow = (d.getDay() + 6) % 7; // Lun=0
       const h = d.getHours();
