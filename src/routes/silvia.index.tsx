@@ -20,7 +20,7 @@ import {
   ArrowRight,
   UserCheck,
   Archive,
-  UserCog: _UserCog,
+  
   Tag,
   CalendarDays,
   MessageSquare,
