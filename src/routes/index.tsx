@@ -298,10 +298,44 @@ function Dashboard() {
       title="Dashboard"
       subtitle={`${stats.activos.length} activos · ${cliStats.total} clientes · ${visStats.proximas} visitas próximas`}
     >
-      {/* Hero ejecutivo */}
-      <div className="mb-6 rounded-2xl shadow-xl shadow-primary/25 overflow-hidden">
-        {/* Ticker strip — métricas clave de un vistazo */}
-        <div className="bg-[oklch(0.28_0.07_165)] flex items-center gap-0 overflow-x-auto text-[11px] text-primary-foreground/65 select-none">
+      {/* Hero — minimal data panel */}
+      <div className="mb-8 rounded-lg border border-border bg-card overflow-hidden">
+        {/* Orange accent line */}
+        <div className="h-[2px] bg-gold" />
+
+        {/* Main stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border">
+          <div className="px-6 py-6">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">Comisiones este mes</div>
+            <div className="text-5xl font-display font-bold text-gold tabular-nums leading-none tracking-tight">
+              {moneyShort(stats.comisionMes)}
+            </div>
+            <div className="text-xs text-muted-foreground mt-2.5">
+              Año en curso: <span className="text-foreground font-medium">{moneyShort(stats.comisionAnual)}</span>
+            </div>
+          </div>
+          <div className="px-6 py-6">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">Pipeline estimado</div>
+            <div className="text-4xl font-display font-bold text-foreground tabular-nums leading-none tracking-tight">
+              {moneyShort(stats.comisionPipeline)}
+            </div>
+            <div className="text-xs text-muted-foreground mt-2.5">
+              <span className="text-foreground font-medium">{stats.activos.length + stats.reservados.length}</span> operaciones abiertas
+            </div>
+          </div>
+          <div className="px-6 py-6">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">Conversión visita → cierre</div>
+            <div className="text-4xl font-display font-bold text-foreground tabular-nums leading-none tracking-tight">
+              {visStats.tasaCierre}%
+            </div>
+            <div className="text-xs text-muted-foreground mt-2.5">
+              <span className="text-foreground font-medium">{visStats.total}</span> visitas · <span className="text-foreground font-medium">{stats.vendidos.length + stats.alquilados.length}</span> cierres
+            </div>
+          </div>
+        </div>
+
+        {/* Ticker — secondary metrics */}
+        <div className="border-t border-border bg-muted/40 px-6 py-2.5 flex items-center gap-0 overflow-x-auto">
           <TickerItem value={stats.activos.length} label="activos" accent />
           <TickerDot />
           <TickerItem value={stats.reservados.length} label="reservados" />
@@ -316,37 +350,6 @@ function Dashboard() {
             accent={stats.captDelta > 0}
             warn={stats.captDelta < 0}
           />
-        </div>
-
-        {/* Cuerpo principal */}
-        <div className="bg-gradient-to-br from-primary via-primary to-[oklch(0.30_0.09_165)] text-primary-foreground px-6 py-7 lg:px-8 lg:py-8 relative overflow-hidden">
-          <div className="absolute -top-12 -right-12 size-52 rounded-full bg-gold/20 blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-16 left-1/4 size-64 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
-
-          <div className="relative grid grid-cols-1 md:grid-cols-3 gap-7 lg:gap-0">
-            <div>
-              <HeroStat
-                label="Comisiones este mes"
-                value={moneyShort(stats.comisionMes)}
-                sub={`Año en curso: ${moneyShort(stats.comisionAnual)}`}
-                highlight
-              />
-            </div>
-            <div className="md:pl-8 lg:pl-10 md:border-l md:border-white/10">
-              <HeroStat
-                label="Pipeline estimado"
-                value={moneyShort(stats.comisionPipeline)}
-                sub={`${stats.activos.length + stats.reservados.length} operaciones abiertas`}
-              />
-            </div>
-            <div className="md:pl-8 lg:pl-10 md:border-l md:border-white/10">
-              <HeroStat
-                label="Conversión visita → cierre"
-                value={`${visStats.tasaCierre}%`}
-                sub={`${visStats.total} visitas · ${stats.vendidos.length + stats.alquilados.length} cierres`}
-              />
-            </div>
-          </div>
         </div>
       </div>
 
@@ -617,37 +620,21 @@ function Dashboard() {
   );
 }
 
-function HeroStat({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-primary-foreground/55">{label}</div>
-      <div
-        className={`mt-2 font-display font-bold tabular-nums leading-none ${
-          highlight ? "text-5xl lg:text-6xl text-gold" : "text-4xl lg:text-5xl text-primary-foreground"
-        }`}
-      >
-        {value}
-      </div>
-      {sub && <div className="mt-2.5 text-xs text-primary-foreground/55 truncate">{sub}</div>}
-    </div>
-  );
-}
-
 function TickerItem({ value, label, accent = false, warn = false }: {
   value: string | number; label: string; accent?: boolean; warn?: boolean;
 }) {
   return (
-    <span className="flex items-center gap-1.5 whitespace-nowrap px-4 py-2.5">
-      <span className={`font-bold text-[12px] ${accent ? "text-gold" : warn ? "text-red-400" : "text-primary-foreground/90"}`}>
+    <span className="flex items-center gap-1.5 whitespace-nowrap px-3 py-0.5 text-[11px]">
+      <span className={`font-semibold tabular-nums ${accent ? "text-gold" : warn ? "text-destructive" : "text-foreground"}`}>
         {value}
       </span>
-      <span className="text-primary-foreground/45">{label}</span>
+      <span className="text-muted-foreground">{label}</span>
     </span>
   );
 }
 
 function TickerDot() {
-  return <span className="text-primary-foreground/20 text-xs shrink-0">·</span>;
+  return <span className="text-border text-xs shrink-0 select-none">·</span>;
 }
 
 function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: number }[] }) {

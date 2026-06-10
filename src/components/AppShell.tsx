@@ -51,7 +51,7 @@ const mobileNav: NavItem[] = [
   { to: "/mis-leads", label: "Leads", icon: Inbox },
 ];
 
-const LINK_CLS = "group flex items-center gap-2.5 px-3 py-2 text-sm rounded-md text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-all [&.active]:bg-gradient-to-r [&.active]:from-gold/95 [&.active]:to-gold/75 [&.active]:text-gold-foreground [&.active]:font-medium [&.active]:shadow-[0_2px_8px_-2px] [&.active]:shadow-gold/40";
+const LINK_CLS = "group flex items-center gap-2.5 px-3 py-[7px] text-sm rounded-md text-sidebar-foreground/50 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground/90 transition-colors [&.active]:text-gold [&.active]:font-medium [&.active]:bg-sidebar-accent/40";
 
 export function AppShell({ title, subtitle, actions, children }: {
   title: string;
