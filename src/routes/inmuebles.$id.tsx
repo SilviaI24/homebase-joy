@@ -1170,3 +1170,80 @@ function VisitaList({
     </div>
   );
 }
+
+function ImagenesReorder({
+  imagenes,
+  mainImg,
+  onSetMain,
+  onReorder,
+}: {
+  imagenes: Array<{ id: string; url: string }>;
+  mainImg: string | null;
+  onSetMain: (url: string) => void;
+  onReorder: (next: Array<{ id: string; url: string }>) => void;
+}) {
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const move = (from: number, to: number) => {
+    if (from === to) return;
+    const next = imagenes.slice();
+    const [it] = next.splice(from, 1);
+    next.splice(to, 0, it);
+    onReorder(next);
+  };
+  return (
+    <div className="px-3 py-3 border-t border-border bg-card">
+      <div className="text-[11px] text-muted-foreground mb-2">
+        Arrastra para reordenar las fotos. El nuevo orden se guarda al pulsar “Guardar”.
+      </div>
+      <div className="flex gap-2 overflow-x-auto">
+        {imagenes.map((img, idx) => {
+          const active = mainImg === img.url;
+          const over = overIdx === idx && dragIdx !== null && dragIdx !== idx;
+          return (
+            <div
+              key={img.id}
+              draggable
+              onDragStart={() => setDragIdx(idx)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setOverIdx(idx);
+              }}
+              onDragLeave={() => setOverIdx((o) => (o === idx ? null : o))}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (dragIdx !== null) move(dragIdx, idx);
+                setDragIdx(null);
+                setOverIdx(null);
+              }}
+              onDragEnd={() => {
+                setDragIdx(null);
+                setOverIdx(null);
+              }}
+              className={`relative shrink-0 cursor-grab active:cursor-grabbing transition-all ${
+                dragIdx === idx ? "opacity-40" : ""
+              } ${over ? "scale-105" : ""}`}
+            >
+              <button
+                type="button"
+                onClick={() => onSetMain(img.url)}
+                className={`block size-16 rounded-md overflow-hidden border-2 ${
+                  active
+                    ? "border-primary ring-2 ring-primary/30"
+                    : over
+                      ? "border-primary"
+                      : "border-border hover:border-primary/60"
+                }`}
+              >
+                <SafeImage src={img.url} alt="" />
+              </button>
+              <span className="absolute -top-1.5 -left-1.5 bg-background border border-border rounded-full size-5 text-[10px] font-mono flex items-center justify-center text-muted-foreground">
+                {idx + 1}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
