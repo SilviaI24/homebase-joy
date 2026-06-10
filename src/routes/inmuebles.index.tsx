@@ -147,9 +147,10 @@ function InmueblesPage() {
     return data.inmuebles.filter((i: Inmueble) => {
       if (estatus !== "Todos" && i.estatus !== estatus) return false;
       if (categoria !== "Todas" && getCategoria(i.tipo) !== categoria) return false;
+      if (!matchesAgente(i)) return false;
       return matchesSearch(i, needle);
     });
-  }, [data.inmuebles, q, estatus, categoria]);
+  }, [data.inmuebles, q, estatus, categoria, agente]);
 
   const kanbanGroups = useMemo(() => {
     const needle = q.trim().toLowerCase();
