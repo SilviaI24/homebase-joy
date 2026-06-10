@@ -200,6 +200,16 @@ function InmueblesPage() {
             ))}
           </select>
         )}
+        <select
+          value={agente}
+          onChange={(e) => setAgente(e.target.value)}
+          className="h-9 px-3 rounded-md border border-input bg-background text-sm max-w-[180px]"
+          title="Filtrar por agente asignado"
+        >
+          {agentes.map((a) => (
+            <option key={a} value={a}>{a === "Todos" ? "Todos los agentes" : a}</option>
+          ))}
+        </select>
         <div className="inline-flex h-9 rounded-md border border-input bg-background overflow-hidden">
           <button
             onClick={() => setView("grid")}
