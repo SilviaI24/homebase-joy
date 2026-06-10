@@ -118,14 +118,20 @@ function pickAttachment(field: unknown): string | null {
 }
 
 function pickAllAttachments(field: unknown): string[] {
+  return pickAttachmentsWithIds(field).map((a) => a.url);
+}
+
+function pickAttachmentsWithIds(field: unknown): Array<{ id: string; url: string }> {
   if (!Array.isArray(field)) return [];
-  return field
-    .map((a) => {
-      const att = a as AirtableAttachment;
-      if (!isImageAttachment(att)) return null;
-      return attachmentUrl(att);
-    })
-    .filter((u): u is string => !!u);
+  const out: Array<{ id: string; url: string }> = [];
+  for (const a of field) {
+    const att = a as AirtableAttachment & { id?: string };
+    if (!isImageAttachment(att)) continue;
+    const url = attachmentUrl(att);
+    if (!url || !att.id) continue;
+    out.push({ id: att.id, url });
+  }
+  return out;
 }
 
 function pickLookup(field: unknown): string {
