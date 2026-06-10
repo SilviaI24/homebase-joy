@@ -45,6 +45,7 @@ function seedFromList(base: Inmueble): InmuebleDetalle {
   return {
     ...base,
     imagenes: base.imagen ? [base.imagen] : [],
+    imagenesAttachments: [],
     agentesIds: [],
     agentesNombres: [],
     propietarioIds: [],
