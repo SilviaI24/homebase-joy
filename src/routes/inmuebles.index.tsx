@@ -97,7 +97,20 @@ function InmueblesPage() {
   const [q, setQ] = useState("");
   const [estatus, setEstatus] = useState<string>("Activo");
   const [categoria, setCategoria] = useState<string>("Todas");
+  const [agente, setAgente] = useState<string>("Todos");
   const [view, setView] = useState<"grid" | "kanban">("grid");
+
+  const agentes = useMemo(() => {
+    const s = new Set<string>();
+    data.inmuebles.forEach((i) => i.agentesNombres.forEach((n) => n && s.add(n)));
+    return ["Todos", "Sin asignar", ...Array.from(s).sort()];
+  }, [data.inmuebles]);
+
+  const matchesAgente = (i: Inmueble) => {
+    if (agente === "Todos") return true;
+    if (agente === "Sin asignar") return i.agentesNombres.length === 0;
+    return i.agentesNombres.includes(agente);
+  };
 
   const estatuses = useMemo(() => {
     const s = new Set<string>();
