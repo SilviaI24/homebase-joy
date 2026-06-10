@@ -257,7 +257,7 @@ function Dashboard() {
       comisionAnual,
       comisionPipeline,
       estancados,
-    };
+      estancadosFull,
   }, [inmData]);
 
   const cliStats = useMemo(() => {
