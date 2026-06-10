@@ -220,11 +220,13 @@ function categoriaMatches(clienteCats: string[], inmCat: string): boolean {
 }
 
 export const listClientes = createServerFn({ method: "GET" }).handler(async () => {
-  // Solo últimos 3 meses por Fecha. Si Fecha está vacía se descarta.
+  // 12 meses — suficiente para cobrir el ciclo inmobiliario sin saturar la API.
+  // Clientes con Fecha vacía se excluyen del filtro de fecha pero los que tienen
+  // inmuebles vinculados se cargarán igualmente mediante fetchAllInmueblesMini.
   const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - 3);
+  cutoff.setFullYear(cutoff.getFullYear() - 1);
   const cutoffISO = cutoff.toISOString().slice(0, 10);
-  const formula = `IS_AFTER({Fecha}, '${cutoffISO}')`;
+  const formula = `OR(IS_AFTER({Fecha}, '${cutoffISO}'), {Fecha} = '')`;
 
   const [clienteRecords, inmuebles] = await Promise.all([
     (async () => {
@@ -424,31 +426,41 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
     }
 
     // --- Clasificación derivada ----------------------------------------
+    // REGLA: Lead ≠ Cliente.
+    // - Lead:     alguien que contactó pero NO tiene gestión activa con la empresa.
+    //             "Interesado alquiler" / "Interesado Propiedades" son leads, no clientes.
+    // - Cliente:  Propietario (tiene inmueble en gestión), Comprador (proceso activo,
+    //             inmueble vinculado como comprador), Inquilino (tiene alquiler vinculado).
+    // - Prospecto: intermedio — ha mostrado interés serio (Prospecciones en Airtable).
     const tipoNorm = base.tipo.trim();
-    const reAlquiler = /alquil/;
-    const reCompra = /\b(compra|venta|comprar|adquirir)\b/;
-    const tieneLinkPropiedad =
-      base.propiedadIds.length > 0 || base.propiedadAlquilerIds.length > 0;
+    const tieneLinkPropietario = base.propiedadIds.length > 0;
     const tieneLinkComprador = base.inmuebleCompradorIds.length > 0;
+    const tieneLinkAlquiler = base.propiedadAlquilerIds.length > 0;
 
     let segmento: Segmento = "Lead";
     let segmentoMotivo = "Sin clasificación explícita";
     if (tipoNorm === "Anular prospección") {
       segmento = "Descartado";
       segmentoMotivo = "Marcado como anular prospección";
-    } else if (tipoNorm === "Propietario" || tieneLinkPropiedad) {
+    } else if (tipoNorm === "Propietario" || tieneLinkPropietario) {
+      // Propietario = tiene inmueble en gestión directa con la agencia
       segmento = "Propietario";
       segmentoMotivo = tipoNorm === "Propietario" ? "Tipo: Propietario" : "Tiene inmueble vinculado como propietario";
+    } else if (tieneLinkAlquiler) {
+      // Inquilino real = tiene propiedad en alquiler vinculada (no solo "interesado")
+      segmento = "Inquilino";
+      segmentoMotivo = "Tiene propiedad en alquiler vinculada";
+    } else if (tipoNorm === "Comprador" || tieneLinkComprador) {
+      // Comprador = gestión activa de compra (inmueble vinculado o tipo explícito)
+      segmento = "Comprador";
+      segmentoMotivo = tipoNorm === "Comprador" ? "Tipo: Comprador" : "Inmueble vinculado como comprador";
     } else if (tipoNorm === "Prospecciones") {
+      // Prospecto = lead cualificado, en proceso de conversión a cliente
       segmento = "Prospecto";
       segmentoMotivo = "Tipo: Prospección";
-    } else if (tipoNorm === "Interesado alquiler" || reAlquiler.test(txt)) {
-      segmento = "Inquilino";
-      segmentoMotivo = tipoNorm === "Interesado alquiler" ? "Tipo: Interesado alquiler" : "Solicitud menciona alquiler";
-    } else if (tipoNorm === "Comprador" || tipoNorm === "Interesado Propiedades" || tieneLinkComprador || reCompra.test(txt)) {
-      segmento = "Comprador";
-      segmentoMotivo = tipoNorm ? `Tipo: ${tipoNorm}` : "Solicitud de compra/venta";
     }
+    // "Interesado alquiler", "Interesado Propiedades" y sin tipo → Lead
+    // (contactó para consulta pero no tiene gestión activa)
 
     // Estado comercial
     const cerrado = linkedInmuebles.some((i) => i.estatus === "Vendido" || i.estatus === "Alquilado");

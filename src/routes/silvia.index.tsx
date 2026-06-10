@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { SafeImage } from "@/components/SafeImage";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
 import { listClientes } from "@/lib/clientes.functions";
 import { allInmueblesQuery } from "@/lib/queries";
+import { updateClienteSeguimiento } from "@/lib/mutations.functions";
 import type { Inmueble } from "@/lib/inmuebles.functions";
 import {
   Sparkles,
@@ -215,9 +216,28 @@ function SilviaPage() {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<EstadoTab>("Pendientes");
   const [canalFilter, setCanalFilter] = useState<Canal | "Todos">("Todos");
+  const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Optimistic local state — se sincroniza con Airtable vía mutations.
+  // El tipo del cliente en Airtable cambia: cualificar → "Prospecciones", archivar → "Anular prospección".
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
   const [cualificados, setCualificados] = useState<Set<string>>(new Set());
+
+  const cualificarMutation = useMutation({
+    mutationFn: (clienteId: string) =>
+      updateClienteSeguimiento({ data: { clienteId, tipo: "Prospecciones", estado: "Contactado" } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clientes"] });
+    },
+  });
+
+  const archivarMutation = useMutation({
+    mutationFn: (clienteId: string) =>
+      updateClienteSeguimiento({ data: { clienteId, tipo: "Anular prospección" } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clientes"] });
+    },
+  });
 
   // Solo proponemos inmuebles "comerciables" (excluimos vendidos, dados de
   // baja o ya alquilados). Si existen duplicados de referencia, nos quedamos
@@ -304,20 +324,16 @@ function SilviaPage() {
     });
   }
   function archivar(id: string) {
+    // Optimistic update inmediato, persiste en Airtable en background
     setArchivados((p) => new Set(p).add(id));
-    setCualificados((p) => {
-      const n = new Set(p);
-      n.delete(id);
-      return n;
-    });
+    setCualificados((p) => { const n = new Set(p); n.delete(id); return n; });
+    archivarMutation.mutate(id);
   }
   function cualificar(id: string) {
+    // Promueve el lead a Prospecto en Airtable + optimistic update local
     setCualificados((p) => new Set(p).add(id));
-    setArchivados((p) => {
-      const n = new Set(p);
-      n.delete(id);
-      return n;
-    });
+    setArchivados((p) => { const n = new Set(p); n.delete(id); return n; });
+    cualificarMutation.mutate(id);
   }
 
   return (

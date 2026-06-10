@@ -1118,20 +1118,18 @@ function ManagementPanel(props: {
           />
         </div>
 
-        <button
-          onClick={onSave}
-          disabled={!dirty || mutation.isPending || !detailReady}
-          className="w-full h-9 inline-flex items-center justify-center gap-2 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 hover:bg-primary/90"
-        >
-          <Save className="size-4" />
-          {mutation.isPending ? "Guardando…" : "Guardar cambios"}
-        </button>
-
         {mutation.isError && (
           <div className="text-xs text-destructive">{(mutation.error as Error).message}</div>
         )}
         {mutation.isSuccess && !dirty && (
-          <div className="text-xs text-emerald-600 dark:text-emerald-400">Guardado ✓</div>
+          <div className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+            <Check className="size-3" /> Guardado correctamente
+          </div>
+        )}
+        {dirty && (
+          <div className="text-xs text-amber-600 dark:text-amber-400">
+            Cambios pendientes — usa la barra inferior para guardar.
+          </div>
         )}
       </div>
     </div>

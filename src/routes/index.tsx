@@ -254,8 +254,9 @@ function Dashboard() {
 
         {/* Featured: Comisiones este mes */}
         <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 flex flex-col min-h-[200px]">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-4">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-4 flex items-center gap-2">
             Comisiones este mes
+            <span className="normal-case tracking-normal text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-normal">est.</span>
           </div>
           <div className="flex-1">
             <div className="font-display font-bold text-gold tabular-nums leading-none tracking-tighter"
@@ -266,10 +267,12 @@ function Dashboard() {
               <span className="text-muted-foreground">
                 Año en curso{" "}
                 <strong className="text-foreground font-semibold">{moneyShort(stats.comisionAnual)}</strong>
+                <span className="text-[9px] ml-1 opacity-50">est.</span>
               </span>
               <span className="text-muted-foreground">
                 Pipeline{" "}
                 <strong className="text-foreground font-semibold">{moneyShort(stats.comisionPipeline)}</strong>
+                <span className="text-[9px] ml-1 opacity-50">est.</span>
               </span>
               <span className="text-muted-foreground">
                 Conversión{" "}
