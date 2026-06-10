@@ -224,15 +224,15 @@ function Dashboard() {
     // Inmuebles estancados: activos con captación > 90 días sin escritura
     const stalledThreshold = 90;
     const ahora = Date.now();
-    const estancados = activos
+    const estancadosFull = activos
       .map((i) => {
         if (!i.fechaInicio) return null;
         const dias = Math.floor((ahora - new Date(i.fechaInicio).getTime()) / 86400000);
         return dias > stalledThreshold ? { i, dias } : null;
       })
       .filter((x): x is { i: Inmueble; dias: number } => !!x)
-      .sort((a, b) => b.dias - a.dias)
-      .slice(0, 5);
+      .sort((a, b) => b.dias - a.dias);
+    const estancados = estancadosFull.slice(0, 5);
 
     return {
       inmuebles,
