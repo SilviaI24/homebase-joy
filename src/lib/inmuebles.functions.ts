@@ -261,6 +261,7 @@ export const getInmueble = createServerFn({ method: "GET" })
     const detalle: InmuebleDetalle = {
       ...base,
       imagenes: pickAllAttachments(f["Imágenes"]),
+      imagenesAttachments: pickAttachmentsWithIds(f["Imágenes"]),
       agentesIds: pickIds(f["Agentes Asignados"]),
       agentesNombres: Array.isArray(f["Nombre Agente Asignado"])
         ? toTitleCaseArr(f["Nombre Agente Asignado"] as string[])
