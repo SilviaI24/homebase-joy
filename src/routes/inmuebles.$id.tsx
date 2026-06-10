@@ -293,6 +293,10 @@ function DetailView({
   const [precioFinal, setPrecioFinal] = useState<string>(inmueble.precioFinal?.toString() ?? "");
   const [agentesIds, setAgentesIds] = useState<string[]>(inmueble.agentesIds);
   const [observaciones, setObservaciones] = useState(inmueble.observaciones);
+  const [descripcion, setDescripcion] = useState(inmueble.descripcion);
+  const [imagenesOrder, setImagenesOrder] = useState<Array<{ id: string; url: string }>>(
+    inmueble.imagenesAttachments,
+  );
   const [mainImg, setMainImg] = useState<string | null>(inmueble.imagen);
 
   // When fresh data arrives, re-sync the form fields that only exist in detail.
@@ -300,10 +304,22 @@ function DetailView({
     if (detailReady) {
       setAgentesIds(inmueble.agentesIds);
       setObservaciones(inmueble.observaciones);
+      setDescripcion(inmueble.descripcion);
+      setImagenesOrder(inmueble.imagenesAttachments);
       if (!mainImg) setMainImg(inmueble.imagen);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailReady, inmueble.agentesIds.join(","), inmueble.observaciones]);
+  }, [
+    detailReady,
+    inmueble.agentesIds.join(","),
+    inmueble.observaciones,
+    inmueble.descripcion,
+    inmueble.imagenesAttachments.map((a) => a.id).join(","),
+  ]);
+
+  const initialOrderKey = inmueble.imagenesAttachments.map((a) => a.id).join(",");
+  const currentOrderKey = imagenesOrder.map((a) => a.id).join(",");
+  const imagesDirty = initialOrderKey !== currentOrderKey;
 
   const mutation = useMutation({
     mutationFn,
@@ -321,6 +337,10 @@ function DetailView({
       precioFinal: precioFinal === "" ? null : Number(precioFinal),
       agentesIds,
       observaciones,
+      descripcion,
+      ...(imagesDirty
+        ? { imagenesAttachmentIds: imagenesOrder.map((a) => a.id) }
+        : {}),
     });
   };
 
@@ -330,7 +350,9 @@ function DetailView({
     (precio === "" ? null : Number(precio)) !== inmueble.precio ||
     (precioFinal === "" ? null : Number(precioFinal)) !== inmueble.precioFinal ||
     observaciones !== inmueble.observaciones ||
-    agentesIds.join(",") !== inmueble.agentesIds.join(",");
+    descripcion !== inmueble.descripcion ||
+    agentesIds.join(",") !== inmueble.agentesIds.join(",") ||
+    imagesDirty;
 
   return (
     <AppShell title={`Inmueble #${inmueble.ref || inmueble.id}`}>
