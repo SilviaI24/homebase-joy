@@ -265,9 +265,275 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
   );
 }
 
-// ============= NEW INMUEBLE / ALQUILER =============
-const TIPOS_VENTA = ["Piso", "Chalet", "Casa", "Terreno", "Garaje", "Trastero", "Local", "Nave", "Oficina", "Edificio"];
-const TIPOS_ALQUILER = TIPOS_VENTA.map((t) => `Alquiler ${t}`);
+// ============= NEW INMUEBLE / ALQUILER (wizard por tipo) =============
+const TIPOS_VENTA = [
+  "Piso", "Chalet", "Casa", "Terreno", "Garaje", "Trastero",
+  "Local", "Nave", "Oficina", "Edificio",
+] as const;
+const TIPOS_ALQUILER = [
+  "Alquiler Piso", "Alquiler Garaje", "Alquiler Oficina", "Alquiler Local", "Alquiler Trastero",
+] as const;
+type TipoInmueble = (typeof TIPOS_VENTA)[number] | (typeof TIPOS_ALQUILER)[number];
+
+const ALL_TIPOS: TipoInmueble[] = [...TIPOS_VENTA, ...TIPOS_ALQUILER];
+
+const ICONOS_TIPO: Record<string, string> = {
+  Piso: "🏢", Chalet: "🏡", Casa: "🏠", Terreno: "🌳",
+  Garaje: "🚗", Trastero: "📦", Local: "🏪", Nave: "🏭",
+  Oficina: "💼", Edificio: "🏬",
+};
+
+type FieldDef = {
+  key: keyof CreateInmueblePayload;
+  label: string;
+  kind?: "input" | "number" | "textarea" | "select" | "date";
+  options?: readonly string[];
+  required?: boolean;
+  full?: boolean;
+};
+
+const F = {
+  ref: { key: "ref", label: "Ref" } satisfies FieldDef,
+  estatus: {
+    key: "estatus", label: "Estatus", kind: "select",
+    options: ["Activo", "Reservado", "Vendido", "Alquilado", "Baja", "Prospección"],
+  } satisfies FieldDef,
+  estado: {
+    key: "estado", label: "Estado", kind: "select",
+    options: ["Nuevo", "A reformar", "Reformado", "Buen estado", "Para entrar", "Obra nueva"],
+    required: true,
+  } satisfies FieldDef,
+  precio: { key: "precio", label: "Precio (€)", kind: "number" } satisfies FieldDef,
+  localidad: { key: "localidad", label: "Localidad" } satisfies FieldDef,
+  barrio: { key: "barrio", label: "Barrio" } satisfies FieldDef,
+  calle: { key: "calle", label: "Calle", required: true, full: true } satisfies FieldDef,
+  numero: { key: "numero", label: "Número" } satisfies FieldDef,
+  superficie: { key: "superficie", label: "Superficie (m²)" } satisfies FieldDef,
+  habitaciones: { key: "habitaciones", label: "Habitaciones / dormitorios" } satisfies FieldDef,
+  banos: { key: "banos", label: "Baños" } satisfies FieldDef,
+  tipoSuelo: { key: "tipoSuelo", label: "Tipo de suelo" } satisfies FieldDef,
+  calefaccion: { key: "calefaccion", label: "Calefacción" } satisfies FieldDef,
+  orientacion: { key: "orientacion", label: "Orientación" } satisfies FieldDef,
+  terraza: { key: "terraza", label: "Terraza" } satisfies FieldDef,
+  balcon: { key: "balcon", label: "Balcón" } satisfies FieldDef,
+  garaje: { key: "garaje", label: "Garaje", kind: "select", options: ["Sí", "No", "Opcional"] } satisfies FieldDef,
+  trastero: { key: "trastero", label: "Trastero", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
+  ascensor: { key: "ascensor", label: "Ascensor", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
+  armariosEmpotrados: { key: "armariosEmpotrados", label: "Armarios empotrados", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
+  anoConstruccion: { key: "anoConstruccion", label: "Año de construcción" } satisfies FieldDef,
+  certificacionEnergetica: { key: "certificacionEnergetica", label: "Certificación energética" } satisfies FieldDef,
+  llaves: { key: "llaves", label: "Llaves" } satisfies FieldDef,
+  plantas: { key: "plantas", label: "Plantas" } satisfies FieldDef,
+  planta: { key: "planta", label: "Planta interior/exterior" } satisfies FieldDef,
+  gastosComunidad: { key: "gastosComunidad", label: "Gastos de comunidad" } satisfies FieldDef,
+  inquilinos: { key: "inquilinos", label: "Inquilinos", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
+  publicacion: { key: "publicacion", label: "Publicación", kind: "select", options: ["SUBIR", "PUBLICADO"] } satisfies FieldDef,
+  enlaceTours: { key: "enlaceTours", label: "Enlace tours", kind: "textarea", full: true } satisfies FieldDef,
+  descripcion: { key: "descripcion", label: "Descripción", kind: "textarea", full: true } satisfies FieldDef,
+  observaciones: { key: "observaciones", label: "Observaciones", kind: "textarea", full: true } satisfies FieldDef,
+  tipoChalet: { key: "tipoChalet", label: "Tipo de chalet" } satisfies FieldDef,
+  superficieEdificable: { key: "superficieEdificable", label: "Superficie edificable" } satisfies FieldDef,
+  viaUrbana: { key: "viaUrbana", label: "Vía urbana", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
+  salidaHumos: { key: "salidaHumos", label: "Salida de humos", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
+  almacen: { key: "almacen", label: "Almacén", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
+  estancias: { key: "estancias", label: "Estancias" } satisfies FieldDef,
+} as const;
+
+// Image / documentation URL pseudo-fields are kept out of the schema for now
+// (subida real por URL → ver "Mantener por URL" en plan).
+
+function getSchemaForTipo(t: TipoInmueble): FieldDef[] {
+  const base = t.replace(/^Alquiler\s+/, "") as TipoInmueble;
+  switch (base) {
+    case "Chalet":
+    case "Casa":
+      return [
+        F.ref, F.estatus, F.precio, F.tipoChalet, F.localidad, F.barrio,
+        F.calle, F.numero, F.plantas, F.superficie, F.habitaciones, F.banos,
+        F.tipoSuelo, F.calefaccion, F.orientacion, F.terraza, F.garaje, F.trastero,
+        F.armariosEmpotrados, F.estado, F.anoConstruccion, F.certificacionEnergetica,
+        F.llaves, F.enlaceTours, F.descripcion,
+      ];
+    case "Terreno":
+      return [
+        F.ref, F.precio, F.estatus, F.barrio, F.localidad, F.calle, F.numero,
+        F.superficie, F.superficieEdificable, F.viaUrbana, F.descripcion,
+        F.observaciones, F.enlaceTours,
+      ];
+    case "Piso":
+      return [
+        F.ref, F.estado, F.precio, F.localidad, F.barrio, F.calle, F.numero,
+        F.planta, F.superficie, F.habitaciones, F.banos, F.orientacion,
+        F.calefaccion, F.terraza, F.ascensor, F.garaje, F.trastero, F.balcon,
+        F.armariosEmpotrados, F.tipoSuelo, F.certificacionEnergetica,
+        F.anoConstruccion, F.gastosComunidad, F.llaves, F.inquilinos,
+        F.enlaceTours, F.observaciones, F.publicacion,
+      ];
+    case "Garaje":
+      return [
+        F.ref, F.estatus, F.precio, F.localidad, F.barrio, F.calle, F.numero,
+        F.superficie, F.gastosComunidad, F.ascensor, F.enlaceTours,
+        F.observaciones, F.publicacion,
+      ];
+    case "Local":
+    case "Oficina":
+    case "Nave":
+      return [
+        F.ref, F.estado, F.precio, F.localidad, F.barrio, F.calle, F.numero,
+        F.superficie, F.salidaHumos, F.almacen, F.estancias, F.plantas,
+        F.ascensor, F.garaje, F.trastero, F.certificacionEnergetica,
+        F.anoConstruccion, F.tipoSuelo, F.habitaciones, F.banos, F.inquilinos,
+        F.observaciones, F.enlaceTours, F.publicacion,
+      ];
+    case "Trastero":
+      return [
+        F.ref, F.precio, F.estado, F.calle, F.numero, F.barrio, F.localidad,
+        F.superficie, F.tipoSuelo, F.enlaceTours, F.observaciones, F.publicacion,
+      ];
+    default:
+      return [
+        F.ref, F.estatus, F.precio, F.localidad, F.barrio, F.calle, F.numero,
+        F.superficie, F.descripcion, F.observaciones,
+      ];
+  }
+}
+
+// Combobox of existing clients + inline "+ Añadir cliente"
+function PropietarioBlock({
+  selected,
+  onChange,
+  fechaInicio,
+  setFechaInicio,
+  fechaExclusiva,
+  setFechaExclusiva,
+}: {
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  fechaInicio: string;
+  setFechaInicio: (v: string) => void;
+  fechaExclusiva: string;
+  setFechaExclusiva: (v: string) => void;
+}) {
+  const clientes = useQuery(clientesQueryOpts);
+  const [filter, setFilter] = useState("");
+  const list = (clientes.data?.clientes ?? [])
+    .filter((c) =>
+      filter ? `${c.nombre} ${c.telefono}`.toLowerCase().includes(filter.toLowerCase()) : true,
+    )
+    .slice(0, 80)
+    .map((c) => ({ id: c.id, label: `${c.nombre}${c.telefono ? ` · ${c.telefono}` : ""}` }));
+
+  return (
+    <div className="sm:col-span-2 mt-3 rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-semibold">Propietario</h4>
+        <NewClienteDialog
+          trigger={
+            <Button type="button" size="sm" variant="outline" className="h-7 gap-1">
+              <Plus className="size-3.5" /> Añadir cliente
+            </Button>
+          }
+        />
+      </div>
+      <Field label="Seleccionar propietario" hint={`Seleccionados: ${selected.length}`}>
+        <Input
+          placeholder="Filtrar por nombre/teléfono…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="mb-2"
+        />
+        <MultiSelect options={list} value={selected} onChange={onChange} />
+      </Field>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Fecha de inicio">
+          <Input
+            type="date"
+            value={fechaInicio}
+            onChange={(e) => setFechaInicio(e.target.value)}
+          />
+        </Field>
+        <Field label="Fecha de autorización de venta (exclusiva)">
+          <Input
+            type="date"
+            value={fechaExclusiva}
+            onChange={(e) => setFechaExclusiva(e.target.value)}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
+function FormField({
+  def,
+  value,
+  onChange,
+}: {
+  def: FieldDef;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const inner = (() => {
+    if (def.kind === "select") {
+      return (
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required={def.required}
+          className="h-9 px-3 rounded-md border border-input bg-background text-sm w-full"
+        >
+          <option value="">—</option>
+          {def.options?.map((o) => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+      );
+    }
+    if (def.kind === "textarea") {
+      return (
+        <Textarea
+          rows={3}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required={def.required}
+        />
+      );
+    }
+    if (def.kind === "number") {
+      return (
+        <Input
+          type="number"
+          min={0}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required={def.required}
+        />
+      );
+    }
+    if (def.kind === "date") {
+      return (
+        <Input
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required={def.required}
+        />
+      );
+    }
+    return (
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={def.required}
+      />
+    );
+  })();
+  return (
+    <div className={def.full ? "sm:col-span-2" : ""}>
+      <Field label={def.required ? `${def.label} *` : def.label}>{inner}</Field>
+    </div>
+  );
+}
 
 export function NewInmuebleDialog({
   defaultAlquiler = false,
@@ -280,208 +546,182 @@ export function NewInmuebleDialog({
   const fn = useServerFn(createInmueble);
   const agentes = useQuery(agentesQuery);
   const [open, setOpen] = useState(false);
-  const [esAlquiler, setEsAlquiler] = useState(defaultAlquiler);
-  const tipoList = esAlquiler ? TIPOS_ALQUILER : TIPOS_VENTA;
-  const [form, setForm] = useState<CreateInmueblePayload>({
-    calle: "",
-    tipo: tipoList[0],
-    estatus: "Activo",
-    fechaInicio: new Date().toISOString().slice(0, 10),
-  });
+  const [tipo, setTipo] = useState<TipoInmueble | null>(null);
+  const [values, setValues] = useState<Record<string, string>>({});
   const [ag, setAg] = useState<string[]>([]);
+  const [propietarios, setPropietarios] = useState<string[]>([]);
+  const [fechaInicio, setFechaInicio] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [fechaExclusiva, setFechaExclusiva] = useState<string>("");
+
+  const reset = () => {
+    setTipo(null);
+    setValues({});
+    setAg([]);
+    setPropietarios([]);
+    setFechaInicio(new Date().toISOString().slice(0, 10));
+    setFechaExclusiva("");
+  };
 
   const mut = useMutation({
     mutationFn: (payload: CreateInmueblePayload) => fn({ data: payload }),
     onSuccess: () => {
-      toast.success(esAlquiler ? "Alquiler creado" : "Inmueble creado");
+      toast.success("Inmueble creado en Airtable");
       qc.invalidateQueries({ queryKey: ["all-inmuebles"] });
       setOpen(false);
-      setForm({
-        calle: "",
-        tipo: tipoList[0],
-        estatus: "Activo",
-        fechaInicio: new Date().toISOString().slice(0, 10),
-      });
-      setAg([]);
+      reset();
     },
     onError: (e: Error) => toast.error(e.message || "No se pudo crear"),
   });
 
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tipo) return;
+    const payload: CreateInmueblePayload = {
+      calle: values.calle ?? "",
+      tipo,
+      estatus: values.estatus || "Activo",
+      fechaInicio: fechaInicio || null,
+      fechaExclusiva: fechaExclusiva || null,
+      agentesIds: ag.length ? ag : undefined,
+      propietariosIds: propietarios.length ? propietarios : undefined,
+    };
+    // Copy all string fields
+    (Object.keys(values) as Array<keyof CreateInmueblePayload>).forEach((k) => {
+      const v = values[k as string];
+      if (v == null || v === "") return;
+      if (k === "precio") {
+        const n = Number(v);
+        if (Number.isFinite(n)) (payload as Record<string, unknown>).precio = n;
+      } else {
+        (payload as Record<string, unknown>)[k as string] = v;
+      }
+    });
+    mut.mutate(payload);
+  };
+
+  const schema = tipo ? getSchemaForTipo(tipo) : [];
+  const esAlquiler = tipo?.startsWith("Alquiler");
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) reset();
+      }}
+    >
       {trigger ?? <NewButton>{defaultAlquiler ? "Nuevo alquiler" : "Nuevo inmueble"}</NewButton>}
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{esAlquiler ? "Nuevo alquiler" : "Nuevo inmueble"}</DialogTitle>
-          <DialogDescription>Se guardará en la base de Airtable.</DialogDescription>
+          <DialogTitle>
+            {tipo ? `Nuevo ${tipo.toLowerCase()}` : "Nuevo inmueble — Selecciona tipo"}
+          </DialogTitle>
+          <DialogDescription>
+            {tipo
+              ? "Rellena los campos y se guardará en la base de Airtable."
+              : "Primero selecciona el tipo de inmueble que quieres dar de alta."}
+          </DialogDescription>
         </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            mut.mutate({ ...form, agentesIds: ag.length ? ag : undefined });
-          }}
-          className="grid gap-3 sm:grid-cols-2"
-        >
-          <div className="sm:col-span-2 flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setEsAlquiler(false);
-                setForm((f) => ({ ...f, tipo: TIPOS_VENTA[0] }));
-              }}
-              className={`flex-1 h-8 rounded-md text-xs font-medium ${
-                !esAlquiler ? "bg-primary text-primary-foreground" : "bg-muted text-foreground/70"
-              }`}
-            >
-              Venta
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEsAlquiler(true);
-                setForm((f) => ({ ...f, tipo: TIPOS_ALQUILER[0] }));
-              }}
-              className={`flex-1 h-8 rounded-md text-xs font-medium ${
-                esAlquiler ? "bg-primary text-primary-foreground" : "bg-muted text-foreground/70"
-              }`}
-            >
-              Alquiler
-            </button>
-          </div>
 
-          <div className="sm:col-span-2">
-            <Field label="Calle *">
-              <Input
-                required
-                value={form.calle}
-                onChange={(e) => setForm({ ...form, calle: e.target.value })}
+        {!tipo ? (
+          <div className="space-y-4">
+            <div>
+              <div className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground mb-2">
+                Venta
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                {TIPOS_VENTA.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTipo(t)}
+                    className="flex flex-col items-center gap-1 py-3 px-2 rounded-lg border border-input hover:border-primary hover:bg-accent transition-colors text-sm font-medium"
+                  >
+                    <span className="text-2xl">{ICONOS_TIPO[t] ?? "🏷️"}</span>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground mb-2">
+                Alquiler
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                {TIPOS_ALQUILER.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTipo(t)}
+                    className="flex flex-col items-center gap-1 py-3 px-2 rounded-lg border border-input hover:border-primary hover:bg-accent transition-colors text-sm font-medium"
+                  >
+                    <span className="text-2xl">
+                      {ICONOS_TIPO[t.replace(/^Alquiler\s+/, "")] ?? "🏷️"}
+                    </span>
+                    <span className="text-xs">{t.replace(/^Alquiler\s+/, "")}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2 flex items-center justify-between text-xs text-muted-foreground -mb-1">
+              <button
+                type="button"
+                onClick={() => setTipo(null)}
+                className="inline-flex items-center gap-1 hover:text-foreground"
+              >
+                ← Cambiar tipo
+              </button>
+              <span className="font-medium text-foreground">
+                {ICONOS_TIPO[tipo.replace(/^Alquiler\s+/, "")]} {tipo}
+                {esAlquiler && " (alquiler)"}
+              </span>
+            </div>
+
+            {schema.map((def) => (
+              <FormField
+                key={def.key as string}
+                def={def}
+                value={values[def.key as string] ?? ""}
+                onChange={(v) => setValues((s) => ({ ...s, [def.key as string]: v }))}
               />
-            </Field>
-          </div>
-          <Field label="Número">
-            <Input
-              value={form.numero ?? ""}
-              onChange={(e) => setForm({ ...form, numero: e.target.value })}
-            />
-          </Field>
-          <Field label="Barrio">
-            <Input
-              value={form.barrio ?? ""}
-              onChange={(e) => setForm({ ...form, barrio: e.target.value })}
-            />
-          </Field>
-          <Field label="Localidad">
-            <Input
-              value={form.localidad ?? ""}
-              onChange={(e) => setForm({ ...form, localidad: e.target.value })}
-            />
-          </Field>
-          <Field label="Tipo *">
-            <select
-              required
-              value={form.tipo}
-              onChange={(e) => setForm({ ...form, tipo: e.target.value })}
-              className="h-9 px-3 rounded-md border border-input bg-background text-sm w-full"
-            >
-              {tipoList.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Precio (€)">
-            <Input
-              type="number"
-              min={0}
-              value={form.precio ?? ""}
-              onChange={(e) =>
-                setForm({ ...form, precio: e.target.value === "" ? null : Number(e.target.value) })
-              }
-            />
-          </Field>
-          <Field label="Fecha de inicio">
-            <Input
-              type="date"
-              value={form.fechaInicio ?? ""}
-              onChange={(e) => setForm({ ...form, fechaInicio: e.target.value })}
-            />
-          </Field>
+            ))}
 
-          <div className="sm:col-span-2">
-            <MoreSection>
-              <Field label="Habitaciones">
-                <Input
-                  value={form.habitaciones ?? ""}
-                  onChange={(e) => setForm({ ...form, habitaciones: e.target.value })}
+            <div className="sm:col-span-2">
+              <Field label="Agentes asignados">
+                <MultiSelect
+                  options={(agentes.data?.agentes ?? []).map((a) => ({
+                    id: a.id,
+                    label: a.nombre,
+                  }))}
+                  value={ag}
+                  onChange={setAg}
                 />
               </Field>
-              <Field label="Baños">
-                <Input
-                  value={form.banos ?? ""}
-                  onChange={(e) => setForm({ ...form, banos: e.target.value })}
-                />
-              </Field>
-              <Field label="Superficie">
-                <Input
-                  value={form.superficie ?? ""}
-                  onChange={(e) => setForm({ ...form, superficie: e.target.value })}
-                />
-              </Field>
-              <Field label="Estatus">
-                <select
-                  value={form.estatus ?? "Activo"}
-                  onChange={(e) => setForm({ ...form, estatus: e.target.value })}
-                  className="h-9 px-3 rounded-md border border-input bg-background text-sm w-full"
-                >
-                  {["Activo", "Reservado", "Vendido", "Alquilado", "Baja", "Prospección"].map(
-                    (s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ),
-                  )}
-                </select>
-              </Field>
-              <div className="sm:col-span-2">
-                <Field label="Agentes asignados">
-                  <MultiSelect
-                    options={(agentes.data?.agentes ?? []).map((a) => ({
-                      id: a.id,
-                      label: a.nombre,
-                    }))}
-                    value={ag}
-                    onChange={setAg}
-                  />
-                </Field>
-              </div>
-              <div className="sm:col-span-2">
-                <Field label="Descripción">
-                  <Textarea
-                    rows={2}
-                    value={form.descripcion ?? ""}
-                    onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-                  />
-                </Field>
-              </div>
-              <div className="sm:col-span-2">
-                <Field label="Observaciones">
-                  <Textarea
-                    rows={2}
-                    value={form.observaciones ?? ""}
-                    onChange={(e) => setForm({ ...form, observaciones: e.target.value })}
-                  />
-                </Field>
-              </div>
-            </MoreSection>
-          </div>
+            </div>
 
-          <DialogFooter className="sm:col-span-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={mut.isPending}>
-              {mut.isPending && <Loader2 className="size-4 animate-spin mr-1.5" />}
-              Crear
-            </Button>
-          </DialogFooter>
-        </form>
+            <PropietarioBlock
+              selected={propietarios}
+              onChange={setPropietarios}
+              fechaInicio={fechaInicio}
+              setFechaInicio={setFechaInicio}
+              fechaExclusiva={fechaExclusiva}
+              setFechaExclusiva={setFechaExclusiva}
+            />
+
+            <DialogFooter className="sm:col-span-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={mut.isPending}>
+                {mut.isPending && <Loader2 className="size-4 animate-spin mr-1.5" />}
+                Crear
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );
