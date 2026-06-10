@@ -438,45 +438,40 @@ function DetailView({
                 )}
               </div>
             </div>
-            {detailReady && inmueble.imagenes.length > 1 && (
-              <div className="p-3 flex gap-2 overflow-x-auto border-t border-border bg-card">
-                {inmueble.imagenes.map((src) => {
-                  const active = mainImg === src;
-                  return (
-                    <button
-                      key={src}
-                      onClick={() => setMainImg(src)}
-                      className={`shrink-0 size-16 rounded-md overflow-hidden border-2 transition-all ${
-                        active
-                          ? "border-primary ring-2 ring-primary/30"
-                          : "border-border hover:border-primary/60 opacity-80 hover:opacity-100"
-                      }`}
-                    >
-                      <SafeImage src={src} alt="" />
-                    </button>
-                  );
-                })}
-              </div>
+            {detailReady && imagenesOrder.length > 1 && (
+              <ImagenesReorder
+                imagenes={imagenesOrder}
+                mainImg={mainImg}
+                onSetMain={setMainImg}
+                onReorder={setImagenesOrder}
+              />
             )}
           </div>
 
-          {/* Descripción */}
-          {(detailReady && inmueble.descripcion) || !detailReady ? (
-            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-              <h3 className="font-display text-base font-semibold mb-3">Descripción</h3>
-              {detailReady ? (
-                <p className="text-sm leading-relaxed whitespace-pre-line text-foreground/85">
-                  {inmueble.descripcion}
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  <SkeletonLine className="w-full" />
-                  <SkeletonLine className="w-11/12" />
-                  <SkeletonLine className="w-3/4" />
-                </div>
+          {/* Descripción (editable) */}
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-display text-base font-semibold">Descripción</h3>
+              {descripcion !== inmueble.descripcion && (
+                <span className="text-[11px] text-amber-600">Sin guardar</span>
               )}
             </div>
-          ) : null}
+            {detailReady ? (
+              <textarea
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                rows={6}
+                placeholder="Añade una descripción del inmueble…"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y"
+              />
+            ) : (
+              <div className="space-y-2">
+                <SkeletonLine className="w-full" />
+                <SkeletonLine className="w-11/12" />
+                <SkeletonLine className="w-3/4" />
+              </div>
+            )}
+          </div>
 
           {/* Características */}
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
