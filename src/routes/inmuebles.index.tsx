@@ -159,6 +159,7 @@ function InmueblesPage() {
     };
     data.inmuebles.forEach((i) => {
       if (categoria !== "Todas" && getCategoria(i.tipo) !== categoria) return;
+      if (!matchesAgente(i)) return;
       if (!matchesSearch(i, needle)) return;
       const col = classifyKanban(i);
       if (col) groups[col].push(i);
@@ -172,7 +173,7 @@ function InmueblesPage() {
       });
     });
     return groups;
-  }, [data.inmuebles, q, categoria]);
+  }, [data.inmuebles, q, categoria, agente]);
 
   const tabs: string[] = ["Todas", ...CATEGORIAS];
 
