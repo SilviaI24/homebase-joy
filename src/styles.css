@@ -59,9 +59,9 @@
 }
 
 :root {
-  --radius: 0.5rem;
-  /* Ultra-minimal — white base, brand orange accent only */
-  --background: oklch(0.990 0.000 0);       /* pure white */
+  --radius: 0.625rem;
+  /* Bento surface — very subtle warm-gray so white cards float */
+  --background: oklch(0.968 0.004 80);       /* near-white warm surface */
   --foreground: oklch(0.14 0.025 165);      /* near-black with green tint */
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.14 0.025 165);

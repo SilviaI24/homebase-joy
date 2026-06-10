@@ -15,9 +15,6 @@ import {
   ResponsiveContainer,
   CartesianGrid,
   Legend,
-  RadialBarChart,
-  RadialBar,
-  PolarAngleAxis,
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
 import { getCategoria, isAlquiler, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
@@ -28,14 +25,8 @@ import {
   TrendingUp,
   TrendingDown,
   Sparkles,
-  Wallet,
-  Clock,
   ArrowRight,
-  UserCog,
-  CalendarCheck2,
-  Target,
   Trophy,
-  Activity,
 } from "lucide-react";
 
 const inmueblesQuery = allInmueblesQuery;
@@ -89,12 +80,8 @@ const STATUS_COLORS: Record<string, string> = {
   Prospección: "var(--chart-4)",
 };
 
-const C_PRIMARY = "var(--primary)";
-const C_GOLD = "var(--gold)";
-
-// Comisiones estimadas
-const COMISION_VENTA = 0.03; // 3% sobre precio venta
-const COMISION_ALQUILER_MESES = 1; // 1 mes de renta
+const COMISION_VENTA = 0.03;
+const COMISION_ALQUILER_MESES = 1;
 
 const TOOLTIP_STYLE = {
   background: "var(--card)",
@@ -152,10 +139,7 @@ function Dashboard() {
     }
     const captCount: Record<string, number> = {};
     const ventaCount: Record<string, number> = {};
-    months.forEach((m) => {
-      captCount[m.key] = 0;
-      ventaCount[m.key] = 0;
-    });
+    months.forEach((m) => { captCount[m.key] = 0; ventaCount[m.key] = 0; });
     inmuebles.forEach((i) => {
       if (i.fechaInicio) {
         const k = i.fechaInicio.slice(0, 7);
@@ -172,22 +156,18 @@ function Dashboard() {
       Ventas: ventaCount[m.key],
     }));
 
-    // Captaciones MoM delta
     const last = seriesData[seriesData.length - 1]?.Captaciones ?? 0;
     const prev = seriesData[seriesData.length - 2]?.Captaciones ?? 0;
     const captDelta = prev === 0 ? (last > 0 ? 100 : 0) : Math.round(((last - prev) / prev) * 100);
 
-    // sparklines (last 8 months)
     const spark = seriesData.slice(-8);
     const sparkCapt = spark.map((d, i) => ({ i, v: d.Captaciones }));
-    const sparkVentas = spark.map((d, i) => ({ i, v: d.Ventas }));
 
     const recientes = [...inmuebles]
       .filter((i) => i.fechaInicio)
       .sort((a, b) => (b.fechaInicio ?? "").localeCompare(a.fechaInicio ?? ""))
       .slice(0, 6);
 
-    // Top agentes (cartera activa)
     const agMap = new Map<string, { nombre: string; activos: number; valor: number }>();
     activos.forEach((i) => {
       i.agentesNombres.forEach((n) => {
@@ -200,12 +180,11 @@ function Dashboard() {
     const topAgentes = [...agMap.values()].sort((a, b) => b.valor - a.valor).slice(0, 5);
     const maxAgValor = topAgentes[0]?.valor ?? 1;
 
-    // Comisiones estimadas (mes actual + año en curso)
     const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const curYear = String(now.getFullYear());
     let comisionMes = 0;
     let comisionAnual = 0;
-    let comisionPipeline = 0; // activos + reservados
+    let comisionPipeline = 0;
     inmuebles.forEach((i) => {
       const precio = i.precioFinal ?? i.precio ?? 0;
       if (!precio) return;
@@ -216,12 +195,9 @@ function Dashboard() {
         if (i.fechaEscritura?.startsWith(curMonth)) comisionMes += fee;
         if (i.fechaEscritura?.startsWith(curYear)) comisionAnual += fee;
       }
-      if (i.estatus === "Activo" || i.estatus === "Reservado") {
-        comisionPipeline += fee;
-      }
+      if (i.estatus === "Activo" || i.estatus === "Reservado") comisionPipeline += fee;
     });
 
-    // Inmuebles estancados: activos con captación > 90 días sin escritura
     const stalledThreshold = 90;
     const ahora = Date.now();
     const estancadosFull = activos
@@ -235,29 +211,12 @@ function Dashboard() {
     const estancados = estancadosFull.slice(0, 5);
 
     return {
-      inmuebles,
-      activos,
-      reservados,
-      vendidos,
-      alquilados,
-      valorCartera,
-      valorVendido,
-      precioMedio,
-      pieData,
-      barData,
-      seriesData,
-      sparkCapt,
-      sparkVentas,
-      captDelta,
-      lastCapt: last,
-      recientes,
-      topAgentes,
-      maxAgValor,
-      comisionMes,
-      comisionAnual,
-      comisionPipeline,
-      estancados,
-      estancadosFull,
+      inmuebles, activos, reservados, vendidos, alquilados,
+      valorCartera, valorVendido, precioMedio,
+      pieData, barData, seriesData, sparkCapt, captDelta, lastCapt: last,
+      recientes, topAgentes, maxAgValor,
+      comisionMes, comisionAnual, comisionPipeline,
+      estancados, estancadosFull,
     };
   }, [inmData]);
 
@@ -280,17 +239,9 @@ function Dashboard() {
     }).length;
     const realizadas = v.filter((x) => x.estado === "Realizada").length;
     const tasaRealizadas = v.length ? Math.round((realizadas / v.length) * 100) : 0;
-
-    // funnel: visitas -> reservas -> ventas
-    const reservas = stats.reservados.length + stats.vendidos.length + stats.alquilados.length;
     const ventas = stats.vendidos.length + stats.alquilados.length;
     const tasaCierre = v.length ? Math.round((ventas / v.length) * 100) : 0;
-    const funnel = [
-      { name: "Visitas", value: v.length, fill: "var(--chart-3)" },
-      { name: "Reservas", value: reservas, fill: "var(--gold)" },
-      { name: "Cierres", value: ventas, fill: "var(--primary)" },
-    ];
-    return { total: v.length, proximas, realizadas, tasaRealizadas, funnel, tasaCierre };
+    return { total: v.length, proximas, realizadas, tasaRealizadas, tasaCierre };
   }, [visData, stats]);
 
   return (
@@ -298,316 +249,249 @@ function Dashboard() {
       title="Dashboard"
       subtitle={`${stats.activos.length} activos · ${cliStats.total} clientes · ${visStats.proximas} visitas próximas`}
     >
-      {/* Hero — minimal data panel */}
-      <div className="mb-8 rounded-lg border border-border bg-card overflow-hidden">
-        {/* Orange accent line */}
-        <div className="h-[2px] bg-gold" />
+      {/* ── ROW 1: Bento hero ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
 
-        {/* Main stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border">
-          <div className="px-6 py-6">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">Comisiones este mes</div>
-            <div className="text-5xl font-display font-bold text-gold tabular-nums leading-none tracking-tight">
+        {/* Featured: Comisiones este mes */}
+        <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 flex flex-col min-h-[200px]">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-4">
+            Comisiones este mes
+          </div>
+          <div className="flex-1">
+            <div className="font-display font-bold text-gold tabular-nums leading-none tracking-tighter"
+              style={{ fontSize: "clamp(2.75rem, 7vw, 4.5rem)" }}>
               {moneyShort(stats.comisionMes)}
             </div>
-            <div className="text-xs text-muted-foreground mt-2.5">
-              Año en curso: <span className="text-foreground font-medium">{moneyShort(stats.comisionAnual)}</span>
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
+              <span className="text-muted-foreground">
+                Año en curso{" "}
+                <strong className="text-foreground font-semibold">{moneyShort(stats.comisionAnual)}</strong>
+              </span>
+              <span className="text-muted-foreground">
+                Pipeline{" "}
+                <strong className="text-foreground font-semibold">{moneyShort(stats.comisionPipeline)}</strong>
+              </span>
+              <span className="text-muted-foreground">
+                Conversión{" "}
+                <strong className="text-foreground font-semibold">{visStats.tasaCierre}%</strong>
+              </span>
+              {stats.captDelta !== 0 && (
+                <span className={`inline-flex items-center gap-0.5 font-semibold ${stats.captDelta > 0 ? "text-emerald-600" : "text-destructive"}`}>
+                  {stats.captDelta > 0 ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+                  {stats.captDelta > 0 ? "+" : ""}{stats.captDelta}% captaciones MoM
+                </span>
+              )}
             </div>
           </div>
-          <div className="px-6 py-6">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">Pipeline estimado</div>
-            <div className="text-4xl font-display font-bold text-foreground tabular-nums leading-none tracking-tight">
-              {moneyShort(stats.comisionPipeline)}
+          {stats.sparkCapt.length > 1 && (
+            <div className="mt-5 h-14 -mx-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={stats.sparkCapt} margin={{ top: 1, right: 1, left: 1, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="bentospk" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--gold)" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="var(--gold)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Area type="monotone" dataKey="v" stroke="var(--gold)" strokeWidth={1.75} fill="url(#bentospk)" dot={false} isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-            <div className="text-xs text-muted-foreground mt-2.5">
-              <span className="text-foreground font-medium">{stats.activos.length + stats.reservados.length}</span> operaciones abiertas
+          )}
+        </div>
+
+        {/* Right column: dark card + mini grid */}
+        <div className="flex flex-col gap-3">
+          {/* Dark "cartera activa" card */}
+          <div className="flex-1 rounded-2xl bg-foreground p-5 flex flex-col" style={{ color: "var(--background)" }}>
+            <div className="text-[10px] uppercase tracking-[0.22em] font-medium mb-3" style={{ opacity: 0.45 }}>
+              Cartera activa
             </div>
+            <div className="flex-1">
+              <div className="text-[2.75rem] font-display font-bold tabular-nums leading-none">
+                {stats.activos.length}
+              </div>
+              <div className="text-xs mt-1.5" style={{ opacity: 0.45 }}>
+                {stats.reservados.length} reservados · {moneyShort(stats.valorCartera)}
+              </div>
+            </div>
+            <Link
+              to="/inmuebles"
+              className="mt-3 text-xs font-medium inline-flex items-center gap-1 transition-opacity hover:opacity-100"
+              style={{ opacity: 0.40 }}
+            >
+              Ver cartera <ArrowRight className="size-3" />
+            </Link>
           </div>
-          <div className="px-6 py-6">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-2">Conversión visita → cierre</div>
-            <div className="text-4xl font-display font-bold text-foreground tabular-nums leading-none tracking-tight">
-              {visStats.tasaCierre}%
+
+          {/* Mini grid: Clientes + Visitas */}
+          <div className="flex-1 rounded-2xl border border-border bg-card p-5 grid grid-cols-2 divide-x divide-border">
+            <div className="pr-4">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Clientes</div>
+              <div className="text-3xl font-display font-bold tabular-nums leading-none">{cliStats.total}</div>
+              <Link to="/clientes" className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors">
+                Ver todos <ArrowRight className="size-2.5" />
+              </Link>
             </div>
-            <div className="text-xs text-muted-foreground mt-2.5">
-              <span className="text-foreground font-medium">{visStats.total}</span> visitas · <span className="text-foreground font-medium">{stats.vendidos.length + stats.alquilados.length}</span> cierres
+            <div className="pl-4">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Visitas / 7d</div>
+              <div className="text-3xl font-display font-bold tabular-nums leading-none">{visStats.proximas}</div>
+              <Link to="/visitas" className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors">
+                Ver agenda <ArrowRight className="size-2.5" />
+              </Link>
             </div>
           </div>
         </div>
-
-        {/* Ticker — secondary metrics */}
-        <div className="border-t border-border bg-muted/40 px-6 py-2.5 flex items-center gap-0 overflow-x-auto">
-          <TickerItem value={stats.activos.length} label="activos" accent />
-          <TickerDot />
-          <TickerItem value={stats.reservados.length} label="reservados" />
-          <TickerDot />
-          <TickerItem value={cliStats.total} label="clientes" />
-          <TickerDot />
-          <TickerItem value={visStats.proximas} label="visitas próximas" />
-          <TickerDot />
-          <TickerItem
-            value={`${stats.captDelta >= 0 ? "+" : ""}${stats.captDelta}%`}
-            label="captaciones MoM"
-            accent={stats.captDelta > 0}
-            warn={stats.captDelta < 0}
-          />
-        </div>
       </div>
 
-      {/* KPIs principales con sparklines */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <KpiCard
-          icon={Building2}
-          label="Inmuebles activos"
-          value={stats.activos.length.toString()}
-          hint={`${stats.inmuebles.length} en base · ${stats.reservados.length} reservados`}
-          to="/inmuebles"
-          tone="primary"
-          sparkData={stats.sparkCapt}
-          sparkColor={C_PRIMARY}
-          delta={stats.captDelta}
-          deltaLabel="captaciones MoM"
-        />
-        <KpiCard
-          icon={Wallet}
-          label="Valor de cartera"
-          value={moneyShort(stats.valorCartera)}
-          hint={`Medio: ${moneyShort(stats.precioMedio)} · Vendido: ${moneyShort(stats.valorVendido)}`}
-          tone="gold"
-          sparkData={stats.sparkVentas}
-          sparkColor={C_GOLD}
-        />
-        <KpiCard
-          icon={Users}
-          label="Clientes"
-          value={cliStats.total.toString()}
-          hint={`${cliStats.propietarios} propietarios · ${cliStats.compradores} compradores`}
-          to="/clientes"
-          tone="primary"
-        />
-        <KpiCard
-          icon={CalendarCheck2}
-          label="Visitas"
-          value={visStats.total.toString()}
-          hint={`${visStats.proximas} en 7 días · ${visStats.tasaRealizadas}% realizadas`}
-          to="/visitas"
-          tone="gold"
-        />
-      </div>
-
-      {/* Charts row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <ChartCard title="Distribución por estado" icon={TrendingUp}>
-          <ResponsiveContainer width="100%" height={240}>
-            <PieChart>
-              <Pie
-                data={stats.pieData}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={55}
-                outerRadius={92}
-                paddingAngle={3}
-                stroke="hsl(var(--card))"
-                strokeWidth={2}
-              >
-                {stats.pieData.map((entry) => (
-                  <Cell key={entry.name} fill={STATUS_COLORS[entry.name] ?? "#cbd5e1"} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v} inmuebles`, ""]} />
-              <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Valor de cartera por categoría" icon={Wallet} className="lg:col-span-2">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={stats.barData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gBar" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--gold)" stopOpacity={1} />
-                  <stop offset="100%" stopColor="var(--gold)" stopOpacity={0.5} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-              <XAxis dataKey="cat" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${v}M`} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}M €`, "Valor"]} />
-              <Bar dataKey="valorM" fill="url(#gBar)" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      {/* Charts row 2 — evolución (area) */}
-      <div className="mb-6">
-        <ChartCard
-          title="Evolución de captaciones y ventas"
-          subtitle="Últimos 12 meses"
-          icon={Activity}
-        >
-          <ResponsiveContainer width="100%" height={280}>
+      {/* ── ROW 2: Evolución + Top comerciales ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
+        <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5">
+          <h3 className="text-sm font-semibold tracking-tight mb-4">Captaciones y cierres · últimos 12 meses</h3>
+          <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={stats.seriesData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="gCapt" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.45} />
+                  <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.4} />
                   <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gVent" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--gold)" stopOpacity={0.45} />
+                  <stop offset="0%" stopColor="var(--gold)" stopOpacity={0.4} />
                   <stop offset="100%" stopColor="var(--gold)" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-              <XAxis dataKey="mes" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="mes" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
+              <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" allowDecimals={false} />
               <Tooltip contentStyle={TOOLTIP_STYLE} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Area
-                type="monotone"
-                dataKey="Captaciones"
-                stroke="var(--primary)"
-                strokeWidth={2.5}
-                fill="url(#gCapt)"
-                activeDot={{ r: 5 }}
-              />
-              <Area
-                type="monotone"
-                dataKey="Ventas"
-                stroke="var(--gold)"
-                strokeWidth={2.5}
-                fill="url(#gVent)"
-                activeDot={{ r: 5 }}
-              />
+              <Area type="monotone" dataKey="Captaciones" stroke="var(--primary)" strokeWidth={2.5} fill="url(#gCapt)" activeDot={{ r: 5 }} />
+              <Area type="monotone" dataKey="Ventas" stroke="var(--gold)" strokeWidth={2.5} fill="url(#gVent)" activeDot={{ r: 5 }} />
             </AreaChart>
           </ResponsiveContainer>
-        </ChartCard>
-      </div>
+        </div>
 
-      {/* Funnel + Top agentes */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <ChartCard title="Embudo comercial" icon={Target}>
-          <ResponsiveContainer width="100%" height={240}>
-            <RadialBarChart
-              innerRadius="30%"
-              outerRadius="100%"
-              data={visStats.funnel}
-              startAngle={90}
-              endAngle={-270}
-            >
-              <PolarAngleAxis type="number" domain={[0, Math.max(...visStats.funnel.map((f) => f.value), 1)]} tick={false} />
-              <RadialBar background dataKey="value" cornerRadius={8} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-            </RadialBarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <div className="lg:col-span-2 rounded-lg border border-border bg-card p-5">
+        <div className="rounded-2xl border border-border bg-card p-5 flex flex-col">
           <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-            <Trophy className="size-4 text-gold" /> Top comerciales por cartera activa
+            <Trophy className="size-4 text-gold" /> Top comerciales
           </h3>
-          {stats.topAgentes.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-8 text-center">Sin datos de cartera asignada.</div>
-          ) : (
-            <div className="space-y-3">
-              {stats.topAgentes.map((a, idx) => {
+          <div className="flex-1 space-y-3">
+            {stats.topAgentes.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-6 text-center">Sin datos.</div>
+            ) : (
+              stats.topAgentes.map((a, idx) => {
                 const pct = Math.max(4, Math.round((a.valor / stats.maxAgValor) * 100));
                 const medalTone =
-                  idx === 0
-                    ? "bg-gold text-gold-foreground"
-                    : idx === 1
-                      ? "bg-slate-300 text-slate-900"
-                      : idx === 2
-                        ? "bg-orange-700 text-white"
-                        : "bg-muted text-muted-foreground";
+                  idx === 0 ? "bg-gold text-gold-foreground"
+                  : idx === 1 ? "bg-slate-300 text-slate-900"
+                  : idx === 2 ? "bg-orange-700 text-white"
+                  : "bg-muted text-muted-foreground";
                 return (
                   <div key={a.nombre} className="flex items-center gap-3">
                     <div className={`size-7 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${medalTone}`}>
                       {idx + 1}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-3">
+                      <div className="flex items-baseline justify-between gap-2">
                         <div className="text-sm font-medium truncate">{a.nombre}</div>
-                        <div className="text-xs text-muted-foreground tabular-nums">
-                          {a.activos} · <span className="font-semibold text-foreground">{moneyShort(a.valor)}</span>
+                        <div className="text-xs text-muted-foreground tabular-nums shrink-0">
+                          <span className="font-semibold text-foreground">{moneyShort(a.valor)}</span>
                         </div>
                       </div>
-                      <div className="mt-1.5 h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-primary to-gold transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
+                      <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-primary to-gold transition-all" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   </div>
                 );
-              })}
-            </div>
-          )}
-          <Link
-            to="/comerciales"
-            className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-          >
+              })
+            )}
+          </div>
+          <Link to="/comerciales" className="mt-4 text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors">
             Ver ranking completo <ArrowRight className="size-3" />
           </Link>
         </div>
       </div>
 
-      {/* Acceso comerciales + SilvIA */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <Link
-          to="/comerciales"
-          className="rounded-lg border border-border bg-gradient-to-br from-primary/10 to-primary/5 p-5 hover:border-primary/40 hover:shadow-md transition-all group"
-        >
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow">
-              <UserCog className="size-5" />
-            </div>
-            <div className="flex-1">
-              <div className="text-sm font-semibold">Rendimiento por comercial</div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                Cartera, valor gestionado y conversión por agente.
-              </div>
-              <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary group-hover:underline">
-                Ver ranking <ArrowRight className="size-3" />
-              </div>
-            </div>
-          </div>
-        </Link>
+      {/* ── ROW 3: Charts + SilvIA ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
 
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <h3 className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-3">Distribución estado</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie
+                data={stats.pieData}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={52}
+                outerRadius={86}
+                paddingAngle={3}
+                stroke="var(--card)"
+                strokeWidth={2}
+              >
+                {stats.pieData.map((entry) => (
+                  <Cell key={entry.name} fill={STATUS_COLORS[entry.name] ?? "#cbd5e1"} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}`, ""]} />
+              <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <h3 className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-3">Valor por categoría</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={stats.barData} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gBar" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--gold)" stopOpacity={1} />
+                  <stop offset="100%" stopColor="var(--gold)" stopOpacity={0.5} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="cat" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+              <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(v) => `${v}M`} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}M €`, ""]} />
+              <Bar dataKey="valorM" fill="url(#gBar)" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* SilvIA CTA */}
         <Link
           to="/silvia"
-          className="rounded-lg border border-border bg-gradient-to-br from-gold/15 to-gold/5 p-5 hover:border-gold/50 hover:shadow-md transition-all group"
+          className="rounded-2xl border border-gold/25 bg-gradient-to-br from-gold/10 to-transparent p-5 flex flex-col justify-between hover:border-gold/50 hover:shadow-lg transition-all group sm:col-span-2 lg:col-span-1"
         >
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-gold to-amber-300 text-gold-foreground shadow">
-              <Sparkles className="size-5" />
+          <div className="size-11 rounded-xl bg-gradient-to-br from-gold to-amber-300 flex items-center justify-center shadow-md">
+            <Sparkles className="size-5 text-gold-foreground" />
+          </div>
+          <div className="mt-4">
+            <div className="text-base font-semibold tracking-tight">SilvIA</div>
+            <div className="text-sm text-muted-foreground mt-0.5">
+              {cliStats.leadsSilvia} conversaciones activas
             </div>
-            <div className="flex-1">
-              <div className="text-sm font-semibold">SilvIA tiene {cliStats.leadsSilvia} conversaciones</div>
-              <div className="text-xs text-muted-foreground mt-0.5">Revisa los leads y cualifícalos.</div>
-              <div className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary group-hover:underline">
-                Ir a la bandeja <ArrowRight className="size-3" />
-              </div>
-            </div>
+            <div className="text-xs text-muted-foreground mt-1">Leads cualificados por IA</div>
+          </div>
+          <div className="mt-5 inline-flex items-center gap-1 text-xs font-medium text-gold group-hover:gap-2 transition-all">
+            Revisar leads <ArrowRight className="size-3" />
           </div>
         </Link>
       </div>
 
-      {/* Alertas + Captaciones recientes */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-lg border border-border bg-card overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Clock className="size-4 text-muted-foreground" /> Captaciones recientes
-            </h3>
-            <Link to="/inmuebles" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+      {/* ── ROW 4: Recientes + Estancados ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className="lg:col-span-2 rounded-2xl border border-border bg-card overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+            <h3 className="text-sm font-semibold">Captaciones recientes</h3>
+            <Link to="/inmuebles" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors">
               Ver todas <ArrowRight className="size-3" />
             </Link>
           </div>
           <div className="divide-y divide-border">
             {stats.recientes.length === 0 ? (
-              <div className="p-6 text-center text-sm text-muted-foreground">Sin captaciones recientes.</div>
+              <div className="p-8 text-center text-sm text-muted-foreground">Sin captaciones recientes.</div>
             ) : (
               stats.recientes.map((i) => <RecentRow key={i.id} i={i} />)
             )}
@@ -620,27 +504,10 @@ function Dashboard() {
   );
 }
 
-function TickerItem({ value, label, accent = false, warn = false }: {
-  value: string | number; label: string; accent?: boolean; warn?: boolean;
-}) {
-  return (
-    <span className="flex items-center gap-1.5 whitespace-nowrap px-3 py-0.5 text-[11px]">
-      <span className={`font-semibold tabular-nums ${accent ? "text-gold" : warn ? "text-destructive" : "text-foreground"}`}>
-        {value}
-      </span>
-      <span className="text-muted-foreground">{label}</span>
-    </span>
-  );
-}
-
-function TickerDot() {
-  return <span className="text-border text-xs shrink-0 select-none">·</span>;
-}
-
 function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: number }[] }) {
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
-      <div className="px-5 py-3 border-b border-border">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="px-5 py-3.5 border-b border-border">
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <TrendingDown className="size-4 text-destructive" /> Inmuebles estancados
         </h3>
@@ -657,13 +524,11 @@ function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: number 
                 params={{ id: i.id }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
               >
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive text-[11px] font-bold tabular-nums">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive text-[11px] font-bold tabular-nums">
                   {dias}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium truncate">
-                    {i.calle || "Sin dirección"} {i.numero}
-                  </div>
+                  <div className="text-xs font-medium truncate">{i.calle || "Sin dirección"} {i.numero}</div>
                   <div className="text-[11px] text-muted-foreground truncate">
                     {[i.barrio, i.localidad].filter(Boolean).join(" · ") || i.tipo}
                   </div>
@@ -680,126 +545,6 @@ function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: number 
   );
 }
 
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  to,
-  tone = "primary",
-  sparkData,
-  sparkColor,
-  delta,
-  deltaLabel,
-}: {
-  icon: typeof Building2;
-  label: string;
-  value: string;
-  hint?: string;
-  to?: string;
-  tone?: "primary" | "gold";
-  sparkData?: { i: number; v: number }[];
-  sparkColor?: string;
-  delta?: number;
-  deltaLabel?: string;
-}) {
-  const toneMap: Record<string, string> = {
-    primary: "text-primary bg-primary/10",
-    gold: "text-gold-foreground bg-gold/25",
-  };
-  const positive = (delta ?? 0) >= 0;
-  const inner = (
-    <>
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-muted-foreground font-medium">{label}</div>
-        <div className={`size-8 rounded-md flex items-center justify-center ${toneMap[tone]}`}>
-          <Icon className="size-4" />
-        </div>
-      </div>
-      <div className="mt-2 flex items-baseline justify-between gap-2">
-        <div className="text-2xl font-semibold tabular-nums">{value}</div>
-        {typeof delta === "number" && (
-          <div
-            className={`inline-flex items-center gap-0.5 text-[11px] font-semibold rounded-full px-1.5 py-0.5 ${
-              positive
-                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                : "bg-destructive/10 text-destructive"
-            }`}
-            title={deltaLabel}
-          >
-            {positive ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-            {positive ? "+" : ""}
-            {delta}%
-          </div>
-        )}
-      </div>
-      {hint && <div className="mt-0.5 text-[11px] text-muted-foreground line-clamp-1">{hint}</div>}
-      {sparkData && sparkData.length > 1 && (
-        <div className="mt-2 -mx-1 h-9">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={sparkData} margin={{ top: 2, right: 2, left: 2, bottom: 0 }}>
-              <defs>
-                <linearGradient id={`spark-${label}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={sparkColor ?? "var(--primary)"} stopOpacity={0.5} />
-                  <stop offset="100%" stopColor={sparkColor ?? "var(--primary)"} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Area
-                type="monotone"
-                dataKey="v"
-                stroke={sparkColor ?? "var(--primary)"}
-                strokeWidth={1.75}
-                fill={`url(#spark-${label})`}
-                dot={false}
-                isAnimationActive={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-    </>
-  );
-  if (to) {
-    return (
-      <Link
-        to={to as "/"}
-        className="rounded-lg border border-border bg-card p-4 hover:border-foreground/20 hover:shadow-md transition-all"
-      >
-        {inner}
-      </Link>
-    );
-  }
-  return <div className="rounded-lg border border-border bg-card p-4">{inner}</div>;
-}
-
-function ChartCard({
-  title,
-  subtitle,
-  icon: Icon,
-  children,
-  className = "",
-}: {
-  title: string;
-  subtitle?: string;
-  icon: typeof TrendingUp;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`rounded-lg border border-border bg-card p-5 ${className}`}>
-      <div className="mb-4 flex items-start justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Icon className="size-4 text-muted-foreground" /> {title}
-          </h3>
-          {subtitle && <div className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</div>}
-        </div>
-      </div>
-      {children}
-    </div>
-  );
-}
-
 function RecentRow({ i }: { i: Inmueble }) {
   return (
     <Link
@@ -807,7 +552,7 @@ function RecentRow({ i }: { i: Inmueble }) {
       params={{ id: i.id }}
       className="flex items-center gap-3 px-5 py-3 hover:bg-accent/40 transition-colors"
     >
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
         <Building2 className="size-4" />
       </div>
       <div className="min-w-0 flex-1">
