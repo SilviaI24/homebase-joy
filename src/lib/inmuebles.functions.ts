@@ -438,4 +438,3 @@ export const updateInmueble = createServerFn({ method: "POST" })
     })) as { id: string };
     return { ok: true, id: res.id };
   });
-  });
