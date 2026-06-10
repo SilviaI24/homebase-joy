@@ -91,21 +91,95 @@ export const createCliente = createServerFn({ method: "POST" })
 
 // ------------------- INMUEBLE / ALQUILER -------------------
 export type CreateInmueblePayload = {
+  // base
   calle: string;
   numero?: string;
   barrio?: string;
   localidad?: string;
-  tipo: string; // ej. "Piso", "Alquiler Piso"…
-  estatus?: string; // Activo por defecto
+  tipo: string;
+  estatus?: string;
+  estado?: string;
   precio?: number | null;
+  ref?: string;
   habitaciones?: string;
   banos?: string;
   superficie?: string;
   descripcion?: string;
   observaciones?: string;
   fechaInicio?: string | null;
+  fechaExclusiva?: string | null;
   agentesIds?: string[];
   propietariosIds?: string[];
+  publicacion?: string;
+  // extended
+  plantas?: string;
+  planta?: string;
+  tipoSuelo?: string;
+  calefaccion?: string;
+  orientacion?: string;
+  terraza?: string;
+  balcon?: string;
+  garaje?: string;
+  trastero?: string;
+  ascensor?: string;
+  armariosEmpotrados?: string;
+  anoConstruccion?: string;
+  certificacionEnergetica?: string;
+  llaves?: string;
+  gastosComunidad?: string;
+  inquilinos?: string;
+  enlaceTours?: string;
+  tipoChalet?: string;
+  superficieEdificable?: string;
+  viaUrbana?: string;
+  salidaHumos?: string;
+  almacen?: string;
+  estancias?: string;
+};
+
+const FIELD_MAP: Record<keyof CreateInmueblePayload, string | null> = {
+  calle: "Calle",
+  numero: "Numero",
+  barrio: "Barrio",
+  localidad: "Localidad",
+  tipo: "Tipo de inmueble (desplegable)",
+  estatus: "Estatus",
+  estado: "Estado",
+  precio: "Precio",
+  ref: "Ref",
+  habitaciones: "Habitaciones / dormitorios",
+  banos: "Baño",
+  superficie: "Superficie",
+  descripcion: "Descripción",
+  observaciones: "Observaciones",
+  fechaInicio: "Fecha de inicio",
+  fechaExclusiva: "Fecha de autorización de venta ( exclusiva)",
+  agentesIds: "Agentes Asignados",
+  propietariosIds: "Propietario",
+  publicacion: "Publicación",
+  plantas: "Plantas",
+  planta: "Planta",
+  tipoSuelo: "Tipo de Suelo",
+  calefaccion: "Calefacción",
+  orientacion: "Orientación",
+  terraza: "Terraza",
+  balcon: "Balcón",
+  garaje: "Garaje",
+  trastero: "Trastero",
+  ascensor: "Ascensor",
+  armariosEmpotrados: "Armarios empotrados",
+  anoConstruccion: "Año de construcción",
+  certificacionEnergetica: "Certificación energética",
+  llaves: "Llaves",
+  gastosComunidad: "Gastos de comunidad",
+  inquilinos: "Inquilinos",
+  enlaceTours: "Enlace Tours",
+  tipoChalet: "Tipo de Chalet",
+  superficieEdificable: "Superficie edificable",
+  viaUrbana: "Vía urbana",
+  salidaHumos: "Salida de humos",
+  almacen: "Almacén",
+  estancias: "Estancias",
 };
 
 export const createInmueble = createServerFn({ method: "POST" })
@@ -121,28 +195,36 @@ export const createInmueble = createServerFn({ method: "POST" })
       Estatus: strOpt(data.estatus) ?? "Activo",
       "Fecha de inicio": strOpt(data.fechaInicio ?? undefined) ?? new Date().toISOString().slice(0, 10),
     };
-    const num = strOpt(data.numero);
-    if (num) fields["Numero"] = num;
-    const barrio = strOpt(data.barrio);
-    if (barrio) fields["Barrio"] = toTitleCase(barrio);
-    const loc = strOpt(data.localidad);
-    if (loc) fields["Localidad"] = toTitleCase(loc);
+    // Numeric
     const precio = numOpt(data.precio);
     if (precio !== undefined) fields["Precio"] = precio;
-    const hab = strOpt(data.habitaciones);
-    if (hab) fields["Habitaciones"] = hab;
-    const ban = strOpt(data.banos);
-    if (ban) fields["Baños"] = ban;
-    const sup = strOpt(data.superficie);
-    if (sup) fields["Superficie"] = sup;
-    const desc = strOpt(data.descripcion);
-    if (desc) fields["Descripción"] = toSentenceCase(desc);
-    const obs = strOpt(data.observaciones);
-    if (obs) fields["Observaciones"] = toSentenceCase(obs);
+    // Arrays
     const ag = arrOpt(data.agentesIds);
     if (ag) fields["Agentes Asignados"] = ag;
     const prop = arrOpt(data.propietariosIds);
     if (prop) fields["Propietario"] = prop;
+    // String optional fields driven by FIELD_MAP
+    const skip = new Set([
+      "calle", "tipo", "estatus", "precio", "fechaInicio", "agentesIds", "propietariosIds",
+      "descripcion", "observaciones", "barrio", "localidad",
+    ]);
+    (Object.keys(FIELD_MAP) as Array<keyof CreateInmueblePayload>).forEach((k) => {
+      if (skip.has(k)) return;
+      const at = FIELD_MAP[k];
+      if (!at) return;
+      const v = strOpt((data as Record<string, unknown>)[k]);
+      if (v) fields[at] = v;
+    });
+    const barrio = strOpt(data.barrio);
+    if (barrio) fields["Barrio"] = toTitleCase(barrio);
+    const loc = strOpt(data.localidad);
+    if (loc) fields["Localidad"] = toTitleCase(loc);
+    const desc = strOpt(data.descripcion);
+    if (desc) fields["Descripción"] = toSentenceCase(desc);
+    const obs = strOpt(data.observaciones);
+    if (obs) fields["Observaciones"] = toSentenceCase(obs);
+    const fexc = strOpt(data.fechaExclusiva ?? undefined);
+    if (fexc) fields["Fecha de autorización de venta ( exclusiva)"] = fexc;
 
     const res = (await airtableFetch(`/v0/${BASE_ID}/${TABLES.inmuebles}`, {
       method: "POST",
