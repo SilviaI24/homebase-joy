@@ -19,8 +19,8 @@ export async function airtableFetch(
   init?: RequestInit,
   opts: { cacheMs?: number } = {},
 ): Promise<unknown> {
-  const airtableKey = process.env.AIRTABLE_API_KEY_1;
-  if (!airtableKey) throw new Error("AIRTABLE_API_KEY_1 is not configured");
+  const airtableKey = process.env.Airtable_3Lov ?? process.env.AIRTABLE_API_KEY_1;
+  if (!airtableKey) throw new Error("Airtable API key not configured");
 
   const method = (init?.method ?? "GET").toUpperCase();
   const cacheable = method === "GET";
