@@ -1,4 +1,4 @@
-const GATEWAY = "https://connector-gateway.lovable.dev/airtable";
+const GATEWAY = "https://api.airtable.com";
 export const BASE_ID = "appJHlqz7fFFjJWF1";
 export const TABLES = {
   inmuebles: "tblLEsYvGZqXntJo7",
@@ -19,9 +19,7 @@ export async function airtableFetch(
   init?: RequestInit,
   opts: { cacheMs?: number } = {},
 ): Promise<unknown> {
-  const lovableKey = process.env.LOVABLE_API_KEY;
   const airtableKey = process.env.AIRTABLE_API_KEY_1;
-  if (!lovableKey) throw new Error("LOVABLE_API_KEY is not configured");
   if (!airtableKey) throw new Error("AIRTABLE_API_KEY_1 is not configured");
 
   const method = (init?.method ?? "GET").toUpperCase();
@@ -43,8 +41,7 @@ export async function airtableFetch(
       const res = await fetch(`${GATEWAY}${path}`, {
         ...init,
         headers: {
-          Authorization: `Bearer ${lovableKey}`,
-          "X-Connection-Api-Key": airtableKey,
+          Authorization: `Bearer ${airtableKey}`,
           "Content-Type": "application/json",
           ...(init?.headers ?? {}),
         },
