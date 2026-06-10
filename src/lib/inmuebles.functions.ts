@@ -397,6 +397,8 @@ export type UpdateInmueblePayload = {
   precioFinal?: number | null;
   agentesIds?: string[];
   observaciones?: string;
+  descripcion?: string;
+  imagenesAttachmentIds?: string[]; // reorder existing attachments
 };
 
 export const updateInmueble = createServerFn({ method: "POST" })
@@ -414,6 +416,8 @@ export const updateInmueble = createServerFn({ method: "POST" })
     if (d.precioFinal != null && (typeof d.precioFinal !== "number" || d.precioFinal < 0))
       throw new Error("Precio final inválido");
     if (d.agentesIds && !Array.isArray(d.agentesIds)) throw new Error("Agentes inválidos");
+    if (d.imagenesAttachmentIds && !Array.isArray(d.imagenesAttachmentIds))
+      throw new Error("Imágenes inválidas");
     return d;
   })
   .handler(async ({ data }) => {
@@ -424,10 +428,14 @@ export const updateInmueble = createServerFn({ method: "POST" })
     if (data.precioFinal !== undefined) fields["Precio Final "] = data.precioFinal;
     if (data.agentesIds !== undefined) fields["Agentes Asignados"] = data.agentesIds;
     if (data.observaciones !== undefined) fields["Observaciones"] = data.observaciones;
+    if (data.descripcion !== undefined) fields["Descripción"] = data.descripcion;
+    if (data.imagenesAttachmentIds !== undefined)
+      fields["Imágenes"] = data.imagenesAttachmentIds.map((id) => ({ id }));
 
     const res = (await airtableFetch(`/v0/${BASE_ID}/${TABLES.inmuebles}/${data.id}`, {
       method: "PATCH",
       body: JSON.stringify({ fields }),
     })) as { id: string };
     return { ok: true, id: res.id };
+  });
   });
