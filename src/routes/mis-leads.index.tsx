@@ -184,7 +184,14 @@ function MisLeadsPage() {
   const [origenFilter, setOrigenFilter] = useState<string>("Todos");
 
   const agentes = ag.agentes;
-  const agenteId = agenteParam ?? agentes[0]?.id ?? "";
+  const [savedAgenteId] = useState<string>(() =>
+    typeof window !== "undefined" ? (localStorage.getItem("homebase.misleads.agente") ?? "") : ""
+  );
+  const agenteId =
+    agenteParam ??
+    (savedAgenteId && agentes.some((a) => a.id === savedAgenteId) ? savedAgenteId : null) ??
+    agentes[0]?.id ??
+    "";
   const agenteSel = agentes.find((a) => a.id === agenteId);
 
   const misLeads = useMemo(() => {
@@ -242,9 +249,13 @@ function MisLeadsPage() {
         </div>
         <select
           value={agenteId}
-          onChange={(e) =>
-            navigate({ search: { agente: e.target.value || undefined } })
-          }
+          onChange={(e) => {
+            const val = e.target.value || undefined;
+            if (typeof window !== "undefined" && val) {
+              localStorage.setItem("homebase.misleads.agente", val);
+            }
+            navigate({ search: { agente: val } });
+          }}
           className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-foreground/30 min-w-[220px]"
         >
           {agentes.map((a) => (
@@ -604,11 +615,12 @@ function LeadCard({
   );
 }
 
-// Mapeo de segmento UI → valor del campo "Tipo de cliente" en Airtable
+// Mapeo de segmento UI → valor del campo "Tipo de cliente" en Airtable.
+// Inquilino NO aparece aquí: se determina por propiedadAlquilerIds (enlaces a propiedades),
+// no por el campo tipo — reclasificar como "Interesado alquiler" los convertiría en Lead.
 const SEGMENTO_A_TIPO: Record<string, string> = {
   Propietario: "Propietario",
   Comprador: "Comprador",
-  Inquilino: "Interesado alquiler",
   Prospecto: "Prospecciones",
   Descartado: "Anular prospección",
 };
@@ -625,7 +637,8 @@ function OrigenBadgeEditor({
 }) {
   const [open, setOpen] = useState(false);
   const o = ORIGEN_META[cliente.segmento] ?? ORIGEN_META.Lead;
-  const opciones = ["Propietario", "Comprador", "Inquilino", "Prospecto", "Descartado"] as const;
+  // Inquilino excluded: status comes from property links, not from "Tipo de cliente" field
+  const opciones = ["Propietario", "Comprador", "Prospecto", "Descartado"] as const;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

@@ -30,7 +30,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Gestión",
     items: [
-      { to: "/mis-leads", label: "Mis operaciones", icon: Inbox },
+      { to: "/mis-leads", label: "Leads", icon: Inbox },
       { to: "/comerciales", label: "Comerciales", icon: UserCog },
       { to: "/visitas", label: "Visitas", icon: CalendarDays },
     ],

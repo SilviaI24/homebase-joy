@@ -36,6 +36,7 @@ import {
   KeyRound,
   Flame,
   UserPlus,
+  Users,
   Snowflake,
   XCircle,
   TrendingUp,
@@ -73,6 +74,12 @@ export const Route = createFileRoute("/clientes/")({
     </AppShell>
   ),
 });
+
+// =============================================================
+// Segmentos por vista
+// =============================================================
+const CLIENTE_SEGS: Segmento[] = ["Propietario", "Comprador", "Inquilino"];
+const LEAD_SEGS: Segmento[] = ["Prospecto", "Lead"];
 
 // =============================================================
 // Configuración visual de segmentos y estados
@@ -168,14 +175,7 @@ const SEG_BAR: Record<Segmento, string> = {
   Descartado: "bg-destructive",
 };
 
-const SEGMENTOS_TABS: Array<Segmento | "Todos"> = [
-  "Todos",
-  "Propietario",
-  "Comprador",
-  "Inquilino",
-  "Prospecto",
-  "Lead",
-];
+// Tabs per view — derived dynamically inside the component
 const ESTADOS_TABS: Array<EstadoComercial | "Todos"> = [
   "Todos",
   "Activo",
@@ -222,6 +222,7 @@ function ClientesPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [q, setQ] = useState("");
+  const [view, setView] = useState<"clientes" | "leads">("clientes");
   const [seg, setSeg] = useState<Segmento | "Todos">("Todos");
   const [estado, setEstado] = useState<EstadoComercial | "Todos">("Todos");
   const [selectedId, setSelectedId] = useState<string | null>(search.id ?? null);
@@ -238,32 +239,46 @@ function ClientesPage() {
     navigate({ search: { id: id ?? undefined }, replace: true });
   }
 
-  // KPIs por segmento (sobre todo el universo)
-  const segCounts = useMemo(() => {
-    const m: Record<Segmento, number> = {
-      Propietario: 0,
-      Comprador: 0,
-      Inquilino: 0,
-      Prospecto: 0,
-      Lead: 0,
-      Descartado: 0,
-    };
+  function switchView(v: "clientes" | "leads") {
+    setView(v);
+    setSeg("Todos");
+    setEstado("Todos");
+  }
+
+  // Counts per view (global, for the toggle)
+  const viewCounts = useMemo(() => {
+    let clientes = 0, leads = 0;
     data.clientes.forEach((c) => {
-      m[c.segmento]++;
+      if (CLIENTE_SEGS.includes(c.segmento)) clientes++;
+      else if (LEAD_SEGS.includes(c.segmento)) leads++;
     });
-    return m;
+    return { clientes, leads };
   }, [data.clientes]);
 
+  // Counts per segmento, scoped to current view
+  const viewSegCounts = useMemo(() => {
+    const m: Partial<Record<Segmento, number>> = {};
+    const allowed = view === "clientes" ? CLIENTE_SEGS : LEAD_SEGS;
+    data.clientes.forEach((c) => {
+      if (allowed.includes(c.segmento)) m[c.segmento] = (m[c.segmento] ?? 0) + 1;
+    });
+    return m;
+  }, [data.clientes, view]);
+
+  // Tabs for the segmento filter strip
+  const segmentosTabs: Array<Segmento | "Todos"> =
+    view === "clientes"
+      ? ["Todos", "Propietario", "Comprador", "Inquilino"]
+      : ["Todos", "Prospecto", "Lead"];
+
   const baseSet = useMemo(() => {
+    const allowed = view === "clientes" ? CLIENTE_SEGS : LEAD_SEGS;
     return data.clientes.filter((c) => {
-      if (seg === "Todos" ? c.segmento === "Descartado" : seg !== c.segmento) {
-        // Excluir "Descartado" cuando estamos en Todos a menos que se filtre estado descartado
-        if (seg === "Todos" && c.segmento === "Descartado" && estado !== "Descartado") return false;
-        if (seg !== "Todos" && seg !== c.segmento) return false;
-      }
+      if (!allowed.includes(c.segmento)) return false;
+      if (seg !== "Todos" && seg !== c.segmento) return false;
       return true;
     });
-  }, [data.clientes, seg, estado]);
+  }, [data.clientes, view, seg]);
 
   const estadoCounts = useMemo(() => {
     const m: Record<string, number> = { Todos: baseSet.length };
@@ -296,14 +311,46 @@ function ClientesPage() {
   );
 
   return (
-    <AppShell title="Clientes">
+    <AppShell title={view === "clientes" ? "Clientes" : "Leads & Prospectos"}>
+      {/* ---------- Vista: Clientes / Leads ---------- */}
+      <div className="flex items-center gap-2 mb-5">
+        {(["clientes", "leads"] as const).map((v) => {
+          const active = view === v;
+          const count = v === "clientes" ? viewCounts.clientes : viewCounts.leads;
+          return (
+            <button
+              key={v}
+              onClick={() => switchView(v)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold transition-all ${
+                active
+                  ? "bg-foreground text-background border-transparent shadow-sm"
+                  : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+              }`}
+            >
+              {v === "clientes" ? <Users className="size-4" /> : <UserPlus className="size-4" />}
+              {v === "clientes" ? "Clientes" : "Leads & Prospectos"}
+              <span
+                className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                  active ? "bg-white/20 text-inherit" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+        <div className="ml-auto text-xs text-muted-foreground hidden sm:block">
+          {viewCounts.clientes + viewCounts.leads} contactos activos
+        </div>
+      </div>
+
       {/* ---------- KPIs por segmento ---------- */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
-        {(["Propietario", "Comprador", "Inquilino", "Prospecto", "Lead"] as Segmento[]).map((s) => {
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 mb-5">
+        {(view === "clientes" ? CLIENTE_SEGS : LEAD_SEGS).map((s) => {
           const m = SEG_META[s];
           const Icon = m.icon;
-          const count = segCounts[s];
-          const total = data.clientes.length - segCounts.Descartado;
+          const count = viewSegCounts[s] ?? 0;
+          const total = view === "clientes" ? viewCounts.clientes : viewCounts.leads;
           const pct = total ? Math.round((count / total) * 100) : 0;
           const active = seg === s;
           return (
@@ -369,12 +416,12 @@ function ClientesPage() {
       {/* ---------- Filtros: segmento (chips) + estado ---------- */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-card p-1">
-          {SEGMENTOS_TABS.map((s) => {
+          {segmentosTabs.map((s) => {
             const active = seg === s;
             const count =
               s === "Todos"
-                ? data.clientes.length - segCounts.Descartado
-                : segCounts[s as Segmento] ?? 0;
+                ? (view === "clientes" ? viewCounts.clientes : viewCounts.leads)
+                : viewSegCounts[s as Segmento] ?? 0;
             return (
               <button
                 key={s}
