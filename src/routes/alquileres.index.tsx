@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { SafeImage } from "@/components/SafeImage";
@@ -20,10 +20,7 @@ export const Route = createFileRoute("/alquileres/")({
       { name: "description", content: "Hub de gestión de alquileres." },
     ],
   }),
-  loader: ({ context }) => Promise.all([
-    context.queryClient.ensureQueryData(allInmueblesQuery),
-    context.queryClient.ensureQueryData(clientesQueryOpts),
-  ]),
+  loader: ({ context }) => context.queryClient.ensureQueryData(allInmueblesQuery),
   component: AlquileresPage,
   errorComponent: ({ error }) => (
     <AppShell title="Alquiler">
@@ -78,11 +75,16 @@ type Tab = "disponible" | "inquilinos" | "activos";
 
 function AlquileresPage() {
   const { data: all } = useSuspenseQuery(allInmueblesQuery);
-  const { data: cliData } = useSuspenseQuery(clientesQueryOpts);
   const router = useRouter();
 
   const [tab, setTab] = useState<Tab>("disponible");
   const [q, setQ] = useState("");
+
+  // Clientes loaded client-side only (avoids SSR server fn failure)
+  const { data: cliData } = useQuery({
+    ...clientesQueryOpts,
+    enabled: tab === "inquilinos" || tab === "activos",
+  });
 
   const disponibles = useMemo(
     () => all.alquileres.filter((i) => i.estatus === "Activo" || i.estatus === "Reservado"),
@@ -93,7 +95,7 @@ function AlquileresPage() {
     [all],
   );
   const inquilinos = useMemo(
-    () => cliData.clientes.filter(
+    () => (cliData?.clientes ?? []).filter(
       (c) => c.tipo === "Interesado alquiler" || c.propiedadAlquilerIds.length > 0,
     ),
     [cliData],
@@ -130,9 +132,10 @@ function AlquileresPage() {
   }, [inquilinos, needle]);
 
   const activos = useMemo(() => {
+    const clientes = cliData?.clientes ?? [];
     return alquilados.map((inmueble) => ({
       inmueble,
-      inquilino: cliData.clientes.find((c) => c.propiedadAlquilerIds.includes(inmueble.id)) ?? null,
+      inquilino: clientes.find((c) => c.propiedadAlquilerIds.includes(inmueble.id)) ?? null,
     }));
   }, [alquilados, cliData]);
 
