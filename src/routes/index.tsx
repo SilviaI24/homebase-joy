@@ -299,26 +299,54 @@ function Dashboard() {
       subtitle={`${stats.activos.length} activos · ${cliStats.total} clientes · ${visStats.proximas} visitas próximas`}
     >
       {/* Hero ejecutivo */}
-      <div className="mb-6 rounded-2xl border border-border bg-gradient-to-br from-primary via-primary to-[oklch(0.32_0.09_165)] text-primary-foreground p-6 lg:p-7 shadow-xl shadow-primary/20 overflow-hidden relative">
-        <div className="absolute -top-16 -right-16 size-56 rounded-full bg-gold/30 blur-3xl" />
-        <div className="absolute -bottom-20 left-1/3 size-72 rounded-full bg-gold/10 blur-3xl" />
-        <div className="relative grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-10">
-          <HeroStat
-            label="Comisiones este mes"
-            value={moneyShort(stats.comisionMes)}
-            sub={`Año en curso: ${moneyShort(stats.comisionAnual)}`}
-            highlight
+      <div className="mb-6 rounded-2xl shadow-xl shadow-primary/25 overflow-hidden">
+        {/* Ticker strip — métricas clave de un vistazo */}
+        <div className="bg-[oklch(0.28_0.07_165)] flex items-center gap-0 overflow-x-auto text-[11px] text-primary-foreground/65 select-none">
+          <TickerItem value={stats.activos.length} label="activos" accent />
+          <TickerDot />
+          <TickerItem value={stats.reservados.length} label="reservados" />
+          <TickerDot />
+          <TickerItem value={cliStats.total} label="clientes" />
+          <TickerDot />
+          <TickerItem value={visStats.proximas} label="visitas próximas" />
+          <TickerDot />
+          <TickerItem
+            value={`${stats.captDelta >= 0 ? "+" : ""}${stats.captDelta}%`}
+            label="captaciones MoM"
+            accent={stats.captDelta > 0}
+            warn={stats.captDelta < 0}
           />
-          <HeroStat
-            label="Pipeline estimado"
-            value={moneyShort(stats.comisionPipeline)}
-            sub={`${stats.activos.length + stats.reservados.length} operaciones abiertas`}
-          />
-          <HeroStat
-            label="Conversión visita → cierre"
-            value={`${visStats.tasaCierre}%`}
-            sub={`${visStats.total} visitas · ${stats.vendidos.length + stats.alquilados.length} cierres`}
-          />
+        </div>
+
+        {/* Cuerpo principal */}
+        <div className="bg-gradient-to-br from-primary via-primary to-[oklch(0.30_0.09_165)] text-primary-foreground px-6 py-7 lg:px-8 lg:py-8 relative overflow-hidden">
+          <div className="absolute -top-12 -right-12 size-52 rounded-full bg-gold/20 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-16 left-1/4 size-64 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
+
+          <div className="relative grid grid-cols-1 md:grid-cols-3 gap-7 lg:gap-0">
+            <div>
+              <HeroStat
+                label="Comisiones este mes"
+                value={moneyShort(stats.comisionMes)}
+                sub={`Año en curso: ${moneyShort(stats.comisionAnual)}`}
+                highlight
+              />
+            </div>
+            <div className="md:pl-8 lg:pl-10 md:border-l md:border-white/10">
+              <HeroStat
+                label="Pipeline estimado"
+                value={moneyShort(stats.comisionPipeline)}
+                sub={`${stats.activos.length + stats.reservados.length} operaciones abiertas`}
+              />
+            </div>
+            <div className="md:pl-8 lg:pl-10 md:border-l md:border-white/10">
+              <HeroStat
+                label="Conversión visita → cierre"
+                value={`${visStats.tasaCierre}%`}
+                sub={`${visStats.total} visitas · ${stats.vendidos.length + stats.alquilados.length} cierres`}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -592,17 +620,34 @@ function Dashboard() {
 function HeroStat({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
     <div className="min-w-0">
-      <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-primary-foreground/70">{label}</div>
+      <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-primary-foreground/55">{label}</div>
       <div
-        className={`mt-2 font-display font-semibold tabular-nums leading-none ${
-          highlight ? "text-4xl lg:text-5xl text-gold" : "text-3xl lg:text-4xl text-primary-foreground"
+        className={`mt-2 font-display font-bold tabular-nums leading-none ${
+          highlight ? "text-5xl lg:text-6xl text-gold" : "text-4xl lg:text-5xl text-primary-foreground"
         }`}
       >
         {value}
       </div>
-      {sub && <div className="mt-2 text-xs text-primary-foreground/75 truncate">{sub}</div>}
+      {sub && <div className="mt-2.5 text-xs text-primary-foreground/55 truncate">{sub}</div>}
     </div>
   );
+}
+
+function TickerItem({ value, label, accent = false, warn = false }: {
+  value: string | number; label: string; accent?: boolean; warn?: boolean;
+}) {
+  return (
+    <span className="flex items-center gap-1.5 whitespace-nowrap px-4 py-2.5">
+      <span className={`font-bold text-[12px] ${accent ? "text-gold" : warn ? "text-red-400" : "text-primary-foreground/90"}`}>
+        {value}
+      </span>
+      <span className="text-primary-foreground/45">{label}</span>
+    </span>
+  );
+}
+
+function TickerDot() {
+  return <span className="text-primary-foreground/20 text-xs shrink-0">·</span>;
 }
 
 function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: number }[] }) {
