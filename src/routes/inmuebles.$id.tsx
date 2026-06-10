@@ -229,6 +229,83 @@ function statusTint(estatus: string) {
   return map[estatus] ?? "bg-secondary text-secondary-foreground";
 }
 
+const ORIENTACION_OPTS = ["Norte", "Sur", "Este", "Oeste", "Noreste", "Noroeste", "Sureste", "Suroeste"];
+
+function OrientacionDetailSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [custom, setCustom] = useState(() => value !== "" && !ORIENTACION_OPTS.includes(value));
+  if (custom) {
+    return (
+      <div className="flex gap-1">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 w-full h-8 px-2 rounded border border-input bg-background text-sm"
+          placeholder="Escribe orientación…"
+        />
+        <button
+          type="button"
+          onClick={() => { setCustom(false); onChange(""); }}
+          className="h-8 px-2 rounded border border-input bg-background text-sm text-muted-foreground hover:bg-accent"
+        >✕</button>
+      </div>
+    );
+  }
+  return (
+    <select
+      value={ORIENTACION_OPTS.includes(value) ? value : ""}
+      onChange={(e) => {
+        if (e.target.value === "__custom__") { setCustom(true); onChange(""); }
+        else onChange(e.target.value);
+      }}
+      className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
+    >
+      <option value="">—</option>
+      {ORIENTACION_OPTS.map((o) => <option key={o} value={o}>{o}</option>)}
+      <option value="__custom__">+ Personalizado…</option>
+    </select>
+  );
+}
+
+function EditSpecField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: "text" | "select" | "orientacion";
+  options?: string[];
+}) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">{label}</div>
+      {type === "select" && options ? (
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
+        >
+          <option value="">—</option>
+          {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      ) : type === "orientacion" ? (
+        <OrientacionDetailSelect value={value} onChange={onChange} />
+      ) : (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
+        />
+      )}
+    </div>
+  );
+}
+
 function InmuebleDetail() {
   const { id } = Route.useParams();
   const router = useRouter();
@@ -298,6 +375,35 @@ function DetailView({
     inmueble.imagenesAttachments,
   );
   const [mainImg, setMainImg] = useState<string | null>(inmueble.imagen);
+  // Características
+  const [habitaciones, setHabitaciones] = useState(inmueble.habitaciones);
+  const [banos, setBanos] = useState(inmueble.banos);
+  const [superficie, setSuperficie] = useState(inmueble.superficie);
+  const [planta, setPlanta] = useState(inmueble.planta);
+  const [estado, setEstado] = useState(inmueble.estado);
+  const [anoConstruccion, setAnoConstruccion] = useState(inmueble.anoConstruccion);
+  const [certificacionEnergetica, setCertificacionEnergetica] = useState(inmueble.certificacionEnergetica);
+  const [calefaccion, setCalefaccion] = useState(inmueble.calefaccion);
+  const [orientacion, setOrientacion] = useState(inmueble.orientacion);
+  const [garaje, setGaraje] = useState(inmueble.garaje);
+  const [trastero, setTrastero] = useState(inmueble.trastero);
+  const [ascensor, setAscensor] = useState(inmueble.ascensor);
+  const [armariosEmpotrados, setArmariosEmpotrados] = useState(inmueble.armariosEmpotrados);
+  const [terraza, setTerraza] = useState(inmueble.terraza);
+  const [balcon, setBalcon] = useState(inmueble.balcon);
+  const [gastosComunidad, setGastosComunidad] = useState(inmueble.gastosComunidad);
+  const [referenciaCatastral, setReferenciaCatastral] = useState(inmueble.referenciaCatastral);
+  // Historial
+  const [fechaInicio, setFechaInicio] = useState(inmueble.fechaInicio ?? "");
+  const [fechaExclusiva, setFechaExclusiva] = useState(inmueble.fechaExclusiva ?? "");
+  const [fechaFinExclusiva, setFechaFinExclusiva] = useState(inmueble.fechaFinExclusiva ?? "");
+  const [fechaReserva, setFechaReserva] = useState(inmueble.fechaReserva ?? "");
+  const [fechaEscritura, setFechaEscritura] = useState(inmueble.fechaEscritura ?? "");
+  // Operación
+  const [honorarios, setHonorarios] = useState(inmueble.honorarios);
+  const [tipoExclusiva, setTipoExclusiva] = useState(inmueble.tipoExclusiva);
+  const [notaria, setNotaria] = useState(inmueble.notaria);
+  const [llaves, setLlaves] = useState(inmueble.llaves);
 
   // When fresh data arrives, re-sync the form fields that only exist in detail.
   useEffect(() => {
@@ -307,6 +413,32 @@ function DetailView({
       setDescripcion(inmueble.descripcion);
       setImagenesOrder(inmueble.imagenesAttachments);
       if (!mainImg) setMainImg(inmueble.imagen);
+      setHabitaciones(inmueble.habitaciones);
+      setBanos(inmueble.banos);
+      setSuperficie(inmueble.superficie);
+      setPlanta(inmueble.planta);
+      setEstado(inmueble.estado);
+      setAnoConstruccion(inmueble.anoConstruccion);
+      setCertificacionEnergetica(inmueble.certificacionEnergetica);
+      setCalefaccion(inmueble.calefaccion);
+      setOrientacion(inmueble.orientacion);
+      setGaraje(inmueble.garaje);
+      setTrastero(inmueble.trastero);
+      setAscensor(inmueble.ascensor);
+      setArmariosEmpotrados(inmueble.armariosEmpotrados);
+      setTerraza(inmueble.terraza);
+      setBalcon(inmueble.balcon);
+      setGastosComunidad(inmueble.gastosComunidad);
+      setReferenciaCatastral(inmueble.referenciaCatastral);
+      setFechaInicio(inmueble.fechaInicio ?? "");
+      setFechaExclusiva(inmueble.fechaExclusiva ?? "");
+      setFechaFinExclusiva(inmueble.fechaFinExclusiva ?? "");
+      setFechaReserva(inmueble.fechaReserva ?? "");
+      setFechaEscritura(inmueble.fechaEscritura ?? "");
+      setHonorarios(inmueble.honorarios);
+      setTipoExclusiva(inmueble.tipoExclusiva);
+      setNotaria(inmueble.notaria);
+      setLlaves(inmueble.llaves);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -315,6 +447,14 @@ function DetailView({
     inmueble.observaciones,
     inmueble.descripcion,
     inmueble.imagenesAttachments.map((a) => a.id).join(","),
+    inmueble.habitaciones, inmueble.banos, inmueble.superficie, inmueble.planta,
+    inmueble.estado, inmueble.anoConstruccion, inmueble.certificacionEnergetica,
+    inmueble.calefaccion, inmueble.orientacion, inmueble.garaje, inmueble.trastero,
+    inmueble.ascensor, inmueble.armariosEmpotrados, inmueble.terraza, inmueble.balcon,
+    inmueble.gastosComunidad, inmueble.referenciaCatastral,
+    inmueble.fechaInicio, inmueble.fechaExclusiva, inmueble.fechaFinExclusiva,
+    inmueble.fechaReserva, inmueble.fechaEscritura,
+    inmueble.honorarios, inmueble.tipoExclusiva, inmueble.notaria, inmueble.llaves,
   ]);
 
   const initialOrderKey = inmueble.imagenesAttachments.map((a) => a.id).join(",");
@@ -341,6 +481,32 @@ function DetailView({
       ...(imagesDirty
         ? { imagenesAttachmentIds: imagenesOrder.map((a) => a.id) }
         : {}),
+      habitaciones,
+      banos,
+      superficie,
+      planta,
+      estado,
+      anoConstruccion,
+      certificacionEnergetica,
+      calefaccion,
+      orientacion,
+      garaje,
+      trastero,
+      ascensor,
+      armariosEmpotrados,
+      terraza,
+      balcon,
+      gastosComunidad,
+      referenciaCatastral,
+      fechaInicio: fechaInicio || null,
+      fechaExclusiva: fechaExclusiva || null,
+      fechaFinExclusiva: fechaFinExclusiva || null,
+      fechaReserva: fechaReserva || null,
+      fechaEscritura: fechaEscritura || null,
+      honorarios,
+      tipoExclusiva,
+      notaria,
+      llaves,
     });
   };
 
@@ -352,7 +518,33 @@ function DetailView({
     observaciones !== inmueble.observaciones ||
     descripcion !== inmueble.descripcion ||
     agentesIds.join(",") !== inmueble.agentesIds.join(",") ||
-    imagesDirty;
+    imagesDirty ||
+    habitaciones !== inmueble.habitaciones ||
+    banos !== inmueble.banos ||
+    superficie !== inmueble.superficie ||
+    planta !== inmueble.planta ||
+    estado !== inmueble.estado ||
+    anoConstruccion !== inmueble.anoConstruccion ||
+    certificacionEnergetica !== inmueble.certificacionEnergetica ||
+    calefaccion !== inmueble.calefaccion ||
+    orientacion !== inmueble.orientacion ||
+    garaje !== inmueble.garaje ||
+    trastero !== inmueble.trastero ||
+    ascensor !== inmueble.ascensor ||
+    armariosEmpotrados !== inmueble.armariosEmpotrados ||
+    terraza !== inmueble.terraza ||
+    balcon !== inmueble.balcon ||
+    gastosComunidad !== inmueble.gastosComunidad ||
+    referenciaCatastral !== inmueble.referenciaCatastral ||
+    fechaInicio !== (inmueble.fechaInicio ?? "") ||
+    fechaExclusiva !== (inmueble.fechaExclusiva ?? "") ||
+    fechaFinExclusiva !== (inmueble.fechaFinExclusiva ?? "") ||
+    fechaReserva !== (inmueble.fechaReserva ?? "") ||
+    fechaEscritura !== (inmueble.fechaEscritura ?? "") ||
+    honorarios !== inmueble.honorarios ||
+    tipoExclusiva !== inmueble.tipoExclusiva ||
+    notaria !== inmueble.notaria ||
+    llaves !== inmueble.llaves;
 
   return (
     <AppShell title={`Inmueble #${inmueble.ref || inmueble.id}`}>
@@ -476,54 +668,78 @@ function DetailView({
           {/* Características */}
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
             <h3 className="font-display text-base font-semibold mb-4">Características</h3>
-            {(() => {
-              const specs: { label: string; value: React.ReactNode }[] = [
-                { label: "Tipo", value: inmueble.tipo },
-                { label: "Habitaciones", value: inmueble.habitaciones },
-                { label: "Baños", value: inmueble.banos },
-                { label: "Superficie", value: inmueble.superficie ? `${inmueble.superficie} m²` : "" },
-              ];
-              if (detailReady) {
-                specs.push(
-                  { label: "Planta", value: inmueble.planta },
-                  { label: "Estado", value: inmueble.estado },
-                  { label: "Año construcción", value: inmueble.anoConstruccion },
-                  { label: "Cert. energética", value: inmueble.certificacionEnergetica },
-                  { label: "Calefacción", value: inmueble.calefaccion },
-                  { label: "Orientación", value: inmueble.orientacion },
-                  { label: "Garaje", value: inmueble.garaje },
-                  { label: "Trastero", value: inmueble.trastero },
-                  { label: "Ascensor", value: inmueble.ascensor },
-                  { label: "Armarios", value: inmueble.armariosEmpotrados },
-                  { label: "Terraza", value: inmueble.terraza },
-                  { label: "Balcón", value: inmueble.balcon },
-                  { label: "Gastos com.", value: inmueble.gastosComunidad },
-                  { label: "Ref. catastral", value: inmueble.referenciaCatastral },
-                );
-              }
-              const filled = specs.filter(
-                (s) => s.value != null && s.value !== "" && s.value !== 0,
-              );
-              if (filled.length === 0) {
-                return (
-                  <div className="text-sm text-muted-foreground">
-                    Sin características registradas.
+            {!detailReady ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="rounded-md border border-border bg-background px-3 py-2.5 space-y-1">
+                    <SkeletonLine className="w-1/2" />
+                    <SkeletonLine className="w-3/4" />
                   </div>
-                );
-              }
-              return (
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Tipo — read-only */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {filled.map((s) => (
-                    <Spec key={s.label} label={s.label} value={s.value} />
-                  ))}
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">Tipo</div>
+                    <div className="h-8 px-2 flex items-center rounded border border-input bg-muted text-sm text-muted-foreground">{inmueble.tipo || "—"}</div>
+                  </div>
+                  <EditSpecField label="Habitaciones" value={habitaciones} onChange={setHabitaciones} />
+                  <EditSpecField label="Baños" value={banos} onChange={setBanos} />
+                  <EditSpecField label="Superficie (m²)" value={superficie} onChange={setSuperficie} />
+                  <EditSpecField label="Planta" value={planta} onChange={setPlanta} />
+                  <EditSpecField
+                    label="Estado"
+                    value={estado}
+                    onChange={setEstado}
+                    type="select"
+                    options={["Nuevo", "A reformar", "Reformado", "Buen estado", "Para entrar", "Obra nueva"]}
+                  />
+                  <EditSpecField label="Año construcción" value={anoConstruccion} onChange={setAnoConstruccion} />
+                  <EditSpecField label="Cert. energética" value={certificacionEnergetica} onChange={setCertificacionEnergetica} />
+                  <EditSpecField label="Calefacción" value={calefaccion} onChange={setCalefaccion} />
+                  <EditSpecField label="Orientación" value={orientacion} onChange={setOrientacion} type="orientacion" />
+                  <EditSpecField
+                    label="Garaje"
+                    value={garaje}
+                    onChange={setGaraje}
+                    type="select"
+                    options={["Sí", "No", "Opcional"]}
+                  />
+                  <EditSpecField
+                    label="Trastero"
+                    value={trastero}
+                    onChange={setTrastero}
+                    type="select"
+                    options={["Sí", "No"]}
+                  />
+                  <EditSpecField
+                    label="Ascensor"
+                    value={ascensor}
+                    onChange={setAscensor}
+                    type="select"
+                    options={["Sí", "No"]}
+                  />
+                  <EditSpecField
+                    label="Armarios"
+                    value={armariosEmpotrados}
+                    onChange={setArmariosEmpotrados}
+                    type="select"
+                    options={["Sí", "No"]}
+                  />
+                  <EditSpecField label="Terraza" value={terraza} onChange={setTerraza} />
+                  <EditSpecField label="Balcón" value={balcon} onChange={setBalcon} />
+                  <EditSpecField label="Gastos com." value={gastosComunidad} onChange={setGastosComunidad} />
+                  <EditSpecField label="Ref. catastral" value={referenciaCatastral} onChange={setReferenciaCatastral} />
                 </div>
-              );
-            })()}
+              </div>
+            )}
           </div>
 
           <TiempoMercadoPanel inmueble={inmueble} detailReady={detailReady} />
 
-          {/* Historial / fechas — visible solo cuando hay datos */}
+          {/* Historial / fechas */}
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
             <h3 className="font-display text-base font-semibold mb-4 flex items-center gap-2">
               <Calendar className="size-4 text-primary" /> Historial
@@ -532,13 +748,13 @@ function DetailView({
               <>
                 <ol className="relative ml-3 space-y-5 before:absolute before:left-0 before:top-1 before:bottom-1 before:w-px before:bg-border">
                   {[
-                    { label: "Captación / inicio", date: inmueble.fechaInicio },
-                    { label: "Autorización exclusiva", date: inmueble.fechaExclusiva },
-                    { label: "Fin de exclusividad", date: inmueble.fechaFinExclusiva },
-                    { label: "Reserva", date: inmueble.fechaReserva },
-                    { label: "Escritura", date: inmueble.fechaEscritura },
+                    { label: "Captación / inicio", value: fechaInicio, set: setFechaInicio },
+                    { label: "Autorización exclusiva", value: fechaExclusiva, set: setFechaExclusiva },
+                    { label: "Fin de exclusividad", value: fechaFinExclusiva, set: setFechaFinExclusiva },
+                    { label: "Reserva", value: fechaReserva, set: setFechaReserva },
+                    { label: "Escritura", value: fechaEscritura, set: setFechaEscritura },
                   ].map((ev) => {
-                    const done = !!ev.date;
+                    const done = !!ev.value;
                     return (
                       <li key={ev.label} className="relative pl-6">
                         <span
@@ -551,19 +767,43 @@ function DetailView({
                         <div className={`text-sm font-medium ${done ? "text-foreground" : "text-muted-foreground"}`}>
                           {ev.label}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{formatDate(ev.date)}</div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <input
+                            type="date"
+                            value={ev.value ? ev.value.slice(0, 10) : ""}
+                            onChange={(e) => ev.set(e.target.value)}
+                            className="h-7 px-2 rounded border border-input bg-background text-xs"
+                          />
+                          {ev.value && (
+                            <span className="text-xs text-muted-foreground">{formatDate(ev.value)}</span>
+                          )}
+                        </div>
                       </li>
                     );
                   })}
                 </ol>
-                {(inmueble.notaria || inmueble.honorarios || inmueble.tipoExclusiva || inmueble.llaves) && (
-                  <div className="grid grid-cols-2 gap-x-6 mt-5 pt-4 border-t border-border">
-                    <Field label="Notaría" value={inmueble.notaria} />
-                    <Field label="Honorarios" value={inmueble.honorarios} />
-                    <Field label="Tipo exclusiva" value={inmueble.tipoExclusiva} />
-                    <Field label="Llaves" value={inmueble.llaves} />
+                <div className="grid grid-cols-2 gap-x-6 mt-5 pt-4 border-t border-border">
+                  <div className="py-2">
+                    <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">Notaría</div>
+                    <input type="text" value={notaria} onChange={(e) => setNotaria(e.target.value)}
+                      className="w-full h-8 px-2 rounded border border-input bg-background text-sm" />
                   </div>
-                )}
+                  <div className="py-2">
+                    <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">Honorarios</div>
+                    <input type="text" value={honorarios} onChange={(e) => setHonorarios(e.target.value)}
+                      className="w-full h-8 px-2 rounded border border-input bg-background text-sm" />
+                  </div>
+                  <div className="py-2">
+                    <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">Tipo exclusiva</div>
+                    <input type="text" value={tipoExclusiva} onChange={(e) => setTipoExclusiva(e.target.value)}
+                      className="w-full h-8 px-2 rounded border border-input bg-background text-sm" />
+                  </div>
+                  <div className="py-2">
+                    <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">Llaves</div>
+                    <input type="text" value={llaves} onChange={(e) => setLlaves(e.target.value)}
+                      className="w-full h-8 px-2 rounded border border-input bg-background text-sm" />
+                  </div>
+                </div>
               </>
             ) : (
               <div className="space-y-2">

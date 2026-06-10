@@ -391,6 +391,7 @@ export const getInmueblesByIds = createServerFn({ method: "POST" })
 
 export type UpdateInmueblePayload = {
   id: string;
+  // Gestión
   estatus?: string;
   publicacion?: string;
   precio?: number | null;
@@ -398,7 +399,36 @@ export type UpdateInmueblePayload = {
   agentesIds?: string[];
   observaciones?: string;
   descripcion?: string;
-  imagenesAttachmentIds?: string[]; // reorder existing attachments
+  imagenesAttachmentIds?: string[];
+  // Características
+  habitaciones?: string;
+  banos?: string;
+  superficie?: string;
+  planta?: string;
+  estado?: string;
+  anoConstruccion?: string;
+  certificacionEnergetica?: string;
+  calefaccion?: string;
+  orientacion?: string;
+  garaje?: string;
+  trastero?: string;
+  ascensor?: string;
+  armariosEmpotrados?: string;
+  terraza?: string;
+  balcon?: string;
+  gastosComunidad?: string;
+  referenciaCatastral?: string;
+  // Historial
+  fechaInicio?: string | null;
+  fechaExclusiva?: string | null;
+  fechaFinExclusiva?: string | null;
+  fechaReserva?: string | null;
+  fechaEscritura?: string | null;
+  // Operación
+  honorarios?: string;
+  tipoExclusiva?: string;
+  notaria?: string;
+  llaves?: string;
 };
 
 export const updateInmueble = createServerFn({ method: "POST" })
@@ -431,10 +461,39 @@ export const updateInmueble = createServerFn({ method: "POST" })
     if (data.descripcion !== undefined) fields["Descripción"] = data.descripcion;
     if (data.imagenesAttachmentIds !== undefined)
       fields["Imágenes"] = data.imagenesAttachmentIds.map((id) => ({ id }));
+    // Características
+    if (data.habitaciones !== undefined) fields["Habitaciones / dormitorios"] = data.habitaciones || null;
+    if (data.banos !== undefined) fields["Baño"] = data.banos || null;
+    if (data.superficie !== undefined) fields["Superficie"] = data.superficie || null;
+    if (data.planta !== undefined) fields["Planta"] = data.planta || null;
+    if (data.estado !== undefined) fields["Estado"] = data.estado || null;
+    if (data.anoConstruccion !== undefined) fields["Año de construcción"] = data.anoConstruccion || null;
+    if (data.certificacionEnergetica !== undefined) fields["Certificación energética"] = data.certificacionEnergetica || null;
+    if (data.calefaccion !== undefined) fields["Calefacción"] = data.calefaccion || null;
+    if (data.orientacion !== undefined) fields["Orientación"] = data.orientacion || null;
+    if (data.garaje !== undefined) fields["Garaje"] = data.garaje || null;
+    if (data.trastero !== undefined) fields["Trastero"] = data.trastero || null;
+    if (data.ascensor !== undefined) fields["Ascensor"] = data.ascensor || null;
+    if (data.armariosEmpotrados !== undefined) fields["Armarios empotrados"] = data.armariosEmpotrados || null;
+    if (data.terraza !== undefined) fields["Terraza"] = data.terraza || null;
+    if (data.balcon !== undefined) fields["Balcón"] = data.balcon || null;
+    if (data.gastosComunidad !== undefined) fields["Gastos de comunidad"] = data.gastosComunidad || null;
+    if (data.referenciaCatastral !== undefined) fields["Referencia Catastral"] = data.referenciaCatastral || null;
+    // Historial
+    if (data.fechaInicio !== undefined) fields["Fecha de inicio"] = data.fechaInicio || null;
+    if (data.fechaExclusiva !== undefined) fields["Fecha de autorización de venta ( exclusiva)"] = data.fechaExclusiva || null;
+    if (data.fechaFinExclusiva !== undefined) fields["Fecha fin de exclusividad"] = data.fechaFinExclusiva || null;
+    if (data.fechaReserva !== undefined) fields["Fecha Reserva"] = data.fechaReserva || null;
+    if (data.fechaEscritura !== undefined) fields["Fecha Escritura"] = data.fechaEscritura || null;
+    // Operación
+    if (data.honorarios !== undefined) fields["Honorarios"] = data.honorarios || null;
+    if (data.tipoExclusiva !== undefined) fields["Tipo de exclusiva"] = data.tipoExclusiva || null;
+    if (data.notaria !== undefined) fields["Notaría"] = data.notaria || null;
+    if (data.llaves !== undefined) fields["Llaves"] = data.llaves || null;
 
     const res = (await airtableFetch(`/v0/${BASE_ID}/${TABLES.inmuebles}/${data.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ fields }),
+      body: JSON.stringify({ fields, typecast: true }),
     })) as { id: string };
     return { ok: true, id: res.id };
   });

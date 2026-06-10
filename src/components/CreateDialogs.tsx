@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, X } from "lucide-react";
 
 import {
   Dialog,
@@ -283,10 +283,53 @@ const ICONOS_TIPO: Record<string, string> = {
   Oficina: "💼", Edificio: "🏬",
 };
 
+const ORIENTACION_OPCIONES = [
+  "Norte", "Sur", "Este", "Oeste", "Noreste", "Noroeste", "Sureste", "Suroeste",
+] as const;
+
+function OrientacionSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [custom, setCustom] = useState(() => value !== "" && !ORIENTACION_OPCIONES.includes(value as (typeof ORIENTACION_OPCIONES)[number]));
+  if (custom) {
+    return (
+      <div className="flex gap-1">
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Escribe orientación…"
+          className="flex-1"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9 px-2"
+          onClick={() => { setCustom(false); onChange(""); }}
+        >
+          <X className="size-3.5" />
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <select
+      value={ORIENTACION_OPCIONES.includes(value as (typeof ORIENTACION_OPCIONES)[number]) ? value : ""}
+      onChange={(e) => {
+        if (e.target.value === "__custom__") { setCustom(true); onChange(""); }
+        else onChange(e.target.value);
+      }}
+      className="h-9 px-3 rounded-md border border-input bg-background text-sm w-full"
+    >
+      <option value="">—</option>
+      {ORIENTACION_OPCIONES.map((o) => <option key={o} value={o}>{o}</option>)}
+      <option value="__custom__">+ Personalizado…</option>
+    </select>
+  );
+}
+
 type FieldDef = {
   key: keyof CreateInmueblePayload;
   label: string;
-  kind?: "input" | "number" | "textarea" | "select" | "date";
+  kind?: "input" | "number" | "textarea" | "select" | "date" | "orientacion" | "urls";
   options?: readonly string[];
   required?: boolean;
   full?: boolean;
@@ -313,7 +356,7 @@ const F = {
   banos: { key: "banos", label: "Baños" } satisfies FieldDef,
   tipoSuelo: { key: "tipoSuelo", label: "Tipo de suelo" } satisfies FieldDef,
   calefaccion: { key: "calefaccion", label: "Calefacción" } satisfies FieldDef,
-  orientacion: { key: "orientacion", label: "Orientación" } satisfies FieldDef,
+  orientacion: { key: "orientacion", label: "Orientación", kind: "orientacion" } satisfies FieldDef,
   terraza: { key: "terraza", label: "Terraza" } satisfies FieldDef,
   balcon: { key: "balcon", label: "Balcón" } satisfies FieldDef,
   garaje: { key: "garaje", label: "Garaje", kind: "select", options: ["Sí", "No", "Opcional"] } satisfies FieldDef,
@@ -337,6 +380,8 @@ const F = {
   salidaHumos: { key: "salidaHumos", label: "Salida de humos", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
   almacen: { key: "almacen", label: "Almacén", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
   estancias: { key: "estancias", label: "Estancias" } satisfies FieldDef,
+  imagenesUrls: { key: "imagenesUrls", label: "Imágenes (una URL por línea)", kind: "urls", full: true } satisfies FieldDef,
+  documentacionUrls: { key: "documentacionUrls", label: "Documentación (una URL por línea)", kind: "urls", full: true } satisfies FieldDef,
 } as const;
 
 // Image / documentation URL pseudo-fields are kept out of the schema for now
@@ -352,13 +397,13 @@ function getSchemaForTipo(t: TipoInmueble): FieldDef[] {
         F.calle, F.numero, F.plantas, F.superficie, F.habitaciones, F.banos,
         F.tipoSuelo, F.calefaccion, F.orientacion, F.terraza, F.garaje, F.trastero,
         F.armariosEmpotrados, F.estado, F.anoConstruccion, F.certificacionEnergetica,
-        F.llaves, F.enlaceTours, F.descripcion,
+        F.llaves, F.enlaceTours, F.descripcion, F.imagenesUrls, F.documentacionUrls,
       ];
     case "Terreno":
       return [
         F.ref, F.precio, F.estatus, F.barrio, F.localidad, F.calle, F.numero,
         F.superficie, F.superficieEdificable, F.viaUrbana, F.descripcion,
-        F.observaciones, F.enlaceTours,
+        F.observaciones, F.enlaceTours, F.imagenesUrls, F.documentacionUrls,
       ];
     case "Piso":
       return [
@@ -367,13 +412,13 @@ function getSchemaForTipo(t: TipoInmueble): FieldDef[] {
         F.calefaccion, F.terraza, F.ascensor, F.garaje, F.trastero, F.balcon,
         F.armariosEmpotrados, F.tipoSuelo, F.certificacionEnergetica,
         F.anoConstruccion, F.gastosComunidad, F.llaves, F.inquilinos,
-        F.enlaceTours, F.observaciones, F.publicacion,
+        F.enlaceTours, F.observaciones, F.publicacion, F.imagenesUrls, F.documentacionUrls,
       ];
     case "Garaje":
       return [
         F.ref, F.estatus, F.precio, F.localidad, F.barrio, F.calle, F.numero,
         F.superficie, F.gastosComunidad, F.ascensor, F.enlaceTours,
-        F.observaciones, F.publicacion,
+        F.observaciones, F.publicacion, F.imagenesUrls, F.documentacionUrls,
       ];
     case "Local":
     case "Oficina":
@@ -383,17 +428,18 @@ function getSchemaForTipo(t: TipoInmueble): FieldDef[] {
         F.superficie, F.salidaHumos, F.almacen, F.estancias, F.plantas,
         F.ascensor, F.garaje, F.trastero, F.certificacionEnergetica,
         F.anoConstruccion, F.tipoSuelo, F.habitaciones, F.banos, F.inquilinos,
-        F.observaciones, F.enlaceTours, F.publicacion,
+        F.observaciones, F.enlaceTours, F.publicacion, F.imagenesUrls, F.documentacionUrls,
       ];
     case "Trastero":
       return [
         F.ref, F.precio, F.estado, F.calle, F.numero, F.barrio, F.localidad,
         F.superficie, F.tipoSuelo, F.enlaceTours, F.observaciones, F.publicacion,
+        F.imagenesUrls, F.documentacionUrls,
       ];
     default:
       return [
         F.ref, F.estatus, F.precio, F.localidad, F.barrio, F.calle, F.numero,
-        F.superficie, F.descripcion, F.observaciones,
+        F.superficie, F.descripcion, F.observaciones, F.imagenesUrls, F.documentacionUrls,
       ];
   }
 }
@@ -474,6 +520,20 @@ function FormField({
   onChange: (v: string) => void;
 }) {
   const inner = (() => {
+    if (def.kind === "orientacion") {
+      return <OrientacionSelect value={value} onChange={onChange} />;
+    }
+    if (def.kind === "urls") {
+      return (
+        <Textarea
+          rows={3}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="https://ejemplo.com/foto1.jpg&#10;https://ejemplo.com/foto2.jpg"
+          required={def.required}
+        />
+      );
+    }
     if (def.kind === "select") {
       return (
         <select
@@ -592,6 +652,9 @@ export function NewInmuebleDialog({
       if (k === "precio") {
         const n = Number(v);
         if (Number.isFinite(n)) (payload as Record<string, unknown>).precio = n;
+      } else if (k === "imagenesUrls" || k === "documentacionUrls") {
+        const urls = v.split("\n").map((u) => u.trim()).filter(Boolean);
+        if (urls.length) (payload as Record<string, unknown>)[k as string] = urls;
       } else {
         (payload as Record<string, unknown>)[k as string] = v;
       }
@@ -674,10 +737,17 @@ export function NewInmuebleDialog({
               >
                 ← Cambiar tipo
               </button>
-              <span className="font-medium text-foreground">
-                {ICONOS_TIPO[tipo.replace(/^Alquiler\s+/, "")]} {tipo}
-                {esAlquiler && " (alquiler)"}
-              </span>
+            </div>
+
+            {/* Tipo de inmueble visible como campo del formulario */}
+            <div className="sm:col-span-2">
+              <Field label="Tipo de inmueble">
+                <div className="h-9 px-3 rounded-md border border-input bg-muted text-sm flex items-center gap-2 select-none">
+                  <span className="text-lg">{ICONOS_TIPO[tipo.replace(/^Alquiler\s+/, "")] ?? "🏷️"}</span>
+                  <span className="font-medium">{tipo}</span>
+                  {esAlquiler && <span className="text-xs text-muted-foreground">(alquiler)</span>}
+                </div>
+              </Field>
             </div>
 
             {schema.map((def) => (

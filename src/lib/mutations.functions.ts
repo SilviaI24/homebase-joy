@@ -135,6 +135,8 @@ export type CreateInmueblePayload = {
   salidaHumos?: string;
   almacen?: string;
   estancias?: string;
+  imagenesUrls?: string[];
+  documentacionUrls?: string[];
 };
 
 const FIELD_MAP: Record<keyof CreateInmueblePayload, string | null> = {
@@ -180,6 +182,8 @@ const FIELD_MAP: Record<keyof CreateInmueblePayload, string | null> = {
   salidaHumos: "Salida de humos",
   almacen: "Almacén",
   estancias: "Estancias",
+  imagenesUrls: null,
+  documentacionUrls: null,
 };
 
 export const createInmueble = createServerFn({ method: "POST" })
@@ -207,6 +211,7 @@ export const createInmueble = createServerFn({ method: "POST" })
     const skip = new Set([
       "calle", "tipo", "estatus", "precio", "fechaInicio", "agentesIds", "propietariosIds",
       "descripcion", "observaciones", "barrio", "localidad",
+      "imagenesUrls", "documentacionUrls",
     ]);
     (Object.keys(FIELD_MAP) as Array<keyof CreateInmueblePayload>).forEach((k) => {
       if (skip.has(k)) return;
@@ -225,6 +230,10 @@ export const createInmueble = createServerFn({ method: "POST" })
     if (obs) fields["Observaciones"] = toSentenceCase(obs);
     const fexc = strOpt(data.fechaExclusiva ?? undefined);
     if (fexc) fields["Fecha de autorización de venta ( exclusiva)"] = fexc;
+    const imgUrls = data.imagenesUrls?.filter(Boolean);
+    if (imgUrls?.length) fields["Imágenes"] = imgUrls.map((url) => ({ url }));
+    const docUrls = data.documentacionUrls?.filter(Boolean);
+    if (docUrls?.length) fields["Documentación"] = docUrls.map((url) => ({ url }));
 
     const res = (await airtableFetch(`/v0/${BASE_ID}/${TABLES.inmuebles}`, {
       method: "POST",
