@@ -45,6 +45,7 @@ function seedFromList(base: Inmueble): InmuebleDetalle {
   return {
     ...base,
     imagenes: base.imagen ? [base.imagen] : [],
+    imagenesAttachments: [],
     agentesIds: [],
     agentesNombres: [],
     propietarioIds: [],
@@ -292,6 +293,10 @@ function DetailView({
   const [precioFinal, setPrecioFinal] = useState<string>(inmueble.precioFinal?.toString() ?? "");
   const [agentesIds, setAgentesIds] = useState<string[]>(inmueble.agentesIds);
   const [observaciones, setObservaciones] = useState(inmueble.observaciones);
+  const [descripcion, setDescripcion] = useState(inmueble.descripcion);
+  const [imagenesOrder, setImagenesOrder] = useState<Array<{ id: string; url: string }>>(
+    inmueble.imagenesAttachments,
+  );
   const [mainImg, setMainImg] = useState<string | null>(inmueble.imagen);
 
   // When fresh data arrives, re-sync the form fields that only exist in detail.
@@ -299,10 +304,22 @@ function DetailView({
     if (detailReady) {
       setAgentesIds(inmueble.agentesIds);
       setObservaciones(inmueble.observaciones);
+      setDescripcion(inmueble.descripcion);
+      setImagenesOrder(inmueble.imagenesAttachments);
       if (!mainImg) setMainImg(inmueble.imagen);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailReady, inmueble.agentesIds.join(","), inmueble.observaciones]);
+  }, [
+    detailReady,
+    inmueble.agentesIds.join(","),
+    inmueble.observaciones,
+    inmueble.descripcion,
+    inmueble.imagenesAttachments.map((a) => a.id).join(","),
+  ]);
+
+  const initialOrderKey = inmueble.imagenesAttachments.map((a) => a.id).join(",");
+  const currentOrderKey = imagenesOrder.map((a) => a.id).join(",");
+  const imagesDirty = initialOrderKey !== currentOrderKey;
 
   const mutation = useMutation({
     mutationFn,
@@ -320,6 +337,10 @@ function DetailView({
       precioFinal: precioFinal === "" ? null : Number(precioFinal),
       agentesIds,
       observaciones,
+      descripcion,
+      ...(imagesDirty
+        ? { imagenesAttachmentIds: imagenesOrder.map((a) => a.id) }
+        : {}),
     });
   };
 
@@ -329,7 +350,9 @@ function DetailView({
     (precio === "" ? null : Number(precio)) !== inmueble.precio ||
     (precioFinal === "" ? null : Number(precioFinal)) !== inmueble.precioFinal ||
     observaciones !== inmueble.observaciones ||
-    agentesIds.join(",") !== inmueble.agentesIds.join(",");
+    descripcion !== inmueble.descripcion ||
+    agentesIds.join(",") !== inmueble.agentesIds.join(",") ||
+    imagesDirty;
 
   return (
     <AppShell title={`Inmueble #${inmueble.ref || inmueble.id}`}>
@@ -415,45 +438,40 @@ function DetailView({
                 )}
               </div>
             </div>
-            {detailReady && inmueble.imagenes.length > 1 && (
-              <div className="p-3 flex gap-2 overflow-x-auto border-t border-border bg-card">
-                {inmueble.imagenes.map((src) => {
-                  const active = mainImg === src;
-                  return (
-                    <button
-                      key={src}
-                      onClick={() => setMainImg(src)}
-                      className={`shrink-0 size-16 rounded-md overflow-hidden border-2 transition-all ${
-                        active
-                          ? "border-primary ring-2 ring-primary/30"
-                          : "border-border hover:border-primary/60 opacity-80 hover:opacity-100"
-                      }`}
-                    >
-                      <SafeImage src={src} alt="" />
-                    </button>
-                  );
-                })}
-              </div>
+            {detailReady && imagenesOrder.length > 1 && (
+              <ImagenesReorder
+                imagenes={imagenesOrder}
+                mainImg={mainImg}
+                onSetMain={setMainImg}
+                onReorder={setImagenesOrder}
+              />
             )}
           </div>
 
-          {/* Descripción */}
-          {(detailReady && inmueble.descripcion) || !detailReady ? (
-            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-              <h3 className="font-display text-base font-semibold mb-3">Descripción</h3>
-              {detailReady ? (
-                <p className="text-sm leading-relaxed whitespace-pre-line text-foreground/85">
-                  {inmueble.descripcion}
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  <SkeletonLine className="w-full" />
-                  <SkeletonLine className="w-11/12" />
-                  <SkeletonLine className="w-3/4" />
-                </div>
+          {/* Descripción (editable) */}
+          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-display text-base font-semibold">Descripción</h3>
+              {descripcion !== inmueble.descripcion && (
+                <span className="text-[11px] text-amber-600">Sin guardar</span>
               )}
             </div>
-          ) : null}
+            {detailReady ? (
+              <textarea
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                rows={6}
+                placeholder="Añade una descripción del inmueble…"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y"
+              />
+            ) : (
+              <div className="space-y-2">
+                <SkeletonLine className="w-full" />
+                <SkeletonLine className="w-11/12" />
+                <SkeletonLine className="w-3/4" />
+              </div>
+            )}
+          </div>
 
           {/* Características */}
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -1149,6 +1167,83 @@ function VisitaList({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function ImagenesReorder({
+  imagenes,
+  mainImg,
+  onSetMain,
+  onReorder,
+}: {
+  imagenes: Array<{ id: string; url: string }>;
+  mainImg: string | null;
+  onSetMain: (url: string) => void;
+  onReorder: (next: Array<{ id: string; url: string }>) => void;
+}) {
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const move = (from: number, to: number) => {
+    if (from === to) return;
+    const next = imagenes.slice();
+    const [it] = next.splice(from, 1);
+    next.splice(to, 0, it);
+    onReorder(next);
+  };
+  return (
+    <div className="px-3 py-3 border-t border-border bg-card">
+      <div className="text-[11px] text-muted-foreground mb-2">
+        Arrastra para reordenar las fotos. El nuevo orden se guarda al pulsar “Guardar”.
+      </div>
+      <div className="flex gap-2 overflow-x-auto">
+        {imagenes.map((img, idx) => {
+          const active = mainImg === img.url;
+          const over = overIdx === idx && dragIdx !== null && dragIdx !== idx;
+          return (
+            <div
+              key={img.id}
+              draggable
+              onDragStart={() => setDragIdx(idx)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setOverIdx(idx);
+              }}
+              onDragLeave={() => setOverIdx((o) => (o === idx ? null : o))}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (dragIdx !== null) move(dragIdx, idx);
+                setDragIdx(null);
+                setOverIdx(null);
+              }}
+              onDragEnd={() => {
+                setDragIdx(null);
+                setOverIdx(null);
+              }}
+              className={`relative shrink-0 cursor-grab active:cursor-grabbing transition-all ${
+                dragIdx === idx ? "opacity-40" : ""
+              } ${over ? "scale-105" : ""}`}
+            >
+              <button
+                type="button"
+                onClick={() => onSetMain(img.url)}
+                className={`block size-16 rounded-md overflow-hidden border-2 ${
+                  active
+                    ? "border-primary ring-2 ring-primary/30"
+                    : over
+                      ? "border-primary"
+                      : "border-border hover:border-primary/60"
+                }`}
+              >
+                <SafeImage src={img.url} alt="" />
+              </button>
+              <span className="absolute -top-1.5 -left-1.5 bg-background border border-border rounded-full size-5 text-[10px] font-mono flex items-center justify-center text-muted-foreground">
+                {idx + 1}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -31,6 +31,7 @@ export type Inmueble = {
 
 export type InmuebleDetalle = Inmueble & {
   imagenes: string[];
+  imagenesAttachments: Array<{ id: string; url: string }>;
   agentesIds: string[];
   agentesNombres: string[];
   propietarioIds: string[];
@@ -117,14 +118,20 @@ function pickAttachment(field: unknown): string | null {
 }
 
 function pickAllAttachments(field: unknown): string[] {
+  return pickAttachmentsWithIds(field).map((a) => a.url);
+}
+
+function pickAttachmentsWithIds(field: unknown): Array<{ id: string; url: string }> {
   if (!Array.isArray(field)) return [];
-  return field
-    .map((a) => {
-      const att = a as AirtableAttachment;
-      if (!isImageAttachment(att)) return null;
-      return attachmentUrl(att);
-    })
-    .filter((u): u is string => !!u);
+  const out: Array<{ id: string; url: string }> = [];
+  for (const a of field) {
+    const att = a as AirtableAttachment & { id?: string };
+    if (!isImageAttachment(att)) continue;
+    const url = attachmentUrl(att);
+    if (!url || !att.id) continue;
+    out.push({ id: att.id, url });
+  }
+  return out;
 }
 
 function pickLookup(field: unknown): string {
@@ -254,6 +261,7 @@ export const getInmueble = createServerFn({ method: "GET" })
     const detalle: InmuebleDetalle = {
       ...base,
       imagenes: pickAllAttachments(f["Imágenes"]),
+      imagenesAttachments: pickAttachmentsWithIds(f["Imágenes"]),
       agentesIds: pickIds(f["Agentes Asignados"]),
       agentesNombres: Array.isArray(f["Nombre Agente Asignado"])
         ? toTitleCaseArr(f["Nombre Agente Asignado"] as string[])
@@ -389,6 +397,8 @@ export type UpdateInmueblePayload = {
   precioFinal?: number | null;
   agentesIds?: string[];
   observaciones?: string;
+  descripcion?: string;
+  imagenesAttachmentIds?: string[]; // reorder existing attachments
 };
 
 export const updateInmueble = createServerFn({ method: "POST" })
@@ -406,6 +416,8 @@ export const updateInmueble = createServerFn({ method: "POST" })
     if (d.precioFinal != null && (typeof d.precioFinal !== "number" || d.precioFinal < 0))
       throw new Error("Precio final inválido");
     if (d.agentesIds && !Array.isArray(d.agentesIds)) throw new Error("Agentes inválidos");
+    if (d.imagenesAttachmentIds && !Array.isArray(d.imagenesAttachmentIds))
+      throw new Error("Imágenes inválidas");
     return d;
   })
   .handler(async ({ data }) => {
@@ -416,6 +428,9 @@ export const updateInmueble = createServerFn({ method: "POST" })
     if (data.precioFinal !== undefined) fields["Precio Final "] = data.precioFinal;
     if (data.agentesIds !== undefined) fields["Agentes Asignados"] = data.agentesIds;
     if (data.observaciones !== undefined) fields["Observaciones"] = data.observaciones;
+    if (data.descripcion !== undefined) fields["Descripción"] = data.descripcion;
+    if (data.imagenesAttachmentIds !== undefined)
+      fields["Imágenes"] = data.imagenesAttachmentIds.map((id) => ({ id }));
 
     const res = (await airtableFetch(`/v0/${BASE_ID}/${TABLES.inmuebles}/${data.id}`, {
       method: "PATCH",
