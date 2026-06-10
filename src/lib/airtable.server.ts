@@ -1,4 +1,4 @@
-const GATEWAY = "https://api.airtable.com";
+const GATEWAY = "https://api.airtable.com"; // Airtable REST API
 export const BASE_ID = "appJHlqz7fFFjJWF1";
 export const TABLES = {
   inmuebles: "tblLEsYvGZqXntJo7",
