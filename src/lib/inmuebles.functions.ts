@@ -31,6 +31,7 @@ export type Inmueble = {
 
 export type InmuebleDetalle = Inmueble & {
   imagenes: string[];
+  imagenesAttachments: Array<{ id: string; url: string }>;
   agentesIds: string[];
   agentesNombres: string[];
   propietarioIds: string[];
