@@ -308,11 +308,17 @@ function InmueblesPage() {
                     {i.banos && <span>{i.banos} baños</span>}
                     {i.superficie && <span>{i.superficie} m²</span>}
                   </div>
-                  {i.propietario && (
-                    <div className="mt-auto border-t border-border pt-2 text-[11px] text-muted-foreground">
-                      Propietario: <span className="text-foreground font-medium">{i.propietario}</span>
-                    </div>
-                  )}
+                  <div className="mt-auto border-t border-border pt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                    {i.propietario ? (
+                      <span className="truncate">Prop.: <span className="text-foreground font-medium">{i.propietario}</span></span>
+                    ) : <span />}
+                    {(() => {
+                      const d = daysSince(i.fechaInicio);
+                      if (d === null) return null;
+                      const cls = d > 90 ? "bg-destructive/15 text-destructive" : d > 30 ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-muted text-muted-foreground";
+                      return <span className={`shrink-0 px-1.5 py-0.5 rounded-full font-medium ${cls}`}>{d}d</span>;
+                    })()}
+                  </div>
                 </div>
               </Link>
             ))}

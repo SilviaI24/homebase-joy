@@ -585,56 +585,6 @@ function Dashboard() {
 
         <AlertasPanel estancados={stats.estancados} />
       </div>
-
-      {/* Sección informativa: inmuebles estancados (full) */}
-      <div className="mt-8 rounded-lg border border-destructive/30 bg-destructive/5 overflow-hidden">
-        <div className="px-5 py-3 border-b border-destructive/20 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <TrendingDown className="size-4 text-destructive" /> Inmuebles estancados
-            </h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Activos sin escritura tras +90 días desde la captación. Sólo informativo.
-            </p>
-          </div>
-          <span className="text-xs font-semibold px-2 py-1 rounded-full bg-destructive/10 text-destructive">
-            {stats.estancadosFull.length} estancados
-          </span>
-        </div>
-        {stats.estancadosFull.length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">Sin inmuebles estancados. Cartera saludable.</div>
-        ) : (
-          <ul className="divide-y divide-border max-h-[420px] overflow-y-auto">
-            {stats.estancadosFull.map(({ i, dias }) => (
-              <li key={i.id}>
-                <Link
-                  to="/inmuebles/$id"
-                  params={{ id: i.id }}
-                  className="flex items-center gap-3 px-5 py-3 hover:bg-accent/40 transition-colors"
-                >
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive text-xs font-bold tabular-nums">
-                    {dias}d
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium truncate">
-                      {i.calle || "Sin dirección"} {i.numero}
-                      {i.ref && <span className="ml-2 text-[11px] font-mono text-muted-foreground">#{i.ref}</span>}
-                    </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {[i.barrio, i.localidad].filter(Boolean).join(" · ") || i.tipo}
-                      {i.agentesNombres.length > 0 && ` · ${i.agentesNombres.join(", ")}`}
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-sm font-semibold tabular-nums">{i.precio ? moneyFull(i.precio) : "—"}</div>
-                    <div className="text-[11px] text-muted-foreground">desde {fmtDate(i.fechaInicio)}</div>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
     </AppShell>
   );
 }

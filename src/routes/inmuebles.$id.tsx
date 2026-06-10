@@ -881,6 +881,24 @@ function DetailView({
           </div>
         </aside>
       </div>
+
+      {/* Floating save bar — visible when there are unsaved changes */}
+      {dirty && (
+        <div className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-between gap-4 px-4 py-3 bg-card border-t border-border shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.15)] md:left-56">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+            Cambios sin guardar
+          </div>
+          <button
+            onClick={onSave}
+            disabled={mutation.isPending || !detailReady}
+            className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 hover:bg-primary/90 transition-colors"
+          >
+            <Save className="size-4" />
+            {mutation.isPending ? "Guardando…" : "Guardar cambios"}
+          </button>
+        </div>
+      )}
     </AppShell>
   );
 }
