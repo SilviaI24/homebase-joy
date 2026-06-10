@@ -97,7 +97,20 @@ function InmueblesPage() {
   const [q, setQ] = useState("");
   const [estatus, setEstatus] = useState<string>("Activo");
   const [categoria, setCategoria] = useState<string>("Todas");
+  const [agente, setAgente] = useState<string>("Todos");
   const [view, setView] = useState<"grid" | "kanban">("grid");
+
+  const agentes = useMemo(() => {
+    const s = new Set<string>();
+    data.inmuebles.forEach((i) => i.agentesNombres.forEach((n) => n && s.add(n)));
+    return ["Todos", "Sin asignar", ...Array.from(s).sort()];
+  }, [data.inmuebles]);
+
+  const matchesAgente = (i: Inmueble) => {
+    if (agente === "Todos") return true;
+    if (agente === "Sin asignar") return i.agentesNombres.length === 0;
+    return i.agentesNombres.includes(agente);
+  };
 
   const estatuses = useMemo(() => {
     const s = new Set<string>();
@@ -134,9 +147,10 @@ function InmueblesPage() {
     return data.inmuebles.filter((i: Inmueble) => {
       if (estatus !== "Todos" && i.estatus !== estatus) return false;
       if (categoria !== "Todas" && getCategoria(i.tipo) !== categoria) return false;
+      if (!matchesAgente(i)) return false;
       return matchesSearch(i, needle);
     });
-  }, [data.inmuebles, q, estatus, categoria]);
+  }, [data.inmuebles, q, estatus, categoria, agente]);
 
   const kanbanGroups = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -145,6 +159,7 @@ function InmueblesPage() {
     };
     data.inmuebles.forEach((i) => {
       if (categoria !== "Todas" && getCategoria(i.tipo) !== categoria) return;
+      if (!matchesAgente(i)) return;
       if (!matchesSearch(i, needle)) return;
       const col = classifyKanban(i);
       if (col) groups[col].push(i);
@@ -158,7 +173,7 @@ function InmueblesPage() {
       });
     });
     return groups;
-  }, [data.inmuebles, q, categoria]);
+  }, [data.inmuebles, q, categoria, agente]);
 
   const tabs: string[] = ["Todas", ...CATEGORIAS];
 
@@ -185,6 +200,16 @@ function InmueblesPage() {
             ))}
           </select>
         )}
+        <select
+          value={agente}
+          onChange={(e) => setAgente(e.target.value)}
+          className="h-9 px-3 rounded-md border border-input bg-background text-sm max-w-[180px]"
+          title="Filtrar por agente asignado"
+        >
+          {agentes.map((a) => (
+            <option key={a} value={a}>{a === "Todos" ? "Todos los agentes" : a}</option>
+          ))}
+        </select>
         <div className="inline-flex h-9 rounded-md border border-input bg-background overflow-hidden">
           <button
             onClick={() => setView("grid")}
