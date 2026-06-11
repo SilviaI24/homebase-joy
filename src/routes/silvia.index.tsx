@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { askSilvia } from "@/lib/silvia.functions";
 import { AppShell } from "@/components/AppShell";
 import { SafeImage } from "@/components/SafeImage";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
@@ -21,11 +23,14 @@ import {
   ArrowRight,
   UserCheck,
   Archive,
-  
   Tag,
   CalendarDays,
   MessageSquare,
   CalendarPlus,
+  Send,
+  Bot,
+  User2,
+  Loader2,
 } from "lucide-react";
 import {
   CanalChip,
@@ -210,6 +215,8 @@ function moneyShort(v: number | null): string {
 const ESTADO_TABS = ["Pendientes", "Cualificados", "Archivados", "Todos"] as const;
 type EstadoTab = (typeof ESTADO_TABS)[number];
 
+type ChatMessage = { role: "user" | "assistant"; content: string };
+
 function SilviaPage() {
   const { data } = useSuspenseQuery(clientesQuery);
   const { data: inmData } = useSuspenseQuery(allInmueblesQuery);
@@ -218,6 +225,13 @@ function SilviaPage() {
   const [canalFilter, setCanalFilter] = useState<Canal | "Todos">("Todos");
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Chat
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const askFn = useServerFn(askSilvia);
   // Optimistic local state — se sincroniza con Airtable vía mutations.
   // El tipo del cliente en Airtable cambia: cualificar → "Prospecciones", archivar → "Anular prospección".
   const [archivados, setArchivados] = useState<Set<string>>(new Set());
@@ -316,6 +330,46 @@ function SilviaPage() {
     } as Record<EstadoTab, number>;
   }, [leads, archivados, cualificados]);
 
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  function buildContext(): string {
+    const totalInm = inmData.inmuebles.length;
+    const totalAlq = inmData.alquileres.length;
+    const activosVenta = inmData.inmuebles.filter((i) => normalize(i.estatus) === "activo").length;
+    const totalLeads = leads.length;
+    const pendientes = leads.filter(({ cliente: c }) => !archivados.has(c.id) && !cualificados.has(c.id)).length;
+    const leadSummary = leads.slice(0, 20).map(({ cliente: c, canal }) =>
+      `- ${c.nombre} (${canal}): ${(c.motivo || c.solicitud || "sin detalle").slice(0, 80)}`
+    ).join("\n");
+    return [
+      `Cartera: ${totalInm} inmuebles en venta (${activosVenta} activos), ${totalAlq} alquileres.`,
+      `Leads: ${totalLeads} total, ${pendientes} pendientes de cualificar.`,
+      `Muestra de leads recientes:\n${leadSummary}`,
+    ].join("\n");
+  }
+
+  async function sendChat() {
+    const msg = chatInput.trim();
+    if (!msg || chatLoading) return;
+    const userMsg: ChatMessage = { role: "user", content: msg };
+    setChatMessages((prev) => [...prev, userMsg]);
+    setChatInput("");
+    setChatLoading(true);
+    setChatError(null);
+    try {
+      const { reply } = await askFn({ data: { message: msg, context: buildContext() } });
+      setChatMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e.message : String(e);
+      setChatError(err);
+    } finally {
+      setChatLoading(false);
+    }
+  }
+
   function toggleExpand(id: string) {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -364,6 +418,69 @@ function SilviaPage() {
             <div className="text-muted-foreground">Total</div>
             <div className="text-lg font-semibold text-foreground">{counts.Todos}</div>
           </div>
+        </div>
+      </div>
+
+      {/* Chat AI */}
+      <div className="mb-6 rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+          <Bot className="size-4 text-primary" />
+          <span className="text-sm font-medium">Pregunta a SilvIA</span>
+          <span className="text-[10px] text-muted-foreground ml-auto">IA · Claude</span>
+        </div>
+
+        {/* Messages */}
+        {chatMessages.length > 0 && (
+          <div className="px-4 py-3 max-h-80 overflow-y-auto space-y-3 border-b border-border">
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                <div className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold mt-0.5 ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-gradient-to-br from-primary/20 to-accent/30 text-primary"}`}>
+                  {msg.role === "user" ? <User2 className="size-3.5" /> : <Sparkles className="size-3.5" />}
+                </div>
+                <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div className="flex gap-2">
+                <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-accent/30 text-primary mt-0.5">
+                  <Sparkles className="size-3.5" />
+                </div>
+                <div className="rounded-lg px-3 py-2 bg-muted">
+                  <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+        )}
+
+        {/* Error */}
+        {chatError && (
+          <div className="mx-4 my-2 rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2 text-xs text-destructive">
+            {chatError}
+          </div>
+        )}
+
+        {/* Input */}
+        <div className="flex gap-2 p-3">
+          <input
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+            placeholder="Pregunta sobre leads, propiedades, recomendaciones…"
+            disabled={chatLoading}
+            className="flex-1 h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+          />
+          <button
+            type="button"
+            onClick={sendChat}
+            disabled={chatLoading || !chatInput.trim()}
+            className="h-9 px-3 rounded-md bg-primary text-primary-foreground inline-flex items-center gap-1.5 text-sm font-medium disabled:opacity-50 hover:bg-primary/90 transition-colors"
+          >
+            <Send className="size-3.5" />
+          </button>
         </div>
       </div>
 

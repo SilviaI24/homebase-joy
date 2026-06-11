@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
-import { airtableFetch, BASE_ID, TABLES } from "./airtable.server";
+import { getSupa } from "./supabase.server";
 import { toTitleCase, toTitleCaseArr, toSentenceCase } from "./format";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export type Inmueble = {
   id: string;
@@ -29,9 +31,12 @@ export type Inmueble = {
   observaciones: string;
 };
 
+export type Documento = { url: string; filename: string; type: string };
+
 export type InmuebleDetalle = Inmueble & {
   imagenes: string[];
   imagenesAttachments: Array<{ id: string; url: string }>;
+  documentos: Documento[];
   agentesIds: string[];
   agentesNombres: string[];
   propietarioIds: string[];
@@ -62,6 +67,17 @@ export type InmuebleDetalle = Inmueble & {
 
 export type Agente = { id: string; nombre: string; mail: string };
 
+export type Visita = {
+  id: string;
+  fecha: string | null;
+  estado: string;
+  comentarios: string;
+  actividad: string;
+  clientesNombres: string[];
+  clientesTelefonos: string[];
+  agentesMails: string[];
+};
+
 export const ESTATUS_OPCIONES = [
   "Activo",
   "Reservado",
@@ -73,113 +89,6 @@ export const ESTATUS_OPCIONES = [
 
 export const PUBLICACION_OPCIONES = ["SUBIR", "PUBLICADO"] as const;
 
-type AirtableAttachment = {
-  url?: string;
-  type?: string;
-  filename?: string;
-  thumbnails?: {
-    small?: { url?: string };
-    large?: { url?: string };
-    full?: { url?: string };
-  };
-};
-
-const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|avif|bmp|heic|heif)$/i;
-
-function isImageAttachment(att: AirtableAttachment): boolean {
-  if (att.type && att.type.startsWith("image/")) return true;
-  if (att.filename && IMAGE_EXT_RE.test(att.filename)) return true;
-  // Si no hay metadatos pero sí thumbnails, Airtable lo trata como imagen.
-  if (att.thumbnails && (att.thumbnails.large || att.thumbnails.full || att.thumbnails.small)) {
-    return true;
-  }
-  return false;
-}
-
-function attachmentUrl(att: AirtableAttachment): string | null {
-  return (
-    att.thumbnails?.large?.url ??
-    att.thumbnails?.full?.url ??
-    att.url ??
-    att.thumbnails?.small?.url ??
-    null
-  );
-}
-
-function pickAttachment(field: unknown): string | null {
-  if (!Array.isArray(field)) return null;
-  for (const a of field) {
-    const att = a as AirtableAttachment;
-    if (!isImageAttachment(att)) continue;
-    const url = attachmentUrl(att);
-    if (url) return url;
-  }
-  return null;
-}
-
-function pickAllAttachments(field: unknown): string[] {
-  return pickAttachmentsWithIds(field).map((a) => a.url);
-}
-
-function pickAttachmentsWithIds(field: unknown): Array<{ id: string; url: string }> {
-  if (!Array.isArray(field)) return [];
-  const out: Array<{ id: string; url: string }> = [];
-  for (const a of field) {
-    const att = a as AirtableAttachment & { id?: string };
-    if (!isImageAttachment(att)) continue;
-    const url = attachmentUrl(att);
-    if (!url || !att.id) continue;
-    out.push({ id: att.id, url });
-  }
-  return out;
-}
-
-function pickLookup(field: unknown): string {
-  if (Array.isArray(field)) return field.filter(Boolean).join(", ");
-  return field == null ? "" : String(field);
-}
-
-function pickIds(field: unknown): string[] {
-  return Array.isArray(field) ? (field as string[]) : [];
-}
-
-function mapBase(r: { id: string; fields: Record<string, unknown> }): Inmueble {
-  const f = r.fields;
-  return {
-    id: r.id,
-    ref: String(f["Ref"] ?? ""),
-    calle: toTitleCase(String(f["Calle"] ?? "").trim()),
-    numero: String(f["Numero"] ?? ""),
-    localidad: toTitleCase(String(f["Localidad"] ?? "")),
-    barrio: toTitleCase(String(f["Barrio"] ?? "")),
-    precio: typeof f["Precio"] === "number" ? (f["Precio"] as number) : null,
-    precioFinal:
-      typeof f["Precio Final "] === "number" ? (f["Precio Final "] as number) : null,
-    tipo: String(f["Tipo de inmueble (desplegable)"] ?? ""),
-    estatus: toTitleCase(String(f["Estatus"] ?? "")),
-    publicacion: String(f["Publicación"] ?? ""),
-    estado: toTitleCase(String(f["Estado"] ?? "")),
-    habitaciones: String(f["Habitaciones / dormitorios"] ?? ""),
-    banos: String(f["Baño"] ?? ""),
-    superficie: String(f["Superficie"] ?? ""),
-    imagen: pickAttachment(f["Imágenes"]),
-    descripcion: toSentenceCase(String(f["Descripción"] ?? "")),
-    propietario: toTitleCase(pickLookup(f["Nombre Propietario"])),
-    telefonoPropietario: pickLookup(f["Teléfono Propietario"]),
-    fechaInicio: (f["Fecha de inicio"] as string) ?? null,
-    fechaReserva: (f["Fecha Reserva"] as string) ?? null,
-    fechaEscritura: (f["Fecha Escritura"] as string) ?? null,
-    agentesNombres: Array.isArray(f["Nombre Agente Asignado"])
-      ? toTitleCaseArr((f["Nombre Agente Asignado"] as string[]).map(String).filter(Boolean))
-      : [],
-    observaciones: String(f["Observaciones"] ?? ""),
-  };
-}
-
-export function isAlquiler(tipo: string): boolean {
-  return /^\s*alquiler/i.test(tipo);
-}
-
 export const CATEGORIAS = [
   "Pisos",
   "Casas",
@@ -189,6 +98,10 @@ export const CATEGORIAS = [
   "Locales",
 ] as const;
 export type Categoria = (typeof CATEGORIAS)[number];
+
+export function isAlquiler(tipo: string): boolean {
+  return /^\s*alquiler/i.test(tipo);
+}
 
 export function getCategoria(tipo: string): Categoria | "Otros" {
   const t = tipo.toLowerCase().replace(/^\s*alquiler\s+/, "").trim();
@@ -202,49 +115,175 @@ export function getCategoria(tipo: string): Categoria | "Otros" {
   return "Otros";
 }
 
+// ── Row mappers ───────────────────────────────────────────────────────────────
 
-async function fetchInmueblesFiltered(): Promise<Inmueble[]> {
-  const currentYear = new Date().getFullYear();
-  const prevYear = currentYear - 1;
-  const formula = `OR(YEAR({Fecha de inicio})=${currentYear},YEAR({Fecha de inicio})=${prevYear})`;
-  const records: Array<{ id: string; fields: Record<string, unknown> }> = [];
-  let offset: string | undefined;
-  do {
-    const params = new URLSearchParams({
-      pageSize: "100",
-      filterByFormula: formula,
-    });
-    if (offset) params.set("offset", offset);
-    const page = (await airtableFetch(
-      `/v0/${BASE_ID}/${TABLES.inmuebles}?${params}`,
-    )) as {
-      records: Array<{ id: string; fields: Record<string, unknown> }>;
-      offset?: string;
-    };
-    records.push(...page.records);
-    offset = page.offset;
-  } while (offset && records.length < 2000);
-  return records.map(mapBase);
+type SupabasePropertyRow = {
+  id: string;
+  ref: string | null;
+  tipo: string;
+  es_alquiler: boolean;
+  calle: string;
+  numero: string | null;
+  piso: string | null;
+  barrio: string | null;
+  localidad: string | null;
+  metros_construidos: number | null;
+  habitaciones: number | null;
+  banos: number | null;
+  orientacion: string | null;
+  descripcion: string | null;
+  precio: number | null;
+  precio_final: number | null;
+  estatus: string;
+  publicacion: string | null;
+  estado: string | null;
+  imagenes: Array<{ url: string; filename: string; orden: number }> | null;
+  documentos: Array<{ url: string; filename: string; type: string }> | null;
+  fecha_inicio: string | null;
+  fecha_reserva: string | null;
+  fecha_escritura: string | null;
+  fecha_exclusiva: string | null;
+  fecha_fin_exclusiva: string | null;
+  certificacion_energetica: string | null;
+  ano_construccion: string | null;
+  gastos_comunidad: string | null;
+  calefaccion: string | null;
+  garaje: string | null;
+  trastero: string | null;
+  ascensor: string | null;
+  armarios_empotrados: string | null;
+  terraza: string | null;
+  balcon: string | null;
+  referencia_catastral: string | null;
+  honorarios: string | null;
+  tipo_exclusiva: string | null;
+  notaria: string | null;
+  llaves: string | null;
+  observaciones: string | null;
+  created_at: string;
+  agents: { id: string; nombre: string; email: string | null } | null;
+};
+
+function s(v: string | null | undefined): string {
+  return v ?? "";
 }
 
-// Devuelve ventas y alquileres en una sola petición a Airtable.
-// Las rutas comparten esta query para evitar refetches duplicados.
+function mapBase(row: SupabasePropertyRow): Inmueble {
+  const imgs = row.imagenes ?? [];
+  const img0 = imgs[0]?.url ?? null;
+  const agente = row.agents;
+  return {
+    id: row.id,
+    ref: s(row.ref),
+    calle: toTitleCase(s(row.calle)),
+    numero: s(row.numero),
+    localidad: toTitleCase(s(row.localidad)),
+    barrio: toTitleCase(s(row.barrio)),
+    precio: row.precio,
+    precioFinal: row.precio_final,
+    tipo: row.tipo,
+    estatus: toTitleCase(row.estatus),
+    publicacion: s(row.publicacion),
+    estado: toTitleCase(s(row.estado)),
+    habitaciones: row.habitaciones != null ? String(row.habitaciones) : "",
+    banos: row.banos != null ? String(row.banos) : "",
+    superficie: row.metros_construidos != null ? String(row.metros_construidos) : "",
+    imagen: img0,
+    descripcion: toSentenceCase(s(row.descripcion)),
+    propietario: "",
+    telefonoPropietario: "",
+    fechaInicio: row.fecha_inicio ?? row.created_at?.slice(0, 10) ?? null,
+    fechaReserva: row.fecha_reserva ?? null,
+    fechaEscritura: row.fecha_escritura ?? null,
+    agentesNombres: agente ? [toTitleCase(agente.nombre)] : [],
+    observaciones: s(row.observaciones),
+  };
+}
+
+function mapDetalle(
+  row: SupabasePropertyRow,
+  propietarios: Array<{ id: string; nombre: string; telefono: string; email: string }>,
+): InmuebleDetalle {
+  const base = mapBase(row);
+  const imgs = row.imagenes ?? [];
+  const imgsAll = imgs.map((i) => i.url);
+  const imgsAtt = imgs.map((i) => ({ id: i.url, url: i.url }));
+  const agente = row.agents;
+
+  const propietario = propietarios[0];
+  base.propietario = propietario ? toTitleCase(propietario.nombre) : "";
+  base.telefonoPropietario = propietario?.telefono ?? "";
+
+  return {
+    ...base,
+    imagenes: imgsAll,
+    imagenesAttachments: imgsAtt,
+    documentos: (row.documentos ?? []) as Array<{ url: string; filename: string; type: string }>,
+    agentesIds: agente ? [agente.id] : [],
+    agentesNombres: agente ? [toTitleCase(agente.nombre)] : [],
+    propietarioIds: propietarios.map((p) => p.id),
+    emailPropietario: propietario?.email ?? "",
+    certificacionEnergetica: toTitleCase(s(row.certificacion_energetica)),
+    anoConstruccion: s(row.ano_construccion),
+    gastosComunidad: toTitleCase(s(row.gastos_comunidad)),
+    calefaccion: toTitleCase(s(row.calefaccion)),
+    orientacion: toTitleCase(s(row.orientacion)),
+    garaje: toTitleCase(s(row.garaje)),
+    trastero: toTitleCase(s(row.trastero)),
+    ascensor: toTitleCase(s(row.ascensor)),
+    armariosEmpotrados: toTitleCase(s(row.armarios_empotrados)),
+    terraza: toTitleCase(s(row.terraza)),
+    balcon: toTitleCase(s(row.balcon)),
+    planta: toTitleCase(s(row.piso)),
+    referenciaCatastral: s(row.referencia_catastral),
+    honorarios: toTitleCase(s(row.honorarios)),
+    tipoExclusiva: toTitleCase(s(row.tipo_exclusiva)),
+    notaria: toTitleCase(s(row.notaria)),
+    llaves: toTitleCase(s(row.llaves)),
+    fechaExclusiva: row.fecha_exclusiva ?? null,
+    fechaFinExclusiva: row.fecha_fin_exclusiva ?? null,
+    fechaReserva: row.fecha_reserva ?? null,
+    fechaEscritura: row.fecha_escritura ?? null,
+  };
+}
+
+// ── Two-year filter helper ────────────────────────────────────────────────────
+// Airtable showed current + prev year. We keep the same window.
+function twoYearCutoff(): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 2);
+  return d.toISOString().slice(0, 10);
+}
+
+// ── Server functions ──────────────────────────────────────────────────────────
+
 export const listAllInmuebles = createServerFn({ method: "GET" }).handler(async () => {
-  const all = await fetchInmueblesFiltered();
-  const inmuebles = all.filter((i) => !isAlquiler(i.tipo));
-  const alquileres = all.filter((i) => isAlquiler(i.tipo));
-  return { inmuebles, alquileres };
+  const supa = getSupa();
+  const cutoff = twoYearCutoff();
+
+  const { data, error } = await supa
+    .from("properties")
+    .select("*, agents(id, nombre, email)")
+    .gte("created_at", cutoff)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as SupabasePropertyRow[];
+  const all = rows.map(mapBase);
+  return {
+    inmuebles: all.filter((i) => !isAlquiler(i.tipo)),
+    alquileres: all.filter((i) => isAlquiler(i.tipo)),
+  };
 });
 
-// Compat: ahora derivan del fetch combinado para reutilizar caché en servidor.
 export const listInmuebles = createServerFn({ method: "GET" }).handler(async () => {
-  const all = await fetchInmueblesFiltered();
-  return { inmuebles: all.filter((i) => !isAlquiler(i.tipo)) };
+  const { inmuebles } = await listAllInmuebles();
+  return { inmuebles };
 });
 
 export const listAlquileres = createServerFn({ method: "GET" }).handler(async () => {
-  const all = await fetchInmueblesFiltered();
-  return { inmuebles: all.filter((i) => isAlquiler(i.tipo)) };
+  const { alquileres } = await listAllInmuebles();
+  return { inmuebles: alquileres };
 });
 
 export const getInmueble = createServerFn({ method: "GET" })
@@ -253,71 +292,46 @@ export const getInmueble = createServerFn({ method: "GET" })
     return d;
   })
   .handler(async ({ data }) => {
-    const r = (await airtableFetch(
-      `/v0/${BASE_ID}/${TABLES.inmuebles}/${data.id}`,
-    )) as { id: string; fields: Record<string, unknown> };
-    const base = mapBase(r);
-    const f = r.fields;
-    const detalle: InmuebleDetalle = {
-      ...base,
-      imagenes: pickAllAttachments(f["Imágenes"]),
-      imagenesAttachments: pickAttachmentsWithIds(f["Imágenes"]),
-      agentesIds: pickIds(f["Agentes Asignados"]),
-      agentesNombres: Array.isArray(f["Nombre Agente Asignado"])
-        ? toTitleCaseArr(f["Nombre Agente Asignado"] as string[])
-        : [],
-      propietarioIds: pickIds(f["Propietario"]),
-      emailPropietario: pickLookup(f["Email Propietario"]),
-      certificacionEnergetica: toTitleCase(String(f["Certificación energética"] ?? "")),
-      anoConstruccion: String(f["Año de construcción"] ?? ""),
-      gastosComunidad: toTitleCase(String(f["Gastos de comunidad"] ?? "")),
-      calefaccion: toTitleCase(String(f["Calefacción"] ?? "")),
-      orientacion: toTitleCase(pickLookup(f["Orientación"])),
-      garaje: toTitleCase(String(f["Garaje"] ?? "")),
-      trastero: toTitleCase(String(f["Trastero"] ?? "")),
-      ascensor: toTitleCase(String(f["Ascensor"] ?? "")),
-      armariosEmpotrados: toTitleCase(String(f["Armarios empotrados"] ?? "")),
-      terraza: toTitleCase(String(f["Terraza"] ?? "")),
-      balcon: toTitleCase(String(f["Balcón"] ?? "")),
-      planta: toTitleCase(String(f["Planta"] ?? "")),
-      referenciaCatastral: String(f["Referencia Catastral"] ?? ""),
-      honorarios: toTitleCase(String(f["Honorarios"] ?? "")),
-      tipoExclusiva: toTitleCase(String(f["Tipo de exclusiva"] ?? "")),
-      notaria: toTitleCase(String(f["Notaría"] ?? "")),
-      observaciones: toSentenceCase(String(f["Observaciones"] ?? "")),
-      llaves: toTitleCase(String(f["Llaves"] ?? "")),
-      fechaInicio: (f["Fecha de inicio"] as string) ?? null,
-      fechaExclusiva: (f["Fecha de autorización de venta ( exclusiva)"] as string) ?? null,
-      fechaFinExclusiva: (f["Fecha fin de exclusividad"] as string) ?? null,
-      fechaReserva: (f["Fecha Reserva"] as string) ?? null,
-      fechaEscritura: (f["Fecha Escritura"] as string) ?? null,
-    };
-    return { inmueble: detalle };
+    const supa = getSupa();
+
+    const { data: row, error } = await supa
+      .from("properties")
+      .select("*, agents(id, nombre, email)")
+      .eq("id", data.id)
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    // Fetch Propietario contacts linked to this property via contact_roles
+    const { data: roles } = await supa
+      .from("contact_roles")
+      .select("contacts(id, nombre, telefono, email)")
+      .eq("property_id", data.id)
+      .eq("tipo", "Propietario");
+
+    const propietarios = (roles ?? [])
+      .map((r: any) => r.contacts)
+      .filter(Boolean) as Array<{ id: string; nombre: string; telefono: string; email: string }>;
+
+    const inmueble = mapDetalle(row as SupabasePropertyRow, propietarios);
+    return { inmueble };
   });
 
 export const listAgentes = createServerFn({ method: "GET" }).handler(async () => {
-  const data = (await airtableFetch(
-    `/v0/${BASE_ID}/${TABLES.agentes}?pageSize=100`,
-  )) as { records: Array<{ id: string; fields: Record<string, unknown> }> };
-  const agentes: Agente[] = data.records.map((r) => ({
+  const supa = getSupa();
+  const { data, error } = await supa
+    .from("agents")
+    .select("id, nombre, email")
+    .eq("activo", true)
+    .order("nombre");
+  if (error) throw new Error(error.message);
+  const agentes: Agente[] = (data ?? []).map((r: any) => ({
     id: r.id,
-    nombre: toTitleCase(String(r.fields["Nombre"] ?? "").trim()) || "(sin nombre)",
-    mail: String(r.fields["Mail"] ?? ""),
+    nombre: toTitleCase(r.nombre ?? "") || "(sin nombre)",
+    mail: r.email ?? "",
   }));
-  agentes.sort((a, b) => a.nombre.localeCompare(b.nombre));
   return { agentes };
 });
-
-export type Visita = {
-  id: string;
-  fecha: string | null;
-  estado: string;
-  comentarios: string;
-  actividad: string;
-  clientesNombres: string[];
-  clientesTelefonos: string[];
-  agentesMails: string[];
-};
 
 export const listVisitasByInmueble = createServerFn({ method: "GET" })
   .inputValidator((d: { id: string }) => {
@@ -325,51 +339,38 @@ export const listVisitasByInmueble = createServerFn({ method: "GET" })
     return d;
   })
   .handler(async ({ data }) => {
-    // Paginar y filtrar en JS porque {Inmuebles} en filterByFormula devuelve
-    // nombres concatenados, no IDs de los registros enlazados.
-    const records: Array<{ id: string; fields: Record<string, unknown> }> = [];
-    let offset: string | undefined;
-    do {
-      const params = new URLSearchParams({ pageSize: "100" });
-      if (offset) params.set("offset", offset);
-      const page = (await airtableFetch(
-        `/v0/${BASE_ID}/${TABLES.visitas}?${params}`,
-      )) as {
-        records: Array<{ id: string; fields: Record<string, unknown> }>;
-        offset?: string;
-      };
-      records.push(...page.records);
-      offset = page.offset;
-    } while (offset && records.length < 1000);
-    const res = {
-      records: records.filter((r) => {
-        const v = r.fields["Inmuebles"];
-        return Array.isArray(v) && (v as string[]).includes(data.id);
-      }),
-    };
+    const supa = getSupa();
+    const { data: rows, error } = await supa
+      .from("visits")
+      .select("id, fecha, estado, notas, contacts(nombre, telefono), agents(email)")
+      .eq("property_id", data.id)
+      .order("fecha", { ascending: false });
 
-    const visitas: Visita[] = res.records.map((r) => {
-      const f = r.fields;
-      return {
-        id: r.id,
-        fecha: (f["Fecha y Hora"] as string) ?? null,
-        estado: String(f["Estado"] ?? ""),
-        comentarios: String(f["Comentarios"] ?? ""),
-        actividad: pickLookup(f["Actividad"]),
-        clientesNombres: Array.isArray(f["Nombre Clientes"])
-          ? (f["Nombre Clientes"] as string[])
-          : [],
-        clientesTelefonos: Array.isArray(f["Teléfono Clientes"])
-          ? (f["Teléfono Clientes"] as string[])
-          : [],
-        agentesMails: Array.isArray(f["Mail (from Agentes)"])
-          ? (f["Mail (from Agentes)"] as string[])
-          : [],
-      };
-    });
-    visitas.sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""));
+    if (error) throw new Error(error.message);
+
+    const visitas: Visita[] = (rows ?? []).map((r: any) => ({
+      id: r.id,
+      fecha: r.fecha ?? null,
+      estado: mapEstadoVisitaOut(r.estado ?? ""),
+      comentarios: toSentenceCase(r.notas ?? ""),
+      actividad: "",
+      clientesNombres: r.contacts ? [toTitleCase(r.contacts.nombre ?? "")] : [],
+      clientesTelefonos: r.contacts ? [r.contacts.telefono ?? ""] : [],
+      agentesMails: r.agents ? [r.agents.email ?? ""] : [],
+    }));
+
     return { visitas };
   });
+
+// Map from Supabase normalized estados back to Airtable display values
+function mapEstadoVisitaOut(estado: string): string {
+  const MAP: Record<string, string> = {
+    Programada: "Pendiente",
+    Realizada: "Completado",
+    Cancelada: "Anulada",
+  };
+  return MAP[estado] ?? estado;
+}
 
 export const getInmueblesByIds = createServerFn({ method: "POST" })
   .inputValidator((d: { ids: string[] }) => {
@@ -378,20 +379,18 @@ export const getInmueblesByIds = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     if (data.ids.length === 0) return { inmuebles: [] as Inmueble[] };
-    const parts = data.ids.map((id) => `RECORD_ID()='${id}'`);
-    const formula = `OR(${parts.join(",")})`;
-    const res = (await airtableFetch(
-      `/v0/${BASE_ID}/${TABLES.inmuebles}?filterByFormula=${encodeURIComponent(formula)}&pageSize=100`,
-    )) as {
-      records: Array<{ id: string; fields: Record<string, unknown> }>;
-    };
-    const inmuebles = res.records.map(mapBase);
+    const supa = getSupa();
+    const { data: rows, error } = await supa
+      .from("properties")
+      .select("*, agents(id, nombre, email)")
+      .in("id", data.ids);
+    if (error) throw new Error(error.message);
+    const inmuebles = (rows ?? []).map((r) => mapBase(r as SupabasePropertyRow));
     return { inmuebles };
   });
 
 export type UpdateInmueblePayload = {
   id: string;
-  // Gestión
   estatus?: string;
   publicacion?: string;
   precio?: number | null;
@@ -399,8 +398,7 @@ export type UpdateInmueblePayload = {
   agentesIds?: string[];
   observaciones?: string;
   descripcion?: string;
-  imagenesAttachmentIds?: string[];
-  // Características
+  imagenesAttachmentIds?: string[]; // URLs in desired order
   habitaciones?: string;
   banos?: string;
   superficie?: string;
@@ -418,17 +416,16 @@ export type UpdateInmueblePayload = {
   balcon?: string;
   gastosComunidad?: string;
   referenciaCatastral?: string;
-  // Historial
   fechaInicio?: string | null;
   fechaExclusiva?: string | null;
   fechaFinExclusiva?: string | null;
   fechaReserva?: string | null;
   fechaEscritura?: string | null;
-  // Operación
   honorarios?: string;
   tipoExclusiva?: string;
   notaria?: string;
   llaves?: string;
+  documentos?: Array<{ url: string; filename: string; type: string }>;
 };
 
 export const updateInmueble = createServerFn({ method: "POST" })
@@ -445,55 +442,74 @@ export const updateInmueble = createServerFn({ method: "POST" })
       throw new Error("Precio inválido");
     if (d.precioFinal != null && (typeof d.precioFinal !== "number" || d.precioFinal < 0))
       throw new Error("Precio final inválido");
-    if (d.agentesIds && !Array.isArray(d.agentesIds)) throw new Error("Agentes inválidos");
-    if (d.imagenesAttachmentIds && !Array.isArray(d.imagenesAttachmentIds))
-      throw new Error("Imágenes inválidas");
     return d;
   })
   .handler(async ({ data }) => {
-    const fields: Record<string, unknown> = {};
-    if (data.estatus !== undefined) fields["Estatus"] = data.estatus;
-    if (data.publicacion !== undefined) fields["Publicación"] = data.publicacion;
-    if (data.precio !== undefined) fields["Precio"] = data.precio;
-    if (data.precioFinal !== undefined) fields["Precio Final "] = data.precioFinal;
-    if (data.agentesIds !== undefined) fields["Agentes Asignados"] = data.agentesIds;
-    if (data.observaciones !== undefined) fields["Observaciones"] = data.observaciones;
-    if (data.descripcion !== undefined) fields["Descripción"] = data.descripcion;
-    if (data.imagenesAttachmentIds !== undefined)
-      fields["Imágenes"] = data.imagenesAttachmentIds.map((id) => ({ id }));
-    // Características
-    if (data.habitaciones !== undefined) fields["Habitaciones / dormitorios"] = data.habitaciones || null;
-    if (data.banos !== undefined) fields["Baño"] = data.banos || null;
-    if (data.superficie !== undefined) fields["Superficie"] = data.superficie || null;
-    if (data.planta !== undefined) fields["Planta"] = data.planta || null;
-    if (data.estado !== undefined) fields["Estado"] = data.estado || null;
-    if (data.anoConstruccion !== undefined) fields["Año de construcción"] = data.anoConstruccion || null;
-    if (data.certificacionEnergetica !== undefined) fields["Certificación energética"] = data.certificacionEnergetica || null;
-    if (data.calefaccion !== undefined) fields["Calefacción"] = data.calefaccion || null;
-    if (data.orientacion !== undefined) fields["Orientación"] = data.orientacion || null;
-    if (data.garaje !== undefined) fields["Garaje"] = data.garaje || null;
-    if (data.trastero !== undefined) fields["Trastero"] = data.trastero || null;
-    if (data.ascensor !== undefined) fields["Ascensor"] = data.ascensor || null;
-    if (data.armariosEmpotrados !== undefined) fields["Armarios empotrados"] = data.armariosEmpotrados || null;
-    if (data.terraza !== undefined) fields["Terraza"] = data.terraza || null;
-    if (data.balcon !== undefined) fields["Balcón"] = data.balcon || null;
-    if (data.gastosComunidad !== undefined) fields["Gastos de comunidad"] = data.gastosComunidad || null;
-    if (data.referenciaCatastral !== undefined) fields["Referencia Catastral"] = data.referenciaCatastral || null;
-    // Historial
-    if (data.fechaInicio !== undefined) fields["Fecha de inicio"] = data.fechaInicio || null;
-    if (data.fechaExclusiva !== undefined) fields["Fecha de autorización de venta ( exclusiva)"] = data.fechaExclusiva || null;
-    if (data.fechaFinExclusiva !== undefined) fields["Fecha fin de exclusividad"] = data.fechaFinExclusiva || null;
-    if (data.fechaReserva !== undefined) fields["Fecha Reserva"] = data.fechaReserva || null;
-    if (data.fechaEscritura !== undefined) fields["Fecha Escritura"] = data.fechaEscritura || null;
-    // Operación
-    if (data.honorarios !== undefined) fields["Honorarios"] = data.honorarios || null;
-    if (data.tipoExclusiva !== undefined) fields["Tipo de exclusiva"] = data.tipoExclusiva || null;
-    if (data.notaria !== undefined) fields["Notaría"] = data.notaria || null;
-    if (data.llaves !== undefined) fields["Llaves"] = data.llaves || null;
+    const supa = getSupa();
 
-    const res = (await airtableFetch(`/v0/${BASE_ID}/${TABLES.inmuebles}/${data.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ fields, typecast: true }),
-    })) as { id: string };
-    return { ok: true, id: res.id };
+    // Build the Supabase update object
+    const up: Record<string, unknown> = {};
+
+    if (data.estatus !== undefined) up.estatus = data.estatus;
+    if (data.publicacion !== undefined) up.publicacion = data.publicacion;
+    if (data.precio !== undefined) up.precio = data.precio;
+    if (data.precioFinal !== undefined) up.precio_final = data.precioFinal;
+    if (data.observaciones !== undefined) up.observaciones = data.observaciones;
+    if (data.descripcion !== undefined) up.descripcion = data.descripcion;
+    if (data.habitaciones !== undefined) up.habitaciones = data.habitaciones ? Number(data.habitaciones) || null : null;
+    if (data.banos !== undefined) up.banos = data.banos ? Number(data.banos) || null : null;
+    if (data.superficie !== undefined) up.metros_construidos = data.superficie ? Number(data.superficie) || null : null;
+    if (data.planta !== undefined) up.piso = data.planta || null;
+    if (data.estado !== undefined) up.estado = data.estado || null;
+    if (data.anoConstruccion !== undefined) up.ano_construccion = data.anoConstruccion || null;
+    if (data.certificacionEnergetica !== undefined) up.certificacion_energetica = data.certificacionEnergetica || null;
+    if (data.calefaccion !== undefined) up.calefaccion = data.calefaccion || null;
+    if (data.orientacion !== undefined) up.orientacion = data.orientacion || null;
+    if (data.garaje !== undefined) up.garaje = data.garaje || null;
+    if (data.trastero !== undefined) up.trastero = data.trastero || null;
+    if (data.ascensor !== undefined) up.ascensor = data.ascensor || null;
+    if (data.armariosEmpotrados !== undefined) up.armarios_empotrados = data.armariosEmpotrados || null;
+    if (data.terraza !== undefined) up.terraza = data.terraza || null;
+    if (data.balcon !== undefined) up.balcon = data.balcon || null;
+    if (data.gastosComunidad !== undefined) up.gastos_comunidad = data.gastosComunidad || null;
+    if (data.referenciaCatastral !== undefined) up.referencia_catastral = data.referenciaCatastral || null;
+    if (data.fechaInicio !== undefined) up.fecha_inicio = data.fechaInicio || null;
+    if (data.fechaExclusiva !== undefined) up.fecha_exclusiva = data.fechaExclusiva || null;
+    if (data.fechaFinExclusiva !== undefined) up.fecha_fin_exclusiva = data.fechaFinExclusiva || null;
+    if (data.fechaReserva !== undefined) up.fecha_reserva = data.fechaReserva || null;
+    if (data.fechaEscritura !== undefined) up.fecha_escritura = data.fechaEscritura || null;
+    if (data.honorarios !== undefined) up.honorarios = data.honorarios || null;
+    if (data.tipoExclusiva !== undefined) up.tipo_exclusiva = data.tipoExclusiva || null;
+    if (data.notaria !== undefined) up.notaria = data.notaria || null;
+    if (data.llaves !== undefined) up.llaves = data.llaves || null;
+    if (data.documentos !== undefined) up.documentos = data.documentos;
+
+    // Agent update: store single agente_id (first agent in list)
+    if (data.agentesIds !== undefined) {
+      up.agente_id = data.agentesIds[0] ?? null;
+    }
+
+    // Image reorder: imagenesAttachmentIds are URLs in desired order
+    if (data.imagenesAttachmentIds !== undefined) {
+      // Fetch current imagenes to rebuild array preserving filenames
+      const { data: prop } = await supa
+        .from("properties")
+        .select("imagenes")
+        .eq("id", data.id)
+        .single();
+      const current: Array<{ url: string; filename: string; orden: number }> = prop?.imagenes ?? [];
+      const byUrl = new Map(current.map((i) => [i.url, i]));
+      up.imagenes = data.imagenesAttachmentIds
+        .map((url, idx) => {
+          const existing = byUrl.get(url);
+          return { url, filename: existing?.filename ?? "imagen", orden: idx };
+        })
+        .filter((i) => i.url);
+    }
+
+    if (Object.keys(up).length === 0) return { ok: true, id: data.id };
+
+    const { error } = await supa.from("properties").update(up).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true, id: data.id };
   });
