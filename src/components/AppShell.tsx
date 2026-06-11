@@ -104,7 +104,7 @@ export function AppShell({ title, subtitle, actions, children }: {
         </nav>
 
         <div className="p-3 text-[10px] uppercase tracking-wider text-sidebar-foreground/30 border-t border-sidebar-border">
-          v0.3 · Airtable
+          v0.4 · Supabase
         </div>
       </aside>
 

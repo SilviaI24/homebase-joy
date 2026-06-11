@@ -115,7 +115,7 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
   const mut = useMutation({
     mutationFn: (payload: CreateClientePayload) => fn({ data: payload }),
     onSuccess: () => {
-      toast.success("Cliente creado en Airtable");
+      toast.success("Cliente creado");
       qc.invalidateQueries({ queryKey: ["clientes"] });
       setOpen(false);
       setForm({ nombre: "", fecha: new Date().toISOString().slice(0, 10) });
@@ -130,7 +130,7 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Nuevo cliente</DialogTitle>
-          <DialogDescription>Se guardará en la base de Airtable.</DialogDescription>
+          <DialogDescription>Los datos se guardarán en la base de datos.</DialogDescription>
         </DialogHeader>
         <form
           onSubmit={(e) => {
@@ -625,7 +625,7 @@ export function NewInmuebleDialog({
   const mut = useMutation({
     mutationFn: (payload: CreateInmueblePayload) => fn({ data: payload }),
     onSuccess: () => {
-      toast.success("Inmueble creado en Airtable");
+      toast.success("Inmueble creado");
       qc.invalidateQueries({ queryKey: ["all-inmuebles"] });
       setOpen(false);
       reset();
@@ -681,7 +681,7 @@ export function NewInmuebleDialog({
           </DialogTitle>
           <DialogDescription>
             {tipo
-              ? "Rellena los campos y se guardará en la base de Airtable."
+              ? "Rellena los campos y se guardarán en la base de datos."
               : "Primero selecciona el tipo de inmueble que quieres dar de alta."}
           </DialogDescription>
         </DialogHeader>
@@ -859,7 +859,7 @@ export function NewVisitaDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Nueva visita</DialogTitle>
-          <DialogDescription>Se guardará en Airtable y aparecerá en el calendario.</DialogDescription>
+          <DialogDescription>Se guardará y aparecerá en el calendario.</DialogDescription>
         </DialogHeader>
         <form
           onSubmit={(e) => {
