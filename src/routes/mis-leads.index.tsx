@@ -922,7 +922,7 @@ function OrigenBadgeEditor({
       <PopoverTrigger asChild>
         <button
           type="button"
-          title={`${o.descripcion}${cliente.segmentoMotivo ? ` · ${cliente.segmentoMotivo}` : ""}${cliente.tipo ? ` · Origen Airtable: ${cliente.tipo}` : ""} · Click para reclasificar`}
+          title={`${o.descripcion}${cliente.segmentoMotivo ? ` · ${cliente.segmentoMotivo}` : ""}${cliente.tipo ? ` · Tipo interno: ${cliente.tipo}` : ""} · Click para reclasificar`}
           className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border cursor-pointer hover:opacity-80 ${o.cls}`}
         >
           <o.icon className="size-3" /> {o.label}
@@ -936,14 +936,14 @@ function OrigenBadgeEditor({
         <div className="space-y-0.5">
           {opciones.map((seg) => {
             const m = ORIGEN_META[seg];
-            const tipoAirtable = SEGMENTO_A_TIPO[seg];
+            const tipoSegmento = SEGMENTO_A_TIPO[seg];
             const isCurrent = cliente.segmento === seg;
             return (
               <button
                 key={seg}
                 disabled={mut.isPending || isCurrent}
                 onClick={() => {
-                  mut.mutate({ data: { clienteId: cliente.id, tipo: tipoAirtable } });
+                  mut.mutate({ data: { clienteId: cliente.id, tipo: tipoSegmento } });
                   setOpen(false);
                 }}
                 className={`w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed ${

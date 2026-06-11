@@ -27,7 +27,12 @@ import {
   Sparkles,
   ArrowRight,
   Trophy,
+  MessageCircle,
+  Phone,
+  Globe,
+  Bot,
 } from "lucide-react";
+import { inferCanal, type Canal } from "@/components/silvia/conversation";
 
 const inmueblesQuery = allInmueblesQuery;
 const clientesQuery = clientesQueryOpts;
@@ -78,6 +83,13 @@ const STATUS_COLORS: Record<string, string> = {
   Baja: "var(--muted-foreground)",
   Alquilado: "var(--chart-3)",
   Prospección: "var(--chart-4)",
+};
+
+const CANAL_DASH: Record<Canal, { Icon: typeof Phone; bg: string; color: string; bar: string }> = {
+  WhatsApp: { Icon: MessageCircle, bg: "bg-emerald-500/15", color: "text-emerald-600 dark:text-emerald-400", bar: "bg-emerald-500" },
+  Llamada:  { Icon: Phone,         bg: "bg-blue-500/15",    color: "text-blue-600 dark:text-blue-400",       bar: "bg-blue-500"    },
+  Idealista:{ Icon: Globe,         bg: "bg-lime-500/15",    color: "text-lime-700 dark:text-lime-400",        bar: "bg-lime-500"    },
+  Otro:     { Icon: Bot,           bg: "bg-slate-500/15",   color: "text-slate-600 dark:text-slate-400",     bar: "bg-slate-400"   },
 };
 
 const COMISION_VENTA = 0.03;
@@ -225,7 +237,19 @@ function Dashboard() {
     const propietarios = c.filter((x) => x.tipo === "Propietario").length;
     const compradores = c.filter((x) => x.tipo === "Comprador" || x.tipo === "Interesado Propiedades").length;
     const conConv = c.filter((x) => (x.conversaciones?.trim().length ?? 0) > 0 || (x.motivo?.trim().length ?? 0) > 0);
-    return { total: c.length, propietarios, compradores, leadsSilvia: conConv.length };
+
+    const canalCount: Record<Canal, number> = { WhatsApp: 0, Llamada: 0, Idealista: 0, Otro: 0 };
+    c.forEach((x) => { canalCount[inferCanal(x)]++; });
+    const canalTotal = c.length || 1;
+    const canales: { canal: Canal; count: number; pct: number }[] = (
+      ["WhatsApp", "Llamada", "Idealista", "Otro"] as Canal[]
+    ).map((canal) => ({
+      canal,
+      count: canalCount[canal],
+      pct: Math.round((canalCount[canal] / canalTotal) * 100),
+    }));
+
+    return { total: c.length, propietarios, compradores, leadsSilvia: conConv.length, canales };
   }, [cliData]);
 
   const visStats = useMemo(() => {
@@ -414,6 +438,32 @@ function Dashboard() {
             Ver ranking completo <ArrowRight className="size-3" />
           </Link>
         </div>
+      </div>
+
+      {/* ── ROW 2.5: Canal de captación ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        {cliStats.canales.map(({ canal, count, pct }) => {
+          const meta = CANAL_DASH[canal];
+          return (
+            <div key={canal} className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className={`inline-flex items-center justify-center size-8 rounded-xl ${meta.bg}`}>
+                  <meta.Icon className={`size-4 ${meta.color}`} />
+                </span>
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.18em]">
+                  {canal}
+                </span>
+              </div>
+              <div>
+                <div className="text-2xl font-display font-bold tabular-nums leading-none">{count}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">{pct}% del total</div>
+              </div>
+              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                <div className={`h-full rounded-full ${meta.bar}`} style={{ width: `${Math.max(pct, 2)}%` }} />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* ── ROW 3: Charts + SilvIA ── */}
