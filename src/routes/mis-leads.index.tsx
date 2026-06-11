@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { queryOptions, useSuspenseQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import {
@@ -28,7 +28,11 @@ import {
   HelpCircle,
   Ban,
   Pencil,
-}  from "lucide-react";
+  LayoutList,
+  Columns3,
+  GripVertical,
+  Zap,
+} from "lucide-react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -178,10 +182,9 @@ function MisLeadsPage() {
   const navigate = useNavigate({ from: "/mis-leads" });
   const { agente: agenteParam } = Route.useSearch();
   const [q, setQ] = useState("");
-  const [estadoFilter, setEstadoFilter] = useState<EstadoSeguimiento | "Todos">(
-    "Todos",
-  );
+  const [estadoFilter, setEstadoFilter] = useState<EstadoSeguimiento | "Todos">("Todos");
   const [origenFilter, setOrigenFilter] = useState<string>("Todos");
+  const [view, setView] = useState<"lista" | "kanban">("kanban");
 
   const agentes = ag.agentes;
   const [savedAgenteId] = useState<string>(() =>
@@ -241,7 +244,7 @@ function MisLeadsPage() {
 
   return (
     <AppShell title="Mis leads" subtitle="Bandeja personal del comercial">
-      {/* Selector de comercial */}
+      {/* Selector de comercial + toggle vista */}
       <div className="mb-5 rounded-xl border border-border bg-card p-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 text-sm font-medium">
           <UserCog className="size-4 text-muted-foreground" />
@@ -272,44 +275,49 @@ function MisLeadsPage() {
             <Mail className="size-3" /> {agenteSel.mail}
           </a>
         )}
-        <Link
-          to="/comerciales"
-          className="ml-auto text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-        >
-          <Users className="size-3" /> Ver equipo
-        </Link>
+        <div className="ml-auto flex items-center gap-2">
+          <Link
+            to="/comerciales"
+            className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+          >
+            <Users className="size-3" /> Ver equipo
+          </Link>
+          <div className="inline-flex rounded-md border border-border overflow-hidden">
+            <button
+              onClick={() => setView("lista")}
+              title="Vista lista"
+              className={`px-2.5 py-1.5 transition-colors ${view === "lista" ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground"}`}
+            >
+              <LayoutList className="size-3.5" />
+            </button>
+            <button
+              onClick={() => setView("kanban")}
+              title="Vista kanban"
+              className={`px-2.5 py-1.5 border-l border-border transition-colors ${view === "kanban" ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground"}`}
+            >
+              <Columns3 className="size-3.5" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* KPIs estado */}
+      {/* Barra de filtros compartida */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {(["Pendiente", "Contactado", "Descartado", "Todos"] as const).map(
-          (e) => {
-            const active = estadoFilter === e;
-            const meta = e !== "Todos" ? ESTADO_META[e] : null;
-            return (
-              <button
-                key={e}
-                onClick={() => setEstadoFilter(e)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
-                  active
-                    ? meta
-                      ? meta.cls
-                      : "bg-foreground text-background border-foreground"
-                    : "bg-card border-border text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {meta && <meta.icon className="size-3" />}
-                {e}
-                <span className="opacity-70">· {counts[e]}</span>
-              </button>
-            );
-          },
-        )}
-        <div className="relative flex-1 min-w-[220px]">
+        {view === "lista" && (["Pendiente", "Contactado", "Descartado", "Todos"] as const).map((e) => {
+          const active = estadoFilter === e;
+          const meta = e !== "Todos" ? ESTADO_META[e] : null;
+          return (
+            <button key={e} onClick={() => setEstadoFilter(e)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors cursor-pointer ${active ? meta ? meta.cls : "bg-foreground text-background border-foreground" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}
+            >
+              {meta && <meta.icon className="size-3" />}
+              {e}<span className="opacity-70">· {counts[e]}</span>
+            </button>
+          );
+        })}
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+          <input value={q} onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar por nombre, teléfono o motivo…"
             className="w-full pl-8 pr-3 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
@@ -318,24 +326,14 @@ function MisLeadsPage() {
 
       {/* Filtros por origen */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium mr-1">
-          Origen
-        </span>
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium mr-1">Origen</span>
         {(["Todos", ...Object.keys(ORIGEN_META)] as const).map((k) => {
           const active = origenFilter === k;
           const meta = k !== "Todos" ? ORIGEN_META[k as string] : null;
           const count = origenCounts[k as string] ?? 0;
           return (
-            <button
-              key={k}
-              onClick={() => setOrigenFilter(k as string)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${
-                active
-                  ? meta
-                    ? meta.cls
-                    : "bg-foreground text-background border-foreground"
-                  : "bg-card border-border text-muted-foreground hover:text-foreground"
-              }`}
+            <button key={k} onClick={() => setOrigenFilter(k as string)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${active ? meta ? meta.cls : "bg-foreground text-background border-foreground" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}
             >
               {meta && <meta.icon className="size-3" />}
               {meta ? meta.label : k}
@@ -345,14 +343,13 @@ function MisLeadsPage() {
         })}
       </div>
 
-
-      {/* Lista de leads */}
-      {filtered.length === 0 ? (
+      {/* Contenido según vista */}
+      {view === "kanban" ? (
+        <KanbanView leads={misLeads} q={q} origenFilter={origenFilter} />
+      ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
           <Inbox className="mx-auto mb-2 size-6 opacity-50" />
-          {misLeads.length === 0
-            ? "Este comercial todavía no tiene leads asignados."
-            : "Sin leads en este estado."}
+          {misLeads.length === 0 ? "Este comercial todavía no tiene leads asignados." : "Sin leads en este estado."}
         </div>
       ) : (
         <div className="space-y-3">
@@ -362,6 +359,286 @@ function MisLeadsPage() {
         </div>
       )}
     </AppShell>
+  );
+}
+
+// ── Kanban ────────────────────────────────────────────────────────────────────
+
+const PIPELINE_STAGES: Array<{
+  id: EstadoSeguimiento;
+  label: string;
+  dot: string;
+  headerCls: string;
+}> = [
+  { id: "Pendiente",  label: "Nuevos",        dot: "bg-amber-400",  headerCls: "border-amber-400/40" },
+  { id: "Contactado", label: "En seguimiento", dot: "bg-blue-500",   headerCls: "border-blue-500/40" },
+  { id: "Descartado", label: "Archivados",     dot: "bg-slate-400",  headerCls: "border-slate-400/40" },
+];
+
+function filterLeadsFn(
+  leads: Array<{ cliente: Cliente; estado: EstadoSeguimiento }>,
+  q: string,
+  origenFilter: string,
+) {
+  const ql = q.trim().toLowerCase();
+  return leads.filter(({ cliente: c, estado }) => {
+    if (origenFilter !== "Todos") {
+      const seg = ORIGEN_META[c.segmento] ? c.segmento : "Lead";
+      if (seg !== origenFilter) return false;
+    }
+    if (!ql) return true;
+    return (
+      c.nombre.toLowerCase().includes(ql) ||
+      c.telefono.toLowerCase().includes(ql) ||
+      c.email.toLowerCase().includes(ql) ||
+      c.motivo.toLowerCase().includes(ql)
+    );
+  });
+}
+
+function diasDesde(iso: string | null): number | null {
+  if (!iso) return null;
+  const diff = Date.now() - new Date(iso).getTime();
+  return Math.floor(diff / 86400000);
+}
+
+function KanbanView({
+  leads,
+  q,
+  origenFilter,
+}: {
+  leads: Array<{ cliente: Cliente; estado: EstadoSeguimiento }>;
+  q: string;
+  origenFilter: string;
+}) {
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [overStage, setOverStage] = useState<EstadoSeguimiento | null>(null);
+  const qc = useQueryClient();
+  const fn = useServerFn(updateClienteSeguimiento);
+
+  const filtered = useMemo(
+    () => filterLeadsFn(leads, q, origenFilter),
+    [leads, q, origenFilter],
+  );
+
+  const pendientes = filtered.filter((l) => l.estado === "Pendiente").length;
+
+  function handleDrop(targetStage: EstadoSeguimiento) {
+    if (!draggingId || !targetStage) return;
+    const lead = filtered.find((l) => l.cliente.id === draggingId);
+    if (!lead || lead.estado === targetStage) return;
+    fn({ data: { clienteId: draggingId, estado: targetStage } })
+      .then(() => {
+        toast.success("Lead movido");
+        qc.invalidateQueries({ queryKey: ["clientes"] });
+      })
+      .catch((e: Error) => toast.error(e.message));
+    setDraggingId(null);
+    setOverStage(null);
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Foco del día */}
+      {pendientes > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-400/30 bg-amber-50/60 dark:bg-amber-950/20 px-4 py-2.5">
+          <Zap className="size-4 text-amber-500 shrink-0" />
+          <p className="text-sm text-amber-800 dark:text-amber-300">
+            <span className="font-semibold">Tu foco hoy</span>
+            {" · "}{pendientes} lead{pendientes !== 1 ? "s" : ""} sin contactar
+          </p>
+        </div>
+      )}
+
+      {/* Columnas */}
+      <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1">
+        {PIPELINE_STAGES.map((stage) => {
+          const stageLeads = filtered.filter((l) => l.estado === stage.id);
+          const isOver = overStage === stage.id;
+          return (
+            <div
+              key={stage.id}
+              onDragOver={(e) => { e.preventDefault(); setOverStage(stage.id); }}
+              onDragLeave={() => setOverStage(null)}
+              onDrop={() => handleDrop(stage.id)}
+              className={`flex flex-col min-w-[280px] w-[280px] shrink-0 rounded-xl border transition-colors ${isOver ? "border-primary/50 bg-primary/[0.03]" : `border-border ${stage.headerCls}`}`}
+            >
+              {/* Column header */}
+              <div className={`flex items-center gap-2 px-3 py-2.5 border-b border-border rounded-t-xl bg-muted/30`}>
+                <span className={`size-2 rounded-full ${stage.dot}`} />
+                <span className="text-sm font-medium">{stage.label}</span>
+                <span className="ml-auto text-xs text-muted-foreground bg-background border border-border rounded-full px-2 py-0.5 font-mono">
+                  {stageLeads.length}
+                </span>
+              </div>
+
+              {/* Cards */}
+              <div className="flex-1 overflow-y-auto max-h-[calc(100vh-320px)] p-2 space-y-2 min-h-[120px]">
+                {stageLeads.length === 0 ? (
+                  <div className={`flex items-center justify-center h-16 rounded-lg border-2 border-dashed text-xs text-muted-foreground transition-colors ${isOver ? "border-primary/40 bg-primary/[0.03]" : "border-border"}`}>
+                    {isOver ? "Soltar aquí" : "Sin leads"}
+                  </div>
+                ) : (
+                  stageLeads.map(({ cliente, estado }) => (
+                    <KanbanCard
+                      key={cliente.id}
+                      cliente={cliente}
+                      estado={estado}
+                      isDragging={draggingId === cliente.id}
+                      onDragStart={() => setDraggingId(cliente.id)}
+                      onDragEnd={() => { setDraggingId(null); setOverStage(null); }}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function KanbanCard({
+  cliente,
+  estado,
+  isDragging,
+  onDragStart,
+  onDragEnd,
+}: {
+  cliente: Cliente;
+  estado: EstadoSeguimiento;
+  isDragging: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+}) {
+  const qc = useQueryClient();
+  const fn = useServerFn(updateClienteSeguimiento);
+  const [notaOpen, setNotaOpen] = useState(false);
+  const [nota, setNota] = useState("");
+  const notaRef = useRef<HTMLTextAreaElement>(null);
+
+  const mut = useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      toast.success("Actualizado");
+      qc.invalidateQueries({ queryKey: ["clientes"] });
+      setNotaOpen(false);
+      setNota("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const dias = diasDesde(cliente.fecha);
+  const ultimaNota = extraerUltimaNota(cliente.observaciones);
+  const meta = ESTADO_META[estado];
+
+  function guardarNota() {
+    const t = nota.trim();
+    if (!t) return;
+    mut.mutate({ data: { clienteId: cliente.id, nota: t, observacionesActuales: cliente.observaciones } });
+  }
+
+  return (
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      className={`rounded-lg border bg-card select-none transition-all ${isDragging ? "opacity-40 scale-[0.98]" : "hover:border-foreground/20 hover:shadow-sm cursor-grab active:cursor-grabbing"}`}
+    >
+      {/* Drag handle + header */}
+      <div className="flex items-start gap-2 p-3">
+        <GripVertical className="size-3.5 text-muted-foreground/40 mt-0.5 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-sm font-medium truncate">{cliente.nombre || "Sin nombre"}</span>
+            {dias != null && (
+              <span className={`text-[10px] font-mono px-1 py-0.5 rounded ${dias > 14 ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400" : dias > 7 ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400" : "bg-muted text-muted-foreground"}`}>
+                {dias}d
+              </span>
+            )}
+          </div>
+          {cliente.motivo && (
+            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
+              {cliente.motivo}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Tags */}
+      {cliente.categoria.length > 0 && (
+        <div className="px-3 pb-2 flex flex-wrap gap-1">
+          {cliente.categoria.slice(0, 2).map((cat) => (
+            <span key={cat} className="inline-flex items-center gap-0.5 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
+              <Tag className="size-2.5" />{cat}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Última nota */}
+      {ultimaNota && (
+        <div className="mx-3 mb-2 rounded-md bg-muted/50 px-2 py-1.5 text-[10px] text-muted-foreground leading-relaxed">
+          <span className="font-medium text-foreground/70">{ultimaNota.fecha}:</span>{" "}
+          <span className="line-clamp-1">{ultimaNota.texto}</span>
+        </div>
+      )}
+
+      {/* Nota inline */}
+      {notaOpen && (
+        <div className="px-3 pb-2">
+          <textarea
+            ref={notaRef}
+            autoFocus
+            value={nota}
+            onChange={(e) => setNota(e.target.value)}
+            placeholder="Nota de seguimiento…"
+            rows={2}
+            className="w-full text-xs rounded-md border border-input bg-background p-2 focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+          />
+          <div className="flex justify-end gap-1 mt-1">
+            <button onClick={() => { setNotaOpen(false); setNota(""); }}
+              className="text-[10px] px-2 py-0.5 rounded hover:bg-muted text-muted-foreground">
+              Cancelar
+            </button>
+            <button disabled={!nota.trim() || mut.isPending} onClick={guardarNota}
+              className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded bg-primary text-primary-foreground disabled:opacity-60">
+              {mut.isPending && <Loader2 className="size-2.5 animate-spin" />} Guardar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Footer acciones */}
+      <div className="flex items-center gap-1 px-3 py-2 border-t border-border bg-muted/20 rounded-b-lg">
+        {cliente.telefono && (
+          <a href={`tel:${cliente.telefono.replace(/\s+/g, "")}`}
+            className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground">
+            <Phone className="size-3" />{cliente.telefono}
+          </a>
+        )}
+        <div className="ml-auto flex items-center gap-1">
+          <button onClick={() => { setNotaOpen((o) => !o); }}
+            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+            <StickyNote className="size-3" />
+          </button>
+          <NewVisitaDialog
+            defaultClienteId={cliente.id}
+            trigger={
+              <button type="button"
+                className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 transition-opacity">
+                <CalendarPlus className="size-3" />
+              </button>
+            }
+          />
+          <Link to="/clientes" search={{ id: cliente.id }}
+            className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground px-1 py-1 rounded hover:bg-muted transition-colors">
+            <ArrowRight className="size-3" />
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
 
