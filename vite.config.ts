@@ -12,4 +12,30 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    // Pre-bundle late-discovered deps to avoid "optimized dependencies changed → reloading"
+    // mid-session, which causes a blank screen flash during HMR.
+    optimizeDeps: {
+      include: [
+        "@tanstack/react-router",
+        "@tanstack/react-query",
+        "@tanstack/router-core",
+        "@tanstack/router-core/ssr/client",
+        "seroval",
+        "recharts",
+        "lucide-react",
+        "sonner",
+      ],
+    },
+    server: {
+      warmup: {
+        clientFiles: [
+          "./src/routes/__root.tsx",
+          "./src/routes/index.tsx",
+          "./src/components/AppShell.tsx",
+        ],
+      },
+      hmr: { overlay: true },
+    },
+  },
 });
