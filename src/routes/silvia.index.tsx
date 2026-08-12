@@ -1,15 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { queryOptions, useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { askSilvia } from "@/lib/silvia.functions";
 import { AppShell } from "@/components/AppShell";
 import { SafeImage } from "@/components/SafeImage";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
-import { listClientes } from "@/lib/clientes.functions";
-import { allInmueblesQuery } from "@/lib/queries";
-import { updateClienteSeguimiento } from "@/lib/mutations.functions";
+import { allInmueblesQuery, leadsQueryOpts } from "@/lib/queries";
+import {
+  updateClienteSeguimiento,
+  asociarLeadAInmueble,
+  sendWhatsAppReply,
+} from "@/lib/mutations.functions";
 import type { Inmueble } from "@/lib/inmuebles.functions";
+import { isAlquiler } from "@/lib/inmuebles.functions";
+import { cleanRef } from "@/lib/format";
 import {
   Sparkles,
   Phone,
@@ -31,20 +37,15 @@ import {
   Bot,
   User2,
   Loader2,
+  Home,
+  KeyRound,
+  Link2,
+  ShoppingCart,
 } from "lucide-react";
-import {
-  CanalChip,
-  Transcripcion,
-  inferCanal,
-  type Canal,
-} from "@/components/silvia/conversation";
+import { CanalChip, Transcripcion, inferCanal, type Canal } from "@/components/silvia/conversation";
 import { AsignarLeadButton } from "@/components/AsignarLeadButton";
 
-
-const clientesQuery = queryOptions({
-  queryKey: ["clientes"],
-  queryFn: () => listClientes(),
-});
+const clientesQuery = leadsQueryOpts;
 
 // Normaliza texto: minúsculas, sin acentos/diacríticos, sin signos.
 function normalize(s: string): string {
@@ -63,11 +64,43 @@ function escapeReg(s: string) {
 
 // Stopwords que no deben usarse como pista de calle por sí solas.
 const STOP_TOKENS = new Set([
-  "de", "del", "la", "las", "el", "los", "san", "santa", "santo", "y", "o",
-  "calle", "av", "avda", "avenida", "plaza", "pza", "paseo", "po", "camino",
-  "carretera", "ctra", "ronda", "travesia", "via", "vía", "urbanizacion",
-  "urb", "barrio", "edificio", "edif", "bloque", "esquina", "callejon",
-  "callejón", "glorieta", "parque",
+  "de",
+  "del",
+  "la",
+  "las",
+  "el",
+  "los",
+  "san",
+  "santa",
+  "santo",
+  "y",
+  "o",
+  "calle",
+  "av",
+  "avda",
+  "avenida",
+  "plaza",
+  "pza",
+  "paseo",
+  "po",
+  "camino",
+  "carretera",
+  "ctra",
+  "ronda",
+  "travesia",
+  "via",
+  "vía",
+  "urbanizacion",
+  "urb",
+  "barrio",
+  "edificio",
+  "edif",
+  "bloque",
+  "esquina",
+  "callejon",
+  "callejón",
+  "glorieta",
+  "parque",
 ]);
 
 // Prefijos de vía a eliminar al inicio de un nombre de calle.
@@ -100,9 +133,7 @@ function expandAlias(token: string): string[] {
 function streetTokens(calle: string): string[] {
   const cleaned = normalize(calle).replace(PREFIX_RE, "").trim();
   if (!cleaned) return [];
-  return cleaned
-    .split(" ")
-    .filter((t) => t.length >= 3 && !STOP_TOKENS.has(t));
+  return cleaned.split(" ").filter((t) => t.length >= 3 && !STOP_TOKENS.has(t));
 }
 
 // Construye un patrón regex con límites de palabra y aliasing.
@@ -114,8 +145,16 @@ function tokenPattern(token: string): string {
 // Términos geográficos demasiado genéricos para considerarse mención de un
 // inmueble concreto (aparecen en casi cualquier conversación).
 const GENERIC_LOCATIONS = new Set([
-  "centro", "gijon", "oviedo", "asturias", "españa", "espana",
-  "norte", "sur", "este", "oeste",
+  "centro",
+  "gijon",
+  "oviedo",
+  "asturias",
+  "españa",
+  "espana",
+  "norte",
+  "sur",
+  "este",
+  "oeste",
 ]);
 
 function comercialStatus(inm: Inmueble): string {
@@ -128,45 +167,159 @@ function comercialStatus(inm: Inmueble): string {
 //   2. Frase completa del nombre de calle (sin prefijo) con tokens consecutivos.
 // Se descartan los matches por barrio / localidad o por una sola palabra
 // suelta porque generaban falsos positivos masivos (p.ej. "centro", "gijón").
-function findMentionedInmuebles(text: string, inmuebles: Inmueble[]): Inmueble[] {
-  const haystack = ` ${normalize(text)} `;
-  if (haystack.trim().length === 0) return [];
-  const found = new Map<string, Inmueble>();
-  const wb = "(?:^|[^a-z0-9ñ])";
-  const we = "(?:[^a-z0-9ñ]|$)";
+type InmuebleWithPatterns = Inmueble & { _refRe: RegExp | null; _streetRe: RegExp | null };
 
+function findMentionedInmuebles(text: string, inmuebles: InmuebleWithPatterns[]): Inmueble[] {
+  const haystack = ` ${normalize(text)} `;
+  if (!haystack.trim()) return [];
+  const found = new Map<string, Inmueble>();
   for (const inm of inmuebles) {
     if (found.has(inm.id)) continue;
-
-    // 1) Referencia exacta (#1234) — alta confianza. Mínimo 4 chars para
-    // evitar que refs cortas (p.ej. "12") coincidan con números sueltos.
-    if (inm.ref && inm.ref.length >= 4) {
-      const ref = normalize(inm.ref);
-      const re = new RegExp(`${wb}#?${escapeReg(ref)}${we}`);
-      if (re.test(haystack)) {
-        found.set(inm.id, inm);
-        continue;
-      }
+    if (inm._refRe?.test(haystack)) {
+      found.set(inm.id, inm);
+      continue;
     }
-
-    // 2) Frase completa de la calle (todos los tokens significativos
-    // consecutivos). Requiere al menos un token distintivo (no genérico
-    // ni stopword) para evitar coincidencias triviales.
-    const tokens = streetTokens(inm.calle).filter(
-      (t) => !GENERIC_LOCATIONS.has(t),
-    );
-    if (tokens.length === 0) continue;
-
-    const fullPattern = tokens.map(tokenPattern).join("\\s+");
-    const reFull = new RegExp(`${wb}${fullPattern}${we}`);
-    if (reFull.test(haystack)) {
+    if (inm._streetRe?.test(haystack)) {
       found.set(inm.id, inm);
     }
   }
   return Array.from(found.values()).slice(0, 6);
 }
 
+// ─── MencionadoCard ────────────────────────────────────────────────────────────
+// Tarjeta de inmueble detectado en conversación, con botón para confirmar vínculo.
 
+const TIPO_VINCULAR_VENTA = [
+  { value: "Comprador", icon: ShoppingCart, label: "Comprador" },
+  { value: "Propietario", icon: Home, label: "Propietario" },
+] as const;
+
+const TIPO_VINCULAR_ALQUILER = [
+  { value: "Inquilino", icon: KeyRound, label: "Inquilino" },
+  { value: "Propietario", icon: Home, label: "Propietario" },
+] as const;
+
+function MencionadoCard({
+  inm,
+  contactId,
+  clienteNombre,
+  onVinculado,
+}: {
+  inm: Inmueble;
+  contactId: string;
+  clienteNombre: string;
+  onVinculado: () => void;
+}) {
+  const qc = useQueryClient();
+  const fn = useServerFn(asociarLeadAInmueble);
+  const esAlq = isAlquiler(inm.tipo);
+  const tiposVincular = esAlq ? TIPO_VINCULAR_ALQUILER : TIPO_VINCULAR_VENTA;
+  const [tipo, setTipo] = useState<string>(esAlq ? "Inquilino" : "Comprador");
+  const [pending, setPending] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function confirmar() {
+    setPending(true);
+    try {
+      await fn({ data: { contactId, propertyId: inm.id, tipo } });
+      setDone(true);
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["clientes"] });
+      onVinculado();
+      toast.success(`${clienteNombre || "Contacto"} vinculado como ${tipo}`);
+    } catch (e: unknown) {
+      toast.error((e instanceof Error ? e.message : String(e)) || "Error al vincular");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div
+      className={`rounded-md border overflow-hidden flex flex-col ${done ? "border-emerald-500/40 bg-emerald-500/[0.04]" : "border-primary/30 bg-primary/[0.03]"}`}
+    >
+      <Link
+        to="/inmuebles/$id"
+        params={{ id: inm.id }}
+        className="flex items-stretch gap-2 hover:bg-primary/[0.06] transition-colors"
+      >
+        <div className="w-16 shrink-0 bg-muted">
+          <SafeImage src={inm.imagen} alt={inm.calle || inm.ref} />
+        </div>
+        <div className="flex-1 min-w-0 py-2 pr-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-mono text-muted-foreground">
+              #{cleanRef(inm.ref)}
+            </span>
+            <span className="text-[10px] text-muted-foreground">{inm.estatus}</span>
+          </div>
+          <div className="text-xs font-semibold truncate">
+            {inm.calle} {inm.numero}
+          </div>
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            <span className="inline-flex items-center gap-0.5">
+              <MapPin className="size-2.5" />
+              {inm.barrio || inm.localidad || "—"}
+            </span>
+            <span className="inline-flex items-center gap-0.5 font-semibold text-primary">
+              <Euro className="size-2.5" />
+              {moneyShort(inm.precioFinal ?? inm.precio)}
+            </span>
+          </div>
+        </div>
+      </Link>
+      {/* Confirmar vínculo */}
+      {done ? (
+        <div className="px-2 py-1.5 border-t border-emerald-500/20 flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+          <Link2 className="size-3" /> Vinculado como {tipo}
+        </div>
+      ) : (
+        <div className="px-2 py-1.5 border-t border-primary/20 flex items-center gap-1 flex-wrap">
+          <div className="flex gap-0.5 flex-1 min-w-0">
+            {tiposVincular.map(({ value, icon: Icon, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setTipo(value)}
+                className={`inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded border transition-colors ${tipo === value ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent"}`}
+              >
+                <Icon className="size-2.5" />
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1 shrink-0">
+            <NewVisitaDialog
+              defaultInmuebleId={inm.id}
+              defaultClienteId={contactId}
+              trigger={
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground hover:bg-accent transition-colors"
+                >
+                  <CalendarPlus className="size-2.5" />
+                </button>
+              }
+            />
+            <button
+              type="button"
+              disabled={pending}
+              onClick={confirmar}
+              className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-0.5 rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-60 transition-opacity"
+            >
+              {pending ? (
+                <Loader2 className="size-2.5 animate-spin" />
+              ) : (
+                <Link2 className="size-2.5" />
+              )}
+              Confirmar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/silvia/")({
   head: () => ({
@@ -232,32 +385,80 @@ function SilviaPage() {
   const [chatError, setChatError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const askFn = useServerFn(askSilvia);
-  // Optimistic local state — se sincroniza con Airtable vía mutations.
-  // El tipo del cliente en Airtable cambia: cualificar → "Prospecciones", archivar → "Anular prospección".
-  const [archivados, setArchivados] = useState<Set<string>>(new Set());
-  const [cualificados, setCualificados] = useState<Set<string>>(new Set());
+  // Estado persistido desde BD: trabajado="Contactado" → cualificado, "Descartado" → archivado
+  const [archivados, setArchivados] = useState<Set<string>>(
+    () =>
+      new Set(
+        data.clientes
+          .filter(
+            (c) =>
+              c.trabajado?.toLowerCase() === "descartado" &&
+              ((c.motivo?.trim().length ?? 0) > 0 || (c.conversaciones?.trim().length ?? 0) > 0),
+          )
+          .map((c) => c.id),
+      ),
+  );
+  const [cualificados, setCualificados] = useState<Set<string>>(
+    () =>
+      new Set(
+        data.clientes
+          .filter(
+            (c) =>
+              c.trabajado?.toLowerCase() === "contactado" &&
+              ((c.motivo?.trim().length ?? 0) > 0 || (c.conversaciones?.trim().length ?? 0) > 0),
+          )
+          .map((c) => c.id),
+      ),
+  );
+  const [routing, setRouting] = useState<string | null>(null);
+  const seguimientoFn = useServerFn(updateClienteSeguimiento);
 
-  const cualificarMutation = useMutation({
-    mutationFn: (clienteId: string) =>
-      updateClienteSeguimiento({ data: { clienteId, tipo: "Prospecciones", estado: "Contactado" } }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clientes"] });
-    },
-  });
+  // WhatsApp reply state
+  const [replyOpen, setReplyOpen] = useState<Set<string>>(new Set());
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
+  const [replySending, setReplySending] = useState<string | null>(null);
+  const sendWaFn = useServerFn(sendWhatsAppReply);
 
-  const archivarMutation = useMutation({
-    mutationFn: (clienteId: string) =>
-      updateClienteSeguimiento({ data: { clienteId, tipo: "Anular prospección" } }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["clientes"] });
-    },
-  });
+  async function sendReply(clienteId: string, phone: string) {
+    const msg = replyTexts[clienteId]?.trim();
+    if (!msg || replySending) return;
+    setReplySending(clienteId);
+    try {
+      await sendWaFn({ data: { phone, message: msg } });
+      toast.success("Mensaje enviado por WhatsApp");
+      setReplyTexts((p) => ({ ...p, [clienteId]: "" }));
+      setReplyOpen((p) => {
+        const n = new Set(p);
+        n.delete(clienteId);
+        return n;
+      });
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Error al enviar");
+    } finally {
+      setReplySending(null);
+    }
+  }
+
+  function toggleReply(id: string) {
+    setReplyOpen((p) => {
+      const n = new Set(p);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
 
   // Solo proponemos inmuebles "comerciables" (excluimos vendidos, dados de
   // baja o ya alquilados). Si existen duplicados de referencia, nos quedamos
   // con el activo.
-  const todosInmuebles = useMemo(() => {
-    const ESTADOS_EXCLUIDOS = new Set(["vendido", "baja", "alquilado"]);
+  const todosInmuebles = useMemo((): InmuebleWithPatterns[] => {
+    const ESTADOS_EXCLUIDOS = new Set([
+      "vendido",
+      "baja",
+      "alquilado",
+      "prospeccion",
+      "prospección",
+    ]);
     const activos = [...inmData.inmuebles, ...inmData.alquileres].filter(
       (i) => !ESTADOS_EXCLUIDOS.has(comercialStatus(i)),
     );
@@ -281,14 +482,33 @@ function SilviaPage() {
         porRef.set(key, i);
       }
     }
-    return Array.from(porRef.values());
+    const wb = "(?:^|[^a-z0-9ñ])";
+    const we = "(?:[^a-z0-9ñ]|$)";
+    return Array.from(porRef.values()).map((inm) => {
+      // Pre-compile ref regex
+      const _refRe =
+        inm.ref && inm.ref.length >= 4
+          ? new RegExp(`${wb}#?${escapeReg(normalize(inm.ref))}${we}`)
+          : null;
+      // Pre-compile street regex
+      const _tokens = streetTokens(inm.calle).filter((t) => !GENERIC_LOCATIONS.has(t));
+      const _streetRe =
+        _tokens.length >= 2
+          ? new RegExp(`${wb}${_tokens.map(tokenPattern).join("\\s+")}${we}`)
+          : null;
+      return { ...inm, _refRe, _streetRe };
+    });
   }, [inmData]);
 
   // Solo clientes con conversación significativa de Silvia, con detección de
   // inmuebles mencionados en el texto libre.
   const leads = useMemo(() => {
     return data.clientes
-      .filter((c) => (c.motivo?.trim().length ?? 0) > 0 || (c.conversaciones?.trim().length ?? 0) > 0)
+      .filter(
+        (c) =>
+          c.etapa === "Lead" &&
+          ((c.motivo?.trim().length ?? 0) > 0 || (c.conversaciones?.trim().length ?? 0) > 0),
+      )
       .map((c) => {
         const blob = `${c.motivo ?? ""}\n${c.solicitud ?? ""}\n${c.conversaciones ?? ""}`;
         const mencionados = findMentionedInmuebles(blob, todosInmuebles);
@@ -335,32 +555,17 @@ function SilviaPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  function buildContext(): string {
-    const totalInm = inmData.inmuebles.length;
-    const totalAlq = inmData.alquileres.length;
-    const activosVenta = inmData.inmuebles.filter((i) => normalize(i.estatus) === "activo").length;
-    const totalLeads = leads.length;
-    const pendientes = leads.filter(({ cliente: c }) => !archivados.has(c.id) && !cualificados.has(c.id)).length;
-    const leadSummary = leads.slice(0, 20).map(({ cliente: c, canal }) =>
-      `- ${c.nombre} (${canal}): ${(c.motivo || c.solicitud || "sin detalle").slice(0, 80)}`
-    ).join("\n");
-    return [
-      `Cartera: ${totalInm} inmuebles en venta (${activosVenta} activos), ${totalAlq} alquileres.`,
-      `Leads: ${totalLeads} total, ${pendientes} pendientes de cualificar.`,
-      `Muestra de leads recientes:\n${leadSummary}`,
-    ].join("\n");
-  }
-
   async function sendChat() {
     const msg = chatInput.trim();
     if (!msg || chatLoading) return;
     const userMsg: ChatMessage = { role: "user", content: msg };
-    setChatMessages((prev) => [...prev, userMsg]);
+    const history = [...chatMessages, userMsg];
+    setChatMessages(history);
     setChatInput("");
     setChatLoading(true);
     setChatError(null);
     try {
-      const { reply } = await askFn({ data: { message: msg, context: buildContext() } });
+      const { reply } = await askFn({ data: { messages: history } });
       setChatMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch (e: unknown) {
       const err = e instanceof Error ? e.message : String(e);
@@ -373,21 +578,53 @@ function SilviaPage() {
   function toggleExpand(id: string) {
     setExpanded((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
-  function archivar(id: string) {
-    // Optimistic update inmediato, persiste en Airtable en background
+  async function archivar(id: string) {
     setArchivados((p) => new Set(p).add(id));
-    setCualificados((p) => { const n = new Set(p); n.delete(id); return n; });
-    archivarMutation.mutate(id);
+    setCualificados((p) => {
+      const n = new Set(p);
+      n.delete(id);
+      return n;
+    });
+    try {
+      await seguimientoFn({ data: { clienteId: id, tipo: "Anular prospección" } });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+    } catch {
+      setArchivados((p) => {
+        const n = new Set(p);
+        n.delete(id);
+        return n;
+      });
+    }
   }
-  function cualificar(id: string) {
-    // Promueve el lead a Prospecto en Airtable + optimistic update local
+
+  async function route(id: string, tipo: "captacion" | "compra" | "alquiler") {
+    setRouting(null);
     setCualificados((p) => new Set(p).add(id));
-    setArchivados((p) => { const n = new Set(p); n.delete(id); return n; });
-    cualificarMutation.mutate(id);
+    setArchivados((p) => {
+      const n = new Set(p);
+      n.delete(id);
+      return n;
+    });
+    const tipoMapped =
+      tipo === "captacion" ? "Prospecciones" : tipo === "compra" ? "Comprador" : "Inquilino";
+    try {
+      await seguimientoFn({ data: { clienteId: id, tipo: tipoMapped, estado: "Contactado" } });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["clientes"] });
+      if (tipo === "captacion") queryClient.invalidateQueries({ queryKey: ["prospectos"] });
+    } catch (e: unknown) {
+      setCualificados((p) => {
+        const n = new Set(p);
+        n.delete(id);
+        return n;
+      });
+      toast.error(e instanceof Error ? e.message : "Error al cualificar el lead");
+    }
   }
 
   return (
@@ -433,11 +670,22 @@ function SilviaPage() {
         {chatMessages.length > 0 && (
           <div className="px-4 py-3 max-h-80 overflow-y-auto space-y-3 border-b border-border">
             {chatMessages.map((msg, i) => (
-              <div key={i} className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                <div className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold mt-0.5 ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-gradient-to-br from-primary/20 to-accent/30 text-primary"}`}>
-                  {msg.role === "user" ? <User2 className="size-3.5" /> : <Sparkles className="size-3.5" />}
+              <div
+                key={i}
+                className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
+              >
+                <div
+                  className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold mt-0.5 ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-gradient-to-br from-primary/20 to-accent/30 text-primary"}`}
+                >
+                  {msg.role === "user" ? (
+                    <User2 className="size-3.5" />
+                  ) : (
+                    <Sparkles className="size-3.5" />
+                  )}
                 </div>
-                <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                <div
+                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+                >
                   {msg.content}
                 </div>
               </div>
@@ -468,7 +716,12 @@ function SilviaPage() {
           <input
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendChat();
+              }
+            }}
             placeholder="Pregunta sobre leads, propiedades, recomendaciones…"
             disabled={chatLoading}
             className="flex-1 h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
@@ -558,13 +811,10 @@ function SilviaPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-sm truncate">{c.nombre || "Sin nombre"}</span>
+                        <span className="font-medium text-sm truncate">
+                          {c.nombre || "Sin nombre"}
+                        </span>
                         <CanalChip canal={canal} />
-                        {c.tipo && (
-                          <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                            {c.tipo}
-                          </span>
-                        )}
                         {isCualified && (
                           <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
                             <UserCheck className="size-3" /> Cualificado
@@ -622,7 +872,8 @@ function SilviaPage() {
                     ))}
                     {c.solicitud && (
                       <span className="text-[11px] text-muted-foreground italic">
-                        “{c.solicitud.slice(0, 100)}{c.solicitud.length > 100 ? "…" : ""}”
+                        “{c.solicitud.slice(0, 100)}
+                        {c.solicitud.length > 100 ? "…" : ""}”
                       </span>
                     )}
                   </div>
@@ -635,7 +886,11 @@ function SilviaPage() {
                       onClick={() => toggleExpand(c.id)}
                       className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
                     >
-                      {isOpen ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                      {isOpen ? (
+                        <ChevronUp className="size-3" />
+                      ) : (
+                        <ChevronDown className="size-3" />
+                      )}
                       {isOpen ? "Ocultar transcripción" : "Ver transcripción"}
                     </button>
                     {isOpen && (
@@ -652,57 +907,19 @@ function SilviaPage() {
                     <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
                       <MessageSquare className="size-3 text-primary" />
                       Inmuebles mencionados ({mencionados.length})
+                      <span className="ml-auto text-[10px] text-muted-foreground font-normal">
+                        Confirma el vínculo para mover a Clientes
+                      </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {mencionados.map((inm) => (
-                        <div
+                        <MencionadoCard
                           key={inm.id}
-                          className="rounded-md border border-primary/30 bg-primary/[0.03] overflow-hidden flex"
-                        >
-                          <Link
-                            to="/inmuebles/$id"
-                            params={{ id: inm.id }}
-                            className="flex items-stretch gap-2 flex-1 min-w-0 hover:bg-primary/[0.06] transition-colors"
-                          >
-                            <div className="w-16 shrink-0 bg-muted">
-                              <SafeImage src={inm.imagen} alt={inm.calle || inm.ref} />
-                            </div>
-                            <div className="flex-1 min-w-0 py-2 pr-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-mono text-muted-foreground">#{inm.ref}</span>
-                                <span className="text-[10px] text-muted-foreground">{inm.estatus}</span>
-                              </div>
-                              <div className="text-xs font-semibold truncate">
-                                {inm.calle} {inm.numero}
-                              </div>
-                              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                                <span className="inline-flex items-center gap-0.5">
-                                  <MapPin className="size-2.5" />
-                                  {inm.barrio || inm.localidad || "—"}
-                                </span>
-                                <span className="inline-flex items-center gap-0.5 font-semibold text-primary">
-                                  <Euro className="size-2.5" />
-                                  {moneyShort(inm.precioFinal ?? inm.precio)}
-                                </span>
-                              </div>
-                            </div>
-                          </Link>
-                          <div className="flex items-center pr-2">
-                            <NewVisitaDialog
-                              defaultInmuebleId={inm.id}
-                              defaultClienteId={c.id}
-                              trigger={
-                                <button
-                                  type="button"
-                                  className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 cursor-pointer transition-opacity whitespace-nowrap"
-                                  title={`Agendar visita de ${c.nombre || "cliente"} a ${inm.calle}`}
-                                >
-                                  <CalendarPlus className="size-3" /> Cita
-                                </button>
-                              }
-                            />
-                          </div>
-                        </div>
+                          inm={inm}
+                          contactId={c.id}
+                          clienteNombre={c.nombre}
+                          onVinculado={() => queryClient.invalidateQueries({ queryKey: ["leads"] })}
+                        />
                       ))}
                     </div>
                   </div>
@@ -728,10 +945,11 @@ function SilviaPage() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-xs font-medium truncate">
-                              {m.inmueble.ref} · {m.inmueble.calle} {m.inmueble.numero}
+                              {cleanRef(m.inmueble.ref)} · {m.inmueble.calle} {m.inmueble.numero}
                             </div>
                             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                              <MapPin className="size-3" /> {m.inmueble.barrio || m.inmueble.localidad}
+                              <MapPin className="size-3" />{" "}
+                              {m.inmueble.barrio || m.inmueble.localidad}
                               <Euro className="size-3 ml-1" />
                               {moneyShort(m.inmueble.precioFinal ?? m.inmueble.precio)}
                             </div>
@@ -753,6 +971,44 @@ function SilviaPage() {
                   </div>
                 )}
 
+                {/* Panel respuesta WhatsApp */}
+                {c.telefono && replyOpen.has(c.id) && (
+                  <div className="px-4 py-3 border-t border-border">
+                    <div className="flex gap-2 items-start">
+                      <textarea
+                        value={replyTexts[c.id] ?? ""}
+                        onChange={(e) => setReplyTexts((p) => ({ ...p, [c.id]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                            e.preventDefault();
+                            sendReply(c.id, c.telefono);
+                          }
+                        }}
+                        placeholder={`Responder a ${c.nombre || c.telefono}…`}
+                        rows={2}
+                        className="flex-1 px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                      />
+                      <button
+                        type="button"
+                        disabled={!replyTexts[c.id]?.trim() || replySending === c.id}
+                        onClick={() => sendReply(c.id, c.telefono)}
+                        className="h-9 px-3 rounded-lg text-white text-sm font-medium inline-flex items-center gap-1.5 disabled:opacity-50 transition-opacity shrink-0"
+                        style={{ backgroundColor: "#25D366" }}
+                      >
+                        {replySending === c.id ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <Send className="size-3.5" />
+                        )}
+                        Enviar
+                      </button>
+                    </div>
+                    <p className="mt-1.5 text-[10px] text-muted-foreground">
+                      ⌘↵ para enviar · Solo disponible dentro de la ventana de 24 h de WhatsApp
+                    </p>
+                  </div>
+                )}
+
                 {/* Acciones */}
                 <footer className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-t border-border bg-muted/20 rounded-b-lg">
                   <Link
@@ -763,16 +1019,68 @@ function SilviaPage() {
                     Ver ficha completa <ArrowRight className="size-3" />
                   </Link>
                   <div className="flex items-center gap-1.5">
-                    {!isCualified && (
-                      <button
-                        onClick={() => cualificar(c.id)}
-                        className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 cursor-pointer transition-colors"
-                      >
-                        <UserCheck className="size-3" /> Cualificar
-                      </button>
+                    {routing === c.id ? (
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className="text-[11px] text-muted-foreground mr-0.5">¿Tipo?</span>
+                        <button
+                          onClick={() => route(c.id, "captacion")}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 cursor-pointer transition-colors"
+                        >
+                          <Home className="size-3" /> Vende / valora
+                        </button>
+                        <button
+                          onClick={() => route(c.id, "compra")}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 cursor-pointer transition-colors"
+                        >
+                          <Search className="size-3" /> Busca comprar
+                        </button>
+                        <button
+                          onClick={() => route(c.id, "alquiler")}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 cursor-pointer transition-colors"
+                        >
+                          <KeyRound className="size-3" /> Busca alquilar
+                        </button>
+                        <button
+                          onClick={() => setRouting(null)}
+                          className="text-[11px] text-muted-foreground hover:text-foreground px-1.5 py-1 cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      !isCualified && (
+                        <button
+                          onClick={() => setRouting(c.id)}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 cursor-pointer transition-colors"
+                        >
+                          <UserCheck className="size-3" /> Cualificar
+                        </button>
+                      )
                     )}
                     <AsignarLeadButton clienteId={c.id} agentesActuales={c.agentesIds} />
 
+                    {c.telefono && (
+                      <button
+                        onClick={() => toggleReply(c.id)}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm active:scale-95"
+                        style={
+                          replyOpen.has(c.id)
+                            ? {
+                                background: "transparent",
+                                color: "#128C7E",
+                                border: "1.5px solid #25D36640",
+                              }
+                            : {
+                                background: "#25D366",
+                                color: "#fff",
+                                border: "1.5px solid #20bc5a",
+                              }
+                        }
+                      >
+                        <MessageSquare className="size-3.5" />
+                        {replyOpen.has(c.id) ? "Cerrar respuesta" : "Responder por WhatsApp"}
+                      </button>
+                    )}
                     {!isArchived && (
                       <button
                         onClick={() => archivar(c.id)}
@@ -791,4 +1099,3 @@ function SilviaPage() {
     </AppShell>
   );
 }
-

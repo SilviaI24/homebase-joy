@@ -674,6 +674,47 @@ export const buscarInmuebles = createServerFn({ method: "GET" })
     return { results: (rows ?? []).map(mapPropertyRow) };
   });
 
+// ── Actividad reciente ────────────────────────────────────────────────────────
+
+export const getContactoActividad = createServerFn({ method: "GET" })
+  .validator((d: { contactId: string }) => d)
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const supa = getSupa();
+    const [seg, vis] = await Promise.all([
+      supa.from("seguimiento")
+        .select("id, tipo, texto, fecha, agente_id, agents(nombre)")
+        .eq("contact_id", data.contactId)
+        .order("fecha", { ascending: false })
+        .limit(20),
+      supa.from("visits")
+        .select("id, fecha, estado, notas, property_id, properties(calle, numero)")
+        .eq("contact_id", data.contactId)
+        .order("fecha", { ascending: false })
+        .limit(10),
+    ]);
+    type SeguimientoRow = { id: string; tipo: string; texto: string | null; fecha: string; agente_id: string | null; agents: { nombre: string }[] | null };
+    type VisitaRow = { id: string; fecha: string; estado: string; notas: string | null; property_id: string | null; properties: { calle: string; numero: string }[] | null };
+    const eventos = [
+      ...(seg.data ?? []).map((s: SeguimientoRow) => ({
+        id: s.id, tipo: "seguimiento" as const,
+        subtipo: s.tipo, texto: s.texto ?? "",
+        fecha: s.fecha,
+        extra: Array.isArray(s.agents) ? (s.agents[0]?.nombre ?? "") : ((s.agents as { nombre: string } | null)?.nombre ?? ""),
+      })),
+      ...(vis.data ?? []).map((v: VisitaRow) => {
+        const prop = Array.isArray(v.properties) ? v.properties[0] : (v.properties as { calle: string; numero: string } | null);
+        return {
+          id: v.id, tipo: "visita" as const,
+          subtipo: v.estado, texto: v.notas ?? "",
+          fecha: v.fecha,
+          extra: prop ? `${prop.calle} ${prop.numero ?? ""}`.trim() : "",
+        };
+      }),
+    ].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).slice(0, 25);
+    return { eventos };
+  });
+
 // ── Etapa helpers ─────────────────────────────────────────────────────────────
 
 // Prioridad: Activo > Reservado > Prospecto > Histórico > Lead
@@ -710,3 +751,103 @@ export async function recalcularEtapa(
     await supa.from("contacts").update({ ciclo_vida }).eq("id", contactId);
   }
 }
+
+// ── Estadísticas ──────────────────────────────────────────────────────────────
+
+export type StatsData = {
+  pipeline: Record<string, number>;
+  canales: Record<string, number>;
+  leadsPorMes: { mes: string; total: number }[];
+  visitasPorMes: { mes: string; realizadas: number; canceladas: number }[];
+  agentes: { nombre: string; leads: number; clientes: number }[];
+};
+
+export const getStatsData = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAuth();
+  const supa = getSupa();
+
+  const [contactsRes, visitsRes, agentesRes, caRes] = await Promise.all([
+    supa
+      .from("contacts")
+      .select("ciclo_vida, canal_origen, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5000),
+    supa
+      .from("visits")
+      .select("fecha, estado")
+      .not("fecha", "is", null)
+      .limit(2000),
+    supa.from("agents").select("id, nombre").eq("activo", true),
+    supa
+      .from("contact_agents")
+      .select("agent_id, contacts(ciclo_vida)")
+      .limit(5000),
+  ]);
+
+  const contacts = contactsRes.data ?? [];
+  const visits   = visitsRes.data ?? [];
+  const agentes  = agentesRes.data ?? [];
+  const caRows   = caRes.data ?? [];
+
+  // Pipeline funnel
+  const pipeline: Record<string, number> = {
+    Lead: 0, Prospecto: 0, Cliente: 0, Histórico: 0, Descartado: 0,
+  };
+  for (const c of contacts) {
+    const k = c.ciclo_vida ?? "Lead";
+    pipeline[k] = (pipeline[k] ?? 0) + 1;
+  }
+
+  // Canal captación
+  const canales: Record<string, number> = {};
+  for (const c of contacts) {
+    const k = c.canal_origen ?? "Sin canal";
+    canales[k] = (canales[k] ?? 0) + 1;
+  }
+
+  // Leads por mes (últimos 12)
+  const now = new Date();
+  const meses12: string[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    meses12.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+  const leadsPorMes = meses12.map((mes) => ({
+    mes,
+    total: contacts.filter((c) => (c.created_at ?? "").startsWith(mes)).length,
+  }));
+
+  // Visitas por mes (últimos 12)
+  const visitasPorMes = meses12.map((mes) => {
+    const del_mes = visits.filter((v) => (v.fecha ?? "").startsWith(mes));
+    return {
+      mes,
+      realizadas: del_mes.filter((v) => v.estado === "Realizada").length,
+      canceladas: del_mes.filter((v) => v.estado === "Cancelada").length,
+    };
+  });
+
+  // Leads/clientes por agente
+  const agenteMap: Record<string, { leads: number; clientes: number }> = {};
+  for (const a of agentes) agenteMap[a.id] = { leads: 0, clientes: 0 };
+  for (const row of caRows) {
+    const entry = agenteMap[row.agent_id];
+    if (!entry) continue;
+    const cv = (row.contacts as unknown as { ciclo_vida: string } | null)?.ciclo_vida ?? "Lead";
+    if (cv === "Cliente" || cv === "Prospecto") entry.clientes++;
+    else entry.leads++;
+  }
+  const agentesStats = agentes.map((a) => ({
+    nombre: a.nombre,
+    leads: agenteMap[a.id]?.leads ?? 0,
+    clientes: agenteMap[a.id]?.clientes ?? 0,
+  })).sort((a, b) => b.clientes + b.leads - (a.clientes + a.leads));
+
+  return {
+    pipeline,
+    canales,
+    leadsPorMes,
+    visitasPorMes,
+    agentes: agentesStats,
+  } satisfies StatsData;
+});

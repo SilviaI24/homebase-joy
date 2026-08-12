@@ -7,17 +7,18 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
 
 import { SafeImage } from "@/components/SafeImage";
 import {
   getInmueble,
-  
   listAgentes,
   listVisitasByInmueble,
   updateInmueble,
+  addImagenToInmueble,
+  deleteInmueble,
   ESTATUS_OPCIONES,
   PUBLICACION_OPCIONES,
   type Inmueble,
@@ -42,8 +43,12 @@ import {
   ExternalLink,
   Trash2,
   Plus,
+  Hourglass,
+  ImagePlus,
+  X,
 } from "lucide-react";
 import type { Documento } from "@/lib/inmuebles.functions";
+import { cleanRef } from "@/lib/format";
 
 // Build a detail placeholder from a list row so the page renders instantly.
 function seedFromList(base: Inmueble): InmuebleDetalle {
@@ -74,6 +79,7 @@ function seedFromList(base: Inmueble): InmuebleDetalle {
     notaria: "",
     observaciones: "",
     llaves: "",
+    changelog: [],
     fechaInicio: null,
     fechaExclusiva: null,
     fechaFinExclusiva: null,
@@ -225,6 +231,7 @@ function SkeletonLine({ className = "" }: { className?: string }) {
 
 function statusTint(estatus: string) {
   const map: Record<string, string> = {
+    Pendiente: "bg-slate-400 text-white",
     Activo: "bg-emerald-600 text-white",
     Reservado: "bg-amber-500 text-white",
     Vendido: "bg-blue-600 text-white",
@@ -317,6 +324,7 @@ function InmuebleDetail() {
   const router = useRouter();
   const qc = useQueryClient();
   const updateFn = useServerFn(updateInmueble);
+  const deleteFn = useServerFn(deleteInmueble);
 
   const detailQ = useQuery(inmuebleQuery(qc, id));
 
@@ -349,6 +357,11 @@ function InmuebleDetail() {
         await qc.invalidateQueries({ queryKey: ["inmuebles"] });
         router.invalidate();
       }}
+      onDelete={async () => {
+        await deleteFn({ data: { id } });
+        await qc.invalidateQueries({ queryKey: ["inmuebles"] });
+        router.navigate({ to: "/inmuebles" });
+      }}
       mutationFn={(payload) => updateFn({ data: payload })}
       id={id}
     />
@@ -359,12 +372,14 @@ function DetailView({
   inmueble,
   detailReady,
   onAfterSave,
+  onDelete,
   mutationFn,
   id,
 }: {
   inmueble: InmuebleDetalle;
   detailReady: boolean;
   onAfterSave: () => Promise<void>;
+  onDelete: () => Promise<void>;
   mutationFn: (
     payload: Parameters<typeof updateInmueble>[0]["data"],
   ) => Promise<unknown>;
@@ -412,9 +427,16 @@ function DetailView({
   const [llaves, setLlaves] = useState(inmueble.llaves);
   // Documentos
   const [documentos, setDocumentos] = useState<Documento[]>(inmueble.documentos ?? []);
+  // Tab navigation
+  const [tab, setTab] = useState<"detalles" | "historial" | "visitas" | "documentos">("detalles");
+  // Autosave
+  const [saveStatus, setSaveStatus] = useState<"idle" | "pending" | "saved" | "error">("idle");
+  const isSavingRef = useRef(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // When fresh data arrives, re-sync the form fields that only exist in detail.
   useEffect(() => {
+    if (isSavingRef.current) return;
     if (detailReady) {
       setAgentesIds(inmueble.agentesIds);
       setObservaciones(inmueble.observaciones);
@@ -473,11 +495,23 @@ function DetailView({
 
   const mutation = useMutation({
     mutationFn,
+    onMutate: () => {
+      isSavingRef.current = true;
+      setSaveStatus("pending");
+    },
     onSuccess: async () => {
       await onAfterSave();
+      isSavingRef.current = false;
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2500);
+    },
+    onError: () => {
+      isSavingRef.current = false;
+      setSaveStatus("error");
     },
   });
 
+  const onSaveRef = useRef<() => void>(() => {});
   const onSave = () => {
     mutation.mutate({
       id,
@@ -520,6 +554,7 @@ function DetailView({
       documentos,
     });
   };
+  onSaveRef.current = onSave;
 
   const dirty =
     estatus !== inmueble.estatus ||
@@ -558,8 +593,28 @@ function DetailView({
     llaves !== inmueble.llaves ||
     JSON.stringify(documentos) !== JSON.stringify(inmueble.documentos ?? []);
 
+  useEffect(() => {
+    if (!dirty || !detailReady) {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      return;
+    }
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      if (!isSavingRef.current) onSaveRef.current();
+    }, 2000);
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [dirty, detailReady]);
+
+  const pageTitle = inmueble.calle
+    ? `${inmueble.calle}${inmueble.numero ? " " + inmueble.numero : ""}`
+    : inmueble.ref ? `Ref #${cleanRef(inmueble.ref)}` : "Inmueble";
+  const pageSubtitle = [inmueble.localidad, inmueble.ref ? `Ref #${cleanRef(inmueble.ref)}` : null]
+    .filter(Boolean).join(" · ") || undefined;
+
   return (
-    <AppShell title={`Inmueble #${inmueble.ref || inmueble.id}`}>
+    <AppShell title={pageTitle} subtitle={pageSubtitle}>
       <BackLink />
 
       {!detailReady && (
@@ -568,13 +623,29 @@ function DetailView({
         </div>
       )}
 
+      {inmueble.publicacion === "PROSPECTO" && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-violet-500/40 bg-violet-500/10 px-4 py-3 text-sm text-violet-800 dark:text-violet-300">
+          <Hourglass className="size-4 mt-0.5 shrink-0 text-violet-600 dark:text-violet-400" />
+          <div>
+            <p className="font-semibold">Inmueble prospecto — pendiente de revisión</p>
+            <p className="text-xs mt-0.5 text-violet-700 dark:text-violet-400">
+              Este inmueble llegó desde el valorador web. El propietario solicitó ser contactado. Revisa los datos, contacta con él y cambia la publicación a <strong>SUBIR</strong> o <strong>PUBLICADO</strong> cuando corresponda.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Columna principal */}
         <div className="lg:col-span-2 space-y-6">
           {/* Hero: imagen con overlay */}
           <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-            <div className="relative aspect-[16/9] bg-muted">
-              <SafeImage src={mainImg} alt={inmueble.calle || "Inmueble"} />
+            <div className="relative aspect-[4/3] bg-muted">
+              <SafeImage
+                src={mainImg}
+                fallbackSrcs={imagenesOrder.filter((i) => i.url !== mainImg).map((i) => i.url)}
+                alt={inmueble.calle || "Inmueble"}
+              />
               {/* Top chips */}
               <div className="absolute inset-x-0 top-0 p-4 flex items-start justify-between pointer-events-none">
                 <span
@@ -588,7 +659,7 @@ function DetailView({
                 {inmueble.ref && (
                   <span className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold bg-background text-foreground border border-border/60 px-2 py-1 rounded-full shadow-sm">
                     <Hash className="size-3" />
-                    {inmueble.ref}
+                    {cleanRef(inmueble.ref)}
                   </span>
                 )}
               </div>
@@ -650,42 +721,81 @@ function DetailView({
                 onReorder={setImagenesOrder}
               />
             )}
-          </div>
-
-          {/* Descripción (editable) */}
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-display text-base font-semibold">Descripción</h3>
-              {descripcion !== inmueble.descripcion && (
-                <span className="text-[11px] text-amber-600">Sin guardar</span>
-              )}
-            </div>
-            {detailReady ? (
-              <textarea
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                rows={6}
-                placeholder="Añade una descripción del inmueble…"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y"
+            {detailReady && (
+              <PhotoUpload
+                propertyId={id}
+                onUploaded={(url) => {
+                  const newItem = { id: url, url };
+                  setImagenesOrder((prev) => [...prev, newItem]);
+                  if (!mainImg) setMainImg(url);
+                }}
               />
-            ) : (
-              <div className="space-y-2">
-                <SkeletonLine className="w-full" />
-                <SkeletonLine className="w-11/12" />
-                <SkeletonLine className="w-3/4" />
-              </div>
             )}
           </div>
 
-          {/* Documentos */}
-          <DocumentosPanel
-            documentos={documentos}
-            onChange={setDocumentos}
-            detailReady={detailReady}
-          />
+          {/* Tab bar */}
+          <div className="border-b border-border">
+            <nav className="flex gap-0">
+              {(["detalles", "historial", "visitas", "documentos"] as const).map((t) => {
+                const labels: Record<typeof t, string> = { detalles: "Detalles", historial: "Historial", visitas: "Visitas", documentos: "Documentos" };
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                      tab === t
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {labels[t]}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
 
-          {/* Características */}
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+          {/* Tab: Detalles */}
+          {tab === "detalles" && (
+            <>
+              {/* Descripción (editable) */}
+              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-display text-base font-semibold">Descripción</h3>
+                  {descripcion !== inmueble.descripcion && (
+                    <span className="text-[11px] text-amber-600">Sin guardar</span>
+                  )}
+                </div>
+                {detailReady ? (
+                  <textarea
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                    rows={6}
+                    placeholder="Añade una descripción del inmueble…"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y"
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    <SkeletonLine className="w-full" />
+                    <SkeletonLine className="w-11/12" />
+                    <SkeletonLine className="w-3/4" />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Tab: Documentos */}
+          {tab === "documentos" && (
+            <DocumentosPanel
+              documentos={documentos}
+              onChange={setDocumentos}
+              detailReady={detailReady}
+            />
+          )}
+
+          {/* Tab: Detalles — Características */}
+          {tab === "detalles" && <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
             <h3 className="font-display text-base font-semibold mb-4">Características</h3>
             {!detailReady ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -754,11 +864,12 @@ function DetailView({
                 </div>
               </div>
             )}
-          </div>
+          </div>}
 
+          {/* Tab: Historial */}
+          {tab === "historial" && <>
           <TiempoMercadoPanel inmueble={inmueble} detailReady={detailReady} />
 
-          {/* Historial / fechas */}
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
             <h3 className="font-display text-base font-semibold mb-4 flex items-center gap-2">
               <Calendar className="size-4 text-primary" /> Historial
@@ -833,8 +944,28 @@ function DetailView({
             )}
           </div>
 
-          {/* Visitas */}
-          <VisitasPanel id={id} />
+          {/* Changelog automático */}
+          {detailReady && inmueble.changelog.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+              <h3 className="font-display text-base font-semibold mb-4 flex items-center gap-2">
+                <Hash className="size-4 text-primary" /> Cambios registrados
+              </h3>
+              <ol className="space-y-3">
+                {[...inmueble.changelog].reverse().map((c, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm">
+                    <span className="shrink-0 mt-0.5 text-[10px] text-muted-foreground whitespace-nowrap">{formatDate(c.ts)}</span>
+                    <span className="font-medium text-foreground/70 shrink-0">{c.field}:</span>
+                    <span className="text-muted-foreground line-through shrink-0">{c.old || "—"}</span>
+                    <span className="text-foreground/80">→ {c.new || "—"}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          </>}
+
+          {/* Tab: Visitas */}
+          {tab === "visitas" && <VisitasPanel id={id} />}
         </div>
 
 
@@ -857,6 +988,7 @@ function DetailView({
             dirty={dirty}
             mutation={mutation}
             onSave={onSave}
+            onDelete={onDelete}
           />
 
           {/* Propietario */}
@@ -901,12 +1033,19 @@ function DetailView({
         </aside>
       </div>
 
-      {/* Floating save bar — visible when there are unsaved changes */}
-      {dirty && (
+      {/* Floating save bar */}
+      {(dirty || saveStatus === "pending" || saveStatus === "saved" || saveStatus === "error") && (
         <div className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-between gap-4 px-4 py-3 bg-card border-t border-border shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.15)] md:left-56">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
-            Cambios sin guardar
+            {saveStatus === "pending" ? (
+              <><Loader2 className="size-3.5 animate-spin" /> Guardando…</>
+            ) : saveStatus === "saved" ? (
+              <><Check className="size-3.5 text-emerald-600" /> <span className="text-emerald-700 dark:text-emerald-400">Guardado</span></>
+            ) : saveStatus === "error" ? (
+              <><span className="size-2 rounded-full bg-destructive" /> Error al guardar</>
+            ) : (
+              <><span className="size-2 rounded-full bg-amber-500 animate-pulse" /> Guardando en 2 s…</>
+            )}
           </div>
           <button
             onClick={onSave}
@@ -914,7 +1053,7 @@ function DetailView({
             className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 hover:bg-primary/90 transition-colors"
           >
             <Save className="size-4" />
-            {mutation.isPending ? "Guardando…" : "Guardar cambios"}
+            Guardar ahora
           </button>
         </div>
       )}
@@ -1174,12 +1313,15 @@ function ManagementPanel(props: {
   dirty: boolean;
   mutation: { isPending: boolean; isError: boolean; isSuccess: boolean; error: unknown };
   onSave: () => void;
+  onDelete: () => Promise<void>;
 }) {
   const {
     estatus, setEstatus, publicacion, setPublicacion, precio, setPrecio,
     precioFinal, setPrecioFinal, agentesIds, setAgentesIds, observaciones,
-    setObservaciones, detailReady, dirty, mutation, onSave,
+    setObservaciones, detailReady, dirty, mutation, onSave, onDelete,
   } = props;
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Lazy load agentes only when the user expands the picker.
   const [agentesOpen, setAgentesOpen] = useState(false);
@@ -1307,6 +1449,42 @@ function ManagementPanel(props: {
             Cambios pendientes — usa la barra inferior para guardar.
           </div>
         )}
+
+        <div className="pt-2 border-t border-border">
+          {!confirmDelete ? (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <Trash2 className="size-3.5" /> Eliminar inmueble
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-destructive font-medium">¿Eliminar este inmueble? Esta acción no se puede deshacer.</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={async () => {
+                    setDeleting(true);
+                    try { await onDelete(); } finally { setDeleting(false); }
+                  }}
+                  className="flex-1 h-8 text-xs font-semibold rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+                >
+                  {deleting ? "Eliminando…" : "Sí, eliminar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  className="flex-1 h-8 text-xs rounded-md border border-input hover:bg-accent"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1599,6 +1777,104 @@ function VisitaList({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1]);
+    };
+    reader.onerror = reject;
+  });
+}
+
+function PhotoUpload({
+  propertyId,
+  onUploaded,
+}: {
+  propertyId: string;
+  onUploaded: (url: string) => void;
+}) {
+  const addFn = useServerFn(addImagenToInmueble);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState<Array<{ name: string; status: "uploading" | "done" | "error" }>>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const images = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    for (const file of images) {
+      setUploading((u) => [...u, { name: file.name, status: "uploading" }]);
+      try {
+        const base64 = await fileToBase64(file);
+        const { url } = await addFn({ data: { id: propertyId, base64, filename: file.name, mimeType: file.type } });
+        setUploading((u) => u.map((x) => x.name === file.name ? { ...x, status: "done" } : x));
+        onUploaded(url);
+      } catch {
+        setUploading((u) => u.map((x) => x.name === file.name ? { ...x, status: "error" } : x));
+      }
+    }
+    setTimeout(() => setUploading([]), 3000);
+  }
+
+  return (
+    <div
+      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files); }}
+      className={`px-3 py-3 border-t border-border bg-card transition-colors ${isDragging ? "bg-primary/5" : ""}`}
+    >
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="sr-only"
+        onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
+      />
+      <div className="flex items-center gap-3 flex-wrap">
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md border border-dashed border-border hover:border-primary/60 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ImagePlus className="size-3.5" />
+          Añadir fotos
+        </button>
+        {uploading.length === 0 ? (
+          <span className="text-[11px] text-muted-foreground">o arrastra imágenes aquí</span>
+        ) : (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {uploading.map((u) => (
+              <span
+                key={u.name}
+                className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ${
+                  u.status === "uploading"
+                    ? "bg-muted text-muted-foreground"
+                    : u.status === "done"
+                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                      : "bg-destructive/15 text-destructive"
+                }`}
+              >
+                {u.status === "uploading" && <Loader2 className="size-3 animate-spin" />}
+                {u.status === "done" && <Check className="size-3" />}
+                {u.status === "error" && <X className="size-3" />}
+                {u.name.length > 24 ? u.name.slice(0, 22) + "…" : u.name}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      {isDragging && (
+        <div className="mt-2 text-[11px] text-primary text-center py-2 border border-dashed border-primary/40 rounded-md">
+          Suelta las imágenes aquí
+        </div>
+      )}
     </div>
   );
 }

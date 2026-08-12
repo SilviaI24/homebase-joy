@@ -1,8 +1,9 @@
-import { useState, useRef, type ReactNode } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Plus, Loader2, X, Upload, Link2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, Loader2, X, Upload, Link2, CheckCircle2, AlertCircle, TriangleAlert } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 import {
   Dialog,
@@ -23,6 +24,7 @@ import {
   createCliente,
   createInmueble,
   createVisita,
+  checkDuplicates,
   type CreateClientePayload,
   type CreateInmueblePayload,
   type CreateVisitaPayload,
@@ -107,12 +109,35 @@ function NewButton({
 export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
   const qc = useQueryClient();
   const fn = useServerFn(createCliente);
+  const checkDupFn = useServerFn(checkDuplicates);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CreateClientePayload>({
     nombre: "",
     fecha: new Date().toISOString().slice(0, 10),
   });
   const [catSel, setCatSel] = useState<string[]>([]);
+
+  // Debounced values for duplicate detection (400 ms)
+  const [emailVal, setEmailVal] = useState("");
+  const [telefonoVal, setTelefonoVal] = useState("");
+
+  useEffect(() => {
+    if (!open) { setEmailVal(""); setTelefonoVal(""); return; }
+    const t = setTimeout(() => {
+      setEmailVal(form.email?.trim() ?? "");
+      setTelefonoVal(form.telefono?.trim() ?? "");
+    }, 400);
+    return () => clearTimeout(t);
+  }, [form.email, form.telefono, open]);
+
+  const dupQuery = useQuery({
+    queryKey: ["dup-check", emailVal, telefonoVal],
+    queryFn: () => checkDupFn({ data: { email: emailVal || undefined, telefono: telefonoVal || undefined } }),
+    enabled: open && (emailVal.length > 4 || telefonoVal.length > 7),
+    staleTime: 5000,
+  });
+
+  const duplicates = dupQuery.data?.duplicates ?? [];
 
   const mut = useMutation({
     mutationFn: (payload: CreateClientePayload) => fn({ data: payload }),
@@ -254,6 +279,23 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
               </div>
             </MoreSection>
           </div>
+
+          {duplicates.length > 0 && (
+            <div className="sm:col-span-2 rounded-md bg-amber-500/15 border border-amber-500/30 p-3 flex items-start gap-2">
+              <TriangleAlert className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div className="text-xs text-amber-800 dark:text-amber-300">
+                <div className="font-semibold mb-1">Ya existe un contacto con este dato:</div>
+                <ul className="space-y-0.5 mb-1.5">
+                  {duplicates.map((d: { id: string; nombre: string }) => (
+                    <li key={d.id}>{d.nombre || "Sin nombre"}</li>
+                  ))}
+                </ul>
+                <Link to="/clientes" className="font-medium underline hover:no-underline">
+                  Ver contactos
+                </Link>
+              </div>
+            </div>
+          )}
 
           <DialogFooter className="sm:col-span-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

@@ -5,6 +5,7 @@ import { listVisitas } from "@/lib/visitas.functions";
 import { getNotifications } from "@/lib/notifications.functions";
 import { listSeguimientos } from "@/lib/seguimiento.functions";
 import { listOperaciones } from "@/lib/operaciones.functions";
+import { getStatsData } from "@/lib/clientes.functions";
 
 export const agentesQuery = queryOptions({
   queryKey: ["agentes"],
@@ -72,4 +73,11 @@ export const operacionesQuery = queryOptions({
   queryFn: () => listOperaciones(),
   staleTime: 2 * 60 * 1000,
   gcTime: 15 * 60 * 1000,
+});
+
+export const statsQuery = queryOptions({
+  queryKey: ["stats"],
+  queryFn: () => getStatsData(),
+  staleTime: 5 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
 });

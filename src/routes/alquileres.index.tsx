@@ -8,6 +8,7 @@ import { NewInmuebleDialog } from "@/components/CreateDialogs";
 import type { Inmueble } from "@/lib/inmuebles.functions";
 import type { Cliente } from "@/lib/clientes.functions";
 import { allInmueblesQuery, clientesQueryOpts } from "@/lib/queries";
+import { cleanRef } from "@/lib/format";
 import {
   Search, KeyRound, Home, CheckCircle2, TrendingUp,
   User, Phone, Mail, Building2, Users,
@@ -47,8 +48,8 @@ function formatEuro(n: number | null) {
 function DiasBadge({ dias }: { dias: number | null }) {
   if (dias === null) return null;
   const cls =
-    dias > 90 ? "bg-destructive/15 text-destructive" :
-    dias > 30 ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" :
+    dias > 90 ? "bg-destructive/20 dark:bg-destructive/35 text-destructive dark:text-red-400" :
+    dias > 30 ? "bg-amber-500/20 dark:bg-amber-500/30 text-amber-700 dark:text-amber-300" :
     "bg-muted text-muted-foreground";
   return (
     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${cls}`}>
@@ -59,13 +60,13 @@ function DiasBadge({ dias }: { dias: number | null }) {
 
 function StatusBadge({ estatus }: { estatus: string }) {
   const map: Record<string, string> = {
-    Activo: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-    Baja: "bg-muted text-muted-foreground",
-    Reservado: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-    Alquilado: "bg-[var(--gold)]/20 text-[color:var(--gold-foreground,theme(colors.amber.700))]",
+    Activo:    "bg-emerald-600/85 text-white dark:bg-emerald-500/80 dark:text-white",
+    Baja:      "bg-gray-600/70 text-white dark:bg-gray-500/75 dark:text-white",
+    Reservado: "bg-amber-500/85 text-white dark:bg-amber-400/80 dark:text-amber-950",
+    Alquilado: "bg-[var(--gold)]/85 text-white",
   };
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${map[estatus] ?? "bg-secondary text-secondary-foreground"}`}>
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold backdrop-blur-sm shadow-sm ${map[estatus] ?? "bg-gray-700/75 text-white"}`}>
       {estatus || "—"}
     </span>
   );
@@ -199,6 +200,7 @@ function AlquileresPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            aria-label="Buscar alquileres"
             placeholder="Buscar…"
             className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
@@ -271,8 +273,8 @@ function DisponibleTab({ items }: { items: Inmueble[] }) {
                 <StatusBadge estatus={i.estatus} />
               </div>
               {i.ref && (
-                <div className="absolute top-2 right-2 z-10 text-[11px] font-mono bg-background/90 text-foreground border border-border/60 backdrop-blur px-1.5 py-0.5 rounded shadow-sm">
-                  #{i.ref}
+                <div className="absolute top-2 right-2 z-10 text-[11px] font-mono bg-black/60 text-white border border-white/20 backdrop-blur-sm px-1.5 py-0.5 rounded shadow-sm">
+                  #{cleanRef(i.ref)}
                 </div>
               )}
             </div>
@@ -390,7 +392,7 @@ function ActivosTab({ items }: { items: { inmueble: Inmueble; inquilino: Cliente
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold truncate">
                 {i.calle || "Sin dirección"} {i.numero}
-                {i.ref && <span className="ml-1.5 text-[11px] font-mono text-muted-foreground">#{i.ref}</span>}
+                {i.ref && <span className="ml-1.5 text-[11px] font-mono text-muted-foreground">#{cleanRef(i.ref)}</span>}
               </div>
               <div className="text-[11px] text-muted-foreground truncate">
                 {[i.barrio, i.localidad].filter(Boolean).join(" · ") || i.tipo}

@@ -11,6 +11,7 @@ import {
   Hourglass,
   MessageSquare,
   Banknote,
+  TrendingUp,
   Menu,
   Sun,
   Moon,
@@ -87,6 +88,10 @@ const navGroups: NavGroup[] = [
       { to: "/seguimiento",  label: "Seguimiento",  icon: MessageSquare },
       { to: "/operaciones",  label: "Operaciones",  icon: Banknote },
     ],
+  },
+  {
+    label: "Análisis",
+    items: [{ to: "/estadisticas", label: "Estadísticas", icon: TrendingUp }],
   },
   {
     label: "IA",

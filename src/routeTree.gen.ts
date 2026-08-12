@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AlquileresIndexRouteImport } from './routes/alquileres.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as ComercialesIndexRouteImport } from './routes/comerciales.index'
+import { Route as EstadisticasIndexRouteImport } from './routes/estadisticas.index'
 import { Route as InmueblesIndexRouteImport } from './routes/inmuebles.index'
 import { Route as InmueblesIdRouteImport } from './routes/inmuebles.$id'
 import { Route as MisLeadsIndexRouteImport } from './routes/mis-leads.index'
@@ -50,6 +51,11 @@ const ComercialesIndexRoute = ComercialesIndexRouteImport.update({
 } as any).lazy(() =>
   import('./routes/comerciales.index.lazy').then((d) => d.Route),
 )
+const EstadisticasIndexRoute = EstadisticasIndexRouteImport.update({
+  id: '/estadisticas/',
+  path: '/estadisticas/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InmueblesIndexRoute = InmueblesIndexRouteImport.update({
   id: '/inmuebles/',
   path: '/inmuebles/',
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/alquileres/': typeof AlquileresIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/comerciales/': typeof ComercialesIndexRoute
+  '/estadisticas/': typeof EstadisticasIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
   '/mis-leads/': typeof MisLeadsIndexRoute
   '/operaciones/': typeof OperacionesIndexRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/alquileres': typeof AlquileresIndexRoute
   '/clientes': typeof ClientesIndexRoute
   '/comerciales': typeof ComercialesIndexRoute
+  '/estadisticas': typeof EstadisticasIndexRoute
   '/inmuebles': typeof InmueblesIndexRoute
   '/mis-leads': typeof MisLeadsIndexRoute
   '/operaciones': typeof OperacionesIndexRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/alquileres/': typeof AlquileresIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/comerciales/': typeof ComercialesIndexRoute
+  '/estadisticas/': typeof EstadisticasIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
   '/mis-leads/': typeof MisLeadsIndexRoute
   '/operaciones/': typeof OperacionesIndexRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/alquileres/'
     | '/clientes/'
     | '/comerciales/'
+    | '/estadisticas/'
     | '/inmuebles/'
     | '/mis-leads/'
     | '/operaciones/'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/alquileres'
     | '/clientes'
     | '/comerciales'
+    | '/estadisticas'
     | '/inmuebles'
     | '/mis-leads'
     | '/operaciones'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/alquileres/'
     | '/clientes/'
     | '/comerciales/'
+    | '/estadisticas/'
     | '/inmuebles/'
     | '/mis-leads/'
     | '/operaciones/'
@@ -192,6 +204,7 @@ export interface RootRouteChildren {
   AlquileresIndexRoute: typeof AlquileresIndexRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
   ComercialesIndexRoute: typeof ComercialesIndexRoute
+  EstadisticasIndexRoute: typeof EstadisticasIndexRoute
   InmueblesIndexRoute: typeof InmueblesIndexRoute
   MisLeadsIndexRoute: typeof MisLeadsIndexRoute
   OperacionesIndexRoute: typeof OperacionesIndexRoute
@@ -236,6 +249,13 @@ declare module '@tanstack/react-router' {
       path: '/comerciales'
       fullPath: '/comerciales/'
       preLoaderRoute: typeof ComercialesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/estadisticas/': {
+      id: '/estadisticas/'
+      path: '/estadisticas'
+      fullPath: '/estadisticas/'
+      preLoaderRoute: typeof EstadisticasIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inmuebles/': {
@@ -304,6 +324,7 @@ const rootRouteChildren: RootRouteChildren = {
   AlquileresIndexRoute: AlquileresIndexRoute,
   ClientesIndexRoute: ClientesIndexRoute,
   ComercialesIndexRoute: ComercialesIndexRoute,
+  EstadisticasIndexRoute: EstadisticasIndexRoute,
   InmueblesIndexRoute: InmueblesIndexRoute,
   MisLeadsIndexRoute: MisLeadsIndexRoute,
   OperacionesIndexRoute: OperacionesIndexRoute,

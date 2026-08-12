@@ -32,6 +32,7 @@ import {
   Columns3,
   GripVertical,
   Zap,
+  Trash2,
 } from "lucide-react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -39,18 +40,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { AppShell } from "@/components/AppShell";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
 import { AsignarLeadButton } from "@/components/AsignarLeadButton";
-import { agentesQuery } from "@/lib/queries";
-import { listClientes, type Cliente } from "@/lib/clientes.functions";
+import { AsociarInmuebleButton } from "@/components/AsociarInmuebleButton";
+import { agentesQuery, leadsQueryOpts } from "@/lib/queries";
+import { type Cliente } from "@/lib/clientes.functions";
 import {
-  
   updateClienteSeguimiento,
   type EstadoSeguimiento,
 } from "@/lib/mutations.functions";
+import { deleteContacto } from "@/lib/clientes.functions";
 
-const clientesQuery = queryOptions({
-  queryKey: ["clientes"],
-  queryFn: () => listClientes(),
-});
+const clientesQuery = leadsQueryOpts;
 
 const searchSchema = z.object({
   agente: z.string().optional(),
@@ -118,13 +117,25 @@ const ORIGEN_META: Record<
     cls: "bg-accent/20 text-accent-foreground border-accent/40",
     icon: ShoppingCart,
     label: "Comprador",
-    descripcion: "Interesado en comprar un inmueble",
+    descripcion: "Ha cerrado una compra con nosotros",
+  },
+  "Busca compra": {
+    cls: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
+    icon: ShoppingCart,
+    label: "Busca compra",
+    descripcion: "Lead interesado en comprar — operación aún no cerrada",
   },
   Inquilino: {
     cls: "bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/30",
     icon: KeyRound,
     label: "Inquilino",
-    descripcion: "Interesado en alquilar un inmueble",
+    descripcion: "Arrendatario con contrato firmado",
+  },
+  "Busca alquiler": {
+    cls: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/30",
+    icon: KeyRound,
+    label: "Busca alquiler",
+    descripcion: "Lead interesado en alquilar — sin contrato firmado",
   },
   Prospecto: {
     cls: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30",
@@ -179,7 +190,7 @@ function extraerUltimaNota(
 function MisLeadsPage() {
   const { data } = useSuspenseQuery(clientesQuery);
   const { data: ag } = useSuspenseQuery(agentesQuery);
-  const navigate = useNavigate({ from: "/mis-leads" });
+  const navigate = useNavigate({ from: "/mis-leads/" });
   const { agente: agenteParam } = Route.useSearch();
   const [q, setQ] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<EstadoSeguimiento | "Todos">("Todos");
@@ -199,7 +210,7 @@ function MisLeadsPage() {
 
   const misLeads = useMemo(() => {
     return data.clientes
-      .filter((c) => c.agentesIds.includes(agenteId))
+      .filter((c) => c.agentesIds.includes(agenteId) && c.etapa === "Lead")
       .map((c) => ({ cliente: c, estado: inferEstado(c) }));
   }, [data.clientes, agenteId]);
 
@@ -413,6 +424,7 @@ function KanbanView({
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<EstadoSeguimiento | null>(null);
+  const [optimisticStates, setOptimisticStates] = useState<Record<string, EstadoSeguimiento>>({});
   const qc = useQueryClient();
   const fn = useServerFn(updateClienteSeguimiento);
 
@@ -421,20 +433,29 @@ function KanbanView({
     [leads, q, origenFilter],
   );
 
-  const pendientes = filtered.filter((l) => l.estado === "Pendiente").length;
+  const getEstado = (l: { cliente: Cliente; estado: EstadoSeguimiento }) =>
+    optimisticStates[l.cliente.id] ?? l.estado;
+
+  const pendientes = filtered.filter((l) => getEstado(l) === "Pendiente").length;
 
   function handleDrop(targetStage: EstadoSeguimiento) {
     if (!draggingId || !targetStage) return;
     const lead = filtered.find((l) => l.cliente.id === draggingId);
-    if (!lead || lead.estado === targetStage) return;
-    fn({ data: { clienteId: draggingId, estado: targetStage } })
-      .then(() => {
-        toast.success("Lead movido");
-        qc.invalidateQueries({ queryKey: ["clientes"] });
-      })
-      .catch((e: Error) => toast.error(e.message));
+    if (!lead || getEstado(lead) === targetStage) return;
+    const id = draggingId;
+    setOptimisticStates(prev => ({ ...prev, [id]: targetStage }));
     setDraggingId(null);
     setOverStage(null);
+    fn({ data: { clienteId: id, estado: targetStage } })
+      .then(() => {
+        toast.success("Lead movido");
+        qc.invalidateQueries({ queryKey: ["leads"] });
+        setOptimisticStates(prev => { const n = { ...prev }; delete n[id]; return n; });
+      })
+      .catch((e: Error) => {
+        toast.error(e.message);
+        setOptimisticStates(prev => { const n = { ...prev }; delete n[id]; return n; });
+      });
   }
 
   return (
@@ -453,7 +474,7 @@ function KanbanView({
       {/* Columnas */}
       <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1">
         {PIPELINE_STAGES.map((stage) => {
-          const stageLeads = filtered.filter((l) => l.estado === stage.id);
+          const stageLeads = filtered.filter((l) => getEstado(l) === stage.id);
           const isOver = overStage === stage.id;
           return (
             <div
@@ -522,7 +543,7 @@ function KanbanCard({
     mutationFn: fn,
     onSuccess: () => {
       toast.success("Actualizado");
-      qc.invalidateQueries({ queryKey: ["clientes"] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
       setNotaOpen(false);
       setNota("");
     },
@@ -651,19 +672,30 @@ function LeadCard({
 }) {
   const qc = useQueryClient();
   const fn = useServerFn(updateClienteSeguimiento);
+  const deleteFn = useServerFn(deleteContacto);
   const [notaOpen, setNotaOpen] = useState(false);
   const [nota, setNota] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const meta = ESTADO_META[estado];
 
   const mut = useMutation({
     mutationFn: fn,
     onSuccess: () => {
       toast.success("Lead actualizado");
-      qc.invalidateQueries({ queryKey: ["clientes"] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
       setNotaOpen(false);
       setNota("");
     },
     onError: (e: Error) => toast.error(e.message || "No se pudo guardar"),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: () => deleteFn({ data: { id: cliente.id } }),
+    onSuccess: () => {
+      toast.success("Lead eliminado");
+      qc.invalidateQueries({ queryKey: ["leads"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "No se pudo eliminar"),
   });
 
   function cambiarEstado(nuevo: EstadoSeguimiento) {
@@ -886,18 +918,49 @@ function LeadCard({
             clienteId={cliente.id}
             agentesActuales={cliente.agentesIds}
           />
+          {/* Asociar inmueble */}
+          <AsociarInmuebleButton contactId={cliente.id} />
+          {/* Eliminar */}
+          {confirmDelete ? (
+            <>
+              <span className="text-[11px] text-destructive font-medium">¿Eliminar?</span>
+              <button
+                onClick={() => deleteMut.mutate()}
+                disabled={deleteMut.isPending}
+                className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-destructive text-destructive-foreground hover:opacity-90 disabled:opacity-60"
+              >
+                {deleteMut.isPending ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
+                Confirmar
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="text-[11px] px-2 py-1 rounded-md hover:bg-muted text-muted-foreground"
+              >
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
+              title="Eliminar lead"
+            >
+              <Trash2 className="size-3" />
+            </button>
+          )}
         </div>
       </footer>
     </article>
   );
 }
 
-// Mapeo de segmento UI → valor del campo "Tipo de cliente" en Airtable.
-// Inquilino NO aparece aquí: se determina por propiedadAlquilerIds (enlaces a propiedades),
-// no por el campo tipo — reclasificar como "Interesado alquiler" los convertiría en Lead.
+// Mapeo segmento UI → tipo de contact_role que se crea/actualiza en Supabase.
+// "Inquilino" y "Comprador" no aparecen como opciones directas: se derivan automáticamente
+// cuando la propiedad vinculada pasa a estatus "Alquilado" o "Vendido".
 const SEGMENTO_A_TIPO: Record<string, string> = {
   Propietario: "Propietario",
-  Comprador: "Comprador",
+  "Busca compra": "Comprador",
+  "Busca alquiler": "Inquilino",
   Prospecto: "Prospecciones",
   Descartado: "Anular prospección",
 };
@@ -914,15 +977,14 @@ function OrigenBadgeEditor({
 }) {
   const [open, setOpen] = useState(false);
   const o = ORIGEN_META[cliente.segmento] ?? ORIGEN_META.Lead;
-  // Inquilino excluded: status comes from property links, not from "Tipo de cliente" field
-  const opciones = ["Propietario", "Comprador", "Prospecto", "Descartado"] as const;
+  const opciones = ["Propietario", "Busca compra", "Busca alquiler", "Prospecto", "Descartado"] as const;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          title={`${o.descripcion}${cliente.segmentoMotivo ? ` · ${cliente.segmentoMotivo}` : ""}${cliente.tipo ? ` · Tipo interno: ${cliente.tipo}` : ""} · Click para reclasificar`}
+          title={`${o.descripcion}${cliente.segmentoMotivo ? ` · ${cliente.segmentoMotivo}` : ""} · Click para reclasificar`}
           className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border cursor-pointer hover:opacity-80 ${o.cls}`}
         >
           <o.icon className="size-3" /> {o.label}

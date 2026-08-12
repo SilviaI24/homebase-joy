@@ -1,38 +1,29 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
-import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  Legend,
-} from "recharts";
+import { useMemo, lazy, Suspense } from "react";
+import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import { AppShell } from "@/components/AppShell";
-import { getCategoria, isAlquiler, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
-import { allInmueblesQuery, clientesQueryOpts, visitasQuery } from "@/lib/queries";
+import { isAlquiler, type Inmueble } from "@/lib/inmuebles.functions";
+import { allInmueblesQuery, clientesQueryOpts, visitasQuery, leadsQueryOpts } from "@/lib/queries";
+import { cleanRef } from "@/lib/format";
+import type { LucideIcon } from "lucide-react";
 import {
-  Building2,
-  Users,
-  TrendingUp,
-  TrendingDown,
-  Sparkles,
-  ArrowRight,
-  Trophy,
-  MessageCircle,
-  Phone,
-  Globe,
-  Bot,
+  TrendingUp, TrendingDown, Sparkles, ArrowRight,
+  Users, UserRound, HandCoins, CalendarCheck,
+  MapPin, Home, CalendarDays, CheckCircle2,
 } from "lucide-react";
-import { inferCanal, type Canal } from "@/components/silvia/conversation";
+
+const EvolucionChart = lazy(() => import("@/components/EvolucionChart"));
+const VisitasAnalytics = lazy(() => import("@/components/VisitasAnalytics"));
+
+type VisRow = {
+  id: string;
+  fecha: string | null;
+  estado: string;
+  inmuebleIds?: string[];
+  inmuebleCalles?: string[];
+  inmuebleNumeros?: string[];
+};
 
 const inmueblesQuery = allInmueblesQuery;
 const clientesQuery = clientesQueryOpts;
@@ -48,6 +39,7 @@ export const Route = createFileRoute("/")({
     context.queryClient.ensureQueryData(inmueblesQuery);
     context.queryClient.ensureQueryData(clientesQuery);
     context.queryClient.ensureQueryData(visitasQuery);
+    context.queryClient.ensureQueryData(leadsQueryOpts);
   },
   component: Dashboard,
   errorComponent: ({ error }) => (
@@ -71,43 +63,22 @@ function fmtDate(s: string | null): string {
   if (!s) return "—";
   try {
     return new Date(s).toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
-  } catch {
-    return s;
-  }
+  } catch { return s; }
+}
+function calcDelta(cur: number, prev: number): number | null {
+  if (prev === 0) return cur > 0 ? 100 : null;
+  return Math.round(((cur - prev) / prev) * 100);
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  Activo: "var(--primary)",
-  Reservado: "var(--gold)",
-  Vendido: "var(--chart-1)",
-  Baja: "var(--muted-foreground)",
-  Alquilado: "var(--chart-3)",
-  Prospección: "var(--chart-4)",
-};
-
-const CANAL_DASH: Record<Canal, { Icon: typeof Phone; bg: string; color: string; bar: string }> = {
-  WhatsApp: { Icon: MessageCircle, bg: "bg-emerald-500/15", color: "text-emerald-600 dark:text-emerald-400", bar: "bg-emerald-500" },
-  Llamada:  { Icon: Phone,         bg: "bg-blue-500/15",    color: "text-blue-600 dark:text-blue-400",       bar: "bg-blue-500"    },
-  Idealista:{ Icon: Globe,         bg: "bg-lime-500/15",    color: "text-lime-700 dark:text-lime-400",        bar: "bg-lime-500"    },
-  Otro:     { Icon: Bot,           bg: "bg-slate-500/15",   color: "text-slate-600 dark:text-slate-400",     bar: "bg-slate-400"   },
-};
-
 const COMISION_VENTA = 0.03;
-const COMISION_ALQUILER_MESES = 1;
-
-const TOOLTIP_STYLE = {
-  background: "var(--card)",
-  border: "1px solid var(--border)",
-  borderRadius: 12,
-  fontSize: 12,
-  color: "var(--foreground)",
-  boxShadow: "0 8px 24px -8px rgb(0 0 0 / 0.18)",
-} as const;
 
 function Dashboard() {
   const { data: inmData } = useSuspenseQuery(inmueblesQuery);
   const { data: cliData } = useSuspenseQuery(clientesQuery);
   const { data: visData } = useSuspenseQuery(visitasQuery);
+  const { data: leadsData } = useSuspenseQuery(leadsQueryOpts);
+
+  const leadsCount = leadsData.clientes.length;
 
   const stats = useMemo(() => {
     const inmuebles = inmData.inmuebles;
@@ -117,29 +88,6 @@ function Dashboard() {
     const vendidos = byEstatus("Vendido");
     const alquilados = byEstatus("Alquilado");
     const valorCartera = activos.reduce((s, i) => s + (i.precio ?? 0), 0);
-    const precios = activos.map((i) => i.precio).filter((p): p is number => !!p && p > 0);
-    const precioMedio = precios.length ? Math.round(precios.reduce((a, b) => a + b, 0) / precios.length) : 0;
-    const valorVendido = vendidos.reduce((s, i) => s + (i.precioFinal ?? i.precio ?? 0), 0);
-
-    const estatusCount: Record<string, number> = {};
-    inmuebles.forEach((i) => {
-      if (!i.estatus) return;
-      estatusCount[i.estatus] = (estatusCount[i.estatus] ?? 0) + 1;
-    });
-    const pieData = Object.entries(estatusCount)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-
-    const valorPorCat: Record<string, number> = {};
-    [...CATEGORIAS, "Otros"].forEach((c) => (valorPorCat[c] = 0));
-    activos.forEach((i) => {
-      const c = getCategoria(i.tipo);
-      valorPorCat[c] = (valorPorCat[c] ?? 0) + (i.precio ?? 0);
-    });
-    const barData = Object.entries(valorPorCat)
-      .map(([cat, valor]) => ({ cat, valor, valorM: +(valor / 1_000_000).toFixed(2) }))
-      .filter((d) => d.valor > 0)
-      .sort((a, b) => b.valor - a.valor);
 
     const now = new Date();
     const months: { key: string; label: string }[] = [];
@@ -168,29 +116,15 @@ function Dashboard() {
       Ventas: ventaCount[m.key],
     }));
 
-    const last = seriesData[seriesData.length - 1]?.Captaciones ?? 0;
-    const prev = seriesData[seriesData.length - 2]?.Captaciones ?? 0;
-    const captDelta = prev === 0 ? (last > 0 ? 100 : 0) : Math.round(((last - prev) / prev) * 100);
-
-    const spark = seriesData.slice(-8);
-    const sparkCapt = spark.map((d, i) => ({ i, v: d.Captaciones }));
+    const lastCapt = seriesData[seriesData.length - 1]?.Captaciones ?? 0;
+    const prevCapt = seriesData[seriesData.length - 2]?.Captaciones ?? 0;
+    const captDelta = prevCapt === 0 ? (lastCapt > 0 ? 100 : 0) : Math.round(((lastCapt - prevCapt) / prevCapt) * 100);
+    const sparkCapt = seriesData.slice(-8).map((d, i) => ({ i, v: d.Captaciones }));
 
     const recientes = [...inmuebles]
       .filter((i) => i.fechaInicio)
       .sort((a, b) => (b.fechaInicio ?? "").localeCompare(a.fechaInicio ?? ""))
       .slice(0, 6);
-
-    const agMap = new Map<string, { nombre: string; activos: number; valor: number }>();
-    activos.forEach((i) => {
-      i.agentesNombres.forEach((n) => {
-        const prevA = agMap.get(n) ?? { nombre: n, activos: 0, valor: 0 };
-        prevA.activos += 1;
-        prevA.valor += i.precio ?? 0;
-        agMap.set(n, prevA);
-      });
-    });
-    const topAgentes = [...agMap.values()].sort((a, b) => b.valor - a.valor).slice(0, 5);
-    const maxAgValor = topAgentes[0]?.valor ?? 1;
 
     const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const curYear = String(now.getFullYear());
@@ -198,59 +132,39 @@ function Dashboard() {
     let comisionAnual = 0;
     let comisionPipeline = 0;
     inmuebles.forEach((i) => {
+      if (isAlquiler(i.tipo)) return;
       const precio = i.precioFinal ?? i.precio ?? 0;
       if (!precio) return;
-      const fee = isAlquiler(i.tipo)
-        ? precio * COMISION_ALQUILER_MESES
-        : precio * COMISION_VENTA;
-      if (i.estatus === "Vendido" || i.estatus === "Alquilado") {
+      const fee = precio * COMISION_VENTA;
+      if (i.estatus === "Vendido") {
         if (i.fechaEscritura?.startsWith(curMonth)) comisionMes += fee;
         if (i.fechaEscritura?.startsWith(curYear)) comisionAnual += fee;
       }
       if (i.estatus === "Activo" || i.estatus === "Reservado") comisionPipeline += fee;
     });
 
-    const stalledThreshold = 90;
     const ahora = Date.now();
-    const estancadosFull = activos
+    const estancados = activos
       .map((i) => {
         if (!i.fechaInicio) return null;
         const dias = Math.floor((ahora - new Date(i.fechaInicio).getTime()) / 86400000);
-        return dias > stalledThreshold ? { i, dias } : null;
+        return dias > 90 ? { i, dias } : null;
       })
       .filter((x): x is { i: Inmueble; dias: number } => !!x)
-      .sort((a, b) => b.dias - a.dias);
-    const estancados = estancadosFull.slice(0, 5);
+      .sort((a, b) => b.dias - a.dias)
+      .slice(0, 5);
+
+    const prospectosWeb = inmuebles.filter((i) => i.publicacion === "PROSPECTO").length;
 
     return {
       inmuebles, activos, reservados, vendidos, alquilados,
-      valorCartera, valorVendido, precioMedio,
-      pieData, barData, seriesData, sparkCapt, captDelta, lastCapt: last,
-      recientes, topAgentes, maxAgValor,
-      comisionMes, comisionAnual, comisionPipeline,
-      estancados, estancadosFull,
+      valorCartera, seriesData, sparkCapt, captDelta,
+      recientes, comisionMes, comisionAnual, comisionPipeline,
+      estancados, prospectosWeb,
     };
   }, [inmData]);
 
-  const cliStats = useMemo(() => {
-    const c = cliData.clientes;
-    const propietarios = c.filter((x) => x.tipo === "Propietario").length;
-    const compradores = c.filter((x) => x.tipo === "Comprador" || x.tipo === "Interesado Propiedades").length;
-    const conConv = c.filter((x) => (x.conversaciones?.trim().length ?? 0) > 0 || (x.motivo?.trim().length ?? 0) > 0);
-
-    const canalCount: Record<Canal, number> = { WhatsApp: 0, Llamada: 0, Idealista: 0, Otro: 0 };
-    c.forEach((x) => { canalCount[inferCanal(x)]++; });
-    const canalTotal = c.length || 1;
-    const canales: { canal: Canal; count: number; pct: number }[] = (
-      ["WhatsApp", "Llamada", "Idealista", "Otro"] as Canal[]
-    ).map((canal) => ({
-      canal,
-      count: canalCount[canal],
-      pct: Math.round((canalCount[canal] / canalTotal) * 100),
-    }));
-
-    return { total: c.length, propietarios, compradores, leadsSilvia: conConv.length, canales };
-  }, [cliData]);
+  const cliTotal = useMemo(() => cliData.clientes.length, [cliData]);
 
   const visStats = useMemo(() => {
     const v = visData.visitas;
@@ -261,30 +175,120 @@ function Dashboard() {
       const d = new Date(x.fecha);
       return d >= now && d <= in7;
     }).length;
-    const realizadas = v.filter((x) => x.estado === "Realizada").length;
-    const tasaRealizadas = v.length ? Math.round((realizadas / v.length) * 100) : 0;
     const ventas = stats.vendidos.length + stats.alquilados.length;
     const tasaCierre = v.length ? Math.round((ventas / v.length) * 100) : 0;
-    return { total: v.length, proximas, realizadas, tasaRealizadas, tasaCierre };
+    return { proximas, tasaCierre };
   }, [visData, stats]);
+
+  // ── Pulso del mes ──
+  const pulso = useMemo(() => {
+    const inmuebles = inmData.inmuebles;
+    const visitas = visData.visitas as VisRow[];
+    const now = new Date();
+    const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const prevMonthKey = now.getMonth() === 0
+      ? `${now.getFullYear() - 1}-12`
+      : `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
+
+    const captMes = inmuebles.filter(i => i.fechaInicio?.startsWith(curMonth)).length;
+    const captPrev = inmuebles.filter(i => i.fechaInicio?.startsWith(prevMonthKey)).length;
+    const cierresMes = inmuebles.filter(i => i.fechaEscritura?.startsWith(curMonth) && !isAlquiler(i.tipo)).length;
+    const cierresPrev = inmuebles.filter(i => i.fechaEscritura?.startsWith(prevMonthKey) && !isAlquiler(i.tipo)).length;
+    const visitasMes = visitas.filter(v => v.estado === "Realizada" && v.fecha?.startsWith(curMonth)).length;
+    const visitasPrev = visitas.filter(v => v.estado === "Realizada" && v.fecha?.startsWith(prevMonthKey)).length;
+    const reservasTotal = inmuebles.filter(i => i.estatus === "Reservado").length;
+
+    return { captMes, captPrev, cierresMes, cierresPrev, visitasMes, visitasPrev, reservasTotal };
+  }, [inmData, visData]);
+
+  // ── Actividad por zona ──
+  const departamentos = useMemo(() => {
+    const inmuebles = inmData.inmuebles;
+    // Normaliza acentos y espacios para unificar variantes del mismo municipio
+    function normalizeKey(s: string): string {
+      return s.trim().normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/\s+/g, " ");
+    }
+    const map = new Map<string, { display: string; captaciones: number; ventas: number; activos: number }>();
+    inmuebles.forEach(i => {
+      const raw = i.localidad || "Sin zona";
+      const key = normalizeKey(raw);
+      if (!map.has(key)) map.set(key, { display: raw, captaciones: 0, ventas: 0, activos: 0 });
+      const d = map.get(key)!;
+      if (i.fechaInicio) d.captaciones++;
+      if (i.estatus === "Vendido") d.ventas++;
+      if (i.estatus === "Activo") d.activos++;
+    });
+    return [...map.values()]
+      .filter(d => d.captaciones > 0 || d.activos > 0)
+      .sort((a, b) => b.captaciones - a.captaciones)
+      .slice(0, 7);
+  }, [inmData]);
+
+  // ── Cartera por tipo ──
+  const carteraBreakdown = useMemo(() => {
+    const activos = inmData.inmuebles.filter(i => i.estatus === "Activo");
+    const map = new Map<string, { count: number; valor: number }>();
+    activos.forEach(i => {
+      const tipo = i.tipo || "Otros";
+      const prev = map.get(tipo) ?? { count: 0, valor: 0 };
+      map.set(tipo, { count: prev.count + 1, valor: prev.valor + (i.precio ?? 0) });
+    });
+    const list = [...map.entries()]
+      .map(([tipo, d]) => ({ tipo, ...d }))
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 7);
+    return { list, maxValor: list[0]?.valor ?? 1 };
+  }, [inmData]);
+
+  // ── Visitas analytics ──
+  const visitasAnalytics = useMemo(() => {
+    const visitas = visData.visitas as VisRow[];
+    const now = new Date();
+    const eightWeeksAgo = new Date(now.getTime() - 8 * 7 * 86400000);
+    const semanas = Array.from({ length: 8 }, (_, k) => {
+      const wStart = new Date(eightWeeksAgo.getTime() + k * 7 * 86400000);
+      const wEnd = new Date(wStart.getTime() + 7 * 86400000);
+      const label = `${wStart.getDate()}/${wStart.getMonth() + 1}`;
+      const count = visitas.filter(v => {
+        if (!v.fecha) return false;
+        const vd = new Date(v.fecha);
+        return vd >= wStart && vd < wEnd;
+      }).length;
+      return { label, count };
+    });
+
+    const inmMap = new Map<string, { id: string; dir: string; count: number }>();
+    visitas.forEach(v => {
+      const ids = v.inmuebleIds ?? [];
+      const calles = v.inmuebleCalles ?? [];
+      const numeros = v.inmuebleNumeros ?? [];
+      ids.forEach((id, idx) => {
+        const prev = inmMap.get(id) ?? { id, dir: `${calles[idx] ?? ""} ${numeros[idx] ?? ""}`.trim(), count: 0 };
+        inmMap.set(id, { ...prev, count: prev.count + 1 });
+      });
+    });
+    const topInmuebles = [...inmMap.values()].sort((a, b) => b.count - a.count).slice(0, 5);
+
+    return { semanas, topInmuebles };
+  }, [visData]);
 
   return (
     <AppShell
       title="Dashboard"
-      subtitle={`${stats.activos.length} activos · ${cliStats.total} clientes · ${visStats.proximas} visitas próximas`}
+      subtitle={`${stats.activos.length} activos · ${cliTotal} clientes · ${visStats.proximas} visitas próximas`}
     >
-      {/* ── ROW 1: Bento hero ── */}
+      {/* ── ROW 1: Hero ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
-
-        {/* Featured: Comisiones este mes */}
         <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 flex flex-col min-h-[200px]">
           <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-4 flex items-center gap-2">
             Comisiones este mes
             <span className="normal-case tracking-normal text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-normal">est.</span>
           </div>
           <div className="flex-1">
-            <div className="font-display font-bold text-gold tabular-nums leading-none tracking-tighter"
-              style={{ fontSize: "clamp(2.75rem, 7vw, 4.5rem)" }}>
+            <div
+              className="font-display font-bold text-gold tabular-nums leading-none tracking-tighter"
+              style={{ fontSize: "clamp(2.75rem, 7vw, 4.5rem)" }}
+            >
               {moneyShort(stats.comisionMes)}
             </div>
             <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
@@ -327,10 +331,8 @@ function Dashboard() {
           )}
         </div>
 
-        {/* Right column: dark card + mini grid */}
         <div className="flex flex-col gap-3">
-          {/* Dark "cartera activa" card */}
-          <div className="flex-1 rounded-2xl bg-foreground p-5 flex flex-col" style={{ color: "var(--background)" }}>
+          <div className="flex-1 rounded-2xl bg-sidebar p-5 flex flex-col" style={{ color: "var(--sidebar-foreground)" }}>
             <div className="text-[10px] uppercase tracking-[0.22em] font-medium mb-3" style={{ opacity: 0.45 }}>
               Cartera activa
             </div>
@@ -342,190 +344,154 @@ function Dashboard() {
                 {stats.reservados.length} reservados · {moneyShort(stats.valorCartera)}
               </div>
             </div>
-            <Link
-              to="/inmuebles"
-              className="mt-3 text-xs font-medium inline-flex items-center gap-1 transition-opacity hover:opacity-100"
-              style={{ opacity: 0.40 }}
-            >
+            <Link to="/inmuebles" className="mt-3 text-xs font-medium inline-flex items-center gap-1 transition-opacity hover:opacity-100" style={{ opacity: 0.40 }}>
               Ver cartera <ArrowRight className="size-3" />
             </Link>
           </div>
-
-          {/* Mini grid: Clientes + Visitas */}
-          <div className="flex-1 rounded-2xl border border-border bg-card p-5 grid grid-cols-2 divide-x divide-border">
-            <div className="pr-4">
+          <div className="flex-1 rounded-2xl border border-border bg-card p-5 grid grid-cols-3 divide-x divide-border">
+            <div className="pr-3">
               <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Clientes</div>
-              <div className="text-3xl font-display font-bold tabular-nums leading-none">{cliStats.total}</div>
-              <Link to="/clientes" className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors">
+              <div className="text-3xl font-display font-bold tabular-nums leading-none">{cliTotal}</div>
+              <Link to="/clientes" search={{ id: undefined }} className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors">
                 Ver todos <ArrowRight className="size-2.5" />
               </Link>
             </div>
-            <div className="pl-4">
+            <div className="px-3">
               <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Visitas / 7d</div>
               <div className="text-3xl font-display font-bold tabular-nums leading-none">{visStats.proximas}</div>
               <Link to="/visitas" className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors">
                 Ver agenda <ArrowRight className="size-2.5" />
               </Link>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── ROW 2: Evolución + Top comerciales ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
-        <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5">
-          <h3 className="text-sm font-semibold tracking-tight mb-4">Captaciones y cierres · últimos 12 meses</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={stats.seriesData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gCapt" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gVent" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--gold)" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="var(--gold)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="mes" tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" />
-              <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" allowDecimals={false} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Area type="monotone" dataKey="Captaciones" stroke="var(--primary)" strokeWidth={2.5} fill="url(#gCapt)" activeDot={{ r: 5 }} />
-              <Area type="monotone" dataKey="Ventas" stroke="var(--gold)" strokeWidth={2.5} fill="url(#gVent)" activeDot={{ r: 5 }} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-5 flex flex-col">
-          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-            <Trophy className="size-4 text-gold" /> Top comerciales
-          </h3>
-          <div className="flex-1 space-y-3">
-            {stats.topAgentes.length === 0 ? (
-              <div className="text-sm text-muted-foreground py-6 text-center">Sin datos.</div>
-            ) : (
-              stats.topAgentes.map((a, idx) => {
-                const pct = Math.max(4, Math.round((a.valor / stats.maxAgValor) * 100));
-                const medalTone =
-                  idx === 0 ? "bg-gold text-gold-foreground"
-                  : idx === 1 ? "bg-slate-300 text-slate-900"
-                  : idx === 2 ? "bg-orange-700 text-white"
-                  : "bg-muted text-muted-foreground";
-                return (
-                  <div key={a.nombre} className="flex items-center gap-3">
-                    <div className={`size-7 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${medalTone}`}>
-                      {idx + 1}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <div className="text-sm font-medium truncate">{a.nombre}</div>
-                        <div className="text-xs text-muted-foreground tabular-nums shrink-0">
-                          <span className="font-semibold text-foreground">{moneyShort(a.valor)}</span>
-                        </div>
-                      </div>
-                      <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-primary to-gold transition-all" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-          <Link to="/comerciales" className="mt-4 text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors">
-            Ver ranking completo <ArrowRight className="size-3" />
-          </Link>
-        </div>
-      </div>
-
-      {/* ── ROW 2.5: Canal de captación ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-        {cliStats.canales.map(({ canal, count, pct }) => {
-          const meta = CANAL_DASH[canal];
-          return (
-            <div key={canal} className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <span className={`inline-flex items-center justify-center size-8 rounded-xl ${meta.bg}`}>
-                  <meta.Icon className={`size-4 ${meta.color}`} />
-                </span>
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.18em]">
-                  {canal}
-                </span>
+            <div className="pl-3">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Prospectos</div>
+              <div className={`text-3xl font-display font-bold tabular-nums leading-none ${stats.prospectosWeb > 0 ? "text-violet-600 dark:text-violet-400" : ""}`}>
+                {stats.prospectosWeb}
               </div>
-              <div>
-                <div className="text-2xl font-display font-bold tabular-nums leading-none">{count}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{pct}% del total</div>
-              </div>
-              <div className="h-1 rounded-full bg-muted overflow-hidden">
-                <div className={`h-full rounded-full ${meta.bar}`} style={{ width: `${Math.max(pct, 2)}%` }} />
-              </div>
+              <Link to="/prospectos" className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors">
+                Revisar <ArrowRight className="size-2.5" />
+              </Link>
             </div>
-          );
-        })}
+          </div>
+        </div>
       </div>
 
-      {/* ── ROW 3: Charts + SilvIA ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+      {/* ── ROW 1.5: Pulso del mes ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        <PulsoChip
+          label="Captaciones · mes"
+          value={pulso.captMes}
+          prev={pulso.captPrev}
+          icon={Home}
+          iconColor="text-primary"
+          iconBg="bg-primary/10"
+        />
+        <PulsoChip
+          label="Cierres · mes"
+          value={pulso.cierresMes}
+          prev={pulso.cierresPrev}
+          icon={CheckCircle2}
+          iconColor="text-emerald-600 dark:text-emerald-400"
+          iconBg="bg-emerald-500/10"
+        />
+        <PulsoChip
+          label="Visitas realizadas · mes"
+          value={pulso.visitasMes}
+          prev={pulso.visitasPrev}
+          icon={CalendarDays}
+          iconColor="text-gold"
+          iconBg="bg-gold/10"
+        />
+        <PulsoChip
+          label="Reservas activas"
+          value={pulso.reservasTotal}
+          icon={HandCoins}
+          iconColor="text-violet-600 dark:text-violet-400"
+          iconBg="bg-violet-500/10"
+        />
+      </div>
 
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <h3 className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-3">Distribución estado</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie
-                data={stats.pieData}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={52}
-                outerRadius={86}
-                paddingAngle={3}
-                stroke="var(--card)"
-                strokeWidth={2}
-              >
-                {stats.pieData.map((entry) => (
-                  <Cell key={entry.name} fill={STATUS_COLORS[entry.name] ?? "#cbd5e1"} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}`, ""]} />
-              <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+      {/* ── ROW 2: Evolución + Actividad por zona ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
+        <Suspense fallback={<div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5 h-[284px] animate-pulse bg-muted/30" />}>
+          <EvolucionChart seriesData={stats.seriesData} />
+        </Suspense>
+        <DepartamentosPanel data={departamentos} />
+      </div>
 
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <h3 className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-3">Valor por categoría</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={stats.barData} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gBar" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--gold)" stopOpacity={1} />
-                  <stop offset="100%" stopColor="var(--gold)" stopOpacity={0.5} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="cat" tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
-              <YAxis tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" tickFormatter={(v) => `${v}M`} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}M €`, ""]} />
-              <Bar dataKey="valorM" fill="url(#gBar)" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      {/* ── ROW 2.5: Pipeline ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        <Link to="/mis-leads" className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group">
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center justify-center size-8 rounded-xl bg-muted">
+              <UserRound className="size-4 text-foreground" />
+            </span>
+            <ArrowRight className="size-3.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
+          </div>
+          <div>
+            <div className="text-2xl font-display font-bold tabular-nums leading-none">{leadsCount}</div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">Leads activos</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">Pendientes de cualificar</div>
+          </div>
+        </Link>
+        <Link to="/clientes" search={{ id: undefined }} className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group">
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center justify-center size-8 rounded-xl bg-emerald-500/10">
+              <Users className="size-4 text-emerald-600 dark:text-emerald-400" />
+            </span>
+            <ArrowRight className="size-3.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
+          </div>
+          <div>
+            <div className="text-2xl font-display font-bold tabular-nums leading-none">{cliTotal}</div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">En seguimiento</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">Activos · Prospectos</div>
+          </div>
+        </Link>
+        <Link to="/inmuebles" className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group">
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center justify-center size-8 rounded-xl bg-gold/10">
+              <HandCoins className="size-4 text-gold" />
+            </span>
+            <ArrowRight className="size-3.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
+          </div>
+          <div>
+            <div className="text-2xl font-display font-bold tabular-nums leading-none">{stats.reservados.length}</div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">Reservados</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">Inmuebles en reserva</div>
+          </div>
+        </Link>
+        <Link to="/visitas" className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group">
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center justify-center size-8 rounded-xl bg-primary/10">
+              <CalendarCheck className="size-4 text-primary" />
+            </span>
+            <ArrowRight className="size-3.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
+          </div>
+          <div>
+            <div className="text-2xl font-display font-bold tabular-nums leading-none">{visStats.proximas}</div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">Visitas · 7 días</div>
+            <div className="text-[11px] text-muted-foreground mt-0.5">Agendadas próxima semana</div>
+          </div>
+        </Link>
+      </div>
 
-        {/* SilvIA CTA */}
+      {/* ── ROW 3: Cartera tipo + Visitas analytics + SilvIA ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
+        <CarteraBreakdown data={carteraBreakdown.list} maxValor={carteraBreakdown.maxValor} />
+        <Suspense fallback={<div className="rounded-2xl border border-border bg-card p-5 h-64 animate-pulse bg-muted/30" />}>
+          <VisitasAnalytics data={visitasAnalytics} />
+        </Suspense>
         <Link
           to="/silvia"
-          className="rounded-2xl border border-gold/25 bg-gradient-to-br from-gold/10 to-transparent p-5 flex flex-col justify-between hover:border-gold/50 hover:shadow-lg transition-all group sm:col-span-2 lg:col-span-1"
+          className="rounded-2xl border border-gold/25 bg-gradient-to-br from-gold/10 to-transparent p-5 flex flex-col justify-between hover:border-gold/50 hover:shadow-lg transition-all group"
         >
           <div className="size-11 rounded-xl bg-gradient-to-br from-gold to-amber-300 flex items-center justify-center shadow-md">
             <Sparkles className="size-5 text-gold-foreground" />
           </div>
           <div className="mt-4">
             <div className="text-base font-semibold tracking-tight">SilvIA</div>
-            <div className="text-sm text-muted-foreground mt-0.5">
-              {cliStats.leadsSilvia} conversaciones activas
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">Leads cualificados por IA</div>
+            <div className="text-sm text-muted-foreground mt-0.5">{leadsCount} leads en seguimiento</div>
+            <div className="text-xs text-muted-foreground mt-1">Gestionados por IA</div>
           </div>
           <div className="mt-5 inline-flex items-center gap-1 text-xs font-medium text-gold group-hover:gap-2 transition-all">
             Revisar leads <ArrowRight className="size-3" />
@@ -550,10 +516,123 @@ function Dashboard() {
             )}
           </div>
         </div>
-
         <AlertasPanel estancados={stats.estancados} />
       </div>
     </AppShell>
+  );
+}
+
+// ── Sub-components ───────────────────────────────────────────────────
+
+function PulsoChip({
+  label, value, prev, icon: Icon, iconColor, iconBg,
+}: {
+  label: string; value: number; prev?: number;
+  icon: LucideIcon; iconColor: string; iconBg: string;
+}) {
+  const d = prev !== undefined ? calcDelta(value, prev) : null;
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 flex items-center gap-3">
+      <span className={`inline-flex items-center justify-center size-9 rounded-xl shrink-0 ${iconBg}`}>
+        <Icon className={`size-4 ${iconColor}`} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-2xl font-display font-bold tabular-nums leading-none">{value}</div>
+        <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mt-1 leading-tight">{label}</div>
+      </div>
+      {d !== null && (
+        <div className={`shrink-0 text-xs font-semibold ${d >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+          {d >= 0 ? "+" : ""}{d}%
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DepartamentosPanel({ data }: {
+  data: { display: string; captaciones: number; ventas: number; activos: number }[];
+}) {
+  const maxCap = Math.max(1, ...data.map(d => d.captaciones));
+  const totalCapt = data.reduce((s, d) => s + d.captaciones, 0);
+  const totalVentas = data.reduce((s, d) => s + d.ventas, 0);
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 flex flex-col">
+      <div className="flex items-start justify-between mb-4">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <MapPin className="size-4 text-gold" /> Actividad por zona
+        </h3>
+        <div className="text-[10px] text-muted-foreground tabular-nums text-right leading-tight">
+          <span className="font-semibold text-foreground">{totalCapt}</span> capt<br />
+          <span className="font-semibold text-foreground">{totalVentas}</span> vtas
+        </div>
+      </div>
+      {data.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Sin datos.</div>
+      ) : (
+        <div className="flex-1 space-y-2.5">
+          {data.map(d => (
+            <div key={d.display}>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-xs font-medium truncate">{d.display}</span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded bg-gold/15 text-gold text-[10px] font-bold tabular-nums">
+                    {d.captaciones}
+                  </span>
+                  {d.ventas > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold tabular-nums">
+                      {d.ventas}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gold"
+                  style={{ width: `${Math.max(6, Math.round((d.captaciones / maxCap) * 100))}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-3 pt-3 border-t border-border flex gap-4 text-[10px] text-muted-foreground">
+        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-gold inline-block" />Captaciones</span>
+        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-emerald-500/40 inline-block" />Ventas</span>
+      </div>
+    </div>
+  );
+}
+
+function CarteraBreakdown({ data, maxValor }: {
+  data: { tipo: string; count: number; valor: number }[];
+  maxValor: number;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <h3 className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-4">Cartera activa · por tipo</h3>
+      {data.length === 0 ? (
+        <div className="py-8 text-center text-sm text-muted-foreground">Sin activos.</div>
+      ) : (
+        <div className="space-y-3">
+          {data.map(d => (
+            <div key={d.tipo}>
+              <div className="flex items-baseline justify-between text-xs mb-1.5">
+                <span className="font-medium truncate max-w-[55%]">{d.tipo}</span>
+                <span className="text-muted-foreground tabular-nums shrink-0 text-[11px]">
+                  <span className="font-semibold text-foreground">{d.count}</span> · {moneyShort(d.valor)}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gold/70"
+                  style={{ width: `${Math.max(6, Math.round((d.valor / maxValor) * 100))}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -562,7 +641,7 @@ function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: number 
     <div className="rounded-2xl border border-border bg-card overflow-hidden">
       <div className="px-5 py-3.5 border-b border-border">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <TrendingDown className="size-4 text-destructive" /> Inmuebles estancados
+          <TrendingDown className="size-4 text-alert" /> Inmuebles estancados
         </h3>
         <p className="text-[11px] text-muted-foreground mt-0.5">Activos sin escritura tras +90 días.</p>
       </div>
@@ -577,7 +656,7 @@ function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: number 
                 params={{ id: i.id }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
               >
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive text-[11px] font-bold tabular-nums">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-alert/10 text-alert text-[11px] font-bold tabular-nums">
                   {dias}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -605,13 +684,10 @@ function RecentRow({ i }: { i: Inmueble }) {
       params={{ id: i.id }}
       className="flex items-center gap-3 px-5 py-3 hover:bg-accent/40 transition-colors"
     >
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-        <Building2 className="size-4" />
-      </div>
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium truncate">
           {i.calle || "Sin dirección"} {i.numero}
-          {i.ref && <span className="ml-2 text-[11px] font-mono text-muted-foreground">#{i.ref}</span>}
+          {i.ref && <span className="ml-2 text-[11px] font-mono text-muted-foreground">#{cleanRef(i.ref)}</span>}
         </div>
         <div className="text-xs text-muted-foreground truncate">
           {[i.barrio, i.localidad].filter(Boolean).join(" · ") || "—"} · {i.tipo || "—"}

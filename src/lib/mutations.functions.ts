@@ -577,6 +577,23 @@ export const asociarLeadAInmueble = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const checkDuplicates = createServerFn({ method: "GET" })
+  .validator((d: { email?: string; telefono?: string }) => d)
+  .handler(async ({ data }) => {
+    await requireAuth();
+    const supa = getSupa();
+    const conditions: string[] = [];
+    if (data.email?.trim())    conditions.push(`email.eq.${data.email.trim().toLowerCase()}`);
+    if (data.telefono?.trim()) conditions.push(`telefono.eq.${data.telefono.trim()}`);
+    if (!conditions.length) return { duplicates: [] };
+    const { data: rows } = await supa
+      .from("contacts")
+      .select("id, nombre, email, telefono, ciclo_vida")
+      .or(conditions.join(","))
+      .limit(3);
+    return { duplicates: rows ?? [] };
+  });
+
 export const sendWhatsAppReply = createServerFn({ method: "POST" })
   .inputValidator((d: { phone: string; message: string }) => {
     if (!d?.phone?.trim()) throw new Error("Teléfono requerido");

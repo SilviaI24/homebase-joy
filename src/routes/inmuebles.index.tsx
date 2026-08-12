@@ -1,15 +1,18 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { SafeImage } from "@/components/SafeImage";
 import { NewInmuebleDialog } from "@/components/CreateDialogs";
 import { RecordatoriosEstancados } from "@/components/RecordatoriosEstancados";
+import { useServerFn } from "@tanstack/react-start";
 
-
-import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
+import { getCategoria, CATEGORIAS, geocodeInmuebles, type Inmueble } from "@/lib/inmuebles.functions";
 import { allInmueblesQuery } from "@/lib/queries";
-import { Search, LayoutGrid, Columns3, Clock, AlertTriangle } from "lucide-react";
+import { cleanRef } from "@/lib/format";
+import {
+  Search, LayoutGrid, Columns3, Clock, AlertTriangle, Hourglass, Map as MapIcon, Loader2,
+} from "lucide-react";
 
 const STALE_DAYS = 90;
 const DAY_MS = 1000 * 60 * 60 * 24;
@@ -21,8 +24,9 @@ function daysSince(iso: string | null): number | null {
   return Math.floor((Date.now() - t) / DAY_MS);
 }
 
-type KanbanCol = "Activos" | "Reservados" | "Cerrados" | "Estancados";
+type KanbanCol = "Pendientes" | "Activos" | "Reservados" | "Cerrados" | "Estancados";
 const KANBAN_COLS: { key: KanbanCol; label: string; tone: string; icon: any }[] = [
+  { key: "Pendientes", label: "Pendientes", tone: "border-slate-400/40 bg-slate-500/5", icon: Hourglass },
   { key: "Activos", label: "Activos", tone: "border-emerald-500/40 bg-emerald-500/5", icon: LayoutGrid },
   { key: "Reservados", label: "Reservados", tone: "border-amber-500/40 bg-amber-500/5", icon: Clock },
   { key: "Cerrados", label: "Cerrados", tone: "border-blue-500/40 bg-blue-500/5", icon: Columns3 },
@@ -31,6 +35,7 @@ const KANBAN_COLS: { key: KanbanCol; label: string; tone: string; icon: any }[] 
 
 function classifyKanban(i: Inmueble): KanbanCol | null {
   const e = i.estatus;
+  if (e === "Pendiente") return "Pendientes";
   if (e === "Reservado") return "Reservados";
   if (e === "Vendido" || e === "Alquilado") return "Cerrados";
   if (e === "Activo" || e === "Prospección") {
@@ -89,6 +94,16 @@ function statusBadge(estatus: string) {
   );
 }
 
+function prospectoBadge(publicacion: string) {
+  if (publicacion !== "PROSPECTO") return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/50 bg-violet-500/20 px-2.5 py-1 text-[11px] font-semibold text-violet-700 dark:text-violet-400 shadow-sm">
+      <Hourglass className="size-3" />
+      Prospecto
+    </span>
+  );
+}
+
 function InmueblesPage() {
   const { data: all } = useSuspenseQuery(allInmueblesQuery);
   const data = { inmuebles: all.inmuebles };
@@ -98,7 +113,7 @@ function InmueblesPage() {
   const [estatus, setEstatus] = useState<string>("Activo");
   const [categoria, setCategoria] = useState<string>("Todas");
   const [agente, setAgente] = useState<string>("Todos");
-  const [view, setView] = useState<"grid" | "kanban">("grid");
+  const [view, setView] = useState<"grid" | "kanban" | "mapa">("grid");
 
   const agentes = useMemo(() => {
     const s = new Set<string>();
@@ -119,7 +134,15 @@ function InmueblesPage() {
   }, [data.inmuebles]);
 
   const conteoPorCategoria = useMemo(() => {
-    const base = data.inmuebles.filter((i) => estatus === "Todos" || i.estatus === estatus);
+    // Kanban shows all statuses — counts must match what the kanban actually displays
+    const base = view === "kanban"
+      ? data.inmuebles.filter((i) => {
+          if (!matchesAgente(i)) return false;
+          const needle = q.trim().toLowerCase();
+          if (!matchesSearch(i, needle)) return false;
+          return classifyKanban(i) !== null;
+        })
+      : data.inmuebles.filter((i) => estatus === "Todos" || i.estatus === estatus);
     const map: Record<string, number> = { Todas: base.length };
     CATEGORIAS.forEach((c) => (map[c] = 0));
     map["Otros"] = 0;
@@ -128,7 +151,7 @@ function InmueblesPage() {
       map[c] = (map[c] ?? 0) + 1;
     });
     return map;
-  }, [data.inmuebles, estatus]);
+  }, [data.inmuebles, estatus, view, agente, q]);
 
   const matchesSearch = (i: Inmueble, needle: string) => {
     if (!needle) return true;
@@ -155,7 +178,7 @@ function InmueblesPage() {
   const kanbanGroups = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const groups: Record<KanbanCol, Inmueble[]> = {
-      Activos: [], Reservados: [], Cerrados: [], Estancados: [],
+      Pendientes: [], Activos: [], Reservados: [], Cerrados: [], Estancados: [],
     };
     data.inmuebles.forEach((i) => {
       if (categoria !== "Todas" && getCategoria(i.tipo) !== categoria) return;
@@ -164,13 +187,11 @@ function InmueblesPage() {
       const col = classifyKanban(i);
       if (col) groups[col].push(i);
     });
-    // Sort oldest first by fechaInicio
+    // Sort oldest first by fechaInicio (precompute timestamps to avoid Date.parse in comparator)
     (Object.keys(groups) as KanbanCol[]).forEach((k) => {
-      groups[k].sort((a, b) => {
-        const da = Date.parse(a.fechaInicio || "") || Infinity;
-        const db = Date.parse(b.fechaInicio || "") || Infinity;
-        return da - db;
-      });
+      const withTs = groups[k].map((i) => ({ i, t: i.fechaInicio ? Date.parse(i.fechaInicio) : Infinity }));
+      withTs.sort((a, b) => a.t - b.t);
+      groups[k] = withTs.map((x) => x.i);
     });
     return groups;
   }, [data.inmuebles, q, categoria, agente]);
@@ -179,6 +200,7 @@ function InmueblesPage() {
 
   return (
     <AppShell title="Inmuebles">
+      <>
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -189,7 +211,7 @@ function InmueblesPage() {
             className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
-        {view === "grid" && (
+        {(view === "grid" || view === "mapa") && (
           <select
             value={estatus}
             onChange={(e) => setEstatus(e.target.value)}
@@ -225,11 +247,18 @@ function InmueblesPage() {
           >
             <Columns3 className="size-3.5" /> Kanban
           </button>
+          <button
+            onClick={() => setView("mapa")}
+            className={`px-3 text-xs font-medium inline-flex items-center gap-1.5 border-l border-input ${view === "mapa" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+            title="Vista en mapa"
+          >
+            <MapIcon className="size-3.5" /> Mapa
+          </button>
         </div>
         <div className="ml-auto text-sm text-muted-foreground">
-          {view === "grid"
+          {view === "grid" || view === "mapa"
             ? `${filtered.length} de ${data.inmuebles.length}`
-            : `${kanbanGroups.Activos.length + kanbanGroups.Reservados.length + kanbanGroups.Cerrados.length + kanbanGroups.Estancados.length} inmuebles`}
+            : `${(Object.values(kanbanGroups) as Inmueble[][]).reduce((s, col) => s + col.length, 0)} inmuebles`}
         </div>
         <button
           onClick={() => router.invalidate()}
@@ -268,9 +297,11 @@ function InmueblesPage() {
         })}
       </div>
 
-      <RecordatoriosEstancados inmuebles={data.inmuebles} staleDays={STALE_DAYS} />
+      {view === "grid" && <RecordatoriosEstancados inmuebles={data.inmuebles} staleDays={STALE_DAYS} />}
 
-      {view === "grid" ? (
+      {view === "mapa" && <MapaView inmuebles={filtered} />}
+
+      {view !== "mapa" && (view === "grid" ? (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map((i) => (
@@ -282,10 +313,13 @@ function InmueblesPage() {
               >
                 <div className="aspect-video relative overflow-hidden">
                   <SafeImage src={i.imagen} alt={i.calle || i.ref} imgClassName="group-hover:scale-[1.02] transition-transform" />
-                  <div className="absolute top-2 left-2 z-10">{statusBadge(i.estatus)}</div>
+                  <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+                    {statusBadge(i.estatus)}
+                    {prospectoBadge(i.publicacion)}
+                  </div>
                   {i.ref && (
                     <div className="absolute top-2 right-2 z-10 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-mono font-semibold text-foreground shadow-sm">
-                      #{i.ref}
+                      #{cleanRef(i.ref)}
                     </div>
                   )}
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
@@ -367,22 +401,29 @@ function InmueblesPage() {
                               <h4 className="text-xs font-semibold truncate">
                                 {i.calle || "Sin dirección"} {i.numero}
                               </h4>
-                              <span className="text-[10px] font-mono text-muted-foreground shrink-0">#{i.ref}</span>
+                              <span className="text-[10px] font-mono text-muted-foreground shrink-0">#{cleanRef(i.ref)}</span>
                             </div>
                             <div className="text-[11px] text-muted-foreground truncate">
                               {[i.barrio, i.localidad].filter(Boolean).join(" · ") || "—"}
                             </div>
                             <div className="flex items-center justify-between mt-1 gap-2">
                               <span className="text-xs font-semibold text-primary">{formatEuro(i.precio)}</span>
-                              {dias !== null && (
-                                <span className={`text-[10px] inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full ${
-                                  isStale
-                                    ? "bg-destructive/15 text-destructive"
-                                    : "bg-muted text-muted-foreground"
-                                }`}>
-                                  <Clock className="size-2.5" />{dias}d
-                                </span>
-                              )}
+                              <div className="flex items-center gap-1 shrink-0">
+                                {i.publicacion === "PROSPECTO" && (
+                                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-700 dark:text-violet-400 border border-violet-500/30 inline-flex items-center gap-0.5">
+                                    <Hourglass className="size-2.5" />Prospecto
+                                  </span>
+                                )}
+                                {dias !== null && (
+                                  <span className={`text-[10px] inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full ${
+                                    isStale
+                                      ? "bg-destructive/15 text-destructive"
+                                      : "bg-muted text-muted-foreground"
+                                  }`}>
+                                    <Clock className="size-2.5" />{dias}d
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -394,7 +435,159 @@ function InmueblesPage() {
             );
           })}
         </div>
-      )}
+      ))}
+      </>
     </AppShell>
+  );
+}
+
+
+function statusColor(estatus: string): string {
+  if (estatus === "Vendido" || estatus === "Alquilado") return "#3b82f6";
+  if (estatus === "Reservado") return "#f59e0b";
+  if (estatus === "Activo") return "#10b981";
+  if (estatus === "Pendiente") return "#94a3b8";
+  return "#64748b";
+}
+
+function MapaView({ inmuebles }: { inmuebles: Inmueble[] }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markersRef = useRef<Map<string, any>>(new Map());
+  const [geocoding, setGeocoding] = useState(false);
+  const [geocodePending, setGeocodePending] = useState(0);
+  const [localCoords, setLocalCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
+  const geocodeFn = useServerFn(geocodeInmuebles);
+  const qc = useQueryClient();
+
+  const withCoords = useMemo(() => {
+    return inmuebles.map((i) => {
+      const local = localCoords.get(i.id);
+      return { ...i, coordenadas: local ?? i.coordenadas };
+    }).filter((i) => i.coordenadas != null);
+  }, [inmuebles, localCoords]);
+
+  const withoutCoords = useMemo(
+    () => inmuebles.filter((i) => !localCoords.has(i.id) && !i.coordenadas),
+    [inmuebles, localCoords]
+  );
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    let cancelled = false;
+
+    async function init() {
+      // Lazy inject leaflet CSS from the local npm package (no external CDN request)
+      if (!document.querySelector('link[data-leaflet-css]')) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.setAttribute("data-leaflet-css", "1");
+        link.href = new URL("leaflet/dist/leaflet.css", import.meta.url).href;
+        document.head.appendChild(link);
+      }
+      const L = await import("leaflet");
+      if (cancelled) return;
+      if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; }
+      const map = L.map(mapRef.current!, { center: [36.51, -4.88], zoom: 12 });
+      mapInstanceRef.current = map;
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors",
+        maxZoom: 19,
+      }).addTo(map);
+    }
+    init();
+    return () => { cancelled = true; mapInstanceRef.current?.remove(); mapInstanceRef.current = null; markersRef.current.clear(); };
+  }, []);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    import("leaflet").then((L) => {
+      // Remove markers that are no longer in withCoords
+      const newIds = new Set(withCoords.map(i => i.id));
+      for (const [id, marker] of markersRef.current) {
+        if (!newIds.has(id)) {
+          marker.remove();
+          markersRef.current.delete(id);
+        }
+      }
+
+      // Add only new markers (skip existing ones)
+      const bounds: [number, number][] = [];
+      for (const i of withCoords) {
+        const { lat, lng } = i.coordenadas!;
+        bounds.push([lat, lng]);
+        if (markersRef.current.has(i.id)) continue;
+        const color = statusColor(i.estatus);
+        const marker = L.circleMarker([lat, lng], {
+          radius: 9,
+          color: "#fff",
+          weight: 2,
+          fillColor: color,
+          fillOpacity: 0.9,
+        })
+          .bindPopup(
+            `<div style="min-width:160px"><b>${i.calle || "Sin dirección"} ${i.numero || ""}</b><br>` +
+            `<span style="font-size:11px">${i.tipo} · ${i.estatus}</span><br>` +
+            `<b style="font-size:13px">${i.precio?.toLocaleString("es-ES") ?? "—"} €</b>` +
+            (i.ref ? `<br><span style="font-size:10px;color:#888">#${cleanRef(i.ref)}</span>` : "") +
+            `</div>`
+          )
+          .addTo(map);
+        markersRef.current.set(i.id, marker);
+      }
+      if (bounds.length > 1) {
+        map.fitBounds(bounds as any, { padding: [40, 40] });
+      }
+    });
+  }, [withCoords]);
+
+  async function handleGeocode() {
+    if (withoutCoords.length === 0 || geocoding) return;
+    setGeocoding(true);
+    setGeocodePending(withoutCoords.length);
+    const items = withoutCoords.map((i) => ({
+      id: i.id,
+      calle: i.calle,
+      numero: i.numero,
+      barrio: i.barrio,
+      localidad: i.localidad,
+    }));
+    try {
+      const { results } = await geocodeFn({ data: { items } });
+      const newCoords = new Map(localCoords);
+      for (const r of results) {
+        if ("lat" in r) newCoords.set(r.id, { lat: r.lat, lng: r.lng });
+      }
+      setLocalCoords(newCoords);
+      // Invalidate so the next visit to /inmuebles reflects the persisted coordinates
+      qc.invalidateQueries({ queryKey: ["all-inmuebles"] });
+    } finally {
+      setGeocoding(false);
+      setGeocodePending(0);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-border overflow-hidden shadow-sm">
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-card text-xs text-muted-foreground">
+        <span>{withCoords.length} en mapa · {withoutCoords.length} sin geocodificar</span>
+        {withoutCoords.length > 0 && (
+          <button
+            onClick={handleGeocode}
+            disabled={geocoding}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-input bg-background text-foreground hover:bg-accent disabled:opacity-50 transition-colors"
+          >
+            {geocoding ? (
+              <><Loader2 className="size-3 animate-spin" /> Geocodificando {geocodePending}…</>
+            ) : (
+              <><MapIcon className="size-3" /> Geocodificar ({withoutCoords.length})</>
+            )}
+          </button>
+        )}
+      </div>
+      <div ref={mapRef} style={{ height: "600px", width: "100%" }} />
+    </div>
   );
 }
