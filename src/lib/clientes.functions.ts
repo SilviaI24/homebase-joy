@@ -851,3 +851,117 @@ export const getStatsData = createServerFn({ method: "GET" }).handler(async () =
     agentes: agentesStats,
   } satisfies StatsData;
 });
+
+// ── Lead Insights (Meta scoring rule-based) ───────────────────────────────────
+
+export type LeadInsight = {
+  id: string;
+  nombre: string;
+  telefono: string | null;
+  ciclo_vida: string;
+  score: number;
+  diasSinContacto: number | null;
+  tieneAgente: boolean;
+};
+
+export type LeadInsightsData = {
+  topCalientes: LeadInsight[];
+  sinSeguimiento: LeadInsight[];
+  total: number;
+};
+
+export const getLeadInsightsFn = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAuth();
+  const supa = getSupa();
+  const now = Date.now();
+  const hace90d = new Date(now - 90 * 86400000).toISOString();
+
+  const [contactsRes, segRes, visitsRes] = await Promise.all([
+    supa
+      .from("contacts")
+      .select("id, nombre, telefono, email, solicitud, motivo, ciclo_vida, canal_origen, meta_score, contact_agents(agent_id)")
+      .in("ciclo_vida", ["Lead", "Prospecto"])
+      .order("created_at", { ascending: false })
+      .limit(120),
+
+    supa
+      .from("seguimiento")
+      .select("contact_id, fecha")
+      .gte("fecha", hace90d)
+      .order("fecha", { ascending: false }),
+
+    supa
+      .from("visits")
+      .select("contact_id")
+      .in("estado", ["Programada", "Pendiente"])
+      .gte("fecha", new Date(now).toISOString().slice(0, 10)),
+  ]);
+
+  const contacts = contactsRes.data ?? [];
+
+  // Última interacción por contacto (de seguimiento)
+  const ultimaSeg = new Map<string, number>();
+  for (const s of segRes.data ?? []) {
+    if (s.contact_id && s.fecha && !ultimaSeg.has(s.contact_id)) {
+      ultimaSeg.set(s.contact_id, new Date(s.fecha).getTime());
+    }
+  }
+  const conVisita = new Set((visitsRes.data ?? []).map((v: any) => v.contact_id).filter(Boolean));
+
+  const scored: (LeadInsight & { prevScore: number | null })[] = contacts.map((c: any) => {
+    let s = 0;
+    if (c.telefono) s += 0.10;
+    if (c.email) s += 0.08;
+    if (c.solicitud || c.motivo) s += 0.12;
+    if ((c.contact_agents as any[])?.length > 0) s += 0.10;
+
+    const canal = (c.canal_origen ?? "").toLowerCase();
+    if (/referi|directo|captaci/.test(canal)) s += 0.10;
+    else if (/ideal|portal|web|inmob/.test(canal)) s += 0.05;
+
+    const last = ultimaSeg.get(c.id);
+    let diasSinContacto: number | null = null;
+    if (last) {
+      const dias = (now - last) / 86400000;
+      diasSinContacto = Math.floor(dias);
+      if (dias < 7) s += 0.30;
+      else if (dias < 30) s += 0.15;
+      else if (dias < 90) s += 0.05;
+    }
+    if (conVisita.has(c.id)) s += 0.20;
+
+    return {
+      id: c.id as string,
+      nombre: c.nombre as string,
+      telefono: c.telefono as string | null,
+      ciclo_vida: c.ciclo_vida as string,
+      score: Math.min(1, Math.round(s * 100) / 100),
+      diasSinContacto,
+      tieneAgente: (c.contact_agents as any[])?.length > 0,
+      prevScore: c.meta_score as number | null,
+    };
+  });
+
+  // Update meta_score for those that changed significantly
+  const toUpdate = scored.filter((c) => Math.abs((c.prevScore ?? 0) - c.score) > 0.04);
+  if (toUpdate.length > 0) {
+    await Promise.all(
+      toUpdate.map((c) => supa.from("contacts").update({ meta_score: c.score }).eq("id", c.id))
+    );
+  }
+
+  const sorted = [...scored].sort((a, b) => b.score - a.score);
+  const topCalientes = sorted.slice(0, 6).filter((c) => c.score >= 0.15).map(({ prevScore: _p, ...c }) => c);
+
+  const sinSeguimiento = scored
+    .filter((c) => c.diasSinContacto === null || c.diasSinContacto > 30)
+    .sort((a, b) => {
+      if (a.diasSinContacto === null) return -1;
+      if (b.diasSinContacto === null) return 1;
+      return b.diasSinContacto - a.diasSinContacto;
+    })
+    .slice(0, 5)
+    .map(({ prevScore: _p, ...c }) => c);
+
+  return { topCalientes, sinSeguimiento, total: scored.length } satisfies LeadInsightsData;
+});

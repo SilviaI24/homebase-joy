@@ -4,13 +4,15 @@ import { useMemo, lazy, Suspense } from "react";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import { AppShell } from "@/components/AppShell";
 import { isAlquiler, type Inmueble } from "@/lib/inmuebles.functions";
-import { allInmueblesQuery, clientesQueryOpts, visitasQuery, leadsQueryOpts } from "@/lib/queries";
+import { allInmueblesQuery, clientesQueryOpts, visitasQuery, leadsQueryOpts, insightsQuery } from "@/lib/queries";
+import type { LeadInsight } from "@/lib/clientes.functions";
 import { cleanRef } from "@/lib/format";
 import type { LucideIcon } from "lucide-react";
 import {
   TrendingUp, TrendingDown, Sparkles, ArrowRight,
   Users, UserRound, HandCoins, CalendarCheck,
   MapPin, Home, CalendarDays, CheckCircle2,
+  Flame, BellOff,
 } from "lucide-react";
 
 const EvolucionChart = lazy(() => import("@/components/EvolucionChart"));
@@ -40,6 +42,7 @@ export const Route = createFileRoute("/")({
     context.queryClient.ensureQueryData(clientesQuery);
     context.queryClient.ensureQueryData(visitasQuery);
     context.queryClient.ensureQueryData(leadsQueryOpts);
+    context.queryClient.ensureQueryData(insightsQuery);
   },
   component: Dashboard,
   errorComponent: ({ error }) => (
@@ -77,6 +80,7 @@ function Dashboard() {
   const { data: cliData } = useSuspenseQuery(clientesQuery);
   const { data: visData } = useSuspenseQuery(visitasQuery);
   const { data: leadsData } = useSuspenseQuery(leadsQueryOpts);
+  const { data: insights } = useSuspenseQuery(insightsQuery);
 
   const leadsCount = leadsData.clientes.length;
 
@@ -499,6 +503,14 @@ function Dashboard() {
         </Link>
       </div>
 
+      {/* ── ROW 3.5: SilvIA Insights ── */}
+      {(insights.topCalientes.length > 0 || insights.sinSeguimiento.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+          <LeadsCalientesPanel leads={insights.topCalientes} />
+          <SinSeguimientoPanel leads={insights.sinSeguimiento} />
+        </div>
+      )}
+
       {/* ── ROW 4: Recientes + Estancados ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <div className="lg:col-span-2 rounded-2xl border border-border bg-card overflow-hidden">
@@ -699,5 +711,111 @@ function RecentRow({ i }: { i: Inmueble }) {
         <div className="text-[11px] text-muted-foreground">{fmtDate(i.fechaInicio)}</div>
       </div>
     </Link>
+  );
+}
+
+function ScoreBadge({ score }: { score: number }) {
+  const pct = Math.round(score * 100);
+  const color =
+    pct >= 70 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :
+    pct >= 40 ? "bg-gold/15 text-[var(--gold)]" :
+    "bg-muted text-muted-foreground";
+  return (
+    <span className={`inline-flex items-center justify-center size-8 rounded-lg text-[11px] font-bold tabular-nums shrink-0 ${color}`}>
+      {pct}
+    </span>
+  );
+}
+
+function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Flame className="size-4 text-[var(--gold)]" /> Leads más calientes
+        </h3>
+        <Link to="/mis-leads" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors">
+          Ver todos <ArrowRight className="size-3" />
+        </Link>
+      </div>
+      {leads.length === 0 ? (
+        <div className="p-6 text-center text-xs text-muted-foreground">Sin leads con score alto.</div>
+      ) : (
+        <ul className="divide-y divide-border">
+          {leads.map((lead) => (
+            <li key={lead.id}>
+              <Link
+                to="/clientes"
+                search={{ id: lead.id }}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
+              >
+                <ScoreBadge score={lead.score} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium truncate">{lead.nombre}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {lead.telefono ?? "Sin tel."} · {lead.ciclo_vida}
+                    {lead.diasSinContacto !== null && (
+                      <span className={`ml-1 ${lead.diasSinContacto < 7 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                        · {lead.diasSinContacto}d
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {!lead.tieneAgente && (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded shrink-0">
+                    Sin asignar
+                  </span>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function SinSeguimientoPanel({ leads }: { leads: LeadInsight[] }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <BellOff className="size-4 text-destructive" /> Sin seguimiento · +30 días
+        </h3>
+        <Link to="/mis-leads" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors">
+          Ver todos <ArrowRight className="size-3" />
+        </Link>
+      </div>
+      {leads.length === 0 ? (
+        <div className="p-6 text-center text-xs text-muted-foreground">Sin leads sin atender. Bien hecho.</div>
+      ) : (
+        <ul className="divide-y divide-border">
+          {leads.map((lead) => (
+            <li key={lead.id}>
+              <Link
+                to="/clientes"
+                search={{ id: lead.id }}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
+              >
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive text-[11px] font-bold tabular-nums">
+                  {lead.diasSinContacto === null ? "∞" : lead.diasSinContacto}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium truncate">{lead.nombre}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {lead.telefono ?? "Sin tel."} · {lead.ciclo_vida}
+                  </div>
+                </div>
+                {!lead.tieneAgente && (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded shrink-0">
+                    Sin asignar
+                  </span>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

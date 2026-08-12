@@ -1,6 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { listAllInmuebles, listAgentes, listProspectos } from "@/lib/inmuebles.functions";
-import { listClientes, listLeads } from "@/lib/clientes.functions";
+import { listClientes, listLeads, getLeadInsightsFn } from "@/lib/clientes.functions";
 import { listVisitas } from "@/lib/visitas.functions";
 import { getNotifications } from "@/lib/notifications.functions";
 import { listSeguimientos } from "@/lib/seguimiento.functions";
@@ -78,6 +78,13 @@ export const operacionesQuery = queryOptions({
 export const statsQuery = queryOptions({
   queryKey: ["stats"],
   queryFn: () => getStatsData(),
+  staleTime: 5 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
+});
+
+export const insightsQuery = queryOptions({
+  queryKey: ["lead-insights"],
+  queryFn: () => getLeadInsightsFn(),
   staleTime: 5 * 60 * 1000,
   gcTime: 30 * 60 * 1000,
 });
