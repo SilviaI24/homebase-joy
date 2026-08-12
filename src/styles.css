@@ -5,9 +5,9 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design system — Emerald Prestige
+ * Design system — El Sol Grupo
  * Heading: Space Grotesk · Body: DM Sans
- * Primary emerald · Accent gold · Cream highlight
+ * Gold accent · Warm near-white surface · Dark sidebar
  */
 
 @theme inline {
@@ -54,20 +54,22 @@
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
   --color-cream: var(--cream);
+  --color-alert: var(--alert);
+  --color-alert-foreground: var(--alert-foreground);
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
   --radius: 0.625rem;
-  /* Bento surface — very subtle warm-gray so white cards float */
-  --background: oklch(0.968 0.004 80);       /* near-white warm surface */
-  --foreground: oklch(0.14 0.025 165);      /* near-black with green tint */
+
+  --background: oklch(0.968 0.004 80);
+  --foreground: oklch(0.14 0.025 165);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.14 0.025 165);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.14 0.025 165);
-  --primary: oklch(0.14 0.025 165);         /* near-black — neutral dark */
+  --primary: oklch(0.14 0.025 165);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.965 0.003 80);
   --secondary-foreground: oklch(0.30 0.025 165);
@@ -77,19 +79,20 @@
   --accent-foreground: oklch(0.14 0.025 165);
   --destructive: oklch(0.58 0.22 27);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.918 0.004 80);
-  --input: oklch(0.918 0.004 80);
-  --ring: oklch(0.65 0.18 52);              /* orange focus ring */
-  --gold: oklch(0.65 0.18 52);              /* brand orange — used sparingly */
+  --border: oklch(0.912 0.005 80);
+  --input: oklch(0.912 0.005 80);
+  --ring: oklch(0.65 0.18 52);
+  --gold: oklch(0.65 0.18 52);
   --gold-foreground: oklch(0.14 0.025 165);
   --cream: oklch(0.97 0.008 80);
-  --chart-1: oklch(0.40 0.11 165);          /* emerald */
-  --chart-2: oklch(0.65 0.18 52);           /* brand orange */
+  --alert: oklch(0.58 0.19 10);
+  --alert-foreground: oklch(0.99 0 0);
+  --chart-1: oklch(0.40 0.11 165);
+  --chart-2: oklch(0.65 0.18 52);
   --chart-3: oklch(0.55 0.13 165);
   --chart-4: oklch(0.62 0.16 50);
   --chart-5: oklch(0.50 0.08 200);
-  /* Sidebar — dark, minimal */
-  --sidebar: oklch(0.12 0.025 165);         /* near black */
+  --sidebar: oklch(0.12 0.025 165);
   --sidebar-foreground: oklch(0.96 0.006 80);
   --sidebar-primary: oklch(0.65 0.18 52);
   --sidebar-primary-foreground: oklch(0.12 0.025 165);
@@ -97,6 +100,11 @@
   --sidebar-accent-foreground: oklch(0.96 0.006 80);
   --sidebar-border: oklch(0.22 0.03 165);
   --sidebar-ring: oklch(0.65 0.18 52);
+
+  /* Elevation shadows */
+  --shadow-card: 0 1px 3px 0 oklch(0 0 0 / 0.06), 0 1px 2px -1px oklch(0 0 0 / 0.04);
+  --shadow-card-hover: 0 4px 12px -2px oklch(0 0 0 / 0.10), 0 2px 4px -2px oklch(0 0 0 / 0.06);
+  --shadow-popover: 0 8px 28px -6px oklch(0 0 0 / 0.18), 0 2px 8px -4px oklch(0 0 0 / 0.10);
 }
 
 .dark {
@@ -122,6 +130,8 @@
   --gold: oklch(0.68 0.18 52);
   --gold-foreground: oklch(0.11 0.018 165);
   --cream: oklch(0.97 0.008 80);
+  --alert: oklch(0.65 0.21 10);
+  --alert-foreground: oklch(0.99 0 0);
   --chart-1: oklch(0.60 0.14 165);
   --chart-2: oklch(0.68 0.18 52);
   --chart-3: oklch(0.55 0.13 200);
@@ -135,14 +145,26 @@
   --sidebar-accent-foreground: oklch(0.97 0.006 80);
   --sidebar-border: oklch(1 0 0 / 9%);
   --sidebar-ring: oklch(0.68 0.18 52);
+
+  --shadow-card: 0 1px 3px 0 oklch(0 0 0 / 0.20), 0 1px 2px -1px oklch(0 0 0 / 0.14);
+  --shadow-card-hover: 0 4px 16px -4px oklch(0 0 0 / 0.35), 0 2px 6px -2px oklch(0 0 0 / 0.20);
+  --shadow-popover: 0 8px 32px -6px oklch(0 0 0 / 0.45), 0 2px 8px -4px oklch(0 0 0 / 0.25);
 }
+
+/* ── Base ─────────────────────────────────────────────────────── */
 
 @layer base {
   * {
     border-color: var(--color-border);
   }
 
-  html,
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
@@ -154,5 +176,75 @@
   .font-display {
     font-family: var(--font-display);
     letter-spacing: -0.01em;
+  }
+
+  /* Text selection */
+  ::selection {
+    background-color: oklch(0.65 0.18 52 / 0.18);
+    color: var(--color-foreground);
+  }
+
+  /* Scrollbar — thin, corporate */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: oklch(0.65 0.18 52 / 0.35);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: oklch(0.65 0.18 52 / 0.65);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+/* ── Utilities ────────────────────────────────────────────────── */
+
+@layer utilities {
+  /* Active nav indicator pill */
+  .nav-link {
+    position: relative;
+  }
+  .nav-link.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 18px;
+    width: 2.5px;
+    background-color: var(--gold);
+    border-radius: 9999px;
+  }
+
+  /* Card elevation */
+  .card-elevated {
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 200ms ease, border-color 200ms ease;
+  }
+  .card-elevated:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  /* Subtle gradient shimmer for gold brand elements */
+  .gold-shimmer {
+    background: linear-gradient(
+      135deg,
+      oklch(0.65 0.18 52) 0%,
+      oklch(0.72 0.18 65) 50%,
+      oklch(0.65 0.18 52) 100%
+    );
+    background-size: 200% 200%;
+    animation: shimmer 3s ease-in-out infinite;
+  }
+  @keyframes shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
   }
 }

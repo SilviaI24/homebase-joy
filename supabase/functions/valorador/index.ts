@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
       descripcion:         pick(body["Descripción"]          ?? body["Descripcion"] ?? body.descripcion)  || "",
       // Fijos para el valorador
       estatus:             "Activo",
-      publicacion:         "SUBIR",
+      publicacion:         "PROSPECTO",
       es_alquiler:         false,
     };
 
@@ -131,6 +131,7 @@ Deno.serve(async (req) => {
           email:        email    || "",
           motivo:       motivo,
           ciclo_vida:   "Prospecto",
+          canal_origen: "Valorador-Web",
         })
         .select("id")
         .single();

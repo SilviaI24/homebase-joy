@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSupa } from "./supabase.server";
 import { toTitleCase, toTitleCaseArr, toSentenceCase } from "./format";
+import { requireAuth } from "@/lib/auth.server";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,7 @@ export type Inmueble = {
   fechaEscritura: string | null;
   agentesNombres: string[];
   observaciones: string;
+  coordenadas: { lat: number; lng: number } | null;
 };
 
 export type Documento = { url: string; filename: string; type: string };
@@ -63,6 +65,7 @@ export type InmuebleDetalle = Inmueble & {
   fechaFinExclusiva: string | null;
   fechaReserva: string | null;
   fechaEscritura: string | null;
+  changelog: Array<{ ts: string; field: string; old: string | null; new: string | null }>;
 };
 
 export type Agente = { id: string; nombre: string; mail: string };
@@ -79,6 +82,7 @@ export type Visita = {
 };
 
 export const ESTATUS_OPCIONES = [
+  "Pendiente",
   "Activo",
   "Reservado",
   "Vendido",
@@ -87,7 +91,7 @@ export const ESTATUS_OPCIONES = [
   "Alquilado",
 ] as const;
 
-export const PUBLICACION_OPCIONES = ["SUBIR", "PUBLICADO"] as const;
+export const PUBLICACION_OPCIONES = ["SUBIR", "PROSPECTO", "PUBLICADO"] as const;
 
 export const CATEGORIAS = [
   "Pisos",
@@ -139,6 +143,8 @@ type SupabasePropertyRow = {
   estado: string | null;
   imagenes: Array<{ url: string; filename: string; orden: number }> | null;
   documentos: Array<{ url: string; filename: string; type: string }> | null;
+  changelog: Array<{ ts: string; field: string; old: string | null; new: string | null }> | null;
+  coordenadas: { lat: number; lng: number } | null;
   fecha_inicio: string | null;
   fecha_reserva: string | null;
   fecha_escritura: string | null;
@@ -170,7 +176,7 @@ function s(v: string | null | undefined): string {
 
 function mapBase(row: SupabasePropertyRow): Inmueble {
   const imgs = row.imagenes ?? [];
-  const img0 = imgs[0]?.url ?? null;
+  const img0 = imgs.find((img) => img?.url)?.url ?? null;
   const agente = row.agents;
   return {
     id: row.id,
@@ -197,6 +203,7 @@ function mapBase(row: SupabasePropertyRow): Inmueble {
     fechaEscritura: row.fecha_escritura ?? null,
     agentesNombres: agente ? [toTitleCase(agente.nombre)] : [],
     observaciones: s(row.observaciones),
+    coordenadas: (row.coordenadas as { lat: number; lng: number } | null) ?? null,
   };
 }
 
@@ -244,31 +251,125 @@ function mapDetalle(
     fechaFinExclusiva: row.fecha_fin_exclusiva ?? null,
     fechaReserva: row.fecha_reserva ?? null,
     fechaEscritura: row.fecha_escritura ?? null,
+    changelog: (row.changelog ?? []) as Array<{ ts: string; field: string; old: string | null; new: string | null }>,
   };
 }
 
-// ── Two-year filter helper ────────────────────────────────────────────────────
-// Airtable showed current + prev year. We keep the same window.
-function twoYearCutoff(): string {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - 2);
-  return d.toISOString().slice(0, 10);
+// ── Types adicionales ─────────────────────────────────────────────────────────
+
+export type ProspectoCanal = "Web" | "SilvIA" | "Directo";
+
+export type ProspectoUnificado = {
+  id: string;
+  nombre: string;
+  telefono: string;
+  email: string;
+  canal: ProspectoCanal;
+  canalOrigen: string | null;
+  fechaAlta: string;
+  motivo: string;
+  inmueble: {
+    id: string;
+    ref: string;
+    calle: string;
+    numero: string;
+    barrio: string;
+    localidad: string;
+    tipo: string;
+    superficie: number | null;
+    habitaciones: number | null;
+    precio: number | null;
+    publicacion: string;
+  } | null;
+};
+
+function canalGroup(origen: string | null): ProspectoCanal {
+  if (!origen) return "Directo";
+  if (origen === "Valorador-Web" || origen === "SilvIA-Valorador") return "Web";
+  if (origen.startsWith("SilvIA-")) return "SilvIA";
+  return "Directo";
 }
 
 // ── Server functions ──────────────────────────────────────────────────────────
 
-export const listAllInmuebles = createServerFn({ method: "GET" }).handler(async () => {
+export const listProspectos = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAuth();
   const supa = getSupa();
-  const cutoff = twoYearCutoff();
-
   const { data, error } = await supa
-    .from("properties")
-    .select("*, agents(id, nombre, email)")
-    .gte("created_at", cutoff)
+    .from("contacts")
+    .select(`
+      id, nombre, telefono, email, canal_origen, created_at, motivo,
+      contact_roles(tipo,
+        properties(id, ref, calle, numero, barrio, localidad, tipo,
+          metros_construidos, habitaciones, precio, publicacion))
+    `)
+    .eq("ciclo_vida", "Prospecto")
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  const rows = (data ?? []) as SupabasePropertyRow[];
+
+  const prospectos: ProspectoUnificado[] = (data ?? []).map((c: any) => {
+    const propRole = (c.contact_roles ?? []).find((r: any) => r.tipo === "Propietario");
+    const prop = propRole?.properties ?? null;
+
+    return {
+      id: c.id,
+      nombre: toTitleCase(c.nombre ?? "Sin nombre"),
+      telefono: c.telefono ?? "",
+      email: c.email ?? "",
+      canal: canalGroup(c.canal_origen),
+      canalOrigen: c.canal_origen ?? null,
+      fechaAlta: c.created_at ?? "",
+      motivo: c.motivo ?? "",
+      inmueble: prop
+        ? {
+            id: prop.id,
+            ref: prop.ref ?? "",
+            calle: toTitleCase(prop.calle ?? ""),
+            numero: prop.numero ?? "",
+            barrio: toTitleCase(prop.barrio ?? ""),
+            localidad: toTitleCase(prop.localidad ?? ""),
+            tipo: prop.tipo ?? "",
+            superficie: prop.metros_construidos ?? null,
+            habitaciones: prop.habitaciones ?? null,
+            precio: prop.precio ?? null,
+            publicacion: prop.publicacion ?? "",
+          }
+        : null,
+    };
+  });
+
+  return { prospectos };
+});
+
+export const listAllInmuebles = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAuth();
+  const supa = getSupa();
+  const PAGE = 1000;
+  const rows: SupabasePropertyRow[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supa
+      .from("properties")
+      .select(`
+        id, ref, tipo, es_alquiler, calle, numero, barrio, localidad,
+        metros_construidos, habitaciones, banos, precio, precio_final,
+        estatus, publicacion, estado, imagenes, coordenadas, observaciones,
+        fecha_inicio, fecha_reserva, fecha_escritura, created_at,
+        agents(id, nombre, email)
+      `)
+      .neq("estatus", "Baja")
+      .order("created_at", { ascending: false, nullsFirst: false })
+      .range(from, from + PAGE - 1);
+
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as unknown as SupabasePropertyRow[];
+    rows.push(...page);
+    if (page.length < PAGE) break;
+    from += PAGE;
+  }
+
   const all = rows.map(mapBase);
   return {
     inmuebles: all.filter((i) => !isAlquiler(i.tipo)),
@@ -277,11 +378,13 @@ export const listAllInmuebles = createServerFn({ method: "GET" }).handler(async 
 });
 
 export const listInmuebles = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAuth();
   const { inmuebles } = await listAllInmuebles();
   return { inmuebles };
 });
 
 export const listAlquileres = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAuth();
   const { alquileres } = await listAllInmuebles();
   return { inmuebles: alquileres };
 });
@@ -292,6 +395,7 @@ export const getInmueble = createServerFn({ method: "GET" })
     return d;
   })
   .handler(async ({ data }) => {
+  await requireAuth();
     const supa = getSupa();
 
     const { data: row, error } = await supa
@@ -318,6 +422,7 @@ export const getInmueble = createServerFn({ method: "GET" })
   });
 
 export const listAgentes = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAuth();
   const supa = getSupa();
   const { data, error } = await supa
     .from("agents")
@@ -325,7 +430,7 @@ export const listAgentes = createServerFn({ method: "GET" }).handler(async () =>
     .eq("activo", true)
     .order("nombre");
   if (error) throw new Error(error.message);
-  const agentes: Agente[] = (data ?? []).map((r: any) => ({
+  const agentes: Agente[] = (data ?? []).map((r) => ({
     id: r.id,
     nombre: toTitleCase(r.nombre ?? "") || "(sin nombre)",
     mail: r.email ?? "",
@@ -339,6 +444,7 @@ export const listVisitasByInmueble = createServerFn({ method: "GET" })
     return d;
   })
   .handler(async ({ data }) => {
+  await requireAuth();
     const supa = getSupa();
     const { data: rows, error } = await supa
       .from("visits")
@@ -378,6 +484,7 @@ export const getInmueblesByIds = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
+  await requireAuth();
     if (data.ids.length === 0) return { inmuebles: [] as Inmueble[] };
     const supa = getSupa();
     const { data: rows, error } = await supa
@@ -445,6 +552,7 @@ export const updateInmueble = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
+  await requireAuth();
     const supa = getSupa();
 
     // Build the Supabase update object
@@ -459,34 +567,66 @@ export const updateInmueble = createServerFn({ method: "POST" })
     if (data.habitaciones !== undefined) up.habitaciones = data.habitaciones ? Number(data.habitaciones) || null : null;
     if (data.banos !== undefined) up.banos = data.banos ? Number(data.banos) || null : null;
     if (data.superficie !== undefined) up.metros_construidos = data.superficie ? Number(data.superficie) || null : null;
-    if (data.planta !== undefined) up.piso = data.planta || null;
-    if (data.estado !== undefined) up.estado = data.estado || null;
-    if (data.anoConstruccion !== undefined) up.ano_construccion = data.anoConstruccion || null;
-    if (data.certificacionEnergetica !== undefined) up.certificacion_energetica = data.certificacionEnergetica || null;
-    if (data.calefaccion !== undefined) up.calefaccion = data.calefaccion || null;
-    if (data.orientacion !== undefined) up.orientacion = data.orientacion || null;
-    if (data.garaje !== undefined) up.garaje = data.garaje || null;
-    if (data.trastero !== undefined) up.trastero = data.trastero || null;
-    if (data.ascensor !== undefined) up.ascensor = data.ascensor || null;
-    if (data.armariosEmpotrados !== undefined) up.armarios_empotrados = data.armariosEmpotrados || null;
-    if (data.terraza !== undefined) up.terraza = data.terraza || null;
-    if (data.balcon !== undefined) up.balcon = data.balcon || null;
-    if (data.gastosComunidad !== undefined) up.gastos_comunidad = data.gastosComunidad || null;
-    if (data.referenciaCatastral !== undefined) up.referencia_catastral = data.referenciaCatastral || null;
+    if (data.planta !== undefined) up.piso = data.planta ?? "";
+    if (data.estado !== undefined) up.estado = data.estado ?? "";
+    if (data.anoConstruccion !== undefined) up.ano_construccion = data.anoConstruccion ?? "";
+    if (data.certificacionEnergetica !== undefined) up.certificacion_energetica = data.certificacionEnergetica ?? "";
+    if (data.calefaccion !== undefined) up.calefaccion = data.calefaccion ?? "";
+    if (data.orientacion !== undefined) up.orientacion = data.orientacion ?? "";
+    if (data.garaje !== undefined) up.garaje = data.garaje ?? "";
+    if (data.trastero !== undefined) up.trastero = data.trastero ?? "";
+    if (data.ascensor !== undefined) up.ascensor = data.ascensor ?? "";
+    if (data.armariosEmpotrados !== undefined) up.armarios_empotrados = data.armariosEmpotrados ?? "";
+    if (data.terraza !== undefined) up.terraza = data.terraza ?? "";
+    if (data.balcon !== undefined) up.balcon = data.balcon ?? "";
+    if (data.gastosComunidad !== undefined) up.gastos_comunidad = data.gastosComunidad ?? "";
+    if (data.referenciaCatastral !== undefined) up.referencia_catastral = data.referenciaCatastral ?? "";
     if (data.fechaInicio !== undefined) up.fecha_inicio = data.fechaInicio || null;
     if (data.fechaExclusiva !== undefined) up.fecha_exclusiva = data.fechaExclusiva || null;
     if (data.fechaFinExclusiva !== undefined) up.fecha_fin_exclusiva = data.fechaFinExclusiva || null;
     if (data.fechaReserva !== undefined) up.fecha_reserva = data.fechaReserva || null;
     if (data.fechaEscritura !== undefined) up.fecha_escritura = data.fechaEscritura || null;
-    if (data.honorarios !== undefined) up.honorarios = data.honorarios || null;
-    if (data.tipoExclusiva !== undefined) up.tipo_exclusiva = data.tipoExclusiva || null;
-    if (data.notaria !== undefined) up.notaria = data.notaria || null;
-    if (data.llaves !== undefined) up.llaves = data.llaves || null;
+    if (data.honorarios !== undefined) up.honorarios = data.honorarios ?? "";
+    if (data.tipoExclusiva !== undefined) up.tipo_exclusiva = data.tipoExclusiva ?? "";
+    if (data.notaria !== undefined) up.notaria = data.notaria ?? "";
+    if (data.llaves !== undefined) up.llaves = data.llaves ?? "";
     if (data.documentos !== undefined) up.documentos = data.documentos;
 
     // Agent update: store single agente_id (first agent in list)
     if (data.agentesIds !== undefined) {
       up.agente_id = data.agentesIds[0] ?? null;
+    }
+
+    // Changelog: record changes to estatus, precio, observaciones
+    const needsLog =
+      data.estatus !== undefined ||
+      data.precio !== undefined ||
+      data.observaciones !== undefined;
+    if (needsLog) {
+      try {
+        const { data: cur } = await supa
+          .from("properties")
+          .select("estatus,precio,observaciones,changelog")
+          .eq("id", data.id)
+          .single();
+        if (cur) {
+          const existing: Array<{ ts: string; field: string; old: string | null; new: string | null }> =
+            (cur as any).changelog ?? [];
+          const ts = new Date().toISOString();
+          const entries: typeof existing = [];
+          if (data.estatus !== undefined && data.estatus !== cur.estatus)
+            entries.push({ ts, field: "Estatus", old: cur.estatus ?? null, new: data.estatus });
+          if (data.precio !== undefined && data.precio !== cur.precio)
+            entries.push({ ts, field: "Precio", old: cur.precio != null ? String(cur.precio) : null, new: data.precio != null ? String(data.precio) : null });
+          if (data.observaciones !== undefined && data.observaciones !== (cur.observaciones ?? ""))
+            entries.push({ ts, field: "Observaciones", old: cur.observaciones ?? null, new: data.observaciones || null });
+          if (entries.length > 0) {
+            up.changelog = [...existing, ...entries];
+          }
+        }
+      } catch {
+        // changelog column may not exist yet — skip silently
+      }
     }
 
     // Image reorder: imagenesAttachmentIds are URLs in desired order
@@ -511,5 +651,182 @@ export const updateInmueble = createServerFn({ method: "POST" })
 
     const { error } = await supa.from("properties").update(up).eq("id", data.id);
     if (error) throw new Error(error.message);
+
+    // Cuando cambia el estatus de un inmueble, recalcular ciclo_vida de sus contactos.
+    if (data.estatus) {
+      const { data: linkedRoles } = await supa
+        .from("contact_roles")
+        .select("contact_id")
+        .eq("property_id", data.id);
+
+      const contactIds = [...new Set((linkedRoles ?? []).map((r: any) => r.contact_id as string))];
+
+      if (contactIds.length > 0) {
+        // Batch fetch all contacts and all their roles in two queries instead of 2×N
+        const [{ data: contacts }, { data: allContactRoles }] = await Promise.all([
+          supa
+            .from("contacts")
+            .select("id, ciclo_vida")
+            .in("id", contactIds),
+          supa
+            .from("contact_roles")
+            .select("contact_id, properties(estatus)")
+            .in("contact_id", contactIds),
+        ]);
+
+        // Group roles by contact_id in memory
+        const rolesByContact = new Map<string, Array<{ properties: { estatus: string } | null }>>();
+        for (const role of (allContactRoles ?? []) as any[]) {
+          if (!rolesByContact.has(role.contact_id)) rolesByContact.set(role.contact_id, []);
+          rolesByContact.get(role.contact_id)!.push(role);
+        }
+
+        // Compute new ciclo_vida for each contact and batch update
+        await Promise.all(
+          (contacts ?? []).map(async (contact: any) => {
+            if (contact.ciclo_vida === "Descartado") return;
+
+            const roles = rolesByContact.get(contact.id) ?? [];
+            const statuses = roles
+              .map((r) => r.properties?.estatus as string | undefined)
+              .filter(Boolean) as string[];
+
+            let newCiclo: string;
+            if (statuses.some((s) => s === "Activo" || s === "Reservado"))        newCiclo = "Cliente";
+            else if (statuses.some((s) => s === "Prospección"))                   newCiclo = "Prospecto";
+            else if (statuses.some((s) => s === "Vendido" || s === "Alquilado"))  newCiclo = "Histórico";
+            else                                                                   newCiclo = "Lead";
+
+            if (newCiclo !== contact.ciclo_vida) {
+              await supa.from("contacts").update({ ciclo_vida: newCiclo }).eq("id", contact.id);
+            }
+          }),
+        );
+      }
+    }
+
     return { ok: true, id: data.id };
+  });
+
+const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const MAX_BASE64_MB = 10;
+
+export const addImagenToInmueble = createServerFn({ method: "POST" })
+  .inputValidator((d: { id: string; base64: string; filename: string; mimeType: string }) => {
+    if (!d?.id) throw new Error("id requerido");
+    if (!d.base64) throw new Error("base64 requerido");
+    if (!ALLOWED_MIME_TYPES.has(d.mimeType)) throw new Error("Tipo de archivo no permitido. Use JPEG, PNG, WebP o GIF.");
+    if (d.base64.length > MAX_BASE64_MB * 1024 * 1024 * 4 / 3) throw new Error(`La imagen supera el límite de ${MAX_BASE64_MB}MB.`);
+    return d;
+  })
+  .handler(async ({ data }) => {
+  await requireAuth();
+    const supa = getSupa();
+    const BUCKET = "property-images";
+
+    const byteString = atob(data.base64);
+    const bytes = new Uint8Array(byteString.length);
+    for (let i = 0; i < byteString.length; i++) bytes[i] = byteString.charCodeAt(i);
+
+    const safeFilename = data.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const storagePath = `${data.id}/${Date.now()}_${safeFilename}`;
+
+    const { error: uploadError } = await supa.storage
+      .from(BUCKET)
+      .upload(storagePath, bytes, { contentType: data.mimeType, upsert: false });
+    if (uploadError) throw new Error(uploadError.message);
+
+    const { data: { publicUrl } } = supa.storage.from(BUCKET).getPublicUrl(storagePath);
+
+    const { data: prop } = await supa.from("properties").select("imagenes").eq("id", data.id).single();
+    const current: Array<{ url: string; filename: string; orden: number }> = prop?.imagenes ?? [];
+    const next = [...current, { url: publicUrl, filename: data.filename, orden: current.length }];
+    await supa.from("properties").update({ imagenes: next }).eq("id", data.id);
+
+    return { url: publicUrl };
+  });
+
+const ALLOWED_BUCKETS = new Set(["property-images", "property-docs"]);
+
+const ALLOWED_ATTACHMENT_MIME = new Set([
+  "image/jpeg", "image/png", "image/webp", "image/gif",
+  "application/pdf",
+]);
+const MAX_ATTACHMENT_BASE64_MB = 20;
+
+export const uploadPropertyAttachment = createServerFn({ method: "POST" })
+  .inputValidator((d: { base64: string; filename: string; mimeType: string; bucket: string }) => {
+    if (!d?.base64) throw new Error("base64 requerido");
+    if (!d?.filename) throw new Error("filename requerido");
+    if (!d?.bucket) throw new Error("bucket requerido");
+    if (!ALLOWED_BUCKETS.has(d.bucket)) throw new Error("bucket no permitido");
+    if (!ALLOWED_ATTACHMENT_MIME.has(d.mimeType)) throw new Error("Tipo de archivo no permitido. Use imágenes o PDF.");
+    if (d.base64.length > MAX_ATTACHMENT_BASE64_MB * 1024 * 1024 * 4 / 3) throw new Error(`El archivo supera el límite de ${MAX_ATTACHMENT_BASE64_MB}MB.`);
+    return d;
+  })
+  .handler(async ({ data }) => {
+  await requireAuth();
+    const supa = getSupa();
+    const byteString = atob(data.base64);
+    const bytes = new Uint8Array(byteString.length);
+    for (let i = 0; i < byteString.length; i++) bytes[i] = byteString.charCodeAt(i);
+    const safe = data.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `pending/${Date.now()}_${safe}`;
+    const { error } = await supa.storage.from(data.bucket).upload(path, bytes, {
+      contentType: data.mimeType || "application/octet-stream",
+      upsert: true,
+    });
+    if (error) throw new Error(error.message);
+    const { data: pd } = supa.storage.from(data.bucket).getPublicUrl(path);
+    return { url: pd.publicUrl };
+  });
+
+export const deleteInmueble = createServerFn({ method: "POST" })
+  .inputValidator((d: { id: string }) => {
+    if (!d?.id) throw new Error("id requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+  await requireAuth();
+    const supa = getSupa();
+    await supa.from("contact_roles").delete().eq("property_id", data.id);
+    const { error } = await supa.from("properties").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const geocodeInmuebles = createServerFn({ method: "POST" })
+  .inputValidator((d: { items: Array<{ id: string; calle: string; numero: string; barrio: string; localidad: string }> }) => {
+    if (!Array.isArray(d?.items)) throw new Error("items requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+  await requireAuth();
+    const supa = getSupa();
+    const results: Array<{ id: string; lat: number; lng: number } | { id: string; error: string }> = [];
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    for (const item of data.items) {
+      const parts = [item.calle, item.numero, item.barrio, item.localidad, "España"].filter(Boolean);
+      const q = encodeURIComponent(parts.join(", "));
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=es`,
+          { headers: { "User-Agent": "ElSolGrupoCRM/1.0" } }
+        );
+        const json = await res.json() as Array<{ lat: string; lon: string }>;
+        if (json.length > 0) {
+          const lat = parseFloat(json[0].lat);
+          const lng = parseFloat(json[0].lon);
+          await supa.from("properties").update({ coordenadas: { lat, lng } }).eq("id", item.id);
+          results.push({ id: item.id, lat, lng });
+        } else {
+          results.push({ id: item.id, error: "no_result" });
+        }
+      } catch (e) {
+        results.push({ id: item.id, error: "fetch_error" });
+      }
+      await sleep(1100); // Nominatim: max 1 req/sec
+    }
+    return { results };
   });

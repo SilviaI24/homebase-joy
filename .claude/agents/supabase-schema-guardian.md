@@ -1,7 +1,7 @@
 ---
 name: supabase-schema-guardian
 description: Revisa cambios en el esquema de Supabase (RLS, políticas, migraciones, índices) de este proyecto. Úsalo proactivamente tras modificar supabase/schema.sql, agregar una migración, o cuando el usuario pida "revisa la base de datos", "chequea las policies" o "es seguro este cambio de esquema".
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Bash
 model: opus
 ---
 

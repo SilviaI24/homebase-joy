@@ -14,40 +14,12 @@ function daysSince(iso: string | null): number | null {
   return Math.floor((Date.now() - t) / DAY_MS);
 }
 
-type Suggestion = { tone: "warning" | "danger" | "critical"; label: string; actions: string[] };
+type Suggestion = { tone: "warning" | "danger" | "critical"; label: string };
 
 function suggestionFor(dias: number): Suggestion {
-  if (dias > 180) {
-    return {
-      tone: "critical",
-      label: "Crítico",
-      actions: [
-        "Reunión con propietario para revisar estrategia",
-        "Evaluar baja temporal o cambio de exclusividad",
-        "Análisis comparativo de mercado (CMA)",
-      ],
-    };
-  }
-  if (dias > 120) {
-    return {
-      tone: "danger",
-      label: "Muy estancado",
-      actions: [
-        "Renovar reportaje fotográfico / home staging",
-        "Bajada de precio del 5-10%",
-        "Contactar propietario para feedback de visitas",
-      ],
-    };
-  }
-  return {
-    tone: "warning",
-    label: "Estancado",
-    actions: [
-      "Refrescar anuncio en portales",
-      "Llamar a leads en frío con perfil compatible",
-      "Considerar bajada de precio del 3-5%",
-    ],
-  };
+  if (dias > 180) return { tone: "critical", label: "Crítico" };
+  if (dias > 120) return { tone: "danger", label: "Muy estancado" };
+  return { tone: "warning", label: "Estancado" };
 }
 
 const toneStyles: Record<Suggestion["tone"], string> = {
@@ -59,7 +31,7 @@ const toneStyles: Record<Suggestion["tone"], string> = {
 type Props = { inmuebles: Inmueble[]; staleDays?: number };
 
 export function RecordatoriosEstancados({ inmuebles, staleDays = 90 }: Props) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [okFlash, setOkFlash] = useState<string | null>(null);
@@ -142,12 +114,6 @@ export function RecordatoriosEstancados({ inmuebles, staleDays = 90 }: Props) {
                   </span>
                   {i.barrio && <span className="truncate">{i.barrio}</span>}
                 </div>
-
-                <ul className="text-xs text-foreground/80 space-y-1 mt-1 pl-4 list-disc marker:text-muted-foreground">
-                  {sug.actions.map((a) => (
-                    <li key={a}>{a}</li>
-                  ))}
-                </ul>
 
                 {isEditing ? (
                   <div className="mt-1 space-y-2">

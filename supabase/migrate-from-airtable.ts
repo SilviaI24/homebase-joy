@@ -1,359 +1,316 @@
 /**
- * Airtable → Supabase migration script
- * Run with: npx tsx supabase/migrate-from-airtable.ts
- *
- * Set env vars before running:
- *   AIRTABLE_API_KEY=...
- *   SUPABASE_URL=https://xxx.supabase.co
- *   SUPABASE_SERVICE_KEY=eyJ...
+ * Airtable → Supabase migration (optimized: parallel fetch + batch inserts)
+ * Run: npx tsx supabase/migrate-from-airtable.ts
+ * Env: AIRTABLE_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
  */
 
 import { createClient } from "@supabase/supabase-js";
 
-const AIRTABLE_BASE = "appJHlqz7fFFjJWF1";
-const AIRTABLE_KEY  = process.env.AIRTABLE_API_KEY ?? "";
-const SUPA_URL      = process.env.SUPABASE_URL ?? "";
-const SUPA_KEY      = process.env.SUPABASE_SERVICE_KEY ?? "";
+const BASE     = "appJHlqz7fFFjJWF1";
+const AT_KEY   = process.env.AIRTABLE_API_KEY ?? "";
+const SUPA_URL = process.env.SUPABASE_URL ?? "";
+const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY ?? "";
 
-if (!AIRTABLE_KEY || !SUPA_URL || !SUPA_KEY) {
-  console.error("Missing env vars: AIRTABLE_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY");
+if (!AT_KEY || !SUPA_URL || !SUPA_KEY) {
+  console.error("Missing: AIRTABLE_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY");
   process.exit(1);
 }
 
-const supabase = createClient(SUPA_URL, SUPA_KEY, {
-  auth: { persistSession: false },
-});
+const supa = createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: false } });
+const CHUNK = 500;
 
-// ── Airtable fetch helpers ────────────────────────────────────────────────────
+// ── helpers ───────────────────────────────────────────────────────────────────
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-async function fetchAll(table: string, fields?: string[]): Promise<any[]> {
+const str = (v: unknown): string => {
+  if (!v) return "";
+  if (Array.isArray(v)) return v.map(String).filter(Boolean).join(", ");
+  return String(v).trim();
+};
+
+const num = (v: unknown): number | null => {
+  if (v == null || v === "") return null;
+  const n = Number(String(v).replace(/[^\d.-]/g, ""));
+  return isNaN(n) ? null : n;
+};
+
+const arr = (v: unknown): string[] =>
+  Array.isArray(v) ? v.map(String).filter(Boolean) : [];
+
+const isAlquiler = (tipo: string) => /^\s*alquiler/i.test(tipo);
+
+type Att = { url?: string; type?: string; filename?: string; thumbnails?: { large?: { url?: string }; full?: { url?: string } } };
+
+const attUrl = (a: Att) => a.thumbnails?.large?.url ?? a.thumbnails?.full?.url ?? a.url ?? "";
+
+const mapAttachments = (field: unknown) =>
+  Array.isArray(field)
+    ? (field as Att[]).map(a => ({ url: attUrl(a), filename: a.filename ?? "archivo", type: a.type ?? "application/octet-stream" })).filter(a => a.url)
+    : [];
+
+const mapImages = (field: unknown) =>
+  Array.isArray(field)
+    ? (field as Att[]).map((a, i) => ({ url: attUrl(a), filename: a.filename ?? `img_${i}`, orden: i })).filter(a => a.url)
+    : [];
+
+const mapCicloVida = (tipo: string, pIds: string[], cIds: string[], aIds: string[]) => {
+  const t = tipo.toLowerCase();
+  if (t.includes("anular")) return "Descartado";
+  if (pIds.length || cIds.length || aIds.length || t === "propietario" || t === "comprador") return "Activo";
+  if (t.includes("prospecc")) return "Prospecto";
+  return "Lead";
+};
+
+// ── Airtable fetch (paginated) ────────────────────────────────────────────────
+async function fetchAll(tableId: string): Promise<any[]> {
   const records: any[] = [];
   let offset: string | undefined;
-  const params = new URLSearchParams({ pageSize: "100" });
-  if (fields?.length) fields.forEach((f) => params.append("fields[]", f));
-
   do {
+    const params = new URLSearchParams({ pageSize: "100" });
     if (offset) params.set("offset", offset);
-    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE}/${encodeURIComponent(table)}?${params}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${AIRTABLE_KEY}` },
+    const res = await fetch(`https://api.airtable.com/v0/${BASE}/${tableId}?${params}`, {
+      headers: { Authorization: `Bearer ${AT_KEY}` },
     });
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Airtable error on ${table}: ${err}`);
-    }
-    const json = (await res.json()) as { records: any[]; offset?: string };
+    if (!res.ok) throw new Error(`Airtable ${tableId}: ${await res.text()}`);
+    const json = await res.json() as { records: any[]; offset?: string };
     records.push(...json.records);
     offset = json.offset;
-    if (offset) await sleep(250); // respect rate limits
+    if (offset) await sleep(200);
   } while (offset);
-
   return records;
 }
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
+// ── Batch upsert ──────────────────────────────────────────────────────────────
+async function batchUpsert(table: string, rows: any[], conflictCol: string): Promise<number> {
+  let ok = 0;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    const { error, data } = await supa.from(table).upsert(chunk, { onConflict: conflictCol }).select("id");
+    if (error) console.warn(`  [${table}] batch ${i / CHUNK + 1} error:`, error.message);
+    else ok += (data?.length ?? chunk.length);
+  }
+  return ok;
 }
 
-// ── Normalizers ───────────────────────────────────────────────────────────────
-
-function str(v: unknown): string {
-  if (!v) return "";
-  if (Array.isArray(v)) return v.join(", ");
-  return String(v).trim();
+async function batchInsert(table: string, rows: any[]): Promise<number> {
+  if (!rows.length) return 0;
+  let ok = 0;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    const { error } = await supa.from(table).insert(chunk);
+    if (error) console.warn(`  [${table}] batch ${i / CHUNK + 1} error:`, error.message);
+    else ok += chunk.length;
+  }
+  return ok;
 }
 
-function num(v: unknown): number | null {
-  if (v == null || v === "") return null;
-  const n = Number(v);
-  return isNaN(n) ? null : n;
+// Paginate a full Supabase table select — avoids 1000-row default limit
+async function fetchAllSupa<T>(table: string, select: string): Promise<T[]> {
+  const results: T[] = [];
+  let from = 0;
+  const page = 1000;
+  while (true) {
+    const { data, error } = await supa.from(table).select(select).range(from, from + page - 1);
+    if (error) throw new Error(`[${table}] ${error.message}`);
+    results.push(...(data as T[]));
+    if ((data?.length ?? 0) < page) break;
+    from += page;
+  }
+  return results;
 }
 
-function arr(v: unknown): string[] {
-  if (!v) return [];
-  if (Array.isArray(v)) return v.map(String).filter(Boolean);
-  return [String(v)];
-}
-
-function mapCanalOrigen(tipo: string, conv: string): string | null {
-  const t = tipo.toLowerCase();
-  const c = conv.toLowerCase();
-  if (c.includes("whatsapp")) return "SilvIA-WhatsApp";
-  if (c.includes("voz") || c.includes("llamada") || c.includes("voice")) return "SilvIA-Voz";
-  if (c.includes("email") || c.includes("mail")) return "SilvIA-Email";
-  if (t.includes("valorador") || t.includes("valorac")) return "SilvIA-Valorador";
-  if (t.includes("idealista")) return "Idealista";
-  if (t.includes("presencial") || t.includes("oficina")) return "Presencial";
-  if (t.includes("referido") || t.includes("boca")) return "Referido";
-  return "Manual";
-}
-
-function mapCicloVida(tipo: string, propIds: string[], compradorIds: string[], alquilerIds: string[]): string {
-  const t = tipo.toLowerCase();
-  if (t.includes("anular")) return "Descartado";
-  const isCliente = propIds.length > 0 || compradorIds.length > 0 || alquilerIds.length > 0
-    || t === "propietario" || t === "comprador";
-  if (isCliente) return "Activo";
-  if (t.includes("prospecc")) return "Prospecto";
-  return "Lead";
-}
-
-function mapRolTipo(tipo: string, propIds: string[], compradorIds: string[], alquilerIds: string[]): string[] {
-  const roles: string[] = [];
-  const t = tipo.toLowerCase();
-  if (t === "propietario" || propIds.length > 0) roles.push("Propietario");
-  if (t === "comprador" || compradorIds.length > 0) roles.push("Comprador");
-  if (alquilerIds.length > 0) roles.push("Inquilino");
-  return roles;
-}
-
-// ── Main migration ────────────────────────────────────────────────────────────
-
+// ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
-  console.log("🚀  Starting Airtable → Supabase migration\n");
+  console.log("🚀  Airtable → Supabase (optimized)\n");
 
-  // ── 1. Agents ─────────────────────────────────────────────
-  console.log("1/5  Migrating agents...");
-  const airtableAgents = await fetchAll("Agentes");
-  const agentIdMap = new Map<string, string>(); // airtable_id → supabase uuid
+  // ── Step 1: fetch all 4 tables in parallel ────────────────────────────────
+  console.log("Fetching all Airtable data in parallel...");
+  const t0 = Date.now();
+  const [atAgentes, atInmuebles, atClientes, atVisitas] = await Promise.all([
+    fetchAll("tbl97g8BL94xdkJp9"),
+    fetchAll("tblLEsYvGZqXntJo7"),
+    fetchAll("tbl4N1uR3A3XMwsqZ"),
+    fetchAll("tblBN7MsFyKLyn1UJ"),
+  ]);
+  console.log(`   Fetched in ${((Date.now() - t0) / 1000).toFixed(1)}s: ${atAgentes.length} agents, ${atInmuebles.length} properties, ${atClientes.length} contacts, ${atVisitas.length} visits\n`);
 
-  for (const r of airtableAgents) {
-    const f = r.fields;
-    const { data, error } = await supabase
-      .from("agents")
-      .upsert({
-        nombre:      str(f["Nombre"] ?? f["Name"] ?? "Sin nombre"),
-        email:       str(f["Email"] ?? f["Mail"] ?? f["Correo"]),
-        telefono:    str(f["Teléfono"] ?? f["Telefono"]),
-        activo:      f["Activo"] !== false,
-        airtable_id: r.id,
-      }, { onConflict: "airtable_id" })
-      .select("id")
-      .single();
+  // ── Step 2: Agents ────────────────────────────────────────────────────────
+  console.log("1/5  Agents...");
+  const agentRows = atAgentes.map(r => ({
+    nombre:      str(r.fields["Nombre"]) || "Agente",
+    email:       str(r.fields["Mail"]) || null,
+    activo:      true,
+    airtable_id: r.id,
+  }));
+  const agentCount = await batchUpsert("agents", agentRows, "airtable_id");
 
-    if (error) { console.warn("  Agent error:", error.message, f); continue; }
-    agentIdMap.set(r.id, data.id);
-  }
-  console.log(`   ✓ ${agentIdMap.size} agents\n`);
+  // build id map (paginated — avoids 1000-row limit)
+  const agentsDB = await fetchAllSupa<{ id: string; airtable_id: string }>("agents", "id,airtable_id");
+  const agentMap = new Map<string, string>(agentsDB.map(a => [a.airtable_id, a.id]));
+  console.log(`   ✓ ${agentCount} agents\n`);
 
-  // ── 2. Properties ─────────────────────────────────────────
-  console.log("2/5  Migrating properties...");
-  const airtableProps = await fetchAll("Inmuebles");
-  const propIdMap = new Map<string, string>(); // airtable_id → supabase uuid
-  let propCount = 0;
+  // ── Step 3: Properties ────────────────────────────────────────────────────
+  console.log("2/5  Properties...");
+  const seenRefs = new Set<string>();
+  const propRows = atInmuebles.map(r => {
+    const f    = r.fields;
+    const tipo = str(f["Tipo de inmueble (desplegable)"]);
+    const rawRef = f["Ref"] ? str(f["Ref"]) : null;
+    // deduplicate refs — keep first, append airtable id suffix to dupes
+    let ref: string | null = rawRef;
+    if (ref) {
+      if (seenRefs.has(ref)) ref = `${ref}-${r.id.slice(-4)}`;
+      seenRefs.add(ref);
+    }
+    const agentAT = arr(f["Agentes Asignados"])[0];
+    return {
+      ref,
+      tipo,
+      categoria:          isAlquiler(tipo) ? "Alquiler" : "Venta",
+      es_alquiler:        isAlquiler(tipo),
+      calle:              str(f["Calle"]),
+      numero:             str(f["Numero"]),
+      piso:               str(f["Planta"]),
+      barrio:             str(f["Barrio"]),
+      localidad:          str(f["Localidad"]),
+      metros_construidos: num(f["Superficie"]),
+      habitaciones:       num(f["Habitaciones / dormitorios"]),
+      banos:              num(f["Baño"]),
+      orientacion:        arr(f["Orientación"]).join(", "),
+      descripcion:        str(f["Descripción"]),
+      precio:             num(f["Precio"]),
+      precio_final:       num(f["Precio Final  "]) || num(f["Precio Final "]) || null,
+      estatus:            str(f["Estatus"]) || "Activo",
+      imagenes:           mapImages(f["Imágenes"]),
+      documentos:         mapAttachments(f["Documentación"]),
+      agente_id:          agentAT ? agentMap.get(agentAT) ?? null : null,
+      airtable_id:        r.id,
+      created_at:         f["Fecha de inicio"] ? new Date(f["Fecha de inicio"]).toISOString() : undefined,
+    };
+  });
+  const propCount = await batchUpsert("properties", propRows, "airtable_id");
 
-  for (const r of airtableProps) {
-    const f = r.fields;
-    const esAlquiler =
-      str(f["Categoria"] ?? f["Categoría"] ?? "").toLowerCase().includes("alquiler");
-
-    const imagenes = arr(f["Fotos"] ?? f["Imagenes"] ?? f["Imágenes"]).map((url, i) => ({
-      url,
-      filename: `foto_${i + 1}`,
-      orden: i,
-    }));
-
-    const agentAirtableId = arr(f["Agente"] ?? f["Comercial"])[0];
-    const agente_id = agentAirtableId ? (agentIdMap.get(agentAirtableId) ?? null) : null;
-
-    const { data, error } = await supabase
-      .from("properties")
-      .upsert({
-        ref:                str(f["Ref"] ?? f["Referencia"]),
-        tipo:               str(f["Tipo"] ?? f["Tipo de inmueble"]),
-        categoria:          str(f["Categoria"] ?? f["Categoría"]),
-        es_alquiler:        esAlquiler,
-        calle:              str(f["Calle"] ?? f["Dirección"] ?? f["Direccion"]),
-        numero:             str(f["Número"] ?? f["Numero"]),
-        piso:               str(f["Piso"]),
-        puerta:             str(f["Puerta"]),
-        barrio:             str(f["Barrio"] ?? f["Zona"]),
-        localidad:          str(f["Localidad"] ?? f["Municipio"]),
-        provincia:          str(f["Provincia"]),
-        cp:                 str(f["CP"] ?? f["Código postal"]),
-        metros_construidos: num(f["m² construidos"] ?? f["Metros construidos"]),
-        metros_utiles:      num(f["m² útiles"] ?? f["Metros utiles"]),
-        habitaciones:       num(f["Habitaciones"]),
-        banos:              num(f["Baños"] ?? f["Banos"]),
-        orientacion:        str(f["Orientación"] ?? f["Orientacion"]),
-        descripcion:        str(f["Descripción"] ?? f["Descripcion"]),
-        precio:             num(f["Precio"]),
-        precio_final:       num(f["Precio final"] ?? f["Precio Final"]),
-        estatus:            str(f["Estatus"] ?? f["Estado"] ?? "Activo"),
-        imagenes:           imagenes,
-        agente_id:          agente_id,
-        airtable_id:        r.id,
-      }, { onConflict: "airtable_id" })
-      .select("id")
-      .single();
-
-    if (error) { console.warn("  Property error:", error.message); continue; }
-    propIdMap.set(r.id, data.id);
-    propCount++;
-  }
+  const propsDB = await fetchAllSupa<{ id: string; airtable_id: string }>("properties", "id,airtable_id");
+  const propMap = new Map<string, string>(propsDB.map(p => [p.airtable_id, p.id]));
   console.log(`   ✓ ${propCount} properties\n`);
 
-  // ── 3. Contacts ───────────────────────────────────────────
-  console.log("3/5  Migrating contacts...");
-  const airtableContacts = await fetchAll("Contactos");
-  const contactIdMap = new Map<string, string>(); // airtable_id → supabase uuid
-  let contactCount = 0;
-  const rolesQueue: Array<{
-    contact_id: string;
-    tipo: string;
-    property_id: string | null;
-    agente_id: string | null;
-  }> = [];
+  // ── Step 4: Contacts ──────────────────────────────────────────────────────
+  console.log("3/5  Contacts...");
+  const contactRows: any[]      = [];
+  const contactAgentRows: any[] = [];
+  const roleRows: any[]         = [];
 
-  for (const r of airtableContacts) {
-    const f = r.fields;
+  for (const r of atClientes) {
+    const f      = r.fields;
+    const tipo   = str(f["Tipo de cliente"]);
+    const pIds   = arr(f["Propiedad asociada"]);
+    const cIds   = arr(f["Inmuebles/ comprador"]);
+    const aIds   = arr(f["Propiedad asociada alquiler"]);
+    const agATs  = arr(f["Agentes (tabla agentes)"]);
+    const agSupa = agATs[0] ? agentMap.get(agATs[0]) ?? null : null;
 
-    const tipo         = str(f["Tipo de cliente"] ?? f["Tipo"]);
-    const propIds      = arr(f["Propiedad"] ?? f["Propiedades"] ?? f["propiedadIds"]);
-    const comprIds     = arr(f["Inmueble comprador"] ?? f["inmuebleCompradorIds"]);
-    const alqIds       = arr(f["Propiedad alquiler"] ?? f["propiedadAlquilerIds"]);
+    contactRows.push({
+      nombre:           str(f["Nombre"]) || "Sin nombre",
+      telefono:         str(f["Teléfono"]),
+      email:            str(f["Email"]),
+      dni:              str(f["DNI"]),
+      profesion:        str(f["Profesión"]),
+      ciclo_vida:       mapCicloVida(tipo, pIds, cIds, aIds),
+      motivo:           str(f["Motivo de la llamada"]),
+      solicitud:        str(f["Solicitud de llamada"]),
+      conversaciones:   str(f["Conversaciones"]),
+      observaciones:    str(f["Observaciones"]),
+      feedback:         str(f["Feedback Comercial"]),
+      seccion:          str(f["Seccion"]),
+      trabajado:        str(f["Trabajado"]),
+      categoria:        arr(f["Categoría"]),
+      contrato_trabajo: str(f["Dispones de contrato de trabajo"]),
+      mascota:          str(f["¿Tiene mascota?"]),
+      avalista:         str(f["¿Dispones de avalista en caso de ser necesario?"]),
+      attachments:      mapAttachments(f["Attachments"]),
+      airtable_id:      r.id,
+      created_at:       f["Fecha"] ? new Date(f["Fecha"]).toISOString() : r.createdTime,
+    });
 
-    const ciclo_vida   = mapCicloVida(tipo, propIds, comprIds, alqIds);
-    const canal_origen = mapCanalOrigen(tipo, str(f["Canal"] ?? f["Conversaciones"] ?? ""));
-
-    const attachments = arr(f["Documentos"] ?? f["Adjuntos"] ?? []).map((url) => ({
-      url,
-      filename: url.split("/").pop() ?? "documento",
-      type:     "application/octet-stream",
-    }));
-
-    const { data, error } = await supabase
-      .from("contacts")
-      .upsert({
-        nombre:          str(f["Nombre"] ?? f["Name"] ?? "Sin nombre"),
-        telefono:        str(f["Teléfono"] ?? f["Telefono"]),
-        email:           str(f["Email"] ?? f["Correo"]),
-        dni:             str(f["DNI"] ?? f["NIF"]),
-        profesion:       str(f["Profesión"] ?? f["Profesion"]),
-        ciclo_vida,
-        canal_origen,
-        motivo:          str(f["Motivo"] ?? f["Motivo consulta"]),
-        solicitud:       str(f["Solicitud"]),
-        conversaciones:  str(f["Conversaciones"]),
-        observaciones:   str(f["Observaciones"]),
-        feedback:        str(f["Feedback"]),
-        seccion:         str(f["Sección"] ?? f["Seccion"]),
-        trabajado:       str(f["Trabajado"]),
-        presupuesto_min: num(f["Presupuesto mínimo"] ?? f["Presupuesto min"]),
-        presupuesto_max: num(f["Presupuesto máximo"] ?? f["Presupuesto"] ?? f["Presupuesto max"]),
-        habitaciones_min: num(f["Habitaciones"]),
-        zonas:           arr(f["Zonas"] ?? f["Zona"]),
-        categoria:       arr(f["Categoría interés"] ?? f["Categoria"]),
-        contrato_trabajo: str(f["Contrato trabajo"]),
-        mascota:         str(f["Mascota"]),
-        avalista:        str(f["Avalista"]),
-        duplicados:      num(f["Duplicados"]) ?? 1,
-        attachments,
-        airtable_id:     r.id,
-        created_at:      f["Fecha"] ? new Date(f["Fecha"]).toISOString() : undefined,
-      }, { onConflict: "airtable_id" })
-      .select("id")
-      .single();
-
-    if (error) { console.warn("  Contact error:", error.message); continue; }
-    const contactSupaId = data.id;
-    contactIdMap.set(r.id, contactSupaId);
-    contactCount++;
-
-    // Agentes asignados
-    const agentAirtableIds = arr(f["Agentes"] ?? f["Agente"] ?? f["Comerciales"]);
-    for (const aid of agentAirtableIds) {
-      const agentSupaId = agentIdMap.get(aid);
-      if (agentSupaId) {
-        await supabase.from("contact_agents").upsert(
-          { contact_id: contactSupaId, agent_id: agentSupaId },
-          { onConflict: "contact_id,agent_id" }
-        );
-      }
+    // Collect agent assignments (need contact supa id — resolved after insert)
+    for (const aid of agATs) {
+      const aSupaId = agentMap.get(aid);
+      if (aSupaId) contactAgentRows.push({ _at: r.id, agent_id: aSupaId });
     }
 
-    // Queue roles
-    const roles = mapRolTipo(tipo, propIds, comprIds, alqIds);
-    const agentSupaId = agentAirtableIds[0] ? agentIdMap.get(agentAirtableIds[0]) ?? null : null;
-
-    if (roles.includes("Propietario")) {
-      const propSupaId = propIds[0] ? propIdMap.get(propIds[0]) ?? null : null;
-      rolesQueue.push({ contact_id: contactSupaId, tipo: "Propietario", property_id: propSupaId, agente_id: agentSupaId });
+    // Collect roles
+    if (tipo === "Propietario" || pIds.length > 0) {
+      roleRows.push({ _at: r.id, tipo: "Propietario", property_id: pIds[0] ? propMap.get(pIds[0]) ?? null : null, agente_id: agSupa });
     }
-    if (roles.includes("Comprador")) {
-      const propSupaId = comprIds[0] ? propIdMap.get(comprIds[0]) ?? null : null;
-      rolesQueue.push({ contact_id: contactSupaId, tipo: "Comprador", property_id: propSupaId, agente_id: agentSupaId });
+    if (tipo === "Comprador" || cIds.length > 0) {
+      roleRows.push({ _at: r.id, tipo: "Comprador", property_id: cIds[0] ? propMap.get(cIds[0]) ?? null : null, agente_id: agSupa });
     }
-    if (roles.includes("Inquilino")) {
-      const propSupaId = alqIds[0] ? propIdMap.get(alqIds[0]) ?? null : null;
-      rolesQueue.push({ contact_id: contactSupaId, tipo: "Inquilino", property_id: propSupaId, agente_id: agentSupaId });
+    if (aIds.length > 0) {
+      roleRows.push({ _at: r.id, tipo: "Inquilino", property_id: propMap.get(aIds[0]) ?? null, agente_id: agSupa });
     }
   }
+
+  const contactCount = await batchUpsert("contacts", contactRows, "airtable_id");
+
+  // build contact id map (paginated)
+  const contactsDB = await fetchAllSupa<{ id: string; airtable_id: string }>("contacts", "id,airtable_id");
+  const contactMap = new Map<string, string>(contactsDB.map(c => [c.airtable_id, c.id]));
   console.log(`   ✓ ${contactCount} contacts\n`);
 
-  // ── 4. Contact roles ──────────────────────────────────────
-  console.log("4/5  Creating contact roles...");
-  let roleCount = 0;
-  for (const role of rolesQueue) {
-    const { error } = await supabase.from("contact_roles").insert({
-      contact_id:  role.contact_id,
-      tipo:        role.tipo,
-      estado:      "Activo",
-      agente_id:   role.agente_id,
-      property_id: role.property_id,
-    });
-    if (!error) roleCount++;
-  }
-  console.log(`   ✓ ${roleCount} roles\n`);
+  // ── Step 5: Contact agents + roles ────────────────────────────────────────
+  console.log("4/5  Roles & agent assignments...");
 
-  // ── 5. Visits ─────────────────────────────────────────────
-  console.log("5/5  Migrating visits...");
-  let visitCount = 0;
-  try {
-    const airtableVisits = await fetchAll("Visitas");
-    for (const r of airtableVisits) {
+  const resolvedAgentRows = contactAgentRows
+    .map(r => ({ contact_id: contactMap.get(r._at), agent_id: r.agent_id }))
+    .filter(r => r.contact_id);
+
+  const resolvedRoleRows = roleRows
+    .map(r => ({ contact_id: contactMap.get(r._at), tipo: r.tipo, estado: "Activo", property_id: r.property_id, agente_id: r.agente_id }))
+    .filter(r => r.contact_id);
+
+  // contact_agents uses composite PK — insert ignore duplicates
+  let caCount = 0;
+  for (let i = 0; i < resolvedAgentRows.length; i += CHUNK) {
+    const chunk = resolvedAgentRows.slice(i, i + CHUNK);
+    const { error } = await supa.from("contact_agents").upsert(chunk, { onConflict: "contact_id,agent_id", ignoreDuplicates: true });
+    if (!error) caCount += chunk.length;
+  }
+
+  const roleCount = await batchInsert("contact_roles", resolvedRoleRows);
+  console.log(`   ✓ ${caCount} agent assignments, ${roleCount} roles\n`);
+
+  // ── Step 6: Visits ────────────────────────────────────────────────────────
+  console.log("5/5  Visits...");
+  const visitRows = atVisitas
+    .filter(r => r.fields["Fecha y Hora"])
+    .map(r => {
       const f = r.fields;
-      const contactAirtableId = arr(f["Contacto"] ?? f["Cliente"])[0];
-      const propAirtableId    = arr(f["Inmueble"] ?? f["Propiedad"])[0];
-      const agentAirtableId   = arr(f["Agente"] ?? f["Comercial"])[0];
-
-      const contact_id  = contactAirtableId ? contactIdMap.get(contactAirtableId) ?? null : null;
-      const property_id = propAirtableId    ? propIdMap.get(propAirtableId) ?? null    : null;
-      const agente_id   = agentAirtableId   ? agentIdMap.get(agentAirtableId) ?? null  : null;
-
-      const fecha = f["Fecha"] ?? f["Fecha visita"];
-      if (!fecha) continue;
-
-      const { error } = await supabase.from("visits").upsert({
-        contact_id,
-        property_id,
-        agente_id,
-        fecha:       new Date(fecha).toISOString(),
-        estado:      str(f["Estado"] ?? "Realizada"),
-        notas:       str(f["Notas"] ?? f["Observaciones"]),
+      return {
+        property_id: arr(f["Inmuebles"])[0] ? propMap.get(arr(f["Inmuebles"])[0]) ?? null : null,
+        contact_id:  arr(f["Clientes"])[0]  ? contactMap.get(arr(f["Clientes"])[0]) ?? null : null,
+        agente_id:   arr(f["Agentes"])[0]   ? agentMap.get(arr(f["Agentes"])[0]) ?? null   : null,
+        fecha:       new Date(f["Fecha y Hora"]).toISOString(),
+        estado:      ({ Confirmada:"Programada", Pendiente:"Programada", Completado:"Realizada", Anulada:"Cancelada", Borrada:"Cancelada" }[str(f["Estado"])] ?? "Realizada"),
+        notas:       str(f["Comentarios"]),
         airtable_id: r.id,
-      }, { onConflict: "airtable_id" });
+      };
+    });
 
-      if (!error) visitCount++;
-    }
-  } catch {
-    console.warn("   ⚠ Could not migrate visits (table may have a different name)");
-  }
+  const visitCount = await batchUpsert("visits", visitRows, "airtable_id");
   console.log(`   ✓ ${visitCount} visits\n`);
 
-  // ── Summary ───────────────────────────────────────────────
-  console.log("═══════════════════════════════");
-  console.log("Migration complete:");
-  console.log(`  Agents:     ${agentIdMap.size}`);
-  console.log(`  Properties: ${propCount}`);
-  console.log(`  Contacts:   ${contactCount}`);
-  console.log(`  Roles:      ${roleCount}`);
-  console.log(`  Visits:     ${visitCount}`);
-  console.log("═══════════════════════════════\n");
-  console.log("Next step: update the app data layer (src/lib/) to use Supabase.");
+  // ── Summary ───────────────────────────────────────────────────────────────
+  const total = ((Date.now() - t0) / 1000).toFixed(1);
+  console.log("══════════════════════════════════");
+  console.log(`  Agents:            ${agentCount}`);
+  console.log(`  Properties:        ${propCount}`);
+  console.log(`  Contacts:          ${contactCount}`);
+  console.log(`  Agent assignments: ${caCount}`);
+  console.log(`  Roles:             ${roleCount}`);
+  console.log(`  Visits:            ${visitCount}`);
+  console.log(`  Total time:        ${total}s`);
+  console.log("══════════════════════════════════");
+  console.log("✅  Done!\n");
 }
 
-main().catch((e) => {
-  console.error("Migration failed:", e);
-  process.exit(1);
-});
+main().catch(e => { console.error("❌ Failed:", e); process.exit(1); });

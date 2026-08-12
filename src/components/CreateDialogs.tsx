@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useState, useRef, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Plus, Loader2, X } from "lucide-react";
+import { Plus, Loader2, X, Upload, Link2, CheckCircle2, AlertCircle } from "lucide-react";
 
 import {
   Dialog,
@@ -17,11 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import {
   createCliente,
@@ -31,8 +27,8 @@ import {
   type CreateInmueblePayload,
   type CreateVisitaPayload,
 } from "@/lib/mutations.functions";
-import { TIPOS_CLIENTE } from "@/lib/clientes.functions";
-import { CATEGORIAS } from "@/lib/inmuebles.functions";
+import { SEGMENTOS } from "@/lib/clientes.functions";
+import { CATEGORIAS, uploadPropertyAttachment } from "@/lib/inmuebles.functions";
 import { agentesQuery, allInmueblesQuery, clientesQueryOpts } from "@/lib/queries";
 
 function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
@@ -90,7 +86,13 @@ function MultiSelect({
   );
 }
 
-function NewButton({ children = "Nuevo", onClick }: { children?: ReactNode; onClick?: () => void }) {
+function NewButton({
+  children = "Nuevo",
+  onClick,
+}: {
+  children?: ReactNode;
+  onClick?: () => void;
+}) {
   return (
     <DialogTrigger asChild>
       <Button size="sm" className="h-9 gap-1.5" onClick={onClick}>
@@ -116,6 +118,7 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
     mutationFn: (payload: CreateClientePayload) => fn({ data: payload }),
     onSuccess: () => {
       toast.success("Cliente creado");
+      qc.invalidateQueries({ queryKey: ["leads"] });
       qc.invalidateQueries({ queryKey: ["clientes"] });
       setOpen(false);
       setForm({ nombre: "", fecha: new Date().toISOString().slice(0, 10) });
@@ -168,8 +171,10 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
               className="h-9 px-3 rounded-md border border-input bg-background text-sm w-full"
             >
               <option value="">—</option>
-              {TIPOS_CLIENTE.map((t) => (
-                <option key={t} value={t}>{t}</option>
+              {SEGMENTOS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
               ))}
             </select>
           </Field>
@@ -267,28 +272,58 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
 
 // ============= NEW INMUEBLE / ALQUILER (wizard por tipo) =============
 const TIPOS_VENTA = [
-  "Piso", "Chalet", "Casa", "Terreno", "Garaje", "Trastero",
-  "Local", "Nave", "Oficina", "Edificio",
+  "Piso",
+  "Chalet",
+  "Casa",
+  "Terreno",
+  "Garaje",
+  "Trastero",
+  "Local",
+  "Nave",
+  "Oficina",
+  "Edificio",
 ] as const;
 const TIPOS_ALQUILER = [
-  "Alquiler Piso", "Alquiler Garaje", "Alquiler Oficina", "Alquiler Local", "Alquiler Trastero",
+  "Alquiler Piso",
+  "Alquiler Garaje",
+  "Alquiler Oficina",
+  "Alquiler Local",
+  "Alquiler Trastero",
 ] as const;
 type TipoInmueble = (typeof TIPOS_VENTA)[number] | (typeof TIPOS_ALQUILER)[number];
 
 const ALL_TIPOS: TipoInmueble[] = [...TIPOS_VENTA, ...TIPOS_ALQUILER];
 
 const ICONOS_TIPO: Record<string, string> = {
-  Piso: "🏢", Chalet: "🏡", Casa: "🏠", Terreno: "🌳",
-  Garaje: "🚗", Trastero: "📦", Local: "🏪", Nave: "🏭",
-  Oficina: "💼", Edificio: "🏬",
+  Piso: "🏢",
+  Chalet: "🏡",
+  Casa: "🏠",
+  Terreno: "🌳",
+  Garaje: "🚗",
+  Trastero: "📦",
+  Local: "🏪",
+  Nave: "🏭",
+  Oficina: "💼",
+  Edificio: "🏬",
 };
 
 const ORIENTACION_OPCIONES = [
-  "Norte", "Sur", "Este", "Oeste", "Noreste", "Noroeste", "Sureste", "Suroeste",
+  "Norte",
+  "Sur",
+  "Este",
+  "Oeste",
+  "Noreste",
+  "Noroeste",
+  "Sureste",
+  "Suroeste",
 ] as const;
 
 function OrientacionSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [custom, setCustom] = useState(() => value !== "" && !ORIENTACION_OPCIONES.includes(value as (typeof ORIENTACION_OPCIONES)[number]));
+  const [custom, setCustom] = useState(
+    () =>
+      value !== "" &&
+      !ORIENTACION_OPCIONES.includes(value as (typeof ORIENTACION_OPCIONES)[number]),
+  );
   if (custom) {
     return (
       <div className="flex gap-1">
@@ -303,7 +338,10 @@ function OrientacionSelect({ value, onChange }: { value: string; onChange: (v: s
           variant="outline"
           size="sm"
           className="h-9 px-2"
-          onClick={() => { setCustom(false); onChange(""); }}
+          onClick={() => {
+            setCustom(false);
+            onChange("");
+          }}
         >
           <X className="size-3.5" />
         </Button>
@@ -312,15 +350,23 @@ function OrientacionSelect({ value, onChange }: { value: string; onChange: (v: s
   }
   return (
     <select
-      value={ORIENTACION_OPCIONES.includes(value as (typeof ORIENTACION_OPCIONES)[number]) ? value : ""}
+      value={
+        ORIENTACION_OPCIONES.includes(value as (typeof ORIENTACION_OPCIONES)[number]) ? value : ""
+      }
       onChange={(e) => {
-        if (e.target.value === "__custom__") { setCustom(true); onChange(""); }
-        else onChange(e.target.value);
+        if (e.target.value === "__custom__") {
+          setCustom(true);
+          onChange("");
+        } else onChange(e.target.value);
       }}
       className="h-9 px-3 rounded-md border border-input bg-background text-sm w-full"
     >
       <option value="">—</option>
-      {ORIENTACION_OPCIONES.map((o) => <option key={o} value={o}>{o}</option>)}
+      {ORIENTACION_OPCIONES.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
       <option value="__custom__">+ Personalizado…</option>
     </select>
   );
@@ -338,11 +384,15 @@ type FieldDef = {
 const F = {
   ref: { key: "ref", label: "Ref" } satisfies FieldDef,
   estatus: {
-    key: "estatus", label: "Estatus", kind: "select",
-    options: ["Activo", "Reservado", "Vendido", "Alquilado", "Baja", "Prospección"],
+    key: "estatus",
+    label: "Estatus",
+    kind: "select",
+    options: ["Pendiente", "Activo", "Reservado", "Vendido", "Alquilado", "Baja", "Prospección"],
   } satisfies FieldDef,
   estado: {
-    key: "estado", label: "Estado", kind: "select",
+    key: "estado",
+    label: "Estado",
+    kind: "select",
     options: ["Nuevo", "A reformar", "Reformado", "Buen estado", "Para entrar", "Obra nueva"],
     required: true,
   } satisfies FieldDef,
@@ -359,29 +409,105 @@ const F = {
   orientacion: { key: "orientacion", label: "Orientación", kind: "orientacion" } satisfies FieldDef,
   terraza: { key: "terraza", label: "Terraza" } satisfies FieldDef,
   balcon: { key: "balcon", label: "Balcón" } satisfies FieldDef,
-  garaje: { key: "garaje", label: "Garaje", kind: "select", options: ["Sí", "No", "Opcional"] } satisfies FieldDef,
-  trastero: { key: "trastero", label: "Trastero", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
-  ascensor: { key: "ascensor", label: "Ascensor", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
-  armariosEmpotrados: { key: "armariosEmpotrados", label: "Armarios empotrados", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
+  garaje: {
+    key: "garaje",
+    label: "Garaje",
+    kind: "select",
+    options: ["Sí", "No", "Opcional"],
+  } satisfies FieldDef,
+  trastero: {
+    key: "trastero",
+    label: "Trastero",
+    kind: "select",
+    options: ["Sí", "No"],
+  } satisfies FieldDef,
+  ascensor: {
+    key: "ascensor",
+    label: "Ascensor",
+    kind: "select",
+    options: ["Sí", "No"],
+  } satisfies FieldDef,
+  armariosEmpotrados: {
+    key: "armariosEmpotrados",
+    label: "Armarios empotrados",
+    kind: "select",
+    options: ["Sí", "No"],
+  } satisfies FieldDef,
   anoConstruccion: { key: "anoConstruccion", label: "Año de construcción" } satisfies FieldDef,
-  certificacionEnergetica: { key: "certificacionEnergetica", label: "Certificación energética" } satisfies FieldDef,
+  certificacionEnergetica: {
+    key: "certificacionEnergetica",
+    label: "Certificación energética",
+  } satisfies FieldDef,
   llaves: { key: "llaves", label: "Llaves" } satisfies FieldDef,
   plantas: { key: "plantas", label: "Plantas" } satisfies FieldDef,
   planta: { key: "planta", label: "Planta interior/exterior" } satisfies FieldDef,
   gastosComunidad: { key: "gastosComunidad", label: "Gastos de comunidad" } satisfies FieldDef,
-  inquilinos: { key: "inquilinos", label: "Inquilinos", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
-  publicacion: { key: "publicacion", label: "Publicación", kind: "select", options: ["SUBIR", "PUBLICADO"] } satisfies FieldDef,
-  enlaceTours: { key: "enlaceTours", label: "Enlace tours", kind: "textarea", full: true } satisfies FieldDef,
-  descripcion: { key: "descripcion", label: "Descripción", kind: "textarea", full: true } satisfies FieldDef,
-  observaciones: { key: "observaciones", label: "Observaciones", kind: "textarea", full: true } satisfies FieldDef,
+  inquilinos: {
+    key: "inquilinos",
+    label: "Inquilinos",
+    kind: "select",
+    options: ["Sí", "No"],
+  } satisfies FieldDef,
+  publicacion: {
+    key: "publicacion",
+    label: "Publicación",
+    kind: "select",
+    options: ["SUBIR", "PUBLICADO"],
+  } satisfies FieldDef,
+  enlaceTours: {
+    key: "enlaceTours",
+    label: "Enlace tours",
+    kind: "textarea",
+    full: true,
+  } satisfies FieldDef,
+  descripcion: {
+    key: "descripcion",
+    label: "Descripción",
+    kind: "textarea",
+    full: true,
+  } satisfies FieldDef,
+  observaciones: {
+    key: "observaciones",
+    label: "Observaciones",
+    kind: "textarea",
+    full: true,
+  } satisfies FieldDef,
   tipoChalet: { key: "tipoChalet", label: "Tipo de chalet" } satisfies FieldDef,
-  superficieEdificable: { key: "superficieEdificable", label: "Superficie edificable" } satisfies FieldDef,
-  viaUrbana: { key: "viaUrbana", label: "Vía urbana", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
-  salidaHumos: { key: "salidaHumos", label: "Salida de humos", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
-  almacen: { key: "almacen", label: "Almacén", kind: "select", options: ["Sí", "No"] } satisfies FieldDef,
+  superficieEdificable: {
+    key: "superficieEdificable",
+    label: "Superficie edificable",
+  } satisfies FieldDef,
+  viaUrbana: {
+    key: "viaUrbana",
+    label: "Vía urbana",
+    kind: "select",
+    options: ["Sí", "No"],
+  } satisfies FieldDef,
+  salidaHumos: {
+    key: "salidaHumos",
+    label: "Salida de humos",
+    kind: "select",
+    options: ["Sí", "No"],
+  } satisfies FieldDef,
+  almacen: {
+    key: "almacen",
+    label: "Almacén",
+    kind: "select",
+    options: ["Sí", "No"],
+  } satisfies FieldDef,
   estancias: { key: "estancias", label: "Estancias" } satisfies FieldDef,
-  imagenesUrls: { key: "imagenesUrls", label: "Imágenes (una URL por línea)", kind: "urls", full: true } satisfies FieldDef,
-  documentacionUrls: { key: "documentacionUrls", label: "Documentación (una URL por línea)", kind: "urls", full: true } satisfies FieldDef,
+  imagenesUrls: {
+    key: "imagenesUrls",
+    label: "Imágenes (una URL por línea)",
+    kind: "urls",
+    full: true,
+  } satisfies FieldDef,
+  documentacionUrls: {
+    key: "documentacionUrls",
+    label: "Documentación (una URL por línea)",
+    kind: "urls",
+    full: true,
+  } satisfies FieldDef,
 } as const;
 
 // Image / documentation URL pseudo-fields are kept out of the schema for now
@@ -393,53 +519,165 @@ function getSchemaForTipo(t: TipoInmueble): FieldDef[] {
     case "Chalet":
     case "Casa":
       return [
-        F.ref, F.estatus, F.precio, F.tipoChalet, F.localidad, F.barrio,
-        F.calle, F.numero, F.plantas, F.superficie, F.habitaciones, F.banos,
-        F.tipoSuelo, F.calefaccion, F.orientacion, F.terraza, F.garaje, F.trastero,
-        F.armariosEmpotrados, F.estado, F.anoConstruccion, F.certificacionEnergetica,
-        F.llaves, F.enlaceTours, F.descripcion, F.imagenesUrls, F.documentacionUrls,
+        F.ref,
+        F.estatus,
+        F.precio,
+        F.tipoChalet,
+        F.localidad,
+        F.barrio,
+        F.calle,
+        F.numero,
+        F.plantas,
+        F.superficie,
+        F.habitaciones,
+        F.banos,
+        F.tipoSuelo,
+        F.calefaccion,
+        F.orientacion,
+        F.terraza,
+        F.garaje,
+        F.trastero,
+        F.armariosEmpotrados,
+        F.estado,
+        F.anoConstruccion,
+        F.certificacionEnergetica,
+        F.llaves,
+        F.enlaceTours,
+        F.descripcion,
+        F.imagenesUrls,
+        F.documentacionUrls,
       ];
     case "Terreno":
       return [
-        F.ref, F.precio, F.estatus, F.barrio, F.localidad, F.calle, F.numero,
-        F.superficie, F.superficieEdificable, F.viaUrbana, F.descripcion,
-        F.observaciones, F.enlaceTours, F.imagenesUrls, F.documentacionUrls,
+        F.ref,
+        F.precio,
+        F.estatus,
+        F.barrio,
+        F.localidad,
+        F.calle,
+        F.numero,
+        F.superficie,
+        F.superficieEdificable,
+        F.viaUrbana,
+        F.descripcion,
+        F.observaciones,
+        F.enlaceTours,
+        F.imagenesUrls,
+        F.documentacionUrls,
       ];
     case "Piso":
       return [
-        F.ref, F.estado, F.precio, F.localidad, F.barrio, F.calle, F.numero,
-        F.planta, F.superficie, F.habitaciones, F.banos, F.orientacion,
-        F.calefaccion, F.terraza, F.ascensor, F.garaje, F.trastero, F.balcon,
-        F.armariosEmpotrados, F.tipoSuelo, F.certificacionEnergetica,
-        F.anoConstruccion, F.gastosComunidad, F.llaves, F.inquilinos,
-        F.enlaceTours, F.observaciones, F.publicacion, F.imagenesUrls, F.documentacionUrls,
+        F.ref,
+        F.estado,
+        F.precio,
+        F.localidad,
+        F.barrio,
+        F.calle,
+        F.numero,
+        F.planta,
+        F.superficie,
+        F.habitaciones,
+        F.banos,
+        F.orientacion,
+        F.calefaccion,
+        F.terraza,
+        F.ascensor,
+        F.garaje,
+        F.trastero,
+        F.balcon,
+        F.armariosEmpotrados,
+        F.tipoSuelo,
+        F.certificacionEnergetica,
+        F.anoConstruccion,
+        F.gastosComunidad,
+        F.llaves,
+        F.inquilinos,
+        F.enlaceTours,
+        F.observaciones,
+        F.publicacion,
+        F.imagenesUrls,
+        F.documentacionUrls,
       ];
     case "Garaje":
       return [
-        F.ref, F.estatus, F.precio, F.localidad, F.barrio, F.calle, F.numero,
-        F.superficie, F.gastosComunidad, F.ascensor, F.enlaceTours,
-        F.observaciones, F.publicacion, F.imagenesUrls, F.documentacionUrls,
+        F.ref,
+        F.estatus,
+        F.precio,
+        F.localidad,
+        F.barrio,
+        F.calle,
+        F.numero,
+        F.superficie,
+        F.gastosComunidad,
+        F.ascensor,
+        F.enlaceTours,
+        F.observaciones,
+        F.publicacion,
+        F.imagenesUrls,
+        F.documentacionUrls,
       ];
     case "Local":
     case "Oficina":
     case "Nave":
       return [
-        F.ref, F.estado, F.precio, F.localidad, F.barrio, F.calle, F.numero,
-        F.superficie, F.salidaHumos, F.almacen, F.estancias, F.plantas,
-        F.ascensor, F.garaje, F.trastero, F.certificacionEnergetica,
-        F.anoConstruccion, F.tipoSuelo, F.habitaciones, F.banos, F.inquilinos,
-        F.observaciones, F.enlaceTours, F.publicacion, F.imagenesUrls, F.documentacionUrls,
+        F.ref,
+        F.estado,
+        F.precio,
+        F.localidad,
+        F.barrio,
+        F.calle,
+        F.numero,
+        F.superficie,
+        F.salidaHumos,
+        F.almacen,
+        F.estancias,
+        F.plantas,
+        F.ascensor,
+        F.garaje,
+        F.trastero,
+        F.certificacionEnergetica,
+        F.anoConstruccion,
+        F.tipoSuelo,
+        F.habitaciones,
+        F.banos,
+        F.inquilinos,
+        F.observaciones,
+        F.enlaceTours,
+        F.publicacion,
+        F.imagenesUrls,
+        F.documentacionUrls,
       ];
     case "Trastero":
       return [
-        F.ref, F.precio, F.estado, F.calle, F.numero, F.barrio, F.localidad,
-        F.superficie, F.tipoSuelo, F.enlaceTours, F.observaciones, F.publicacion,
-        F.imagenesUrls, F.documentacionUrls,
+        F.ref,
+        F.precio,
+        F.estado,
+        F.calle,
+        F.numero,
+        F.barrio,
+        F.localidad,
+        F.superficie,
+        F.tipoSuelo,
+        F.enlaceTours,
+        F.observaciones,
+        F.publicacion,
+        F.imagenesUrls,
+        F.documentacionUrls,
       ];
     default:
       return [
-        F.ref, F.estatus, F.precio, F.localidad, F.barrio, F.calle, F.numero,
-        F.superficie, F.descripcion, F.observaciones, F.imagenesUrls, F.documentacionUrls,
+        F.ref,
+        F.estatus,
+        F.precio,
+        F.localidad,
+        F.barrio,
+        F.calle,
+        F.numero,
+        F.superficie,
+        F.descripcion,
+        F.observaciones,
+        F.imagenesUrls,
+        F.documentacionUrls,
       ];
   }
 }
@@ -492,11 +730,7 @@ function PropietarioBlock({
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Fecha de inicio">
-          <Input
-            type="date"
-            value={fechaInicio}
-            onChange={(e) => setFechaInicio(e.target.value)}
-          />
+          <Input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} />
         </Field>
         <Field label="Fecha de autorización de venta (exclusiva)">
           <Input
@@ -509,6 +743,191 @@ function PropietarioBlock({
     </div>
   );
 }
+
+// ─── File upload helpers ──────────────────────────────────────────────────────
+
+type UploadedFile = {
+  clientId: string;
+  filename: string;
+  url?: string;
+  status: "uploading" | "done" | "error" | "link";
+};
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res((r.result as string).split(",")[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+function FileUploadField({
+  label,
+  bucket,
+  accept,
+  isImage,
+  onUrlsChange,
+}: {
+  label: string;
+  bucket: "property-images" | "property-docs";
+  accept: string;
+  isImage: boolean;
+  onUrlsChange: (urls: string[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const uploadFn = useServerFn(uploadPropertyAttachment);
+  const [items, setItems] = useState<UploadedFile[]>([]);
+  const [linkInput, setLinkInput] = useState("");
+
+  const notify = (updated: UploadedFile[]) => {
+    onUrlsChange(updated.filter((i) => i.url).map((i) => i.url!));
+  };
+
+  const handleFiles = async (fileList: FileList) => {
+    const toUpload = Array.from(fileList);
+    const newItems: UploadedFile[] = toUpload.map((f) => ({
+      clientId: `${Date.now()}_${Math.random()}_${f.name}`,
+      filename: f.name,
+      status: "uploading" as const,
+    }));
+    setItems((prev) => [...prev, ...newItems]);
+
+    await Promise.all(
+      toUpload.map(async (file, i) => {
+        const clientId = newItems[i].clientId;
+        try {
+          const base64 = await fileToBase64(file);
+          const result = await uploadFn({
+            data: {
+              base64,
+              filename: file.name,
+              mimeType: file.type || "application/octet-stream",
+              bucket,
+            },
+          });
+          setItems((prev) => {
+            const updated = prev.map((x) =>
+              x.clientId === clientId ? { ...x, url: result.url, status: "done" as const } : x,
+            );
+            notify(updated);
+            return updated;
+          });
+        } catch {
+          setItems((prev) => {
+            const updated = prev.map((x) =>
+              x.clientId === clientId ? { ...x, status: "error" as const } : x,
+            );
+            notify(updated);
+            return updated;
+          });
+        }
+      }),
+    );
+  };
+
+  const addLink = () => {
+    const url = linkInput.trim();
+    if (!url) return;
+    const clientId = `link_${Date.now()}`;
+    const filename = url.split("/").pop()?.split("?")[0] || url;
+    setItems((prev) => {
+      const updated = [...prev, { clientId, filename, url, status: "link" as const }];
+      notify(updated);
+      return updated;
+    });
+    setLinkInput("");
+  };
+
+  const remove = (clientId: string) => {
+    setItems((prev) => {
+      const updated = prev.filter((i) => i.clientId !== clientId);
+      notify(updated);
+      return updated;
+    });
+  };
+
+  return (
+    <div className="sm:col-span-2 space-y-2">
+      <Label className="text-xs font-medium text-foreground/80">{label}</Label>
+
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => e.key === "Enter" && inputRef.current?.click()}
+        className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border hover:border-primary/50 hover:bg-accent/30 cursor-pointer py-4 transition-colors text-sm text-muted-foreground select-none"
+      >
+        <Upload className="size-4 shrink-0" />
+        Seleccionar {isImage ? "imágenes" : "documentos"} del equipo
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        multiple
+        className="hidden"
+        onChange={(e) => e.target.files?.length && handleFiles(e.target.files)}
+      />
+
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={linkInput}
+          onChange={(e) => setLinkInput(e.target.value)}
+          aria-label={isImage ? "URL de imagen" : "URL de documento"}
+          placeholder={
+            isImage
+              ? "o pega URL (Google Drive, web...)"
+              : "o pega URL de documento (Drive, web...)"
+          }
+          className="flex-1 h-8 px-3 rounded-md border border-input bg-background text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addLink())}
+        />
+        <button
+          type="button"
+          onClick={addLink}
+          className="h-8 px-3 text-xs rounded-md border border-input hover:bg-accent shrink-0"
+        >
+          Añadir
+        </button>
+      </div>
+
+      {items.length > 0 && (
+        <ul className="space-y-1">
+          {items.map((item) => (
+            <li
+              key={item.clientId}
+              className="flex items-center gap-2 text-xs rounded-md border border-border px-2 py-1.5 bg-muted/30"
+            >
+              {item.status === "uploading" && (
+                <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+              )}
+              {item.status === "done" && (
+                <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
+              )}
+              {item.status === "error" && (
+                <AlertCircle className="size-3.5 shrink-0 text-destructive" />
+              )}
+              {item.status === "link" && <Link2 className="size-3.5 shrink-0 text-primary" />}
+              <span className="flex-1 truncate text-foreground/80">{item.filename}</span>
+              <button
+                type="button"
+                onClick={() => remove(item.clientId)}
+                aria-label={`Eliminar ${item.filename}`}
+                className="shrink-0 text-muted-foreground hover:text-destructive"
+              >
+                <X className="size-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function FormField({
   def,
@@ -544,7 +963,9 @@ function FormField({
         >
           <option value="">—</option>
           {def.options?.map((o) => (
-            <option key={o} value={o}>{o}</option>
+            <option key={o} value={o}>
+              {o}
+            </option>
           ))}
         </select>
       );
@@ -581,11 +1002,7 @@ function FormField({
       );
     }
     return (
-      <Input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required={def.required}
-      />
+      <Input value={value} onChange={(e) => onChange(e.target.value)} required={def.required} />
     );
   })();
   return (
@@ -604,22 +1021,26 @@ export function NewInmuebleDialog({
 }) {
   const qc = useQueryClient();
   const fn = useServerFn(createInmueble);
-  const agentes = useQuery(agentesQuery);
   const [open, setOpen] = useState(false);
+  const agentes = useQuery({ ...agentesQuery, enabled: open });
   const [tipo, setTipo] = useState<TipoInmueble | null>(null);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>({ publicacion: "SUBIR" });
   const [ag, setAg] = useState<string[]>([]);
   const [propietarios, setPropietarios] = useState<string[]>([]);
   const [fechaInicio, setFechaInicio] = useState<string>(new Date().toISOString().slice(0, 10));
   const [fechaExclusiva, setFechaExclusiva] = useState<string>("");
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [docUrls, setDocUrls] = useState<string[]>([]);
 
   const reset = () => {
     setTipo(null);
-    setValues({});
+    setValues({ publicacion: "SUBIR" });
     setAg([]);
     setPropietarios([]);
     setFechaInicio(new Date().toISOString().slice(0, 10));
     setFechaExclusiva("");
+    setImageUrls([]);
+    setDocUrls([]);
   };
 
   const mut = useMutation({
@@ -639,7 +1060,8 @@ export function NewInmuebleDialog({
     const payload: CreateInmueblePayload = {
       calle: values.calle ?? "",
       tipo,
-      estatus: values.estatus || "Activo",
+      estatus: values.estatus || "Pendiente",
+      publicacion: values.publicacion || "SUBIR",
       fechaInicio: fechaInicio || null,
       fechaExclusiva: fechaExclusiva || null,
       agentesIds: ag.length ? ag : undefined,
@@ -653,12 +1075,13 @@ export function NewInmuebleDialog({
         const n = Number(v);
         if (Number.isFinite(n)) (payload as Record<string, unknown>).precio = n;
       } else if (k === "imagenesUrls" || k === "documentacionUrls") {
-        const urls = v.split("\n").map((u) => u.trim()).filter(Boolean);
-        if (urls.length) (payload as Record<string, unknown>)[k as string] = urls;
+        // handled by FileUploadField — skip
       } else {
         (payload as Record<string, unknown>)[k as string] = v;
       }
     });
+    if (imageUrls.length) payload.imagenesUrls = imageUrls;
+    if (docUrls.length) payload.documentacionUrls = docUrls;
     mut.mutate(payload);
   };
 
@@ -743,21 +1166,41 @@ export function NewInmuebleDialog({
             <div className="sm:col-span-2">
               <Field label="Tipo de inmueble">
                 <div className="h-9 px-3 rounded-md border border-input bg-muted text-sm flex items-center gap-2 select-none">
-                  <span className="text-lg">{ICONOS_TIPO[tipo.replace(/^Alquiler\s+/, "")] ?? "🏷️"}</span>
+                  <span className="text-lg">
+                    {ICONOS_TIPO[tipo.replace(/^Alquiler\s+/, "")] ?? "🏷️"}
+                  </span>
                   <span className="font-medium">{tipo}</span>
                   {esAlquiler && <span className="text-xs text-muted-foreground">(alquiler)</span>}
                 </div>
               </Field>
             </div>
 
-            {schema.map((def) => (
-              <FormField
-                key={def.key as string}
-                def={def}
-                value={values[def.key as string] ?? ""}
-                onChange={(v) => setValues((s) => ({ ...s, [def.key as string]: v }))}
-              />
-            ))}
+            {schema
+              .filter((def) => def.key !== "imagenesUrls" && def.key !== "documentacionUrls")
+              .map((def) => (
+                <FormField
+                  key={def.key as string}
+                  def={def}
+                  value={values[def.key as string] ?? ""}
+                  onChange={(v) => setValues((s) => ({ ...s, [def.key as string]: v }))}
+                />
+              ))}
+
+            <FileUploadField
+              label="Imágenes"
+              bucket="property-images"
+              accept="image/*"
+              isImage={true}
+              onUrlsChange={setImageUrls}
+            />
+
+            <FileUploadField
+              label="Documentación"
+              bucket="property-docs"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+              isImage={false}
+              onUrlsChange={setDocUrls}
+            />
 
             <div className="sm:col-span-2">
               <Field label="Agentes asignados">
@@ -809,10 +1252,10 @@ export function NewVisitaDialog({
 }) {
   const qc = useQueryClient();
   const fn = useServerFn(createVisita);
-  const agentes = useQuery(agentesQuery);
-  const inmuebles = useQuery(allInmueblesQuery);
-  const clientes = useQuery(clientesQueryOpts);
   const [open, setOpen] = useState(false);
+  const agentes = useQuery({ ...agentesQuery, enabled: open });
+  const inmuebles = useQuery({ ...allInmueblesQuery, enabled: open });
+  const clientes = useQuery({ ...clientesQueryOpts, enabled: open });
   const [form, setForm] = useState<CreateVisitaPayload>({
     fecha: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
     estado: "Pendiente",
@@ -834,9 +1277,8 @@ export function NewVisitaDialog({
     onError: (e: Error) => toast.error(e.message || "No se pudo crear"),
   });
 
-  const inmList = (inmuebles.data
-    ? [...inmuebles.data.inmuebles, ...inmuebles.data.alquileres]
-    : []
+  const inmList = (
+    inmuebles.data ? [...inmuebles.data.inmuebles, ...inmuebles.data.alquileres] : []
   )
     .filter((i) =>
       inmFilter
@@ -848,14 +1290,20 @@ export function NewVisitaDialog({
 
   const cliList = (clientes.data?.clientes ?? [])
     .filter((c) =>
-      cliFilter ? `${c.nombre} ${c.telefono}`.toLowerCase().includes(cliFilter.toLowerCase()) : true,
+      cliFilter
+        ? `${c.nombre} ${c.telefono}`.toLowerCase().includes(cliFilter.toLowerCase())
+        : true,
     )
     .slice(0, 80)
     .map((c) => ({ id: c.id, label: `${c.nombre}${c.telefono ? ` · ${c.telefono}` : ""}` }));
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : <NewButton>Nueva visita</NewButton>}
+      {trigger ? (
+        <DialogTrigger asChild>{trigger}</DialogTrigger>
+      ) : (
+        <NewButton>Nueva visita</NewButton>
+      )}
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Nueva visita</DialogTitle>
@@ -883,7 +1331,9 @@ export function NewVisitaDialog({
               className="h-9 px-3 rounded-md border border-input bg-background text-sm w-full"
             >
               {["Pendiente", "Confirmada", "Realizada", "Cancelada", "No realizada"].map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </select>
           </Field>

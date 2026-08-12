@@ -77,8 +77,8 @@ O en snake_case:
 
 | Tabla | Campo | Valor |
 |---|---|---|
-| `properties` | `estatus` | `"Prospección"` |
-| `properties` | `publicacion` | `"SUBIR"` |
+| `properties` | `estatus` | `"Activo"` |
+| `properties` | `publicacion` | `"PROSPECTO"` (etiqueta especial en el CRM — no visible en la web) |
 | `properties` | `es_alquiler` | `false` |
 | `contacts` | `ciclo_vida` | `"Prospecto"` |
 | `contact_roles` | `tipo` | `"Propietario"` |

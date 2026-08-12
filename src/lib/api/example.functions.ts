@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { getServerConfig } from "../config.server";
+import { requireAuth } from "@/lib/auth.server";
 
 // Example createServerFn. Server-side handler invoked from the client:
 //   const result = await getGreeting({ data: { name: "Ada" } })
@@ -14,6 +15,7 @@ import { getServerConfig } from "../config.server";
 export const getGreeting = createServerFn({ method: "POST" })
   .inputValidator(z.object({ name: z.string().min(1) }))
   .handler(async ({ data }) => {
+  await requireAuth();
     const config = getServerConfig();
     return {
       greeting: `Hello, ${data.name}!`,

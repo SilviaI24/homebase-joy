@@ -9,6 +9,9 @@ import {
   Sparkles,
   Inbox,
   Hourglass,
+  MessageSquare,
+  Banknote,
+  Menu,
   Sun,
   Moon,
   X,
@@ -79,7 +82,11 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Gestión",
-    items: [{ to: "/visitas", label: "Visitas", icon: CalendarDays }],
+    items: [
+      { to: "/visitas",      label: "Visitas",      icon: CalendarDays },
+      { to: "/seguimiento",  label: "Seguimiento",  icon: MessageSquare },
+      { to: "/operaciones",  label: "Operaciones",  icon: Banknote },
+    ],
   },
   {
     label: "IA",
@@ -88,11 +95,11 @@ const navGroups: NavGroup[] = [
 ];
 
 const mobileNav: NavItem[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/inmuebles", label: "Ventas", icon: Building2 },
-  { to: "/alquileres", label: "Alquiler", icon: KeyRound },
-  { to: "/mis-leads", label: "Leads", icon: Inbox },
-  { to: "/prospectos", label: "Prospectos", icon: Hourglass },
+  { to: "/",           label: "Dashboard",  icon: LayoutDashboard },
+  { to: "/mis-leads",  label: "Leads",      icon: Inbox },
+  { to: "/visitas",    label: "Visitas",    icon: CalendarDays },
+  { to: "/seguimiento",label: "Acciones",   icon: MessageSquare },
+  { to: "/silvia",     label: "SilvIA",     icon: Sparkles },
 ];
 
 // ── Prospectos badge ──────────────────────────────────────────────────────────
@@ -476,6 +483,76 @@ const LINK_CLS =
 
 // ── AppShell ──────────────────────────────────────────────────────────────────
 
+// ── Sidebar content (shared desktop + mobile drawer) ─────────────────────────
+
+function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
+  return (
+    <>
+      {/* Logo */}
+      <div className="px-4 py-4 border-b border-sidebar-border shrink-0">
+        <div className="flex items-center gap-3">
+          <div
+            className="size-8 rounded-xl gold-shimmer flex items-center justify-center text-[0.8rem] font-display font-bold shadow-md"
+            style={{ color: "oklch(0.12 0.025 165)" }}
+          >
+            ES
+          </div>
+          <div>
+            <div className="font-display font-semibold tracking-tight text-[13px] text-gold leading-tight">
+              El Sol Grupo
+            </div>
+            <div className="text-[9px] uppercase tracking-[0.18em] text-sidebar-foreground/35 mt-0.5">
+              CRM Inmobiliario
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 p-2 overflow-y-auto pt-3 space-y-5">
+        {navGroups.map((group, gi) => (
+          <div key={gi}>
+            {group.label && (
+              <div className="px-3 pb-1.5 flex items-center gap-2">
+                <span className="text-[9px] uppercase tracking-[0.16em] text-sidebar-foreground/35 font-semibold">
+                  {group.label}
+                </span>
+                <span className="flex-1 h-px bg-sidebar-border/60" />
+              </div>
+            )}
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to as "/"}
+                    activeOptions={{ exact: item.to === "/" }}
+                    className={LINK_CLS}
+                    onClick={onLinkClick}
+                  >
+                    <Icon className="size-[15px] shrink-0 opacity-70 group-[.active]:opacity-100" />
+                    {item.label}
+                    {item.to === "/prospectos" && <ProspectosBadge />}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      {/* Footer */}
+      <div className="px-4 py-3 border-t border-sidebar-border flex items-center justify-between shrink-0">
+        <span className="text-[9px] uppercase tracking-[0.14em] text-sidebar-foreground/25 font-medium">
+          v0.5
+        </span>
+        <span className="size-1.5 rounded-full bg-emerald-500/60" title="Conectado" />
+      </div>
+    </>
+  );
+}
+
 export function AppShell({
   title,
   subtitle,
@@ -489,80 +566,59 @@ export function AppShell({
 }) {
   const { dark, toggle } = useTheme();
   const { signOut, user } = useAuth();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   return (
     <div className="flex min-h-screen bg-background text-foreground">
+
       {/* ── Sidebar — desktop ── */}
       <aside className="hidden md:flex w-56 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border shrink-0">
-        {/* Logo */}
-        <div className="px-4 py-4 border-b border-sidebar-border">
-          <div className="flex items-center gap-3">
-            <div
-              className="size-8 rounded-xl gold-shimmer flex items-center justify-center text-[0.8rem] font-display font-bold shadow-md"
-              style={{ color: "oklch(0.12 0.025 165)" }}
-            >
-              ES
-            </div>
-            <div>
-              <div className="font-display font-semibold tracking-tight text-[13px] text-gold leading-tight">
-                El Sol Grupo
-              </div>
-              <div className="text-[9px] uppercase tracking-[0.18em] text-sidebar-foreground/35 mt-0.5">
-                CRM Inmobiliario
-              </div>
-            </div>
-          </div>
-        </div>
+        <SidebarContent />
+      </aside>
 
-        {/* Nav */}
-        <nav className="flex-1 p-2 overflow-y-auto pt-3 space-y-5">
-          {navGroups.map((group, gi) => (
-            <div key={gi}>
-              {group.label && (
-                <div className="px-3 pb-1.5 flex items-center gap-2">
-                  <span className="text-[9px] uppercase tracking-[0.16em] text-sidebar-foreground/35 font-semibold">
-                    {group.label}
-                  </span>
-                  <span className="flex-1 h-px bg-sidebar-border/60" />
-                </div>
-              )}
-              <div className="space-y-0.5">
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.to}
-                      to={item.to as "/"}
-                      activeOptions={{ exact: item.to === "/" }}
-                      className={LINK_CLS}
-                    >
-                      <Icon className="size-[15px] shrink-0 opacity-70 group-[.active]:opacity-100" />
-                      {item.label}
-                      {item.to === "/prospectos" && <ProspectosBadge />}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
+      {/* ── Mobile drawer overlay ── */}
+      {drawerOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          onClick={() => setDrawerOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
-        {/* Footer */}
-        <div className="px-4 py-3 border-t border-sidebar-border flex items-center justify-between">
-          <span className="text-[9px] uppercase tracking-[0.14em] text-sidebar-foreground/25 font-medium">
-            v0.4
-          </span>
-          <span className="size-1.5 rounded-full bg-emerald-500/60" title="Conectado" />
-        </div>
+      {/* ── Mobile drawer ── */}
+      <aside
+        className={`md:hidden fixed inset-y-0 left-0 z-50 w-64 flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-2xl transition-transform duration-300 ease-in-out ${
+          drawerOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {/* Close button */}
+        <button
+          onClick={() => setDrawerOpen(false)}
+          className="absolute top-3 right-3 size-7 flex items-center justify-center rounded-lg text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+          aria-label="Cerrar menú"
+        >
+          <X className="size-4" />
+        </button>
+        <SidebarContent onLinkClick={() => setDrawerOpen(false)} />
       </aside>
 
       {/* ── Main ── */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header
-          className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-card/95 backdrop-blur-sm px-4 md:px-6"
+          className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-card/95 backdrop-blur-sm px-4 md:px-6"
           style={{ boxShadow: "0 1px 0 0 var(--color-border), 0 2px 8px -4px oklch(0 0 0 / 0.06)" }}
         >
-          <div className="min-w-0">
+          {/* Hamburger — mobile only */}
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="md:hidden inline-flex items-center justify-center size-8 rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-all duration-150 shrink-0"
+            aria-label="Abrir menú"
+          >
+            <Menu className="size-[15px]" />
+          </button>
+
+          <div className="flex-1 min-w-0">
             <h1 className="font-display text-base font-semibold tracking-tight truncate leading-tight">
               {title}
             </h1>
@@ -572,13 +628,14 @@ export function AppShell({
               </p>
             )}
           </div>
+
           <div className="flex items-center gap-2 shrink-0">
             {actions}
             <NotificationBell />
             <button
               onClick={toggle}
               title={dark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
-              className="inline-flex items-center justify-center size-8 rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-all duration-150"
+              className="hidden sm:inline-flex items-center justify-center size-8 rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-all duration-150"
             >
               {dark ? <Sun className="size-[15px]" /> : <Moon className="size-[15px]" />}
             </button>

@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>El Sol Grupo CRM · Lógica del sistema</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #161b27;
+      --surface2: #1e2535;
+      --border: #2a3347;
+      --text: #e8ecf4;
+      --muted: #7d8ba5;
+      --primary: #6c8ef5;
+      --emerald: #34d399;
+      --amber: #fbbf24;
+      --blue: #60a5fa;
+      --violet: #a78bfa;
+      --teal: #2dd4bf;
+      --red: #f87171;
+      --gold: #f0c040;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 40px 20px 80px;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 56px;
+      padding-bottom: 40px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+    .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+    h1 { font-size: 32px; font-weight: 700; letter-spacing: -.5px; margin-bottom: 12px; }
+    .subtitle { color: var(--muted); font-size: 15px; }
+
+    /* ── Sections ── */
+    .section { margin-bottom: 56px; }
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h2 .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: var(--surface2);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    h3 { font-size: 15px; font-weight: 600; margin-bottom: 10px; color: var(--text); }
+    p { color: var(--muted); margin-bottom: 12px; }
+    p strong { color: var(--text); font-weight: 600; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .mini-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .mini-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 6px; }
+    .mini-card .value { font-size: 18px; font-weight: 700; }
+    .mini-card .desc { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+    .badge.lead    { background: rgba(125,139,165,.15); color: #a0aec0; border-color: rgba(125,139,165,.25); }
+    .badge.prospecto { background: rgba(108,142,245,.15); color: var(--primary); border-color: rgba(108,142,245,.25); }
+    .badge.activo  { background: rgba(52,211,153,.15); color: var(--emerald); border-color: rgba(52,211,153,.25); }
+    .badge.historico { background: rgba(96,165,250,.15); color: var(--blue); border-color: rgba(96,165,250,.25); }
+    .badge.descartado { background: rgba(248,113,113,.15); color: var(--red); border-color: rgba(248,113,113,.25); }
+    .badge.propietario { background: rgba(52,211,153,.15); color: var(--emerald); border-color: rgba(52,211,153,.25); }
+    .badge.comprador   { background: rgba(96,165,250,.15); color: var(--blue); border-color: rgba(96,165,250,.25); }
+    .badge.inquilino   { background: rgba(45,212,191,.15); color: var(--teal); border-color: rgba(45,212,191,.25); }
+
+    /* ── Pipeline ── */
+    .pipeline {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .pipeline-stage {
+      flex: 1;
+      padding: 16px 14px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      position: relative;
+    }
+    .pipeline-stage:last-child { border-right: none; }
+    .pipeline-stage .stage-name { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+    .pipeline-stage .stage-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+    .pipeline-stage.s-lead    .stage-name { color: #a0aec0; }
+    .pipeline-stage.s-prospecto .stage-name { color: var(--primary); }
+    .pipeline-stage.s-activo  .stage-name { color: var(--emerald); }
+    .pipeline-stage.s-historico .stage-name { color: var(--blue); }
+    .pipeline-stage.s-descartado .stage-name { color: var(--red); }
+
+    /* ── Arrow flow ── */
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .flow-box {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .flow-arrow { color: var(--muted); font-size: 16px; }
+    .flow-label { font-size: 11px; color: var(--muted); font-style: italic; }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--muted);
+      padding: 8px 12px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    td strong { color: var(--text); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+
+    /* ── Code ── */
+    .code-block {
+      background: #0a0d14;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 12px;
+      color: #a8d8a8;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      white-space: pre;
+      line-height: 1.7;
+    }
+
+    /* ── Sections nav ── */
+    .sections-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+    .section-card .sc-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 6px; }
+    .section-card h3 { margin-bottom: 8px; }
+    .section-card ul { list-style: none; }
+    .section-card ul li { font-size: 12px; color: var(--muted); padding: 3px 0; padding-left: 14px; position: relative; }
+    .section-card ul li::before { content: "·"; position: absolute; left: 0; color: var(--primary); }
+
+    /* ── Rules list ── */
+    .rules { list-style: none; margin-bottom: 16px; }
+    .rules li {
+      display: flex;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .rules li:last-child { border-bottom: none; }
+    .rules .rule-num {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+    .rules .rule-text { color: var(--muted); }
+    .rules .rule-text strong { color: var(--text); }
+
+    /* ── Highlight box ── */
+    .highlight {
+      background: rgba(108,142,245,.08);
+      border: 1px solid rgba(108,142,245,.25);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .highlight strong { color: var(--primary); }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      padding-top: 40px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .pipeline { flex-direction: column; }
+      .pipeline-stage { border-right: none; border-bottom: 1px solid var(--border); }
+      .pipeline-stage:last-child { border-bottom: none; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-dot"></div>
+      El Sol Grupo
+      <div class="logo-dot"></div>
+    </div>
+    <h1>Lógica del CRM</h1>
+    <p class="subtitle">Arquitectura del sistema, flujo de contactos y reglas de negocio</p>
+  </div>
+
+
+  <!-- 1. MODELO DE DATOS -->
+  <div class="section">
+    <h2><span class="num">1</span> Modelo de datos central</h2>
+
+    <p>El CRM gira en torno a tres tablas principales en Supabase. La clave de todo está en la tabla intermedia <strong>contact_roles</strong>.</p>
+
+    <div class="code-block">contacts          → quien es el contacto (nombre, teléfono, email, ciclo_vida)
+properties        → qué inmuebles gestiona la agencia (calle, estatus, precio…)
+contact_roles     → qué relación tiene un contacto con un inmueble
+                    tipo: 'Propietario' | 'Comprador' | 'Inquilino' | 'Arrendador'</div>
+
+    <div class="card">
+      <h3>Campo clave: <code style="color:var(--primary)">contacts.ciclo_vida</code></h3>
+      <p>Almacena la etapa del contacto en el pipeline. Se lee directamente de la base de datos — <strong>no se calcula en el frontend</strong>. Valores posibles:</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
+        <span class="badge lead">Lead</span>
+        <span class="badge prospecto">Prospecto</span>
+        <span class="badge activo">Activo</span>
+        <span class="badge historico">Histórico</span>
+        <span class="badge descartado">Descartado</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Campo derivado: <code style="color:var(--primary)">segmento</code></h3>
+      <p>El tipo de relación comercial se <strong>deriva en runtime</strong> mirando los <code>contact_roles</code>. No se persiste en BD. Prioridad descendente:</p>
+      <table>
+        <tr><th>Segmento</th><th>Condición</th></tr>
+        <tr><td><span class="badge propietario">Propietario</span></td><td>Tiene algún role con tipo = 'Propietario'</td></tr>
+        <tr><td><span class="badge comprador">Comprador</span></td><td>Tiene algún role con tipo = 'Comprador'</td></tr>
+        <tr><td><span class="badge inquilino">Inquilino</span></td><td>Tiene algún role con tipo = 'Inquilino' o 'Arrendador'</td></tr>
+        <tr><td><span class="badge lead">Lead</span></td><td>Sin ningún contact_role vinculado</td></tr>
+      </table>
+    </div>
+  </div>
+
+
+  <!-- 2. CICLO DE VIDA -->
+  <div class="section">
+    <h2><span class="num">2</span> Ciclo de vida de un contacto</h2>
+
+    <div class="pipeline">
+      <div class="pipeline-stage s-lead">
+        <div class="stage-name">Lead</div>
+        <div class="stage-desc">Contacto recibido sin inmueble vinculado. Aparece en <em>Mis Leads</em> y <em>SilvIA</em>.</div>
+      </div>
+      <div class="pipeline-stage s-prospecto">
+        <div class="stage-name">Prospecto</div>
+        <div class="stage-desc">Posible captación: propietario al que hay que convencer. Aparece en <em>Inmuebles → Captación</em>.</div>
+      </div>
+      <div class="pipeline-stage s-activo">
+        <div class="stage-name">Activo</div>
+        <div class="stage-desc">Tiene un inmueble en gestión activa vinculado. Aparece en <em>Clientes</em> (sección principal).</div>
+      </div>
+      <div class="pipeline-stage s-historico">
+        <div class="stage-name">Histórico</div>
+        <div class="stage-desc">Operación cerrada (Vendido / Alquilado). Aparece en <em>Clientes → Historial</em>.</div>
+      </div>
+      <div class="pipeline-stage s-descartado">
+        <div class="stage-name">Descartado</div>
+        <div class="stage-desc">Contacto anulado o sin interés. No aparece en ninguna vista activa.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Reglas de transición automática</h3>
+      <p>El campo <code>ciclo_vida</code> se actualiza automáticamente en el servidor cuando cambian los inmuebles vinculados. <strong>Nunca se toca Prospecto ni Descartado automáticamente</strong>.</p>
+      <ul class="rules">
+        <li>
+          <div class="rule-num">1</div>
+          <div class="rule-text">Si el contacto no tiene ningún <code>contact_role</code> → <strong>Lead</strong></div>
+        </li>
+        <li>
+          <div class="rule-num">2</div>
+          <div class="rule-text">Si tiene al menos un inmueble con estatus <em>no</em> en {Vendido, Alquilado, Baja} → <strong>Activo</strong></div>
+        </li>
+        <li>
+          <div class="rule-num">3</div>
+          <div class="rule-text">Si todos sus inmuebles están en {Vendido, Alquilado} → <strong>Histórico</strong></div>
+        </li>
+        <li>
+          <div class="rule-num">4</div>
+          <div class="rule-text">Si todos sus inmuebles están en {Baja} → vuelve a <strong>Lead</strong></div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="highlight">
+      <strong>Cuándo se dispara la recalculación:</strong> cuando se llama a <code>asociarLeadAInmueble</code> (nuevo vínculo) o cuando <code>updateInmueble</code> cambia el estatus a Vendido / Alquilado. En ese momento se recorre cada contacto vinculado y se actualiza su <code>ciclo_vida</code>.
+    </div>
+  </div>
+
+
+  <!-- 3. SECCIONES DEL CRM -->
+  <div class="section">
+    <h2><span class="num">3</span> Secciones y qué muestra cada una</h2>
+
+    <div class="sections-grid">
+      <div class="section-card">
+        <div class="sc-label">Sección</div>
+        <h3>🏠 Inmuebles → Cartera</h3>
+        <ul>
+          <li>Todos los inmuebles gestionados</li>
+          <li>Vista grid, kanban y mapa</li>
+          <li>Filtros por estatus, categoría y agente</li>
+          <li>Recordatorio de inmuebles estancados (&gt;90 días)</li>
+        </ul>
+      </div>
+      <div class="section-card">
+        <div class="sc-label">Sección</div>
+        <h3>🔥 Inmuebles → Captación</h3>
+        <ul>
+          <li>Contactos con <code>ciclo_vida = 'Prospecto'</code></li>
+          <li>Organizados por canal: Web, SilvIA, Directo</li>
+          <li>Botón "Activar" → cambia a Activo y pone inmueble en Pendiente</li>
+          <li>Antes era la página /prospectos (ahora redirige aquí)</li>
+        </ul>
+      </div>
+      <div class="section-card">
+        <div class="sc-label">Sección</div>
+        <h3>👥 Clientes</h3>
+        <ul>
+          <li>Solo contactos con <code>etapa ∈ {Activo, Histórico}</code></li>
+          <li>KPIs por segmento (Propietarios / Compradores / Inquilinos)</li>
+          <li>Tabla de activos + historial colapsable al final</li>
+          <li>Panel lateral con inmuebles activos, cerrados y matches</li>
+        </ul>
+      </div>
+      <div class="section-card">
+        <div class="sc-label">Sección</div>
+        <h3>📋 Mis Leads</h3>
+        <ul>
+          <li>Contactos con <code>etapa = 'Lead'</code> asignados al agente</li>
+          <li>Vista kanban (Nuevos / En seguimiento / Archivados)</li>
+          <li>Botón "Asociar inmueble" → pasa a Activo automáticamente</li>
+          <li>Notas de seguimiento, visitas y reasignación</li>
+        </ul>
+      </div>
+      <div class="section-card">
+        <div class="sc-label">Sección</div>
+        <h3>✨ SilvIA</h3>
+        <ul>
+          <li>Solo contactos con <code>etapa = 'Lead'</code> con conversación</li>
+          <li>Detección automática de inmuebles mencionados en transcripciones</li>
+          <li>Botón "Confirmar vínculo" → persiste el inmueble a contact_roles</li>
+          <li>Flujo de cualificación: Vende / Busca comprar / Busca alquilar</li>
+        </ul>
+      </div>
+      <div class="section-card">
+        <div class="sc-label">Sección</div>
+        <h3>📅 Visitas</h3>
+        <ul>
+          <li>Agenda de visitas por fecha</li>
+          <li>Vinculadas a un inmueble y un contacto</li>
+          <li>Estado: Pendiente / Realizada / Cancelada</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- 4. FLUJO COMPLETO -->
+  <div class="section">
+    <h2><span class="num">4</span> Flujos típicos de negocio</h2>
+
+    <div class="card">
+      <h3>Flujo A — Lead entrante (WhatsApp / llamada)</h3>
+      <div class="flow">
+        <div class="flow-box" style="color:var(--muted)">Conversación entra a SilvIA</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--primary)">Agente revisa en SilvIA</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--amber)">Identifica inmueble mencionado</div>
+      </div>
+      <div class="flow">
+        <div class="flow-box" style="color:var(--amber)">Click "Confirmar vínculo"</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--emerald)">contact_role creado en BD</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--emerald)">ciclo_vida → <strong>Activo</strong></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--emerald)">Aparece en Clientes</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Flujo B — Lead sin inmueble claro (Mis Leads)</h3>
+      <div class="flow">
+        <div class="flow-box" style="color:var(--muted)">Lead asignado al agente</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--primary)">Agente lo contacta</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--amber)">Click "Asociar inmueble"</div>
+      </div>
+      <div class="flow">
+        <div class="flow-box" style="color:var(--amber)">Selecciona rol: Comprador / Inquilino / Propietario</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--emerald)">ciclo_vida → <strong>Activo</strong></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--emerald)">Sale de Mis Leads</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Flujo C — Captación de propietario (web)</h3>
+      <div class="flow">
+        <div class="flow-box" style="color:var(--muted)">Propietario rellena formulario web</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--violet)">ciclo_vida = <strong>Prospecto</strong></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--violet)">Aparece en Inmuebles → Captación</div>
+      </div>
+      <div class="flow">
+        <div class="flow-box" style="color:var(--violet)">Agente hace click "Activar"</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--emerald)">Inmueble → Pendiente</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--emerald)">Contacto → <strong>Activo</strong></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--emerald)">Aparece en Clientes</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Flujo D — Operación cerrada (Vendido / Alquilado)</h3>
+      <div class="flow">
+        <div class="flow-box" style="color:var(--emerald)">Agente cambia estatus del inmueble → <strong>Vendido</strong></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--blue)">Sistema recalcula todos los contactos vinculados</div>
+      </div>
+      <div class="flow">
+        <div class="flow-box" style="color:var(--blue)">Si todos sus inmuebles cerraron → ciclo_vida = <strong>Histórico</strong></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box" style="color:var(--blue)">Pasa al historial colapsable en Clientes</div>
+      </div>
+      <p style="margin-top:8px">Si el comprador/inquilino aún tiene otros inmuebles activos vinculados, permanece en <strong>Activo</strong>.</p>
+    </div>
+  </div>
+
+
+  <!-- 5. REGLAS DE VISIBILIDAD -->
+  <div class="section">
+    <h2><span class="num">5</span> Dónde aparece cada contacto</h2>
+
+    <table>
+      <tr>
+        <th>Sección</th>
+        <th>Filtro aplicado</th>
+        <th>Excluye</th>
+      </tr>
+      <tr>
+        <td><strong>SilvIA</strong></td>
+        <td><code>etapa = 'Lead'</code> + tiene conversación</td>
+        <td>Activos, Históricos, Prospectos, Descartados</td>
+      </tr>
+      <tr>
+        <td><strong>Mis Leads</strong></td>
+        <td><code>etapa = 'Lead'</code> + asignado al agente</td>
+        <td>Activos, Históricos, Prospectos, Descartados</td>
+      </tr>
+      <tr>
+        <td><strong>Clientes (activos)</strong></td>
+        <td><code>etapa = 'Activo'</code> + segmento ≠ Lead</td>
+        <td>Leads, Prospectos, Descartados</td>
+      </tr>
+      <tr>
+        <td><strong>Clientes (historial)</strong></td>
+        <td><code>etapa = 'Histórico'</code> + segmento ≠ Lead</td>
+        <td>Leads, Prospectos, Descartados</td>
+      </tr>
+      <tr>
+        <td><strong>Inmuebles → Captación</strong></td>
+        <td><code>etapa = 'Prospecto'</code></td>
+        <td>Todos los demás</td>
+      </tr>
+    </table>
+
+    <div class="highlight">
+      <strong>Regla de oro:</strong> Un contacto no puede aparecer en dos secciones a la vez. El campo <code>ciclo_vida</code> es la única fuente de verdad que decide en qué sección vive.
+    </div>
+  </div>
+
+
+  <!-- 6. MIGRACIÓN -->
+  <div class="section">
+    <h2><span class="num">6</span> Script de migración de datos</h2>
+
+    <p>Para alinear la BD existente con el nuevo modelo, existe un script de backfill que recalcula <code>ciclo_vida</code> para todos los contactos. <strong>No modifica Prospectos ni Descartados</strong>.</p>
+
+    <div class="code-block">cd homebase-joy
+
+# Opción A — con dotenv
+npx dotenv -e .env.local -- npx tsx supabase/migrate-etapas.ts
+
+# Opción B — manual
+SUPABASE_URL=$(grep SUPABASE_URL .env.local | cut -d= -f2) \
+SUPABASE_SERVICE_KEY=$(grep SUPABASE_SERVICE_KEY .env.local | cut -d= -f2) \
+npx tsx supabase/migrate-etapas.ts</div>
+
+    <p>El script muestra un resumen antes de aplicar cambios (cuántos pasan a Lead, Activo, Histórico). Si la salida dice <em>"Nada que actualizar"</em>, la BD ya está consistente.</p>
+  </div>
+
+
+  <!-- 7. ARCHIVOS CLAVE -->
+  <div class="section">
+    <h2><span class="num">7</span> Archivos clave del sistema</h2>
+
+    <table>
+      <tr>
+        <th>Archivo</th>
+        <th>Responsabilidad</th>
+      </tr>
+      <tr>
+        <td><code>src/lib/clientes.functions.ts</code></td>
+        <td><strong>Definición del tipo Cliente</strong>, derivación de segmento, matching de propiedades, <code>recalcularEtapa()</code></td>
+      </tr>
+      <tr>
+        <td><code>src/lib/mutations.functions.ts</code></td>
+        <td><strong>asociarLeadAInmueble</strong> (crea contact_role y pone <code>ciclo_vida = 'Activo'</code>), <strong>activarProspecto</strong>, <strong>updateClienteSeguimiento</strong></td>
+      </tr>
+      <tr>
+        <td><code>src/lib/inmuebles.functions.ts</code></td>
+        <td><strong>updateInmueble</strong> — cuando el estatus cambia a Vendido/Alquilado, recalcula etapa de todos los contactos vinculados</td>
+      </tr>
+      <tr>
+        <td><code>src/routes/clientes.index.tsx</code></td>
+        <td>Vista de clientes: activos + historial colapsable. Filtra por <code>etapa ∈ {Activo, Histórico}</code></td>
+      </tr>
+      <tr>
+        <td><code>src/routes/mis-leads.index.tsx</code></td>
+        <td>Bandeja del comercial. Filtra por <code>etapa = 'Lead'</code></td>
+      </tr>
+      <tr>
+        <td><code>src/routes/silvia.index.tsx</code></td>
+        <td>Conversaciones IA. Filtra por <code>etapa = 'Lead'</code>. Componente <code>MencionadoCard</code> con botón "Confirmar vínculo"</td>
+      </tr>
+      <tr>
+        <td><code>src/routes/inmuebles.index.tsx</code></td>
+        <td>Cartera + tab Captación (prospectos por canal). Botón "Activar" llama a <code>activarProspecto</code></td>
+      </tr>
+      <tr>
+        <td><code>supabase/migrate-etapas.ts</code></td>
+        <td>Script de backfill one-shot para alinear <code>ciclo_vida</code> con la realidad de los contact_roles</td>
+      </tr>
+    </table>
+  </div>
+
+
+  <!-- FOOTER -->
+  <div class="footer">
+    El Sol Grupo CRM · Arquitectura interna · Generado con Claude Code
+  </div>
+
+</div>
+</body>
+</html>

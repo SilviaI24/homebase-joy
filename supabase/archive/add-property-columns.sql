@@ -25,3 +25,16 @@ ALTER TABLE properties
   ADD COLUMN IF NOT EXISTS notaria                TEXT NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS llaves                 TEXT NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS observaciones          TEXT NOT NULL DEFAULT '';
+
+-- Constraint de publicacion (idempotente)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'properties'::regclass AND conname = 'properties_publicacion_check'
+  ) THEN
+    ALTER TABLE properties
+      ADD CONSTRAINT properties_publicacion_check
+      CHECK (publicacion IN ('', 'PROSPECTO', 'SUBIR', 'PUBLICADO'));
+  END IF;
+END $$;

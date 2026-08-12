@@ -4,6 +4,11 @@
  * - palabras menores (artículos, preposiciones, conjunciones) en minúscula
  *   salvo que sean la primera palabra.
  */
+export function cleanRef(ref: string): string {
+  const dash = ref.indexOf("-");
+  return dash !== -1 ? ref.slice(0, dash) : ref;
+}
+
 const LOWER_WORDS = new Set([
   "de", "del", "la", "las", "el", "los", "al", "y", "e", "o", "u", "a", "en",
   "con", "por", "para", "sin", "sobre", "entre", "hasta", "desde", "bajo",

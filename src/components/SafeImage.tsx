@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Building2, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
  * Imagen con cadena de fallbacks:
- *   src → fallbackSrc → icono.
+ *   src → fallbackSrcs[0..n] → fallbackSrc → icono.
  * Mantiene el mismo box-model y evita huecos rotos o placeholders distintos.
  */
 export function SafeImage({
   src,
   fallbackSrc,
+  fallbackSrcs,
   alt,
   className,
   imgClassName,
@@ -18,23 +19,30 @@ export function SafeImage({
 }: {
   src: string | null | undefined;
   fallbackSrc?: string | null;
+  fallbackSrcs?: string[];
   alt: string;
   className?: string;
   imgClassName?: string;
   fallbackIcon?: LucideIcon;
   fallbackClassName?: string;
 }) {
-  const initial = src || fallbackSrc || null;
-  const [current, setCurrent] = useState<string | null>(initial);
-  const [failed, setFailed] = useState(false);
+  // Build the full ordered chain: src → fallbackSrcs → fallbackSrc
+  const chain = useRef<string[]>([]);
+  chain.current = [
+    ...(src ? [src] : []),
+    ...(fallbackSrcs ?? []),
+    ...(fallbackSrc ? [fallbackSrc] : []),
+  ].filter(Boolean);
 
-  // Reset state if the inputs change between renders (key changes etc.).
+  const [idx, setIdx] = useState(0);
+  const fallbackSrcsKey = fallbackSrcs?.join(",");
+
   useEffect(() => {
-    setCurrent(src || fallbackSrc || null);
-    setFailed(false);
-  }, [src, fallbackSrc]);
+    setIdx(0);
+  }, [src, fallbackSrc, fallbackSrcsKey]);
 
-  const showIcon = !current || failed;
+  const current = chain.current[idx] ?? null;
+  const showIcon = !current;
 
   return (
     <div className={cn("relative w-full h-full bg-muted overflow-hidden", className)}>
@@ -52,12 +60,13 @@ export function SafeImage({
           src={current}
           alt={alt}
           loading="lazy"
+          decoding="async"
+          draggable={false}
           onError={() => {
-            // Intenta el fallback antes de rendirse.
-            if (current !== fallbackSrc && fallbackSrc) {
-              setCurrent(fallbackSrc);
+            if (idx + 1 < chain.current.length) {
+              setIdx((i) => i + 1);
             } else {
-              setFailed(true);
+              setIdx(chain.current.length); // past end → showIcon
             }
           }}
           className={cn("w-full h-full object-cover", imgClassName)}

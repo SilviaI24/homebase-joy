@@ -4,11 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Check, Search, UserCog, Loader2 } from "lucide-react";
 
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { agentesQuery } from "@/lib/queries";
 import { assignClienteAgentes } from "@/lib/mutations.functions";
 
@@ -29,10 +25,10 @@ export function AsignarLeadButton({
   const [selected, setSelected] = useState<string[]>(agentesActuales);
 
   const mut = useMutation({
-    mutationFn: (ids: string[]) =>
-      fn({ data: { clienteId, agentesIds: ids } }),
+    mutationFn: (ids: string[]) => fn({ data: { clienteId, agentesIds: ids } }),
     onSuccess: () => {
       toast.success("Lead asignado");
+      qc.invalidateQueries({ queryKey: ["leads"] });
       qc.invalidateQueries({ queryKey: ["clientes"] });
       setOpen(false);
     },
@@ -44,9 +40,7 @@ export function AsignarLeadButton({
     const ql = q.trim().toLowerCase();
     if (!ql) return all;
     return all.filter(
-      (a) =>
-        a.nombre.toLowerCase().includes(ql) ||
-        a.mail.toLowerCase().includes(ql),
+      (a) => a.nombre.toLowerCase().includes(ql) || a.mail.toLowerCase().includes(ql),
     );
   }, [ag?.agentes, q]);
 
@@ -54,10 +48,7 @@ export function AsignarLeadButton({
     setSelected((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   }
 
-  const sizeCls =
-    size === "xs"
-      ? "text-[10px] px-2 py-0.5"
-      : "text-[11px] font-medium px-2.5 py-1";
+  const sizeCls = size === "xs" ? "text-[10px] px-2 py-0.5" : "text-[11px] font-medium px-2.5 py-1";
 
   return (
     <Popover
@@ -84,8 +75,9 @@ export function AsignarLeadButton({
               autoFocus
               value={q}
               onChange={(e) => setQ(e.target.value)}
+              aria-label="Buscar comercial"
               placeholder="Buscar comercial…"
-              className="w-full h-8 pl-7 pr-2 rounded-md border border-input bg-background text-xs outline-none focus:border-foreground/30"
+              className="w-full h-8 pl-7 pr-2 rounded-md border border-input bg-background text-xs focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
         </div>
@@ -107,9 +99,7 @@ export function AsignarLeadButton({
                   <div className="min-w-0">
                     <div className="truncate font-medium">{a.nombre}</div>
                     {a.mail && (
-                      <div className="truncate text-[10px] text-muted-foreground">
-                        {a.mail}
-                      </div>
+                      <div className="truncate text-[10px] text-muted-foreground">{a.mail}</div>
                     )}
                   </div>
                   <span

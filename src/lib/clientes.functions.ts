@@ -1,7 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { airtableFetch, BASE_ID, TABLES } from "./airtable.server";
+import { getSupa } from "./supabase.server";
 import { getCategoria, isAlquiler, type Categoria } from "./inmuebles.functions";
 import { toTitleCase, toTitleCaseArr, toSentenceCase } from "./format";
+import { requireAuth } from "@/lib/auth.server";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export type ClienteAttachment = { url: string; filename: string; type: string };
 
@@ -21,6 +24,7 @@ export type MiniInmueble = {
   imagen: string | null;
   habitaciones: number | null;
   superficie: number | null;
+  rolTipo?: string;
 };
 
 export type ClienteMatch = {
@@ -29,24 +33,13 @@ export type ClienteMatch = {
   score: number;
 };
 
-export const SEGMENTOS = [
-  "Propietario",
-  "Comprador",
-  "Inquilino",
-  "Prospecto",
-  "Lead",
-  "Descartado",
-] as const;
+// Tipo de relación con El Sol Grupo — solo 3 valores reales
+export const SEGMENTOS = ["Propietario", "Comprador", "Inquilino", "Lead"] as const;
 export type Segmento = (typeof SEGMENTOS)[number];
 
-export const ESTADOS_COMERCIALES = [
-  "Cerrado",
-  "Activo",
-  "En curso",
-  "Frío",
-  "Descartado",
-] as const;
-export type EstadoComercial = (typeof ESTADOS_COMERCIALES)[number];
+// Etapa en el ciclo de vida (se lee directamente de contacts.ciclo_vida)
+export const ETAPAS = ["Lead", "Prospecto", "Cliente", "Histórico", "Descartado"] as const;
+export type Etapa = (typeof ETAPAS)[number];
 
 export type Cliente = {
   id: string;
@@ -54,7 +47,6 @@ export type Cliente = {
   email: string;
   telefono: string;
   dni: string;
-  tipo: string;
   fecha: string | null;
   motivo: string;
   observaciones: string;
@@ -68,27 +60,25 @@ export type Cliente = {
   avalista: string;
   categoria: string[];
   trabajado: string;
-  propiedadIds: string[];
+  // Inmuebles vinculados por tipo de rol
+  propiedadIds: string[]; // Propietario
   propiedadRefs: string[];
   propiedadCalles: string[];
-  inmuebleCompradorIds: string[];
-  propiedadAlquilerIds: string[];
-  inmueblesIds: string[];
+  inmuebleCompradorIds: string[]; // Comprador
+  propiedadAlquilerIds: string[]; // Inquilino
+  inmueblesIds: string[]; // todos
   agentesIds: string[];
   agentesMails: string[];
-  visitasIds: string[];
   attachments: ClienteAttachment[];
-  // Enriched
-  activo: boolean;
-  motivoActivo: string;
-  inmueblesActivos: MiniInmueble[];
-  matches: ClienteMatch[];
-  // Clasificación derivada
-  segmento: Segmento;
+  // Derivados
+  segmento: Segmento; // tipo de relación (Propietario/Comprador/Inquilino/Lead)
   segmentoMotivo: string;
-  estadoComercial: EstadoComercial;
-  diasDesdeAlta: number | null;
+  etapa: Etapa; // posición en el ciclo (Activo/Histórico/Lead…)
   inmueblesVinculados: MiniInmueble[];
+  inmueblesActivos: MiniInmueble[]; // propiedades no cerradas
+  inmueblesHistorico: MiniInmueble[]; // propiedades cerradas (Vendido/Alquilado)
+  matches: ClienteMatch[];
+  diasDesdeAlta: number | null;
   duplicados: number;
   preferencias: ClientePrefs;
 };
@@ -99,33 +89,31 @@ export type ClientePrefs = {
   zonas: string[];
 };
 
-export const TIPOS_CLIENTE = [
-  "Propietario",
-  "Comprador",
-  "Interesado Propiedades",
-  "Interesado alquiler",
-  "Prospecciones",
-  "Anular prospección",
-] as const;
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function asStr(v: unknown): string {
+function s(v: unknown): string {
   if (v == null) return "";
   if (Array.isArray(v)) return v.filter(Boolean).join(", ");
   return String(v);
 }
-function asIds(v: unknown): string[] {
-  return Array.isArray(v) ? (v as string[]) : [];
-}
-function asArr(v: unknown): string[] {
-  return Array.isArray(v) ? (v as string[]).map(String) : [];
+
+function normStr(v: string): string {
+  return v.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function pickAttachment(field: unknown): string | null {
-  if (Array.isArray(field) && field.length > 0) {
-    const att = field[0] as { url?: string; thumbnails?: { large?: { url?: string } } };
-    return att.thumbnails?.large?.url ?? att.url ?? null;
-  }
-  return null;
+function normPhone(v: string): string {
+  const digits = v.replace(/\D/g, "");
+  return digits.length >= 9 ? digits.slice(-9) : digits;
+}
+
+function dedupeKey(c: { dni: string; telefono: string; email: string; nombre: string; id: string }): string {
+  return (
+    (c.dni && `dni:${normStr(c.dni)}`) ||
+    (c.telefono && normPhone(c.telefono).length >= 9 && `tel:${normPhone(c.telefono)}`) ||
+    (c.email && `mail:${normStr(c.email)}`) ||
+    (c.nombre && `nom:${normStr(c.nombre)}`) ||
+    `id:${c.id}`
+  );
 }
 
 function parseIntSafe(v: unknown): number | null {
@@ -137,240 +125,236 @@ function parseIntSafe(v: unknown): number | null {
   return null;
 }
 
-function mapInmuebleMini(r: { id: string; fields: Record<string, unknown> }): MiniInmueble {
-  const f = r.fields;
-  const tipo = String(f["Tipo de inmueble (desplegable)"] ?? "");
+type PropertyRowShape = {
+  id: string;
+  ref: string | null;
+  calle: string | null;
+  numero: string | null;
+  barrio: string | null;
+  localidad: string | null;
+  estatus: string | null;
+  tipo: string | null;
+  precio: number | null;
+  precio_final: number | null;
+  imagenes: Array<{ url: string }> | null;
+  habitaciones: number | null;
+  metros_construidos: number | null;
+};
+
+type RoleRow = { tipo: string; property_id: string | null; properties: PropertyRowShape };
+
+// Segmento = qué tipo de relación tiene el contacto con la agencia.
+// Se basa en los contact_roles, no en el ciclo_vida.
+function deriveSegmento(roles: RoleRow[]): { segmento: Segmento; motivo: string } {
+  if (roles.some((r) => r.tipo === "Propietario")) {
+    return { segmento: "Propietario", motivo: "Propietario de inmueble en gestión" };
+  }
+  if (roles.some((r) => r.tipo === "Comprador")) {
+    return { segmento: "Comprador", motivo: "Comprador vinculado a inmueble" };
+  }
+  if (roles.some((r) => r.tipo === "Inquilino" || r.tipo === "Arrendador")) {
+    return { segmento: "Inquilino", motivo: "Inquilino vinculado a inmueble" };
+  }
+  return { segmento: "Lead", motivo: "Sin inmueble vinculado" };
+}
+
+function mapPropertyRow(p: PropertyRowShape): MiniInmueble {
+  const tipo = s(p.tipo);
+  const imgs = p.imagenes ?? [];
   return {
-    id: r.id,
-    ref: String(f["Ref"] ?? ""),
-    calle: toTitleCase(String(f["Calle"] ?? "").trim()),
-    numero: String(f["Numero"] ?? ""),
-    barrio: toTitleCase(String(f["Barrio"] ?? "")),
-    localidad: toTitleCase(String(f["Localidad"] ?? "")),
-    estatus: String(f["Estatus"] ?? ""),
+    id: p.id,
+    ref: s(p.ref),
+    calle: toTitleCase(s(p.calle)),
+    numero: s(p.numero),
+    barrio: toTitleCase(s(p.barrio)),
+    localidad: toTitleCase(s(p.localidad)),
+    estatus: s(p.estatus),
     tipo,
     categoria: getCategoria(tipo),
     esAlquiler: isAlquiler(tipo),
-    precio: typeof f["Precio"] === "number" ? (f["Precio"] as number) : null,
-    precioFinal: typeof f["Precio Final "] === "number" ? (f["Precio Final "] as number) : null,
-    imagen: pickAttachment(f["Imágenes"]),
-    habitaciones: parseIntSafe(f["Habitaciones / dormitorios"]),
-    superficie: parseIntSafe(f["Superficie"]),
+    precio: p.precio ?? null,
+    precioFinal: p.precio_final ?? null,
+    imagen: imgs.find((i) => i?.url)?.url ?? null,
+    habitaciones: p.habitaciones ?? null,
+    superficie: p.metros_construidos ?? null,
   };
 }
 
-function mapClienteBase(r: { id: string; fields: Record<string, unknown> }): Omit<Cliente, "activo" | "motivoActivo" | "inmueblesActivos" | "matches" | "segmento" | "segmentoMotivo" | "estadoComercial" | "diasDesdeAlta" | "inmueblesVinculados" | "duplicados" | "preferencias"> {
-  const f = r.fields;
-  const atts = Array.isArray(f["Attachments"]) ? (f["Attachments"] as Array<{ url: string; filename: string; type: string }>) : [];
+// ── Budget parser ─────────────────────────────────────────────────────────────
+
+function parsePresupuesto(
+  txt: string,
+  wantsAlquiler: boolean,
+): { min: number | null; max: number | null } {
+  const amounts: number[] = [];
+
+  const pushAmount = (n: number) => {
+    if (!Number.isFinite(n)) return;
+    if (wantsAlquiler && n >= 200 && n <= 10000) amounts.push(n);
+    else if (!wantsAlquiler && n >= 30000 && n <= 5000000) amounts.push(n);
+  };
+
+  const parseNum = (raw: string, suffix: string): number | null => {
+    const str = raw.trim();
+    let n: number;
+    if (/^\d{1,3}(?:[.,]\d{3})+$/.test(str)) n = parseInt(str.replace(/[.,]/g, ""), 10);
+    else if (/^\d+[.,]\d+$/.test(str)) n = parseFloat(str.replace(",", "."));
+    else n = parseInt(str, 10);
+    if (!Number.isFinite(n)) return null;
+    const suf = suffix.toLowerCase();
+    if (suf === "k" || suf === "mil") n *= 1000;
+    else if (suf === "m" || suf === "mill" || suf === "millon" || suf === "millones")
+      n *= 1_000_000;
+    return n;
+  };
+
+  const rangeRe =
+    /(\d{1,7}(?:[.,]\d{1,3})*)\s*(?:-|–|a|y|hasta)\s*(\d{1,7}(?:[.,]\d{1,3})*)\s*(mill(?:on|ones)?|mil|k|m)?\b\s*(?:€|eur|euros)?/gi;
+  const consumed: Array<[number, number]> = [];
+  for (const m of txt.matchAll(rangeRe)) {
+    const suf = m[3] ?? "";
+    const a = parseNum(m[1], suf);
+    const b = parseNum(m[2], suf);
+    if (a != null) pushAmount(a);
+    if (b != null) pushAmount(b);
+    if (m.index != null) consumed.push([m.index, m.index + m[0].length]);
+  }
+
+  const moneyRe =
+    /(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(mill(?:on|ones)?|mil|k|m)?\b\s*(€|eur|euros)?/gi;
+  for (const m of txt.matchAll(moneyRe)) {
+    if (m.index != null && consumed.some(([st, en]) => m.index! >= st && m.index! < en)) continue;
+    const suf = m[2] ?? "";
+    const cur = m[3] ?? "";
+    if (!suf && !cur) continue;
+    const n = parseNum(m[1], suf);
+    if (n != null) pushAmount(n);
+  }
+
   return {
-    id: r.id,
-    nombre: toTitleCase(asStr(f["Nombre"]).trim()),
-    email: asStr(f["Email"]),
-    telefono: asStr(f["Teléfono"]),
-    dni: asStr(f["DNI"]),
-    tipo: asStr(f["Tipo de cliente"]),
-    fecha: (f["Fecha"] as string) ?? null,
-    motivo: toSentenceCase(asStr(f["Motivo de la llamada"])),
-    observaciones: toSentenceCase(asStr(f["Observaciones"])),
-    solicitud: toSentenceCase(asStr(f["Solicitud de llamada"])),
-    seccion: toTitleCase(asStr(f["Seccion"])),
-    conversaciones: toSentenceCase(asStr(f["Conversaciones"])),
-    feedback: toSentenceCase(asStr(f["Feedback Comercial"])),
-    profesion: toTitleCase(asStr(f["Profesión"])),
-    contratoTrabajo: toTitleCase(asStr(f["Dispones de contrato de trabajo"])),
-    mascota: toTitleCase(asStr(f["¿Tiene mascota?"])),
-    avalista: toTitleCase(asStr(f["¿Dispones de avalista en caso de ser necesario?"])),
-    categoria: asArr(f["Categoría"]),
-    trabajado: toTitleCase(asStr(f["Trabajado"])),
-    propiedadIds: asIds(f["Propiedad asociada"]),
-    propiedadRefs: asArr(f["Ref (from Propiedad asociada)"]),
-    propiedadCalles: toTitleCaseArr(asArr(f["Calle (from Propiedad asociada)"])),
-    inmuebleCompradorIds: asIds(f["Inmuebles/ comprador"]),
-    propiedadAlquilerIds: asIds(f["Propiedad asociada alquiler"]),
-    inmueblesIds: asIds(f["Inmuebles"]),
-    agentesIds: asIds(f["Agentes (tabla agentes)"]),
-    agentesMails: asArr(f["Mail (from Agentes)"]),
-    visitasIds: asIds(f["Visitas calendario"]),
-    attachments: atts.map((a) => ({ url: a.url, filename: a.filename, type: a.type })),
+    min: amounts.length > 0 ? Math.min(...amounts) : null,
+    max: amounts.length > 0 ? Math.max(...amounts) : null,
   };
 }
 
-async function fetchAllInmueblesMini(): Promise<MiniInmueble[]> {
-  const records: Array<{ id: string; fields: Record<string, unknown> }> = [];
-  let offset: string | undefined;
-  const currentYear = new Date().getFullYear();
-  const prevYear = currentYear - 1;
-  const formula = `OR(YEAR({Fecha de inicio})=${currentYear},YEAR({Fecha de inicio})=${prevYear})`;
-  do {
-    const params = new URLSearchParams({ pageSize: "100", filterByFormula: formula });
-    if (offset) params.set("offset", offset);
-    const page = (await airtableFetch(`/v0/${BASE_ID}/${TABLES.inmuebles}?${params}`)) as {
-      records: Array<{ id: string; fields: Record<string, unknown> }>;
-      offset?: string;
-    };
-    records.push(...page.records);
-    offset = page.offset;
-  } while (offset && records.length < 2000);
-  return records.map(mapInmuebleMini);
-}
-
-function categoriaMatches(clienteCats: string[], inmCat: string): boolean {
-  if (clienteCats.length === 0) return true;
-  return clienteCats.some((c) => c.toLowerCase() === inmCat.toLowerCase());
-}
+// ── Main query ────────────────────────────────────────────────────────────────
 
 export const listClientes = createServerFn({ method: "GET" }).handler(async () => {
-  // 12 meses — suficiente para cobrir el ciclo inmobiliario sin saturar la API.
-  // Clientes con Fecha vacía se excluyen del filtro de fecha pero los que tienen
-  // inmuebles vinculados se cargarán igualmente mediante fetchAllInmueblesMini.
-  const cutoff = new Date();
-  cutoff.setFullYear(cutoff.getFullYear() - 1);
-  const cutoffISO = cutoff.toISOString().slice(0, 10);
-  const formula = `OR(IS_AFTER({Fecha}, '${cutoffISO}'), {Fecha} = '')`;
+  await requireAuth();
+  const supa = getSupa();
 
-  const [clienteRecords, inmuebles] = await Promise.all([
-    (async () => {
-      const records: Array<{ id: string; fields: Record<string, unknown> }> = [];
-      let offset: string | undefined;
-      do {
-        const params = new URLSearchParams({ pageSize: "100", filterByFormula: formula });
-        if (offset) params.set("offset", offset);
-        const page = (await airtableFetch(`/v0/${BASE_ID}/${TABLES.clientes}?${params}`)) as {
-          records: Array<{ id: string; fields: Record<string, unknown> }>;
-          offset?: string;
-        };
-        records.push(...page.records);
-        offset = page.offset;
-      } while (offset && records.length < 50000);
-      return records;
-    })(),
-    fetchAllInmueblesMini(),
-  ]);
+  const allContacts: any[] = [];
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data, error } = await supa
+      .from("contacts")
+      .select(
+        `
+        id, nombre, email, telefono, dni, profesion, ciclo_vida,
+        motivo, solicitud, conversaciones, observaciones, feedback,
+        seccion, trabajado, categoria, contrato_trabajo, mascota,
+        avalista, attachments, created_at,
+        contact_roles(tipo, property_id,
+          properties(id, ref, calle, numero, barrio, localidad, tipo,
+            estatus, precio, precio_final, imagenes, habitaciones, metros_construidos)),
+        contact_agents(agent_id, agents(id, nombre, email))
+      `,
+      )
+      .in("ciclo_vida", ["Cliente", "Prospecto"])
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    allContacts.push(...(data ?? []));
+    if ((data ?? []).length < PAGE) break;
+    from += PAGE;
+  }
 
-  const byId = new Map(inmuebles.map((i) => [i.id, i]));
-  const activosVenta = inmuebles.filter((i) => i.estatus === "Activo" && !i.esAlquiler);
-  const activosAlquiler = inmuebles.filter((i) => i.estatus === "Activo" && i.esAlquiler);
+  // Propiedades activas para matching
+  const { data: activePropRows } = await supa
+    .from("properties")
+    .select(
+      "id, ref, calle, numero, barrio, localidad, tipo, estatus, precio, precio_final, imagenes, habitaciones, metros_construidos",
+    )
+    .in("estatus", ["Activo", "Pendiente"]);
 
-  // Diccionario de zonas (barrios + localidades) para detectar en texto libre.
+  const allProps = (activePropRows ?? []).map(mapPropertyRow);
+  const activosVenta = allProps.filter((i) => !i.esAlquiler);
+  const activosAlquiler = allProps.filter((i) => i.esAlquiler);
+
   const zonasConocidas = new Set<string>();
-  for (const i of inmuebles) {
+  for (const i of allProps) {
     if (i.barrio) zonasConocidas.add(i.barrio.toLowerCase());
     if (i.localidad) zonasConocidas.add(i.localidad.toLowerCase());
   }
 
-  const clientes: Cliente[] = clienteRecords.map((r) => {
-    const base = mapClienteBase(r);
-    const linkedIds = new Set<string>([
-      ...base.propiedadIds,
-      ...base.inmuebleCompradorIds,
-      ...base.propiedadAlquilerIds,
-      ...base.inmueblesIds,
-    ]);
-    const linkedInmuebles = Array.from(linkedIds)
-      .map((id) => byId.get(id))
-      .filter((x): x is MiniInmueble => !!x);
-    const inmueblesActivos = linkedInmuebles.filter(
-      (i) => i.estatus === "Activo" || i.estatus === "Prospección",
-    );
+  const CLOSED = new Set(["Vendido", "Alquilado"]);
+  const INACTIVE = new Set(["Vendido", "Alquilado", "Baja"]);
 
-    // Activo: tipo Propietario/Prospecciones + algún inmueble activo o en prospección
-    let activo = false;
-    let motivoActivo = "";
-    const esPropietario = base.tipo === "Propietario";
-    const esProspeccion = base.tipo === "Prospecciones";
-    if (esPropietario && inmueblesActivos.some((i) => i.estatus === "Activo")) {
-      activo = true;
-      motivoActivo = "Propietario con inmueble activo";
-    } else if (esProspeccion && inmueblesActivos.some((i) => i.estatus === "Prospección")) {
-      activo = true;
-      motivoActivo = "Prospección activa";
-    } else if (esPropietario && inmueblesActivos.length > 0) {
-      activo = true;
-      motivoActivo = "Propietario con inmueble en gestión";
-    }
+  const clientes: Cliente[] = allContacts.map((r: any) => {
+    const roles: RoleRow[] = (r.contact_roles ?? []).filter((rl: any) => rl.properties);
+    const agentAssignments: Array<{ agent_id: string; agents: any }> = r.contact_agents ?? [];
 
-    // --- Extracción de preferencias desde texto libre ---------------------
-    const txtRaw = `${base.solicitud} ${base.motivo} ${base.observaciones} ${base.feedback} ${base.conversaciones}`;
+    const { segmento, motivo: segmentoMotivo } = deriveSegmento(roles);
+
+    // Etapa viene directamente del campo ciclo_vida en BD
+    const etapa = (r.ciclo_vida ?? "Lead") as Etapa;
+
+    // Propiedades por rol
+    const propRoles = roles.filter((rl) => rl.tipo === "Propietario");
+    const cmpRoles = roles.filter((rl) => rl.tipo === "Comprador");
+    const inqRoles = roles.filter((rl) => rl.tipo === "Inquilino" || rl.tipo === "Arrendador");
+
+    const propietariosLinked = propRoles.map((rl) => ({
+      ...mapPropertyRow(rl.properties),
+      rolTipo: rl.tipo as string,
+    }));
+    const compradoresLinked = cmpRoles.map((rl) => ({
+      ...mapPropertyRow(rl.properties),
+      rolTipo: rl.tipo as string,
+    }));
+    const inquilinosLinked = inqRoles.map((rl) => ({
+      ...mapPropertyRow(rl.properties),
+      rolTipo: rl.tipo as string,
+    }));
+
+    const inmueblesVinculados = [...propietariosLinked, ...compradoresLinked, ...inquilinosLinked];
+
+    // Activos = propiedades en gestión abierta (no cerradas ni de baja)
+    const inmueblesActivos = inmueblesVinculados.filter((i) => !INACTIVE.has(i.estatus));
+    // Histórico = operaciones cerradas
+    const inmueblesHistorico = inmueblesVinculados.filter((i) => CLOSED.has(i.estatus));
+
+    const agentesIds = agentAssignments.map((a) => a.agent_id).filter(Boolean);
+    const agentesMails = agentAssignments.map((a) => a.agents?.email ?? "").filter(Boolean);
+
+    // Preferencias desde texto libre
+    const txtRaw = `${r.solicitud ?? ""} ${r.motivo ?? ""} ${r.observaciones ?? ""} ${r.feedback ?? ""} ${r.conversaciones ?? ""}`;
     const txt = txtRaw.toLowerCase();
-    const wantsAlquiler =
-      base.tipo === "Interesado alquiler" || /alquil/i.test(txtRaw);
+    const wantsAlquiler = segmento === "Inquilino" || /alquil/i.test(txtRaw);
     const wantsVenta =
-      base.tipo === "Interesado Propiedades" ||
-      base.tipo === "Comprador" ||
-      /\b(compra|venta|comprar|adquirir)\b/i.test(txtRaw);
+      segmento === "Comprador" || /\b(compra|venta|comprar|adquirir)\b/i.test(txtRaw);
 
-    // Habitaciones
     const habMatch = txt.match(/(\d+)\s*(?:hab|dorm|habitaci|dormitor)/);
     const habitacionesPref = habMatch ? parseInt(habMatch[1], 10) : null;
 
-    // Presupuesto: capturar importes en varios formatos:
-    //   "200.000€", "200,000 eur", "230k", "1.2M", "150 mil"
-    // y rangos: "200-250k", "entre 180 y 220", "180.000 a 220.000".
-    const amounts: number[] = [];
-    const pushAmount = (n: number) => {
-      if (!Number.isFinite(n)) return;
-      if (wantsAlquiler && n >= 200 && n <= 10000) amounts.push(n);
-      else if (!wantsAlquiler && n >= 30000 && n <= 5000000) amounts.push(n);
-    };
-    const parseNum = (raw: string, suffix: string): number | null => {
-      // raw puede ser "200", "200.000", "1,2", "1.2"
-      const s = raw.trim();
-      let n: number;
-      if (/^\d{1,3}(?:[.,]\d{3})+$/.test(s)) {
-        n = parseInt(s.replace(/[.,]/g, ""), 10);
-      } else if (/^\d+[.,]\d+$/.test(s)) {
-        n = parseFloat(s.replace(",", "."));
-      } else {
-        n = parseInt(s, 10);
-      }
-      if (!Number.isFinite(n)) return null;
-      const suf = suffix.toLowerCase();
-      if (suf === "k" || suf === "mil") n *= 1000;
-      else if (suf === "m" || suf === "mill" || suf === "millon" || suf === "millones") n *= 1_000_000;
-      return n;
-    };
-    // Rangos: "200-250k", "180.000 a 220.000 €", "entre 180 y 220 mil"
-    const rangeRe = /(\d{1,7}(?:[.,]\d{1,3})*)\s*(?:-|–|a|y|hasta)\s*(\d{1,7}(?:[.,]\d{1,3})*)\s*(mill(?:on|ones)?|mil|k|m)?\b\s*(?:€|eur|euros)?/gi;
-    const consumed: Array<[number, number]> = [];
-    for (const m of txt.matchAll(rangeRe)) {
-      const suf = m[3] ?? "";
-      const a = parseNum(m[1], suf);
-      const b = parseNum(m[2], suf);
-      if (a != null) pushAmount(a);
-      if (b != null) pushAmount(b);
-      if (m.index != null) consumed.push([m.index, m.index + m[0].length]);
-    }
-    // Importes sueltos con sufijo k/M/mil/€
-    const moneyRe = /(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(mill(?:on|ones)?|mil|k|m)?\b\s*(€|eur|euros)?/gi;
-    for (const m of txt.matchAll(moneyRe)) {
-      if (m.index != null && consumed.some(([s, e]) => m.index! >= s && m.index! < e)) continue;
-      const suf = m[2] ?? "";
-      const cur = m[3] ?? "";
-      // exigir señal monetaria: sufijo (k/M/mil) o símbolo €/eur
-      if (!suf && !cur) continue;
-      const n = parseNum(m[1], suf);
-      if (n != null) pushAmount(n);
-    }
-    const presupuestoMin = amounts.length > 0 ? Math.min(...amounts) : null;
-    const presupuestoMax = amounts.length > 0 ? Math.max(...amounts) : null;
-
-    // Zonas conocidas (barrios + localidades)
+    const { min: presupuestoMin, max: presupuestoMax } = parsePresupuesto(txt, wantsAlquiler);
     const zonasPref = Array.from(zonasConocidas).filter((z) => txt.includes(z));
 
-    const preferencias: ClientePrefs = {
-      presupuesto: { min: presupuestoMin, max: presupuestoMax },
-      habitaciones: habitacionesPref,
-      zonas: zonasPref,
-    };
-
-    // Match para potenciales: solo si no es activo, no es propietario, y tenemos presupuesto.
-    // Sin presupuesto detectado no se muestran matches para evitar ruido.
+    // Matching solo para leads activos sin inmueble ya cerrado
     let matches: ClienteMatch[] = [];
-    const puedeMatch = !activo && !esPropietario && presupuestoMax != null;
+    const esCerrado = etapa === "Histórico";
+    const puedeMatch =
+      !esCerrado &&
+      segmento !== "Propietario" &&
+      segmento !== "Lead" &&
+      presupuestoMax != null &&
+      inmueblesActivos.length === 0;
+
     if (puedeMatch) {
       const pool = wantsAlquiler ? activosAlquiler : wantsVenta ? activosVenta : [];
-      const linkedSet = new Set(linkedInmuebles.map((i) => i.id));
-      const cats = base.categoria.map((c) => c.toLowerCase());
+      const linkedSet = new Set(inmueblesVinculados.map((i) => i.id));
+      const cats = ((r.categoria as string[]) ?? []).map((c: string) => c.toLowerCase());
       matches = pool
         .filter((i) => !linkedSet.has(i.id))
         .map<ClienteMatch | null>((i) => {
@@ -378,15 +362,11 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
           let score = 0;
           razones.push(i.esAlquiler ? "Alquiler" : "Venta");
           score += 1;
-
-          // Categoría: si el cliente especifica categorías, es obligatorio coincidir
           if (cats.length > 0) {
             if (!cats.includes(i.categoria.toLowerCase())) return null;
             razones.push(`Categoría: ${i.categoria}`);
             score += 3;
           }
-
-          // Zona: si hay zonas preferidas, es obligatorio coincidir
           const barrioL = i.barrio.toLowerCase();
           const localL = i.localidad.toLowerCase();
           if (zonasPref.length > 0) {
@@ -394,8 +374,6 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
             razones.push(`Zona: ${i.barrio || i.localidad}`);
             score += 4;
           }
-
-          // Presupuesto: ±10% estricto. Si hay presupuesto y precio fuera de rango, se descarta.
           const precio = i.precioFinal ?? i.precio;
           if (presupuestoMax != null) {
             if (precio == null) return null;
@@ -405,18 +383,13 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
             razones.push(`Precio: ${precio.toLocaleString("es-ES")} €`);
             score += 4;
           }
-
-          // Habitaciones
           if (habitacionesPref != null && i.habitaciones != null) {
             const diff = Math.abs(i.habitaciones - habitacionesPref);
             if (diff === 0) {
               razones.push(`${i.habitaciones} hab.`);
               score += 3;
-            } else if (diff === 1) {
-              score += 1;
-            } else {
-              score -= 2;
-            }
+            } else if (diff === 1) score += 1;
+            else score -= 2;
           }
           return { inmueble: i, razones, score };
         })
@@ -425,99 +398,315 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
         .slice(0, 6);
     }
 
-    // --- Clasificación derivada ----------------------------------------
-    // REGLA: Lead ≠ Cliente.
-    // - Lead:     alguien que contactó pero NO tiene gestión activa con la empresa.
-    //             "Interesado alquiler" / "Interesado Propiedades" son leads, no clientes.
-    // - Cliente:  Propietario (tiene inmueble en gestión), Comprador (proceso activo,
-    //             inmueble vinculado como comprador), Inquilino (tiene alquiler vinculado).
-    // - Prospecto: intermedio — ha mostrado interés serio (Prospecciones en Airtable).
-    const tipoNorm = base.tipo.trim();
-    const tieneLinkPropietario = base.propiedadIds.length > 0;
-    const tieneLinkComprador = base.inmuebleCompradorIds.length > 0;
-    const tieneLinkAlquiler = base.propiedadAlquilerIds.length > 0;
+    const fechaMs = r.created_at ? new Date(r.created_at).getTime() : 0;
+    const diasDesdeAlta = fechaMs
+      ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000))
+      : null;
 
-    let segmento: Segmento = "Lead";
-    let segmentoMotivo = "Sin clasificación explícita";
-    if (tipoNorm === "Anular prospección") {
-      segmento = "Descartado";
-      segmentoMotivo = "Marcado como anular prospección";
-    } else if (tipoNorm === "Propietario" || tieneLinkPropietario) {
-      // Propietario = tiene inmueble en gestión directa con la agencia
-      segmento = "Propietario";
-      segmentoMotivo = tipoNorm === "Propietario" ? "Tipo: Propietario" : "Tiene inmueble vinculado como propietario";
-    } else if (tieneLinkAlquiler) {
-      // Inquilino real = tiene propiedad en alquiler vinculada (no solo "interesado")
-      segmento = "Inquilino";
-      segmentoMotivo = "Tiene propiedad en alquiler vinculada";
-    } else if (tipoNorm === "Comprador" || tieneLinkComprador) {
-      // Comprador = gestión activa de compra (inmueble vinculado o tipo explícito)
-      segmento = "Comprador";
-      segmentoMotivo = tipoNorm === "Comprador" ? "Tipo: Comprador" : "Inmueble vinculado como comprador";
-    } else if (tipoNorm === "Prospecciones") {
-      // Prospecto = lead cualificado, en proceso de conversión a cliente
-      segmento = "Prospecto";
-      segmentoMotivo = "Tipo: Prospección";
-    }
-    // "Interesado alquiler", "Interesado Propiedades" y sin tipo → Lead
-    // (contactó para consulta pero no tiene gestión activa)
-
-    // Estado comercial
-    const cerrado = linkedInmuebles.some((i) => i.estatus === "Vendido" || i.estatus === "Alquilado");
-    const tieneActivo = inmueblesActivos.length > 0;
-    const fechaMs = base.fecha ? new Date(base.fecha).getTime() : 0;
-    const diasDesdeAlta = fechaMs ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000)) : null;
-    let estadoComercial: EstadoComercial = "Frío";
-    if (segmento === "Descartado") estadoComercial = "Descartado";
-    else if (cerrado) estadoComercial = "Cerrado";
-    else if (tieneActivo) estadoComercial = "Activo";
-    else if (diasDesdeAlta != null && diasDesdeAlta <= 30) estadoComercial = "En curso";
+    const propiedadIds = propRoles.map((rl) => rl.property_id!).filter(Boolean);
+    const compradorIds = cmpRoles.map((rl) => rl.property_id!).filter(Boolean);
+    const alquilerIds = inqRoles.map((rl) => rl.property_id!).filter(Boolean);
+    const atts = (r.attachments as Array<{ url: string; filename: string; type: string }>) ?? [];
 
     return {
-      ...base,
-      activo,
-      motivoActivo,
-      inmueblesActivos,
-      matches: cerrado ? [] : matches,
+      id: r.id,
+      nombre: toTitleCase(s(r.nombre)),
+      email: s(r.email),
+      telefono: s(r.telefono),
+      dni: s(r.dni),
+      fecha: r.created_at ? r.created_at.slice(0, 10) : null,
+      motivo: toSentenceCase(s(r.motivo)),
+      observaciones: toSentenceCase(s(r.observaciones)),
+      solicitud: toSentenceCase(s(r.solicitud)),
+      seccion: toTitleCase(s(r.seccion)),
+      conversaciones: toSentenceCase(s(r.conversaciones)),
+      feedback: toSentenceCase(s(r.feedback)),
+      profesion: toTitleCase(s(r.profesion)),
+      contratoTrabajo: toTitleCase(s(r.contrato_trabajo)),
+      mascota: toTitleCase(s(r.mascota)),
+      avalista: toTitleCase(s(r.avalista)),
+      categoria: Array.isArray(r.categoria) ? r.categoria : [],
+      trabajado: toTitleCase(s(r.trabajado)),
+      propiedadIds,
+      propiedadRefs: propietariosLinked.map((p) => p.ref),
+      propiedadCalles: toTitleCaseArr(propietariosLinked.map((p) => p.calle)),
+      inmuebleCompradorIds: compradorIds,
+      propiedadAlquilerIds: alquilerIds,
+      inmueblesIds: [...propiedadIds, ...compradorIds, ...alquilerIds],
+      agentesIds,
+      agentesMails,
+      attachments: atts,
       segmento,
       segmentoMotivo,
-      estadoComercial,
+      etapa,
+      inmueblesVinculados,
+      inmueblesActivos,
+      inmueblesHistorico,
+      matches,
       diasDesdeAlta,
-      inmueblesVinculados: linkedInmuebles,
       duplicados: 1,
-      preferencias,
+      preferencias: {
+        presupuesto: { min: presupuestoMin, max: presupuestoMax },
+        habitaciones: habitacionesPref,
+        zonas: zonasPref,
+      },
     };
   });
 
-  clientes.sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""));
-
-  // Dedupe: prioriza DNI > teléfono > email > nombre normalizado.
-  // El primero (más reciente) gana; los demás suman al contador de duplicados.
-  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
-  const normPhone = (s: string) => {
-    const digits = s.replace(/\D/g, "");
-    return digits.length >= 9 ? digits.slice(-9) : digits;
-  };
+  // Deduplicar por DNI > teléfono > email > nombre
   const map = new Map<string, Cliente>();
   for (const c of clientes) {
-    const key =
-      (c.dni && `dni:${norm(c.dni)}`) ||
-      (c.telefono && normPhone(c.telefono).length >= 9 && `tel:${normPhone(c.telefono)}`) ||
-      (c.email && `mail:${norm(c.email)}`) ||
-      (c.nombre && `nom:${norm(c.nombre)}`) ||
-      `id:${c.id}`;
+    const key = dedupeKey(c);
     const existing = map.get(key);
     if (existing) {
       existing.duplicados += 1;
-      // mergear inmuebles vinculados / matches únicos si el nuevo aporta info
       if (existing.inmueblesVinculados.length === 0 && c.inmueblesVinculados.length > 0) {
         existing.inmueblesVinculados = c.inmueblesVinculados;
         existing.inmueblesActivos = c.inmueblesActivos;
+        existing.inmueblesHistorico = c.inmueblesHistorico;
       }
-      continue;
+    } else {
+      map.set(key, c);
     }
-    map.set(key, c);
   }
 
   return { clientes: Array.from(map.values()) };
 });
+
+// ── Leads query (only ciclo_vida='Lead', no matching) ─────────────────────────
+
+export const listLeads = createServerFn({ method: "GET" }).handler(async () => {
+  await requireAuth();
+  const supa = getSupa();
+
+  const allContacts: any[] = [];
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data, error } = await supa
+      .from("contacts")
+      .select(
+        `
+        id, nombre, email, telefono, ciclo_vida,
+        motivo, solicitud, conversaciones, seccion, categoria, created_at,
+        contact_roles(tipo, property_id,
+          properties(id, ref, calle, numero, barrio, localidad, tipo,
+            estatus, precio, precio_final, habitaciones, metros_construidos)),
+        contact_agents(agent_id, agents(id, nombre, email))
+      `,
+      )
+      .eq("ciclo_vida", "Lead")
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    allContacts.push(...(data ?? []));
+    if ((data ?? []).length < PAGE) break;
+    from += PAGE;
+  }
+
+  const CLOSED = new Set(["Vendido", "Alquilado"]);
+  const INACTIVE = new Set(["Vendido", "Alquilado", "Baja"]);
+
+  const clientes: Cliente[] = allContacts.map((r: any) => {
+    const roles: RoleRow[] = (r.contact_roles ?? []).filter((rl: any) => rl.properties);
+    const agentAssignments: Array<{ agent_id: string; agents: any }> = r.contact_agents ?? [];
+
+    const { segmento, motivo: segmentoMotivo } = deriveSegmento(roles);
+    const etapa = "Lead" as Etapa;
+
+    const propRoles = roles.filter((rl) => rl.tipo === "Propietario");
+    const cmpRoles = roles.filter((rl) => rl.tipo === "Comprador");
+    const inqRoles = roles.filter((rl) => rl.tipo === "Inquilino" || rl.tipo === "Arrendador");
+
+    const propietariosLinked = propRoles.map((rl) => ({
+      ...mapPropertyRow(rl.properties),
+      rolTipo: rl.tipo as string,
+    }));
+    const compradoresLinked = cmpRoles.map((rl) => ({
+      ...mapPropertyRow(rl.properties),
+      rolTipo: rl.tipo as string,
+    }));
+    const inquilinosLinked = inqRoles.map((rl) => ({
+      ...mapPropertyRow(rl.properties),
+      rolTipo: rl.tipo as string,
+    }));
+
+    const inmueblesVinculados = [...propietariosLinked, ...compradoresLinked, ...inquilinosLinked];
+    const inmueblesActivos = inmueblesVinculados.filter((i) => !INACTIVE.has(i.estatus));
+    const inmueblesHistorico = inmueblesVinculados.filter((i) => CLOSED.has(i.estatus));
+
+    const agentesIds = agentAssignments.map((a) => a.agent_id).filter(Boolean);
+    const agentesMails = agentAssignments.map((a) => a.agents?.email ?? "").filter(Boolean);
+
+    const propiedadIds = propRoles.map((rl) => rl.property_id!).filter(Boolean);
+    const compradorIds = cmpRoles.map((rl) => rl.property_id!).filter(Boolean);
+    const alquilerIds = inqRoles.map((rl) => rl.property_id!).filter(Boolean);
+    const atts = (r.attachments as Array<{ url: string; filename: string; type: string }>) ?? [];
+    const fechaMs = r.created_at ? new Date(r.created_at).getTime() : 0;
+
+    return {
+      id: r.id,
+      nombre: toTitleCase(s(r.nombre)),
+      email: s(r.email),
+      telefono: s(r.telefono),
+      dni: s(r.dni),
+      fecha: r.created_at ? r.created_at.slice(0, 10) : null,
+      motivo: toSentenceCase(s(r.motivo)),
+      observaciones: toSentenceCase(s(r.observaciones)),
+      solicitud: toSentenceCase(s(r.solicitud)),
+      seccion: toTitleCase(s(r.seccion)),
+      conversaciones: toSentenceCase(s(r.conversaciones)),
+      feedback: toSentenceCase(s(r.feedback)),
+      profesion: toTitleCase(s(r.profesion)),
+      contratoTrabajo: toTitleCase(s(r.contrato_trabajo)),
+      mascota: toTitleCase(s(r.mascota)),
+      avalista: toTitleCase(s(r.avalista)),
+      categoria: Array.isArray(r.categoria) ? r.categoria : [],
+      trabajado: toTitleCase(s(r.trabajado)),
+      propiedadIds,
+      propiedadRefs: propietariosLinked.map((p) => p.ref),
+      propiedadCalles: toTitleCaseArr(propietariosLinked.map((p) => p.calle)),
+      inmuebleCompradorIds: compradorIds,
+      propiedadAlquilerIds: alquilerIds,
+      inmueblesIds: [...propiedadIds, ...compradorIds, ...alquilerIds],
+      agentesIds,
+      agentesMails,
+      attachments: atts,
+      segmento,
+      segmentoMotivo,
+      etapa,
+      inmueblesVinculados,
+      inmueblesActivos,
+      inmueblesHistorico,
+      matches: [],
+      diasDesdeAlta: fechaMs ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000)) : null,
+      duplicados: 1,
+      preferencias: { presupuesto: { min: null, max: null }, habitaciones: null, zonas: [] },
+    };
+  });
+
+  const map2 = new Map<string, Cliente>();
+  for (const c of clientes) {
+    const key = dedupeKey(c);
+    const existing = map2.get(key);
+    if (existing) {
+      existing.duplicados += 1;
+    } else {
+      map2.set(key, c);
+    }
+  }
+
+  return { clientes: Array.from(map2.values()) };
+});
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+
+export const deleteContacto = createServerFn({ method: "POST" })
+  .inputValidator((d: { id: string }) => {
+    if (!d?.id) throw new Error("id requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+  await requireAuth();
+    const supa = getSupa();
+    await supa.from("contact_roles").delete().eq("contact_id", data.id);
+    await supa.from("contact_agents").delete().eq("contact_id", data.id);
+    const { error } = await supa.from("contacts").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ── Mutaciones manuales ───────────────────────────────────────────────────────
+
+export const actualizarCicloVida = createServerFn({ method: "POST" })
+  .inputValidator((d: { contactId: string; cicloVida: string }) => {
+    if (!d?.contactId || !d?.cicloVida) throw new Error("contactId y cicloVida requeridos");
+    return d;
+  })
+  .handler(async ({ data }) => {
+  await requireAuth();
+    const supa = getSupa();
+    const { error } = await supa
+      .from("contacts")
+      .update({ ciclo_vida: data.cicloVida })
+      .eq("id", data.contactId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const gestionarRol = createServerFn({ method: "POST" })
+  .inputValidator((d: { contactId: string; propertyId: string; tipo: string | null }) => {
+    if (!d?.contactId || !d?.propertyId) throw new Error("contactId y propertyId requeridos");
+    return d;
+  })
+  .handler(async ({ data }) => {
+  await requireAuth();
+    const supa = getSupa();
+    await supa
+      .from("contact_roles")
+      .delete()
+      .eq("contact_id", data.contactId)
+      .eq("property_id", data.propertyId);
+    if (data.tipo !== null) {
+      const { error } = await supa
+        .from("contact_roles")
+        .insert({ contact_id: data.contactId, property_id: data.propertyId, tipo: data.tipo });
+      if (error) throw new Error(error.message);
+    }
+    await recalcularEtapa(data.contactId, supa);
+    return { ok: true };
+  });
+
+export const buscarInmuebles = createServerFn({ method: "GET" })
+  .inputValidator((d: { q: string }) => ({ q: d?.q ?? "" }))
+  .handler(async ({ data }) => {
+  await requireAuth();
+    const supa = getSupa();
+    const q = data.q.trim();
+    if (q.length < 2) return { results: [] as ReturnType<typeof mapPropertyRow>[] };
+    const { data: rows } = await supa
+      .from("properties")
+      .select(
+        "id, ref, calle, numero, barrio, localidad, tipo, estatus, precio, precio_final, imagenes, habitaciones, metros_construidos",
+      )
+      .or(`ref.ilike.%${q}%,calle.ilike.%${q}%`)
+      .limit(10);
+    return { results: (rows ?? []).map(mapPropertyRow) };
+  });
+
+// ── Etapa helpers ─────────────────────────────────────────────────────────────
+
+// Prioridad: Activo > Reservado > Prospecto > Histórico > Lead
+// Solo Descartado es intocable (estado final manual).
+export async function recalcularEtapa(
+  contactId: string,
+  supa: ReturnType<typeof getSupa>,
+): Promise<void> {
+  const { data: current } = await supa
+    .from("contacts")
+    .select("ciclo_vida")
+    .eq("id", contactId)
+    .single();
+
+  if (current?.ciclo_vida === "Descartado") return;
+
+  const { data: roles } = await supa
+    .from("contact_roles")
+    .select("properties(estatus)")
+    .eq("contact_id", contactId);
+
+  // Supabase returns properties as an array from the join; access .estatus via unknown cast
+  const statuses = (roles ?? [])
+    .map((r) => ((r.properties as unknown as { estatus: string } | null)?.estatus ?? null))
+    .filter((s): s is string => s !== null);
+
+  let ciclo_vida: string;
+  if (statuses.some((s) => s === "Activo" || s === "Reservado")) ciclo_vida = "Cliente";
+  else if (statuses.some((s) => s === "Prospección")) ciclo_vida = "Prospecto";
+  else if (statuses.some((s) => s === "Vendido" || s === "Alquilado")) ciclo_vida = "Histórico";
+  else ciclo_vida = "Lead";
+
+  if (ciclo_vida !== current?.ciclo_vida) {
+    await supa.from("contacts").update({ ciclo_vida }).eq("id", contactId);
+  }
+}
