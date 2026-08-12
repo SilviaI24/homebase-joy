@@ -8,12 +8,13 @@ import { requireAuth } from "@/lib/auth.server";
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const MODEL           = "gpt-4.1-mini";
-const MAX_TOKENS      = 1024;
-const MAX_HISTORY     = 8;
-const MAX_TOOL_ROUNDS = 3;
+const MAX_TOKENS      = 4096;
+const MAX_HISTORY     = 12;
+const MAX_TOOL_ROUNDS = 5;
 const MAX_VENTA       = 35;
 const MAX_ALQUILER    = 15;
 const MAX_LEADS       = 25;
+const MAX_USER_MSG_LEN = 2000; // guardarraíl: mensajes demasiado largos no aportan valor
 
 // ── System prompt ─────────────────────────────────────────────────────────────
 
@@ -236,6 +237,50 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
           mensaje: { type: "string", description: "Texto del mensaje" },
         },
         required: ["telefono", "mensaje"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crear_seguimiento",
+      description: "Registra una comunicación o acción de seguimiento en el historial de un contacto (tabla seguimiento). Úsalo para dejar constancia de llamadas, emails, WhatsApps o notas de seguimiento.",
+      parameters: {
+        type: "object",
+        properties: {
+          contactId: { type: "string", description: "ID del contacto (UUID)" },
+          tipo: {
+            type: "string",
+            enum: ["Llamada", "WhatsApp", "Email", "Visita", "Nota", "SilvIA"],
+            description: "Tipo de comunicación",
+          },
+          texto: { type: "string", description: "Descripción de lo ocurrido o acordado" },
+          fecha: { type: "string", description: "Fecha en formato ISO (YYYY-MM-DD o YYYY-MM-DDTHH:MM). Si no se indica, usa la fecha actual." },
+        },
+        required: ["contactId", "tipo", "texto"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "crear_operacion",
+      description: "Crea una operación en el CRM (venta, alquiler, valoración o servicio). Úsalo cuando el agente quiera registrar el inicio de una negociación o cierre.",
+      parameters: {
+        type: "object",
+        properties: {
+          tipo: {
+            type: "string",
+            enum: ["Venta", "Alquiler", "Valoración", "Servicio"],
+          },
+          inmueble_ref: { type: "string", description: "Referencia del inmueble (ej: A9755). Opcional si no hay inmueble concreto." },
+          vendedor_contactId: { type: "string", description: "ID del contacto vendedor/propietario (UUID). Opcional." },
+          comprador_contactId: { type: "string", description: "ID del contacto comprador/inquilino (UUID). Opcional." },
+          precio: { type: "number", description: "Precio de la operación en euros. Opcional." },
+          comision_pct: { type: "number", description: "Porcentaje de comisión (ej: 3 para 3%). Opcional." },
+          notas: { type: "string", description: "Notas o condiciones de la operación. Opcional." },
+        },
+        required: ["tipo"],
       },
     },
   },
@@ -524,6 +569,64 @@ async function ejecutarHerramienta(name: string, args: Record<string, string>): 
     return `WhatsApp enviado a ${telefono}.`;
   }
 
+  // ── crear_seguimiento ────────────────────────────────────────────────────────
+  if (name === "crear_seguimiento") {
+    const { contactId, tipo, texto, fecha } = args;
+    if (!contactId) return "Error: contactId requerido.";
+    if (!texto?.trim()) return "Error: texto vacío.";
+    const tiposValidos = ["Llamada", "WhatsApp", "Email", "Visita", "Nota", "SilvIA"];
+    if (!tiposValidos.includes(tipo)) return `Error: tipo inválido. Válidos: ${tiposValidos.join(", ")}.`;
+
+    const row: Record<string, unknown> = {
+      contact_id: contactId,
+      tipo,
+      texto: toSentenceCase(texto.trim()),
+      fecha: fecha ?? new Date().toISOString().slice(0, 10),
+    };
+
+    const { data: inserted, error } = await supa
+      .from("seguimiento")
+      .insert([row])
+      .select("id")
+      .single();
+    if (error) return `Error al crear seguimiento: ${error.message}`;
+    return `Seguimiento registrado (${tipo}) con id ${inserted.id}.`;
+  }
+
+  // ── crear_operacion ──────────────────────────────────────────────────────────
+  if (name === "crear_operacion") {
+    const { tipo, inmueble_ref, vendedor_contactId, comprador_contactId, notas } = args;
+    const tiposValidos = ["Venta", "Alquiler", "Valoración", "Servicio"];
+    if (!tiposValidos.includes(tipo)) return `Error: tipo inválido. Válidos: ${tiposValidos.join(", ")}.`;
+
+    const precio = args.precio ? Number(args.precio) : undefined;
+    const comision_pct = args.comision_pct ? Number(args.comision_pct) : undefined;
+
+    const row: Record<string, unknown> = { tipo, estado: "Abierta" };
+
+    if (inmueble_ref) {
+      const propertyId = await resolvePropertyId(supa, inmueble_ref);
+      if (!propertyId) return `No se encontró ningún inmueble con ref "${inmueble_ref}".`;
+      row.property_id = propertyId;
+    }
+    if (vendedor_contactId) row.vendedor_id = vendedor_contactId;
+    if (comprador_contactId) row.comprador_id = comprador_contactId;
+    if (precio && !isNaN(precio)) row.precio_operacion = precio;
+    if (comision_pct && !isNaN(comision_pct)) {
+      row.comision_pct = comision_pct;
+      if (precio && !isNaN(precio)) row.comision_total = Math.round(precio * comision_pct / 100);
+    }
+    if (notas?.trim()) row.notas = toSentenceCase(notas.trim());
+
+    const { data: inserted, error } = await supa
+      .from("operations")
+      .insert([row])
+      .select("id")
+      .single();
+    if (error) return `Error al crear operación: ${error.message}`;
+    return `Operación de ${tipo} creada con id ${inserted.id}${inmueble_ref ? ` para inmueble ${inmueble_ref}` : ""}.`;
+  }
+
   return `Herramienta desconocida: ${name}`;
 }
 
@@ -637,6 +740,8 @@ export const askSilvia = createServerFn({ method: "POST" })
     if (!Array.isArray(d?.messages) || !d.messages.length) throw new Error("Sin mensajes");
     const last = d.messages[d.messages.length - 1];
     if (last.role !== "user" || !last.content.trim()) throw new Error("Último mensaje inválido");
+    if (last.content.length > MAX_USER_MSG_LEN)
+      throw new Error(`Mensaje demasiado largo (${last.content.length} / ${MAX_USER_MSG_LEN} caracteres). Acórtalo.`);
     return d;
   })
   .handler(async ({ data }) => {
