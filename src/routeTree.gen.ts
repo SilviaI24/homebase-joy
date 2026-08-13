@@ -9,39 +9,69 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as AlquileresIndexRouteImport } from './routes/alquileres.index'
-import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
-import { Route as ComercialesIndexRouteImport } from './routes/comerciales.index'
-import { Route as EstadisticasIndexRouteImport } from './routes/estadisticas.index'
-import { Route as InmueblesIndexRouteImport } from './routes/inmuebles.index'
-import { Route as InmueblesIdRouteImport } from './routes/inmuebles.$id'
-import { Route as MisLeadsIndexRouteImport } from './routes/mis-leads.index'
-import { Route as OperacionesIndexRouteImport } from './routes/operaciones.index'
-import { Route as ProspectosIndexRouteImport } from './routes/prospectos.index'
-import { Route as SeguimientoIndexRouteImport } from './routes/seguimiento.index'
-import { Route as SilviaIndexRouteImport } from './routes/silvia.index'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as VisitasIndexRouteImport } from './routes/visitas.index'
+import { Route as SilviaIndexRouteImport } from './routes/silvia.index'
+import { Route as SeguimientoIndexRouteImport } from './routes/seguimiento.index'
+import { Route as ProspectosIndexRouteImport } from './routes/prospectos.index'
+import { Route as OperacionesIndexRouteImport } from './routes/operaciones.index'
+import { Route as MisLeadsIndexRouteImport } from './routes/mis-leads.index'
+import { Route as InmueblesIndexRouteImport } from './routes/inmuebles.index'
+import { Route as EstadisticasIndexRouteImport } from './routes/estadisticas.index'
+import { Route as ComercialesIndexRouteImport } from './routes/comerciales.index'
+import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
+import { Route as AlquileresIndexRouteImport } from './routes/alquileres.index'
+import { Route as InmueblesIdRouteImport } from './routes/inmuebles.$id'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AlquileresIndexRoute = AlquileresIndexRouteImport.update({
-  id: '/alquileres/',
-  path: '/alquileres/',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ClientesIndexRoute = ClientesIndexRouteImport.update({
-  id: '/clientes/',
-  path: '/clientes/',
+const VisitasIndexRoute = VisitasIndexRouteImport.update({
+  id: '/visitas/',
+  path: '/visitas/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SilviaIndexRoute = SilviaIndexRouteImport.update({
+  id: '/silvia/',
+  path: '/silvia/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SeguimientoIndexRoute = SeguimientoIndexRouteImport.update({
+  id: '/seguimiento/',
+  path: '/seguimiento/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProspectosIndexRoute = ProspectosIndexRouteImport.update({
+  id: '/prospectos/',
+  path: '/prospectos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OperacionesIndexRoute = OperacionesIndexRouteImport.update({
+  id: '/operaciones/',
+  path: '/operaciones/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MisLeadsIndexRoute = MisLeadsIndexRouteImport.update({
+  id: '/mis-leads/',
+  path: '/mis-leads/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InmueblesIndexRoute = InmueblesIndexRouteImport.update({
+  id: '/inmuebles/',
+  path: '/inmuebles/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EstadisticasIndexRoute = EstadisticasIndexRouteImport.update({
+  id: '/estadisticas/',
+  path: '/estadisticas/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ComercialesIndexRoute = ComercialesIndexRouteImport.update({
@@ -51,49 +81,19 @@ const ComercialesIndexRoute = ComercialesIndexRouteImport.update({
 } as any).lazy(() =>
   import('./routes/comerciales.index.lazy').then((d) => d.Route),
 )
-const EstadisticasIndexRoute = EstadisticasIndexRouteImport.update({
-  id: '/estadisticas/',
-  path: '/estadisticas/',
+const ClientesIndexRoute = ClientesIndexRouteImport.update({
+  id: '/clientes/',
+  path: '/clientes/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InmueblesIndexRoute = InmueblesIndexRouteImport.update({
-  id: '/inmuebles/',
-  path: '/inmuebles/',
+const AlquileresIndexRoute = AlquileresIndexRouteImport.update({
+  id: '/alquileres/',
+  path: '/alquileres/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InmueblesIdRoute = InmueblesIdRouteImport.update({
   id: '/inmuebles/$id',
   path: '/inmuebles/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MisLeadsIndexRoute = MisLeadsIndexRouteImport.update({
-  id: '/mis-leads/',
-  path: '/mis-leads/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacionesIndexRoute = OperacionesIndexRouteImport.update({
-  id: '/operaciones/',
-  path: '/operaciones/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProspectosIndexRoute = ProspectosIndexRouteImport.update({
-  id: '/prospectos/',
-  path: '/prospectos/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SeguimientoIndexRoute = SeguimientoIndexRouteImport.update({
-  id: '/seguimiento/',
-  path: '/seguimiento/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SilviaIndexRoute = SilviaIndexRouteImport.update({
-  id: '/silvia/',
-  path: '/silvia/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const VisitasIndexRoute = VisitasIndexRouteImport.update({
-  id: '/visitas/',
-  path: '/visitas/',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -216,13 +216,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -230,74 +223,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/alquileres/': {
-      id: '/alquileres/'
-      path: '/alquileres'
-      fullPath: '/alquileres/'
-      preLoaderRoute: typeof AlquileresIndexRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/clientes/': {
-      id: '/clientes/'
-      path: '/clientes'
-      fullPath: '/clientes/'
-      preLoaderRoute: typeof ClientesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/comerciales/': {
-      id: '/comerciales/'
-      path: '/comerciales'
-      fullPath: '/comerciales/'
-      preLoaderRoute: typeof ComercialesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estadisticas/': {
-      id: '/estadisticas/'
-      path: '/estadisticas'
-      fullPath: '/estadisticas/'
-      preLoaderRoute: typeof EstadisticasIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/inmuebles/': {
-      id: '/inmuebles/'
-      path: '/inmuebles'
-      fullPath: '/inmuebles/'
-      preLoaderRoute: typeof InmueblesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/inmuebles/$id': {
-      id: '/inmuebles/$id'
-      path: '/inmuebles/$id'
-      fullPath: '/inmuebles/$id'
-      preLoaderRoute: typeof InmueblesIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mis-leads/': {
-      id: '/mis-leads/'
-      path: '/mis-leads'
-      fullPath: '/mis-leads/'
-      preLoaderRoute: typeof MisLeadsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operaciones/': {
-      id: '/operaciones/'
-      path: '/operaciones'
-      fullPath: '/operaciones/'
-      preLoaderRoute: typeof OperacionesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/prospectos/': {
-      id: '/prospectos/'
-      path: '/prospectos'
-      fullPath: '/prospectos/'
-      preLoaderRoute: typeof ProspectosIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/seguimiento/': {
-      id: '/seguimiento/'
-      path: '/seguimiento'
-      fullPath: '/seguimiento/'
-      preLoaderRoute: typeof SeguimientoIndexRouteImport
+    '/visitas/': {
+      id: '/visitas/'
+      path: '/visitas'
+      fullPath: '/visitas/'
+      preLoaderRoute: typeof VisitasIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/silvia/': {
@@ -307,11 +244,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SilviaIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/visitas/': {
-      id: '/visitas/'
-      path: '/visitas'
-      fullPath: '/visitas/'
-      preLoaderRoute: typeof VisitasIndexRouteImport
+    '/seguimiento/': {
+      id: '/seguimiento/'
+      path: '/seguimiento'
+      fullPath: '/seguimiento/'
+      preLoaderRoute: typeof SeguimientoIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prospectos/': {
+      id: '/prospectos/'
+      path: '/prospectos'
+      fullPath: '/prospectos/'
+      preLoaderRoute: typeof ProspectosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operaciones/': {
+      id: '/operaciones/'
+      path: '/operaciones'
+      fullPath: '/operaciones/'
+      preLoaderRoute: typeof OperacionesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mis-leads/': {
+      id: '/mis-leads/'
+      path: '/mis-leads'
+      fullPath: '/mis-leads/'
+      preLoaderRoute: typeof MisLeadsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inmuebles/': {
+      id: '/inmuebles/'
+      path: '/inmuebles'
+      fullPath: '/inmuebles/'
+      preLoaderRoute: typeof InmueblesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/estadisticas/': {
+      id: '/estadisticas/'
+      path: '/estadisticas'
+      fullPath: '/estadisticas/'
+      preLoaderRoute: typeof EstadisticasIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/comerciales/': {
+      id: '/comerciales/'
+      path: '/comerciales'
+      fullPath: '/comerciales/'
+      preLoaderRoute: typeof ComercialesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clientes/': {
+      id: '/clientes/'
+      path: '/clientes'
+      fullPath: '/clientes/'
+      preLoaderRoute: typeof ClientesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alquileres/': {
+      id: '/alquileres/'
+      path: '/alquileres'
+      fullPath: '/alquileres/'
+      preLoaderRoute: typeof AlquileresIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inmuebles/$id': {
+      id: '/inmuebles/$id'
+      path: '/inmuebles/$id'
+      fullPath: '/inmuebles/$id'
+      preLoaderRoute: typeof InmueblesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -336,3 +336,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

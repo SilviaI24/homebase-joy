@@ -290,7 +290,7 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
                     <li key={d.id}>{d.nombre || "Sin nombre"}</li>
                   ))}
                 </ul>
-                <Link to="/clientes" className="font-medium underline hover:no-underline">
+                <Link to="/clientes" search={{ id: undefined }} className="font-medium underline hover:no-underline">
                   Ver contactos
                 </Link>
               </div>

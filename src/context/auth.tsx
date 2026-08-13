@@ -7,7 +7,7 @@ import {
 } from "react";
 import { useRouter } from "@tanstack/react-router";
 import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase.client";
+import { supabase } from "@/lib/supabase-browser";
 
 interface AuthContextValue {
   user: User | null;
