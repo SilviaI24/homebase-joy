@@ -621,8 +621,6 @@ export const sendWhatsAppReply = createServerFn({ method: "POST" })
       text: { preview_url: false, body: data.message },
     };
 
-    console.log("[WABA] Sending to:", to, "via phone_number_id:", phoneNumberId);
-
     const res = await fetch(
       `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
       {
@@ -640,7 +638,6 @@ export const sendWhatsAppReply = createServerFn({ method: "POST" })
       error?: { message?: string; code?: number; error_subcode?: number; fbtrace_id?: string };
     };
 
-    console.log("[WABA] Response:", res.status, JSON.stringify(body));
 
     if (!res.ok) {
       const msg = body?.error?.message ?? `Error HTTP ${res.status}`;

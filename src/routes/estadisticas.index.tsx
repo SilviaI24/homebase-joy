@@ -9,7 +9,7 @@ import { AppShell } from "@/components/AppShell";
 import { statsQuery, operacionesQuery } from "@/lib/queries";
 import {
   Users, TrendingUp, CalendarCheck, Banknote,
-  Filter, ArrowRight,
+  ArrowRight,
 } from "lucide-react";
 
 export const Route = createFileRoute("/estadisticas/")({

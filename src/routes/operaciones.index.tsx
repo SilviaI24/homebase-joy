@@ -19,7 +19,7 @@ import {
   Calendar,
 } from "lucide-react";
 
-import { operacionesQuery, agentesQuery } from "@/lib/queries";
+import { operacionesQuery, agentesQuery, allInmueblesQuery } from "@/lib/queries";
 import {
   createOperacion,
   updateOperacionEstado,
@@ -39,6 +39,7 @@ export const Route = createFileRoute("/operaciones/")({
   loader: ({ context }) => {
     context.queryClient.ensureQueryData(operacionesQuery);
     context.queryClient.ensureQueryData(agentesQuery);
+    context.queryClient.ensureQueryData(allInmueblesQuery);
   },
   component: OperacionesPage,
   pendingComponent: () => (
@@ -78,6 +79,7 @@ function fmtDate(s: string | null) {
 function OperacionesPage() {
   const { data }    = useSuspenseQuery(operacionesQuery);
   const { data: agData } = useSuspenseQuery(agentesQuery);
+  const { data: inmData } = useSuspenseQuery(allInmueblesQuery);
   const qc          = useQueryClient();
 
   const [estadoFilter, setEstadoFilter] = useState<OperacionEstado | "Todas">("Todas");
@@ -93,7 +95,22 @@ function OperacionesPage() {
   const [fVendedor,    setFVendedor]    = useState<{ id: string; nombre: string } | null>(null);
   const [fCompradorQ,  setFCompradorQ]  = useState("");
   const [fComprador,   setFComprador]   = useState<{ id: string; nombre: string } | null>(null);
+  const [fPropertyQ,   setFPropertyQ]   = useState("");
+  const [fProperty,    setFProperty]    = useState<{ id: string; label: string } | null>(null);
   const [fNotas,       setFNotas]       = useState("");
+
+  const propertyResults = useMemo(() => {
+    if (!fPropertyQ.trim() || fPropertyQ.length < 2) return [];
+    const q = fPropertyQ.toLowerCase();
+    return (inmData?.inmuebles ?? [])
+      .filter(p =>
+        p.calle.toLowerCase().includes(q) ||
+        p.ref.toLowerCase().includes(q) ||
+        p.barrio?.toLowerCase().includes(q)
+      )
+      .slice(0, 8)
+      .map(p => ({ id: p.id, label: `${p.ref} — ${p.calle} ${p.numero ?? ""}`.trim() }));
+  }, [fPropertyQ, inmData]);
 
   const createFn        = useServerFn(createOperacion);
   const updateEstadoFn  = useServerFn(updateOperacionEstado);
@@ -122,6 +139,7 @@ function OperacionesPage() {
         tipo: fTipo,
         precioOperacion: precio,
         comisionPct: pct,
+        propertyId: fProperty?.id ?? null,
         agenteId: fAgenteId || null,
         vendedorId: fVendedor?.id ?? null,
         compradorId: fComprador?.id ?? null,
@@ -135,6 +153,7 @@ function OperacionesPage() {
       setFPrecio(""); setFComisionPct("3"); setFAgenteId("");
       setFVendedor(null); setFVendedorQ("");
       setFComprador(null); setFCompradorQ("");
+      setFProperty(null); setFPropertyQ("");
       setFNotas("");
     },
     onError: (e: Error) => toast.error(e.message || "Error al crear"),
@@ -218,6 +237,41 @@ function OperacionesPage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Inmueble */}
+            <div className="sm:col-span-2">
+              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">Inmueble</label>
+              {fProperty ? (
+                <div className="flex items-center gap-2 h-9 rounded-md border border-input bg-muted/40 px-3 text-sm">
+                  <Building2 className="size-3.5 text-muted-foreground shrink-0" />
+                  <span className="flex-1 truncate">{fProperty.label}</span>
+                  <button type="button" onClick={() => { setFProperty(null); setFPropertyQ(""); }}
+                    className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Input
+                    value={fPropertyQ}
+                    onChange={e => setFPropertyQ(e.target.value)}
+                    placeholder="Buscar por ref, calle o barrio…"
+                  />
+                  {propertyResults.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-popover shadow-md overflow-hidden">
+                      {propertyResults.map(p => (
+                        <button key={p.id} type="button"
+                          onClick={() => { setFProperty(p); setFPropertyQ(""); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left">
+                          <Building2 className="size-3.5 text-muted-foreground shrink-0" />
+                          <span className="truncate">{p.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Agente */}
