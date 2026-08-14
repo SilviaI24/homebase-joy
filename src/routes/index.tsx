@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, lazy, Suspense } from "react";
-import { AreaChart, Area, ResponsiveContainer } from "recharts";
+import {
+  AreaChart, Area, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, LineChart, Line,
+} from "recharts";
 import { AppShell } from "@/components/AppShell";
 import { isAlquiler, type Inmueble } from "@/lib/inmuebles.functions";
-import { allInmueblesQuery, clientesQueryOpts, visitasQuery, leadsQueryOpts, insightsQuery } from "@/lib/queries";
+import { allInmueblesQuery, clientesQueryOpts, visitasQuery, leadsQueryOpts, insightsQuery, statsQuery, operacionesQuery, myRoleQuery } from "@/lib/queries";
 import type { LeadInsight } from "@/lib/clientes.functions";
 import { cleanRef } from "@/lib/format";
 import type { LucideIcon } from "lucide-react";
@@ -12,7 +15,7 @@ import {
   TrendingUp, TrendingDown, Sparkles, ArrowRight,
   Users, UserRound, HandCoins, CalendarCheck,
   MapPin, Home, CalendarDays, CheckCircle2,
-  Flame, BellOff,
+  Flame, BellOff, Banknote,
 } from "lucide-react";
 
 const EvolucionChart = lazy(() => import("@/components/EvolucionChart"));
@@ -43,6 +46,9 @@ export const Route = createFileRoute("/")({
     context.queryClient.ensureQueryData(visitasQuery);
     context.queryClient.ensureQueryData(leadsQueryOpts);
     context.queryClient.ensureQueryData(insightsQuery);
+    context.queryClient.ensureQueryData(statsQuery);
+    context.queryClient.ensureQueryData(operacionesQuery);
+    context.queryClient.ensureQueryData(myRoleQuery);
   },
   component: Dashboard,
   errorComponent: ({ error }) => (
@@ -75,12 +81,26 @@ function calcDelta(cur: number, prev: number): number | null {
 
 const COMISION_VENTA = 0.03;
 
+const ANALYTICS_PALETTE = [
+  "#c9a94a", "#60a5fa", "#34d399", "#f472b6",
+  "#a78bfa", "#fb923c", "#38bdf8", "#4ade80",
+];
+
+function fmtMes(mes: string) {
+  const [y, m] = mes.split("-");
+  return new Date(Number(y), Number(m) - 1, 1)
+    .toLocaleDateString("es-ES", { month: "short", year: "2-digit" });
+}
+
 function Dashboard() {
   const { data: inmData } = useSuspenseQuery(inmueblesQuery);
   const { data: cliData } = useSuspenseQuery(clientesQuery);
   const { data: visData } = useSuspenseQuery(visitasQuery);
   const { data: leadsData } = useSuspenseQuery(leadsQueryOpts);
   const { data: insights } = useSuspenseQuery(insightsQuery);
+  const { data: statsData } = useSuspenseQuery(statsQuery);
+  const { data: opsData } = useSuspenseQuery(operacionesQuery);
+  const { data: myRole } = useSuspenseQuery(myRoleQuery);
 
   const leadsCount = leadsData.clientes.length;
 
@@ -243,6 +263,48 @@ function Dashboard() {
       .slice(0, 7);
     return { list, maxValor: list[0]?.valor ?? 1 };
   }, [inmData]);
+
+  // ── Analytics (stats + ops) ──
+  const analytics = useMemo(() => {
+    const pipeline = [
+      { label: "Lead",       value: statsData.pipeline["Lead"] ?? 0,       color: "#94a3b8" },
+      { label: "Prospecto",  value: statsData.pipeline["Prospecto"] ?? 0,  color: "#60a5fa" },
+      { label: "Cliente",    value: statsData.pipeline["Cliente"] ?? 0,    color: "#c9a94a" },
+      { label: "Histórico",  value: statsData.pipeline["Histórico"] ?? 0,  color: "#34d399" },
+      { label: "Descartado", value: statsData.pipeline["Descartado"] ?? 0, color: "#f87171" },
+    ];
+    const totalContactos = pipeline.reduce((s, p) => s + p.value, 0);
+    const convRate = totalContactos
+      ? Math.round(((statsData.pipeline["Cliente"] ?? 0) / totalContactos) * 100)
+      : 0;
+    const maxPipelineVal = Math.max(...pipeline.map(p => p.value), 1);
+
+    const canalData = Object.entries(statsData.canales)
+      .map(([name, value]) => ({ name: name === "null" ? "Sin canal" : name, value: value as number }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+
+    const leadsChartData = statsData.leadsPorMes.map(m => ({
+      total: m.total, mes: fmtMes(m.mes),
+    }));
+
+    const visitasChartData = statsData.visitasPorMes.map(m => ({
+      ...m, mes: fmtMes(m.mes),
+    }));
+
+    const ops = opsData.operaciones;
+    const opsCerradas = ops.filter((o: any) => o.estado === "Cerrada");
+    const totalComision = opsCerradas.reduce((s: number, o: any) => s + (o.comisionTotal ?? 0), 0);
+    const pipelineValorOps = ops
+      .filter((o: any) => o.estado === "Abierta" || o.estado === "En negociación")
+      .reduce((s: number, o: any) => s + (o.precioOperacion ?? 0), 0);
+
+    return {
+      pipeline, totalContactos, convRate, maxPipelineVal,
+      canalData, leadsChartData, visitasChartData,
+      opsCerradas, totalComision, pipelineValorOps,
+    };
+  }, [statsData, opsData]);
 
   // ── Visitas analytics ──
   const visitasAnalytics = useMemo(() => {
@@ -529,6 +591,155 @@ function Dashboard() {
           </div>
         </div>
         <AlertasPanel estancados={stats.estancados} />
+      </div>
+
+      {/* ── ROW 5: Análisis comercial ── */}
+      <div className="mt-6">
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
+            Análisis comercial
+          </span>
+          <span className="flex-1 h-px bg-border" />
+          {myRole.isFinanciero && (
+            <span className="text-[9px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-medium">
+              Vista financiera
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+          {/* Pipeline funnel */}
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold">Pipeline de contactos</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {analytics.totalContactos} contactos · Conv. {analytics.convRate}%
+              </p>
+            </div>
+            <div className="space-y-2">
+              {analytics.pipeline.filter(p => p.value > 0).map(p => (
+                <div key={p.label} className="flex items-center gap-3">
+                  <span className="text-[11px] w-20 text-muted-foreground shrink-0">{p.label}</span>
+                  <div className="flex-1 h-5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.max(2, Math.round((p.value / analytics.maxPipelineVal) * 100))}%`,
+                        background: p.color,
+                      }}
+                    />
+                  </div>
+                  <span className="text-[12px] font-semibold tabular-nums w-8 text-right">{p.value}</span>
+                </div>
+              ))}
+            </div>
+            {myRole.isFinanciero && (
+              <div className="mt-4 pt-3 border-t border-border flex flex-wrap gap-x-6 gap-y-2">
+                <div>
+                  <div className="text-[10px] text-muted-foreground">Pipeline (valor real)</div>
+                  <div className="text-[13px] font-semibold tabular-nums">{moneyFull(analytics.pipelineValorOps)}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground">Ops. cerradas</div>
+                  <div className="text-[13px] font-semibold tabular-nums">{analytics.opsCerradas.length}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground">Comisiones reales</div>
+                  <div className="text-[13px] font-semibold tabular-nums">{moneyFull(analytics.totalComision)}</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Canal captación */}
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold mb-1">Canal de captación</h3>
+            <p className="text-[11px] text-muted-foreground mb-4">Distribución por origen</p>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={analytics.canalData} layout="vertical" margin={{ left: 0, right: 20, top: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 10 }} stroke="var(--color-muted-foreground)" />
+                <YAxis type="category" dataKey="name" width={96} tick={{ fontSize: 9 }} stroke="var(--color-muted-foreground)" />
+                <Tooltip
+                  contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }}
+                  cursor={{ fill: "var(--color-accent)" }}
+                />
+                <Bar dataKey="value" name="Contactos" radius={[0, 4, 4, 0]}>
+                  {analytics.canalData.map((_, i) => (
+                    <Cell key={i} fill={ANALYTICS_PALETTE[i % ANALYTICS_PALETTE.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Leads + Visitas por mes */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold mb-1">Leads captados</h3>
+            <p className="text-[11px] text-muted-foreground mb-4">Últimos 12 meses</p>
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={analytics.leadsChartData} margin={{ left: -16, right: 4, top: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <XAxis dataKey="mes" tick={{ fontSize: 9 }} stroke="var(--color-muted-foreground)" />
+                <YAxis tick={{ fontSize: 10 }} stroke="var(--color-muted-foreground)" allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }}
+                  cursor={{ fill: "var(--color-accent)" }}
+                />
+                <Bar dataKey="total" name="Leads" fill="var(--gold)" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold mb-1">Visitas</h3>
+            <p className="text-[11px] text-muted-foreground mb-4">Realizadas vs canceladas · 12 meses</p>
+            <ResponsiveContainer width="100%" height={160}>
+              <LineChart data={analytics.visitasChartData} margin={{ left: -16, right: 8, top: 4, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <XAxis dataKey="mes" tick={{ fontSize: 9 }} stroke="var(--color-muted-foreground)" />
+                <YAxis tick={{ fontSize: 10 }} stroke="var(--color-muted-foreground)" allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }}
+                  cursor={{ stroke: "var(--color-border)" }}
+                />
+                <Line dataKey="realizadas" name="Realizadas" stroke="var(--gold)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                <Line dataKey="canceladas" name="Canceladas" stroke="#f87171" strokeWidth={2} dot={{ r: 2 }} strokeDasharray="4 2" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Actividad por agente — solo financiero/admin */}
+        {myRole.isFinanciero && statsData.agentes.filter((a: any) => a.leads + a.clientes > 0).length > 0 && (
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Banknote className="size-4 text-gold" />
+              <h3 className="text-sm font-semibold">Actividad por agente</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {statsData.agentes.filter((a: any) => a.leads + a.clientes > 0).map((a: any) => (
+                <div key={a.nombre} className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border">
+                  <div className="size-8 rounded-full grid place-items-center text-[11px] font-bold border border-border bg-card shrink-0">
+                    {a.nombre.slice(0, 1).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] font-medium truncate">{a.nombre}</div>
+                    <div className="flex gap-3 mt-0.5">
+                      <span className="text-[10px] text-muted-foreground">
+                        <span className="font-semibold text-foreground">{a.leads}</span> leads
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        <span className="font-semibold text-gold">{a.clientes}</span> clientes
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );

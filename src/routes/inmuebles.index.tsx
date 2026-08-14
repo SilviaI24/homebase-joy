@@ -1,17 +1,15 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
-import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { SafeImage } from "@/components/SafeImage";
 import { NewInmuebleDialog } from "@/components/CreateDialogs";
 import { RecordatoriosEstancados } from "@/components/RecordatoriosEstancados";
-import { useServerFn } from "@tanstack/react-start";
-
-import { getCategoria, CATEGORIAS, geocodeInmuebles, type Inmueble } from "@/lib/inmuebles.functions";
+import { getCategoria, CATEGORIAS, type Inmueble } from "@/lib/inmuebles.functions";
 import { allInmueblesQuery } from "@/lib/queries";
 import { cleanRef } from "@/lib/format";
 import {
-  Search, LayoutGrid, Columns3, Clock, AlertTriangle, Hourglass, Map as MapIcon, Loader2,
+  Search, LayoutGrid, Columns3, Clock, AlertTriangle, Hourglass,
 } from "lucide-react";
 
 const STALE_DAYS = 90;
@@ -127,7 +125,7 @@ function InmueblesPage() {
   const [q, setQ]                 = useState("");
   const [categoria, setCategoria] = useState<string>("Todas");
   const [agente, setAgente]       = useState<string>("Todos");
-  const [view, setView]           = useState<"grid" | "kanban" | "mapa">("grid");
+  const [view, setView]           = useState<"grid" | "kanban">("grid");
 
   // Properties belonging to the current section
   const sectionItems = useMemo(
@@ -283,16 +281,9 @@ function InmueblesPage() {
               <Columns3 className="size-3.5" /> Kanban
             </button>
           )}
-          <button
-            onClick={() => setView("mapa")}
-            className={`px-3 text-xs font-medium inline-flex items-center gap-1.5 border-l border-input ${view === "mapa" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
-            title="Vista en mapa"
-          >
-            <MapIcon className="size-3.5" /> Mapa
-          </button>
         </div>
         <div className="ml-auto text-sm text-muted-foreground">
-          {view === "grid" || view === "mapa"
+          {view === "grid"
             ? `${filtered.length} de ${sectionItems.length}`
             : `${(Object.values(kanbanGroups) as Inmueble[][]).reduce((s, col) => s + col.length, 0)} inmuebles`}
         </div>
@@ -335,9 +326,7 @@ function InmueblesPage() {
 
       {view === "grid" && section === "venta" && <RecordatoriosEstancados inmuebles={sectionItems} staleDays={STALE_DAYS} />}
 
-      {view === "mapa" && <MapaView inmuebles={filtered} />}
-
-      {view !== "mapa" && (view === "grid" ? (
+      {view === "grid" ? (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filtered.map((i) => (
@@ -471,159 +460,8 @@ function InmueblesPage() {
             );
           })}
         </div>
-      ))}
+      )}
       </>
     </AppShell>
-  );
-}
-
-
-function statusColor(estatus: string): string {
-  if (estatus === "Vendido" || estatus === "Alquilado") return "#3b82f6";
-  if (estatus === "Reservado") return "#f59e0b";
-  if (estatus === "Activo") return "#10b981";
-  if (estatus === "Pendiente") return "#94a3b8";
-  return "#64748b";
-}
-
-function MapaView({ inmuebles }: { inmuebles: Inmueble[] }) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<Map<string, any>>(new Map());
-  const [geocoding, setGeocoding] = useState(false);
-  const [geocodePending, setGeocodePending] = useState(0);
-  const [localCoords, setLocalCoords] = useState<Map<string, { lat: number; lng: number }>>(new Map());
-  const geocodeFn = useServerFn(geocodeInmuebles);
-  const qc = useQueryClient();
-
-  const withCoords = useMemo(() => {
-    return inmuebles.map((i) => {
-      const local = localCoords.get(i.id);
-      return { ...i, coordenadas: local ?? i.coordenadas };
-    }).filter((i) => i.coordenadas != null);
-  }, [inmuebles, localCoords]);
-
-  const withoutCoords = useMemo(
-    () => inmuebles.filter((i) => !localCoords.has(i.id) && !i.coordenadas),
-    [inmuebles, localCoords]
-  );
-
-  useEffect(() => {
-    if (!mapRef.current) return;
-    let cancelled = false;
-
-    async function init() {
-      // Lazy inject leaflet CSS from the local npm package (no external CDN request)
-      if (!document.querySelector('link[data-leaflet-css]')) {
-        const link = document.createElement("link");
-        link.rel = "stylesheet";
-        link.setAttribute("data-leaflet-css", "1");
-        link.href = new URL("leaflet/dist/leaflet.css", import.meta.url).href;
-        document.head.appendChild(link);
-      }
-      const L = await import("leaflet");
-      if (cancelled) return;
-      if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; }
-      const map = L.map(mapRef.current!, { center: [36.51, -4.88], zoom: 12 });
-      mapInstanceRef.current = map;
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors",
-        maxZoom: 19,
-      }).addTo(map);
-    }
-    init();
-    return () => { cancelled = true; mapInstanceRef.current?.remove(); mapInstanceRef.current = null; markersRef.current.clear(); };
-  }, []);
-
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
-
-    import("leaflet").then((L) => {
-      // Remove markers that are no longer in withCoords
-      const newIds = new Set(withCoords.map(i => i.id));
-      for (const [id, marker] of markersRef.current) {
-        if (!newIds.has(id)) {
-          marker.remove();
-          markersRef.current.delete(id);
-        }
-      }
-
-      // Add only new markers (skip existing ones)
-      const bounds: [number, number][] = [];
-      for (const i of withCoords) {
-        const { lat, lng } = i.coordenadas!;
-        bounds.push([lat, lng]);
-        if (markersRef.current.has(i.id)) continue;
-        const color = statusColor(i.estatus);
-        const marker = L.circleMarker([lat, lng], {
-          radius: 9,
-          color: "#fff",
-          weight: 2,
-          fillColor: color,
-          fillOpacity: 0.9,
-        })
-          .bindPopup(
-            `<div style="min-width:160px"><b>${i.calle || "Sin dirección"} ${i.numero || ""}</b><br>` +
-            `<span style="font-size:11px">${i.tipo} · ${i.estatus}</span><br>` +
-            `<b style="font-size:13px">${i.precio?.toLocaleString("es-ES") ?? "—"} €</b>` +
-            (i.ref ? `<br><span style="font-size:10px;color:#888">#${cleanRef(i.ref)}</span>` : "") +
-            `</div>`
-          )
-          .addTo(map);
-        markersRef.current.set(i.id, marker);
-      }
-      if (bounds.length > 1) {
-        map.fitBounds(bounds as any, { padding: [40, 40] });
-      }
-    });
-  }, [withCoords]);
-
-  async function handleGeocode() {
-    if (withoutCoords.length === 0 || geocoding) return;
-    setGeocoding(true);
-    setGeocodePending(withoutCoords.length);
-    const items = withoutCoords.map((i) => ({
-      id: i.id,
-      calle: i.calle,
-      numero: i.numero,
-      barrio: i.barrio,
-      localidad: i.localidad,
-    }));
-    try {
-      const { results } = await geocodeFn({ data: { items } });
-      const newCoords = new Map(localCoords);
-      for (const r of results) {
-        if ("lat" in r) newCoords.set(r.id, { lat: r.lat, lng: r.lng });
-      }
-      setLocalCoords(newCoords);
-      // Invalidate so the next visit to /inmuebles reflects the persisted coordinates
-      qc.invalidateQueries({ queryKey: ["all-inmuebles"] });
-    } finally {
-      setGeocoding(false);
-      setGeocodePending(0);
-    }
-  }
-
-  return (
-    <div className="rounded-xl border border-border overflow-hidden shadow-sm">
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-card text-xs text-muted-foreground">
-        <span>{withCoords.length} en mapa · {withoutCoords.length} sin geocodificar</span>
-        {withoutCoords.length > 0 && (
-          <button
-            onClick={handleGeocode}
-            disabled={geocoding}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-input bg-background text-foreground hover:bg-accent disabled:opacity-50 transition-colors"
-          >
-            {geocoding ? (
-              <><Loader2 className="size-3 animate-spin" /> Geocodificando {geocodePending}…</>
-            ) : (
-              <><MapIcon className="size-3" /> Geocodificar ({withoutCoords.length})</>
-            )}
-          </button>
-        )}
-      </div>
-      <div ref={mapRef} style={{ height: "600px", width: "100%" }} />
-    </div>
   );
 }

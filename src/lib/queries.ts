@@ -6,6 +6,7 @@ import { getNotifications } from "@/lib/notifications.functions";
 import { listSeguimientos } from "@/lib/seguimiento.functions";
 import { listOperaciones } from "@/lib/operaciones.functions";
 import { getStatsData } from "@/lib/clientes.functions";
+import { getMyRole } from "@/lib/role.functions";
 
 export const agentesQuery = queryOptions({
   queryKey: ["agentes"],
@@ -87,4 +88,11 @@ export const insightsQuery = queryOptions({
   queryFn: () => getLeadInsightsFn(),
   staleTime: 5 * 60 * 1000,
   gcTime: 30 * 60 * 1000,
+});
+
+export const myRoleQuery = queryOptions({
+  queryKey: ["my-role"],
+  queryFn: () => getMyRole(),
+  staleTime: 10 * 60 * 1000,
+  gcTime: 60 * 60 * 1000,
 });

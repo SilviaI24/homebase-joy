@@ -10,8 +10,6 @@ import {
   Inbox,
   Hourglass,
   MessageSquare,
-  Banknote,
-  TrendingUp,
   Menu,
   Sun,
   Moon,
@@ -87,12 +85,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/visitas",      label: "Visitas",      icon: CalendarDays },
       { to: "/seguimiento",  label: "Seguimiento",  icon: MessageSquare },
-      { to: "/operaciones",  label: "Operaciones",  icon: Banknote },
     ],
-  },
-  {
-    label: "Análisis",
-    items: [{ to: "/estadisticas", label: "Estadísticas", icon: TrendingUp }],
   },
   {
     label: "IA",
