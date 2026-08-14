@@ -104,54 +104,48 @@ function prospectoBadge(publicacion: string) {
   );
 }
 
+type Section = "venta" | "prospectos" | "historico";
+
+const SECTION_ESTATUS: Record<Section, string[]> = {
+  venta:      ["Activo", "Reservado"],
+  prospectos: ["Prospección"],
+  historico:  ["Vendido", "Baja"],
+};
+
+const SECTION_LABELS: Record<Section, string> = {
+  venta:      "Cartera · Venta",
+  prospectos: "Cartera · Prospectos",
+  historico:  "Histórico",
+};
+
 function InmueblesPage() {
   const { data: all } = useSuspenseQuery(allInmueblesQuery);
-  const data = { inmuebles: all.inmuebles };
+  const inmuebles = all.inmuebles;
 
   const router = useRouter();
-  const [q, setQ] = useState("");
-  const [estatus, setEstatus] = useState<string>("Activo");
+  const [section, setSection]     = useState<Section>("venta");
+  const [q, setQ]                 = useState("");
   const [categoria, setCategoria] = useState<string>("Todas");
-  const [agente, setAgente] = useState<string>("Todos");
-  const [view, setView] = useState<"grid" | "kanban" | "mapa">("grid");
+  const [agente, setAgente]       = useState<string>("Todos");
+  const [view, setView]           = useState<"grid" | "kanban" | "mapa">("grid");
+
+  // Properties belonging to the current section
+  const sectionItems = useMemo(
+    () => inmuebles.filter((i) => SECTION_ESTATUS[section].includes(i.estatus)),
+    [inmuebles, section],
+  );
 
   const agentes = useMemo(() => {
     const s = new Set<string>();
-    data.inmuebles.forEach((i) => i.agentesNombres.forEach((n) => n && s.add(n)));
+    inmuebles.forEach((i) => i.agentesNombres.forEach((n) => n && s.add(n)));
     return ["Todos", "Sin asignar", ...Array.from(s).sort()];
-  }, [data.inmuebles]);
+  }, [inmuebles]);
 
   const matchesAgente = (i: Inmueble) => {
     if (agente === "Todos") return true;
     if (agente === "Sin asignar") return i.agentesNombres.length === 0;
     return i.agentesNombres.includes(agente);
   };
-
-  const estatuses = useMemo(() => {
-    const s = new Set<string>();
-    data.inmuebles.forEach((i) => i.estatus && s.add(i.estatus));
-    return ["Todos", ...Array.from(s).sort()];
-  }, [data.inmuebles]);
-
-  const conteoPorCategoria = useMemo(() => {
-    // Kanban shows all statuses — counts must match what the kanban actually displays
-    const base = view === "kanban"
-      ? data.inmuebles.filter((i) => {
-          if (!matchesAgente(i)) return false;
-          const needle = q.trim().toLowerCase();
-          if (!matchesSearch(i, needle)) return false;
-          return classifyKanban(i) !== null;
-        })
-      : data.inmuebles.filter((i) => estatus === "Todos" || i.estatus === estatus);
-    const map: Record<string, number> = { Todas: base.length };
-    CATEGORIAS.forEach((c) => (map[c] = 0));
-    map["Otros"] = 0;
-    base.forEach((i) => {
-      const c = getCategoria(i.tipo);
-      map[c] = (map[c] ?? 0) + 1;
-    });
-    return map;
-  }, [data.inmuebles, estatus, view, agente, q]);
 
   const matchesSearch = (i: Inmueble, needle: string) => {
     if (!needle) return true;
@@ -165,42 +159,93 @@ function InmueblesPage() {
     );
   };
 
+  const sectionCounts = useMemo(() => {
+    const counts = { venta: 0, prospectos: 0, historico: 0 } as Record<Section, number>;
+    inmuebles.forEach((i) => {
+      (Object.keys(SECTION_ESTATUS) as Section[]).forEach((s) => {
+        if (SECTION_ESTATUS[s].includes(i.estatus)) counts[s]++;
+      });
+    });
+    return counts;
+  }, [inmuebles]);
+
+  const conteoPorCategoria = useMemo(() => {
+    const base = sectionItems.filter((i) => matchesAgente(i));
+    const map: Record<string, number> = { Todas: base.length };
+    CATEGORIAS.forEach((c) => (map[c] = 0));
+    map["Otros"] = 0;
+    base.forEach((i) => {
+      const c = getCategoria(i.tipo);
+      map[c] = (map[c] ?? 0) + 1;
+    });
+    return map;
+  }, [sectionItems, agente]);
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return data.inmuebles.filter((i: Inmueble) => {
-      if (estatus !== "Todos" && i.estatus !== estatus) return false;
+    return sectionItems.filter((i) => {
       if (categoria !== "Todas" && getCategoria(i.tipo) !== categoria) return false;
       if (!matchesAgente(i)) return false;
       return matchesSearch(i, needle);
     });
-  }, [data.inmuebles, q, estatus, categoria, agente]);
+  }, [sectionItems, q, categoria, agente]);
 
   const kanbanGroups = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const groups: Record<KanbanCol, Inmueble[]> = {
       Pendientes: [], Activos: [], Reservados: [], Cerrados: [], Estancados: [],
     };
-    data.inmuebles.forEach((i) => {
+    sectionItems.forEach((i) => {
       if (categoria !== "Todas" && getCategoria(i.tipo) !== categoria) return;
       if (!matchesAgente(i)) return;
       if (!matchesSearch(i, needle)) return;
       const col = classifyKanban(i);
       if (col) groups[col].push(i);
     });
-    // Sort oldest first by fechaInicio (precompute timestamps to avoid Date.parse in comparator)
     (Object.keys(groups) as KanbanCol[]).forEach((k) => {
       const withTs = groups[k].map((i) => ({ i, t: i.fechaInicio ? Date.parse(i.fechaInicio) : Infinity }));
       withTs.sort((a, b) => a.t - b.t);
       groups[k] = withTs.map((x) => x.i);
     });
     return groups;
-  }, [data.inmuebles, q, categoria, agente]);
+  }, [sectionItems, q, categoria, agente]);
 
   const tabs: string[] = ["Todas", ...CATEGORIAS, "Otros"];
+  const showKanban = section === "venta";
 
   return (
     <AppShell title="Inmuebles">
       <>
+      {/* ── Section tabs ── */}
+      <div className="flex gap-1 mb-5 border-b border-border pb-3">
+        {(["venta", "prospectos", "historico"] as Section[]).map((s) => {
+          const active = section === s;
+          return (
+            <button
+              key={s}
+              onClick={() => {
+                setSection(s);
+                setCategoria("Todas");
+                if (s !== "venta" && view === "kanban") setView("grid");
+              }}
+              className={`px-3.5 py-1.5 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-2 ${
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              }`}
+            >
+              {SECTION_LABELS[s]}
+              <span className={`text-[11px] px-1.5 py-0.5 rounded-full ${
+                active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+              }`}>
+                {sectionCounts[s]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -211,17 +256,6 @@ function InmueblesPage() {
             className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
-        {(view === "grid" || view === "mapa") && (
-          <select
-            value={estatus}
-            onChange={(e) => setEstatus(e.target.value)}
-            className="h-9 px-3 rounded-md border border-input bg-background text-sm"
-          >
-            {estatuses.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        )}
         <select
           value={agente}
           onChange={(e) => setAgente(e.target.value)}
@@ -240,13 +274,15 @@ function InmueblesPage() {
           >
             <LayoutGrid className="size-3.5" /> Lista
           </button>
-          <button
-            onClick={() => setView("kanban")}
-            className={`px-3 text-xs font-medium inline-flex items-center gap-1.5 border-l border-input ${view === "kanban" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
-            title="Vista kanban"
-          >
-            <Columns3 className="size-3.5" /> Kanban
-          </button>
+          {showKanban && (
+            <button
+              onClick={() => setView("kanban")}
+              className={`px-3 text-xs font-medium inline-flex items-center gap-1.5 border-l border-input ${view === "kanban" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+              title="Vista kanban"
+            >
+              <Columns3 className="size-3.5" /> Kanban
+            </button>
+          )}
           <button
             onClick={() => setView("mapa")}
             className={`px-3 text-xs font-medium inline-flex items-center gap-1.5 border-l border-input ${view === "mapa" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
@@ -257,7 +293,7 @@ function InmueblesPage() {
         </div>
         <div className="ml-auto text-sm text-muted-foreground">
           {view === "grid" || view === "mapa"
-            ? `${filtered.length} de ${data.inmuebles.length}`
+            ? `${filtered.length} de ${sectionItems.length}`
             : `${(Object.values(kanbanGroups) as Inmueble[][]).reduce((s, col) => s + col.length, 0)} inmuebles`}
         </div>
         <button
@@ -269,7 +305,7 @@ function InmueblesPage() {
         <NewInmuebleDialog />
       </div>
 
-
+      {/* ── Category sub-tabs ── */}
       <div className="flex flex-wrap gap-1.5 mb-5 border-b border-border pb-2">
         {tabs.map((t) => {
           const active = categoria === t;
@@ -297,7 +333,7 @@ function InmueblesPage() {
         })}
       </div>
 
-      {view === "grid" && <RecordatoriosEstancados inmuebles={data.inmuebles} staleDays={STALE_DAYS} />}
+      {view === "grid" && section === "venta" && <RecordatoriosEstancados inmuebles={sectionItems} staleDays={STALE_DAYS} />}
 
       {view === "mapa" && <MapaView inmuebles={filtered} />}
 

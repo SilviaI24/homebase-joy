@@ -359,7 +359,7 @@ export const listAllInmuebles = createServerFn({ method: "GET" }).handler(async 
         fecha_inicio, fecha_reserva, fecha_escritura, created_at,
         agents(id, nombre, email)
       `)
-      .neq("estatus", "Baja")
+      .not("estatus", "is", null)
       .order("created_at", { ascending: false, nullsFirst: false })
       .range(from, from + PAGE - 1);
 
