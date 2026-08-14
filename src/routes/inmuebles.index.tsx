@@ -196,7 +196,7 @@ function InmueblesPage() {
     return groups;
   }, [data.inmuebles, q, categoria, agente]);
 
-  const tabs: string[] = ["Todas", ...CATEGORIAS];
+  const tabs: string[] = ["Todas", ...CATEGORIAS, "Otros"];
 
   return (
     <AppShell title="Inmuebles">
