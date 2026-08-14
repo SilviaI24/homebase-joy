@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import {
   Building2,
@@ -196,7 +196,7 @@ function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 w-[300px] rounded-xl border border-border bg-card shadow-2xl overflow-hidden z-50">
+        <div className="absolute right-0 top-10 w-[300px] max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-card shadow-2xl overflow-hidden z-50">
           {/* Panel header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-sidebar/60">
             <span className="text-[12px] font-semibold text-foreground">Notificaciones</span>
@@ -283,7 +283,9 @@ const SpeechRecognitionCtor =
     : null;
 
 function SilviaFloat() {
+  const pathname = useRouterState({ select: s => s.location.pathname });
   const [open, setOpen] = useState(false);
+  if (pathname.startsWith("/silvia")) return null;
   const [msgs, setMsgs] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -495,7 +497,7 @@ const LINK_CLS =
 
 // ── Sidebar content (shared desktop + mobile drawer) ─────────────────────────
 
-function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
+function SidebarContent({ onLinkClick, dark, onThemeToggle }: { onLinkClick?: () => void; dark?: boolean; onThemeToggle?: () => void }) {
   return (
     <>
       {/* Logo */}
@@ -519,7 +521,7 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-2 overflow-y-auto pt-3 space-y-5">
+      <nav className="flex-1 p-2 overflow-y-auto pt-3 space-y-3 md:space-y-5">
         {navGroups.map((group, gi) => (
           <div key={gi}>
             {group.label && (
@@ -554,9 +556,24 @@ function SidebarContent({ onLinkClick }: { onLinkClick?: () => void }) {
 
       {/* Footer */}
       <div className="px-4 py-3 border-t border-sidebar-border flex items-center justify-between shrink-0">
-        <span className="text-[9px] uppercase tracking-[0.14em] text-sidebar-foreground/25 font-medium">
-          v0.5
-        </span>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/perfil"
+            onClick={onLinkClick}
+            className="text-[9px] uppercase tracking-[0.14em] text-sidebar-foreground/25 font-medium hover:text-sidebar-foreground/50 transition-colors"
+          >
+            v0.5
+          </Link>
+          {onThemeToggle && (
+            <button
+              onClick={onThemeToggle}
+              title={dark ? "Modo claro" : "Modo oscuro"}
+              className="inline-flex items-center justify-center size-6 rounded-md text-sidebar-foreground/30 hover:text-sidebar-foreground/60 hover:bg-sidebar-accent/40 transition-all"
+            >
+              {dark ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+            </button>
+          )}
+        </div>
         <span className="size-1.5 rounded-full bg-emerald-500/60" title="Conectado" />
       </div>
     </>
@@ -583,7 +600,7 @@ export function AppShell({
 
       {/* ── Sidebar — desktop ── */}
       <aside className="hidden md:flex w-56 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border shrink-0">
-        <SidebarContent />
+        <SidebarContent dark={dark} onThemeToggle={toggle} />
       </aside>
 
       {/* ── Mobile drawer overlay ── */}
@@ -609,7 +626,7 @@ export function AppShell({
         >
           <X className="size-4" />
         </button>
-        <SidebarContent onLinkClick={() => setDrawerOpen(false)} />
+        <SidebarContent onLinkClick={() => setDrawerOpen(false)} dark={dark} onThemeToggle={toggle} />
       </aside>
 
       {/* ── Main ── */}
