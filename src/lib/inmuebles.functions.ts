@@ -187,7 +187,7 @@ function mapBase(row: SupabasePropertyRow): Inmueble {
     barrio: toTitleCase(s(row.barrio)),
     precio: row.precio,
     precioFinal: row.precio_final,
-    tipo: row.tipo,
+    tipo: s(row.tipo),
     estatus: toTitleCase(row.estatus),
     publicacion: s(row.publicacion),
     estado: toTitleCase(s(row.estado)),
