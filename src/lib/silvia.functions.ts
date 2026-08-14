@@ -183,12 +183,12 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     type: "function",
     function: {
       name: "actualizar_estatus_inmueble",
-      description: "Cambia el estatus de un inmueble: Activo, Reservado, Vendido, Alquilado, Pendiente o Baja.",
+      description: "Cambia el estatus de un inmueble: Activo, Reservado, Vendido, Alquilado, Baja o Prospección.",
       parameters: {
         type: "object",
         properties: {
           propertyId: { type: "string", description: "ID del inmueble (UUID)" },
-          estatus:    { type: "string", enum: ["Activo", "Reservado", "Vendido", "Alquilado", "Pendiente", "Baja"] },
+          estatus:    { type: "string", enum: ["Activo", "Reservado", "Vendido", "Alquilado", "Baja", "Prospección"] },
         },
         required: ["propertyId", "estatus"],
       },
@@ -353,6 +353,17 @@ async function ejecutarHerramienta(name: string, args: Record<string, string>): 
   if (name === "archivar_lead") {
     const { contactId } = args;
     if (!contactId) return "Error: contactId requerido.";
+
+    const { data: contactData } = await supa
+      .from("contacts")
+      .select("ciclo_vida")
+      .eq("id", contactId)
+      .single();
+    if (!contactData) return "Error: contacto no encontrado.";
+    if (["Cliente", "Histórico"].includes(contactData.ciclo_vida)) {
+      return `No se puede archivar: el contacto tiene ciclo de vida "${contactData.ciclo_vida}". Solo se pueden archivar Leads o Prospectos.`;
+    }
+
     const { error } = await supa
       .from("contacts")
       .update({ ciclo_vida: "Descartado", trabajado: "Descartado" })
@@ -422,6 +433,19 @@ async function ejecutarHerramienta(name: string, args: Record<string, string>): 
     const propertyId = await resolvePropertyId(supa, inmueble_ref);
     if (!propertyId) return `No se encontró ningún inmueble con ref "${inmueble_ref}".`;
 
+    // Comprador/Inquilino elevan ciclo_vida a "Cliente" — requiere comercial asignado
+    if (["Comprador", "Inquilino"].includes(tipo)) {
+      const { data: asignacion } = await supa
+        .from("contact_agents")
+        .select("agent_id")
+        .eq("contact_id", contactId)
+        .limit(1)
+        .maybeSingle();
+      if (!asignacion) {
+        return `No se puede vincular como ${tipo} sin comercial asignado (el ciclo de vida pasaría a "Cliente"). Usa asignar_comercial primero.`;
+      }
+    }
+
     // Eliminar rol previo del mismo tipo para evitar duplicados
     await supa
       .from("contact_roles")
@@ -468,7 +492,7 @@ async function ejecutarHerramienta(name: string, args: Record<string, string>): 
   if (name === "actualizar_estatus_inmueble") {
     const { propertyId, estatus } = args;
     if (!propertyId) return "Error: propertyId requerido.";
-    const valid = ["Activo", "Reservado", "Vendido", "Alquilado", "Pendiente", "Baja"];
+    const valid = ["Activo", "Reservado", "Vendido", "Alquilado", "Baja", "Prospección"];
     if (!valid.includes(estatus)) return `Error: estatus inválido. Valores permitidos: ${valid.join(", ")}.`;
 
     // Campos de fecha a actualizar según el nuevo estatus
@@ -574,6 +598,13 @@ async function ejecutarHerramienta(name: string, args: Record<string, string>): 
     const { contactId, tipo, texto, fecha } = args;
     if (!contactId) return "Error: contactId requerido.";
     if (!texto?.trim()) return "Error: texto vacío.";
+
+    const { data: contactExists } = await supa
+      .from("contacts")
+      .select("id")
+      .eq("id", contactId)
+      .maybeSingle();
+    if (!contactExists) return "Error: no se encontró ningún contacto con ese ID.";
     const tiposValidos = ["Llamada", "WhatsApp", "Email", "Visita", "Nota", "SilvIA"];
     if (!tiposValidos.includes(tipo)) return `Error: tipo inválido. Válidos: ${tiposValidos.join(", ")}.`;
 
@@ -599,8 +630,16 @@ async function ejecutarHerramienta(name: string, args: Record<string, string>): 
     const tiposValidos = ["Venta", "Alquiler", "Valoración", "Servicio"];
     if (!tiposValidos.includes(tipo)) return `Error: tipo inválido. Válidos: ${tiposValidos.join(", ")}.`;
 
+    if (["Venta", "Alquiler"].includes(tipo) && !inmueble_ref && !vendedor_contactId && !comprador_contactId) {
+      return "Error: para Venta o Alquiler indica al menos un inmueble, un vendedor o un comprador.";
+    }
+
     const precio = args.precio ? Number(args.precio) : undefined;
     const comision_pct = args.comision_pct ? Number(args.comision_pct) : undefined;
+
+    if (comision_pct !== undefined && !isNaN(comision_pct) && (comision_pct < 0 || comision_pct > 100)) {
+      return "Error: comision_pct debe estar entre 0 y 100.";
+    }
 
     const row: Record<string, unknown> = { tipo, estado: "Abierta" };
 

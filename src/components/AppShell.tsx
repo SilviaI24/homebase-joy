@@ -25,6 +25,7 @@ import {
   Clock,
   UserPlus,
   LogOut,
+  UserCircle,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -96,6 +97,10 @@ const navGroups: NavGroup[] = [
   {
     label: "IA",
     items: [{ to: "/silvia", label: "SilvIA", icon: Sparkles }],
+  },
+  {
+    label: "Cuenta",
+    items: [{ to: "/perfil", label: "Mi perfil", icon: UserCircle }],
   },
 ];
 
