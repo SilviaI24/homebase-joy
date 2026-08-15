@@ -15,7 +15,7 @@ CRM inmobiliario para gestión de propiedades, contactos, leads y operaciones.
 - **Client anon:** `src/lib/supabase.client.ts` — usa `VITE_SUPABASE_ANON_KEY` (solo auth del usuario)
 - **Server:** `src/lib/supabase.server.ts` → `getSupa()` — usa `SUPABASE_SERVICE_KEY`, nunca en cliente
 - **RLS:** todas las tablas tienen RLS con policy `service_role_all TO service_role`. La anon key NO lee datos.
-- **Auth:** email/password, superadmin `djimenez@evoost.ai`. Roles por departamento: pendiente Phase 2.
+- **Auth:** email/password, único administrador inicial `ai@elsolgrupo.com`. Roles por departamento: pendiente Phase 2.
 
 ## Convenciones de código
 

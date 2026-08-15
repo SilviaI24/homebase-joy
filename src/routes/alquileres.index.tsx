@@ -2,6 +2,7 @@ import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { RouteError } from "@/components/RouteError";
 import { SafeImage } from "@/components/SafeImage";
 import { NewInmuebleDialog } from "@/components/CreateDialogs";
 
@@ -10,8 +11,16 @@ import type { Cliente } from "@/lib/clientes.functions";
 import { allInmueblesQuery, clientesQueryOpts } from "@/lib/queries";
 import { cleanRef } from "@/lib/format";
 import {
-  Search, KeyRound, Home, CheckCircle2, TrendingUp,
-  User, Phone, Mail, Building2, Users,
+  Search,
+  KeyRound,
+  Home,
+  CheckCircle2,
+  TrendingUp,
+  User,
+  Phone,
+  Mail,
+  Building2,
+  Users,
 } from "lucide-react";
 
 export const Route = createFileRoute("/alquileres/")({
@@ -25,9 +34,7 @@ export const Route = createFileRoute("/alquileres/")({
   component: AlquileresPage,
   errorComponent: ({ error }) => (
     <AppShell title="Alquiler">
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        Error: {error.message}
-      </div>
+      <RouteError error={error} />
     </AppShell>
   ),
 });
@@ -42,15 +49,21 @@ function daysSince(iso: string | null): number | null {
 
 function formatEuro(n: number | null) {
   if (n == null || n === 0) return "—";
-  return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(n);
 }
 
 function DiasBadge({ dias }: { dias: number | null }) {
   if (dias === null) return null;
   const cls =
-    dias > 90 ? "bg-destructive/20 dark:bg-destructive/35 text-destructive dark:text-red-400" :
-    dias > 30 ? "bg-amber-500/20 dark:bg-amber-500/30 text-amber-700 dark:text-amber-300" :
-    "bg-muted text-muted-foreground";
+    dias > 90
+      ? "bg-destructive/20 dark:bg-destructive/35 text-destructive dark:text-red-400"
+      : dias > 30
+        ? "bg-amber-500/20 dark:bg-amber-500/30 text-amber-700 dark:text-amber-300"
+        : "bg-muted text-muted-foreground";
   return (
     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${cls}`}>
       {dias}d en cartera
@@ -60,13 +73,15 @@ function DiasBadge({ dias }: { dias: number | null }) {
 
 function StatusBadge({ estatus }: { estatus: string }) {
   const map: Record<string, string> = {
-    Activo:    "bg-emerald-600/85 text-white dark:bg-emerald-500/80 dark:text-white",
-    Baja:      "bg-gray-600/70 text-white dark:bg-gray-500/75 dark:text-white",
+    Activo: "bg-emerald-600/85 text-white dark:bg-emerald-500/80 dark:text-white",
+    Baja: "bg-gray-600/70 text-white dark:bg-gray-500/75 dark:text-white",
     Reservado: "bg-amber-500/85 text-white dark:bg-amber-400/80 dark:text-amber-950",
     Alquilado: "bg-[var(--gold)]/85 text-white",
   };
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold backdrop-blur-sm shadow-sm ${map[estatus] ?? "bg-gray-700/75 text-white"}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold backdrop-blur-sm shadow-sm ${map[estatus] ?? "bg-gray-700/75 text-white"}`}
+    >
       {estatus || "—"}
     </span>
   );
@@ -82,19 +97,16 @@ function AlquileresPage() {
   const [q, setQ] = useState("");
 
   // Clientes loaded client-side only (avoids SSR server fn failure)
-  const { data: cliData } = useQuery({
+  const { data: cliData, isLoading: clientesLoading } = useQuery({
     ...clientesQueryOpts,
-    enabled: tab === "inquilinos" || tab === "activos",
+    enabled: true,
   });
 
   const disponibles = useMemo(
     () => all.alquileres.filter((i) => i.estatus === "Activo" || i.estatus === "Reservado"),
     [all],
   );
-  const alquilados = useMemo(
-    () => all.alquileres.filter((i) => i.estatus === "Alquilado"),
-    [all],
-  );
+  const alquilados = useMemo(() => all.alquileres.filter((i) => i.estatus === "Alquilado"), [all]);
   // Inquilino real = tiene una propiedad en alquiler vinculada.
   // "Interesado alquiler" sin propiedad vinculada es un Lead, no un inquilino.
   const inquilinos = useMemo(
@@ -109,33 +121,38 @@ function AlquileresPage() {
     return m;
   }, [all.alquileres]);
 
-  const kpis = useMemo(() => ({
-    disponibles: disponibles.length,
-    alquilados: alquilados.length,
-    inquilinos: inquilinos.length,
-    ingresos: alquilados.reduce((s, i) => s + (i.precioFinal || i.precio || 0), 0),
-  }), [disponibles, alquilados, inquilinos]);
+  const kpis = useMemo(
+    () => ({
+      disponibles: disponibles.length,
+      alquilados: alquilados.length,
+      inquilinos: inquilinos.length,
+      ingresos: alquilados.reduce((s, i) => s + (i.precioFinal || i.precio || 0), 0),
+    }),
+    [disponibles, alquilados, inquilinos],
+  );
 
   // Filtered lists based on search query
   const needle = q.trim().toLowerCase();
 
   const filteredDisponibles = useMemo(() => {
     if (!needle) return disponibles;
-    return disponibles.filter((i) =>
-      i.ref.toLowerCase().includes(needle) ||
-      i.calle.toLowerCase().includes(needle) ||
-      i.localidad.toLowerCase().includes(needle) ||
-      i.barrio.toLowerCase().includes(needle) ||
-      i.tipo.toLowerCase().includes(needle),
+    return disponibles.filter(
+      (i) =>
+        i.ref.toLowerCase().includes(needle) ||
+        i.calle.toLowerCase().includes(needle) ||
+        i.localidad.toLowerCase().includes(needle) ||
+        i.barrio.toLowerCase().includes(needle) ||
+        i.tipo.toLowerCase().includes(needle),
     );
   }, [disponibles, needle]);
 
   const filteredInquilinos = useMemo(() => {
     if (!needle) return inquilinos;
-    return inquilinos.filter((c) =>
-      c.nombre.toLowerCase().includes(needle) ||
-      c.email.toLowerCase().includes(needle) ||
-      c.telefono.toLowerCase().includes(needle),
+    return inquilinos.filter(
+      (c) =>
+        c.nombre.toLowerCase().includes(needle) ||
+        c.email.toLowerCase().includes(needle) ||
+        c.telefono.toLowerCase().includes(needle),
     );
   }, [inquilinos, needle]);
 
@@ -149,27 +166,41 @@ function AlquileresPage() {
 
   const filteredActivos = useMemo(() => {
     if (!needle) return activos;
-    return activos.filter(({ inmueble, inquilino }) =>
-      inmueble.ref.toLowerCase().includes(needle) ||
-      inmueble.calle.toLowerCase().includes(needle) ||
-      (inquilino?.nombre ?? "").toLowerCase().includes(needle),
+    return activos.filter(
+      ({ inmueble, inquilino }) =>
+        inmueble.ref.toLowerCase().includes(needle) ||
+        inmueble.calle.toLowerCase().includes(needle) ||
+        (inquilino?.nombre ?? "").toLowerCase().includes(needle),
     );
   }, [activos, needle]);
 
   const TABS: { key: Tab; label: string; count: number }[] = [
-    { key: "disponible", label: "Disponible", count: disponibles.length },
+    { key: "disponible", label: "En cartera", count: disponibles.length },
     { key: "inquilinos", label: "Inquilinos", count: inquilinos.length },
-    { key: "activos", label: "Activos", count: alquilados.length },
+    { key: "activos", label: "Contratos activos", count: alquilados.length },
   ];
 
   return (
     <AppShell title="Alquiler">
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        <KpiCard icon={Home} label="Disponibles" value={String(kpis.disponibles)} tone="primary" />
-        <KpiCard icon={Users} label="Inquilinos" value={String(kpis.inquilinos)} />
-        <KpiCard icon={CheckCircle2} label="Alquilados" value={String(kpis.alquilados)} tone="gold" />
-        <KpiCard icon={TrendingUp} label="Ingresos / mes" value={formatEuro(kpis.ingresos)} />
+        <KpiCard icon={Home} label="En cartera" value={String(kpis.disponibles)} tone="primary" />
+        <KpiCard
+          icon={Users}
+          label="Inquilinos"
+          value={clientesLoading ? "—" : String(kpis.inquilinos)}
+        />
+        <KpiCard
+          icon={CheckCircle2}
+          label="Alquilados"
+          value={String(kpis.alquilados)}
+          tone="gold"
+        />
+        <KpiCard
+          icon={TrendingUp}
+          label="Renta mensual gestionada"
+          value={formatEuro(kpis.ingresos)}
+        />
       </div>
 
       {/* Tab bar + toolbar */}
@@ -178,7 +209,10 @@ function AlquileresPage() {
           {TABS.map((t) => (
             <button
               key={t.key}
-              onClick={() => { setTab(t.key); setQ(""); }}
+              onClick={() => {
+                setTab(t.key);
+                setQ("");
+              }}
               className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-sm font-medium transition-colors ${
                 tab === t.key
                   ? "bg-background shadow-sm text-foreground"
@@ -186,9 +220,11 @@ function AlquileresPage() {
               }`}
             >
               {t.label}
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full leading-none ${
-                tab === t.key ? "bg-primary/10 text-primary" : "bg-border text-muted-foreground"
-              }`}>
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full leading-none ${
+                  tab === t.key ? "bg-primary/10 text-primary" : "bg-border text-muted-foreground"
+                }`}
+              >
                 {t.count}
               </span>
             </button>
@@ -216,23 +252,25 @@ function AlquileresPage() {
       </div>
 
       {/* Tab content */}
-      {tab === "disponible" && (
-        <DisponibleTab items={filteredDisponibles} />
-      )}
+      {tab === "disponible" && <DisponibleTab items={filteredDisponibles} />}
       {tab === "inquilinos" && (
         <InquilinosTab items={filteredInquilinos} alquilerById={alquilerById} />
       )}
-      {tab === "activos" && (
-        <ActivosTab items={filteredActivos} />
-      )}
+      {tab === "activos" && <ActivosTab items={filteredActivos} />}
     </AppShell>
   );
 }
 
 function KpiCard({
-  icon: Icon, label, value, tone = "default",
+  icon: Icon,
+  label,
+  value,
+  tone = "default",
 }: {
-  icon: any; label: string; value: string; tone?: "default" | "primary" | "gold";
+  icon: any;
+  label: string;
+  value: string;
+  tone?: "default" | "primary" | "gold";
 }) {
   const toneCls = {
     default: "bg-card",
@@ -245,7 +283,9 @@ function KpiCard({
         <Icon className="size-4 text-primary" />
       </div>
       <div className="min-w-0">
-        <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{label}</div>
+        <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
+          {label}
+        </div>
         <div className="text-xl font-bold tracking-tight truncate">{value}</div>
       </div>
     </div>
@@ -268,7 +308,11 @@ function DisponibleTab({ items }: { items: Inmueble[] }) {
             className="group rounded-lg border border-border bg-card overflow-hidden flex flex-col hover:shadow-md transition-shadow"
           >
             <div className="aspect-video relative overflow-hidden">
-              <SafeImage src={i.imagen} alt={i.calle || i.ref} imgClassName="group-hover:scale-[1.02] transition-transform" />
+              <SafeImage
+                src={i.imagen}
+                alt={i.calle || i.ref}
+                imgClassName="group-hover:scale-[1.02] transition-transform"
+              />
               <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5">
                 <StatusBadge estatus={i.estatus} />
               </div>
@@ -281,7 +325,10 @@ function DisponibleTab({ items }: { items: Inmueble[] }) {
             <div className="p-4 flex flex-col gap-2 flex-1">
               <div className="flex items-baseline justify-between gap-3">
                 <h3 className="font-semibold text-sm truncate min-w-0 flex-1">
-                  {i.calle || "Sin dirección"} {i.numero && <span className="text-muted-foreground font-normal">{i.numero}</span>}
+                  {i.calle || "Sin dirección"}{" "}
+                  {i.numero && (
+                    <span className="text-muted-foreground font-normal">{i.numero}</span>
+                  )}
                 </h3>
                 <div className="text-base font-semibold text-primary whitespace-nowrap shrink-0">
                   {formatEuro(i.precio)}
@@ -301,7 +348,9 @@ function DisponibleTab({ items }: { items: Inmueble[] }) {
                   <span className="text-[11px] text-muted-foreground truncate">
                     Prop.: <span className="text-foreground/80">{i.propietario}</span>
                   </span>
-                ) : <span />}
+                ) : (
+                  <span />
+                )}
                 <DiasBadge dias={dias} />
               </div>
             </div>
@@ -312,7 +361,13 @@ function DisponibleTab({ items }: { items: Inmueble[] }) {
   );
 }
 
-function InquilinosTab({ items, alquilerById }: { items: Cliente[]; alquilerById: Map<string, Inmueble> }) {
+function InquilinosTab({
+  items,
+  alquilerById,
+}: {
+  items: Cliente[];
+  alquilerById: Map<string, Inmueble>;
+}) {
   if (items.length === 0) {
     return <Empty text="Sin inquilinos con propiedad vinculada." />;
   }
@@ -327,7 +382,10 @@ function InquilinosTab({ items, alquilerById }: { items: Cliente[]; alquilerById
             .map((id) => alquilerById.get(id))
             .filter((i): i is Inmueble => !!i);
           return (
-            <li key={c.id} className="flex items-start gap-4 px-4 py-3 hover:bg-accent/40 transition-colors">
+            <li
+              key={c.id}
+              className="flex items-start gap-4 px-4 py-3 hover:bg-accent/40 transition-colors"
+            >
               <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                 <User className="size-4 text-primary" />
               </div>
@@ -335,13 +393,21 @@ function InquilinosTab({ items, alquilerById }: { items: Cliente[]; alquilerById
                 <div className="text-sm font-medium truncate">{c.nombre}</div>
                 <div className="text-[11px] text-muted-foreground flex items-center gap-3 mt-0.5 flex-wrap">
                   {c.email && (
-                    <a href={`mailto:${c.email}`} className="inline-flex items-center gap-1 hover:text-primary transition-colors">
-                      <Mail className="size-3" />{c.email}
+                    <a
+                      href={`mailto:${c.email}`}
+                      className="inline-flex items-center gap-1 hover:text-primary transition-colors"
+                    >
+                      <Mail className="size-3" />
+                      {c.email}
                     </a>
                   )}
                   {c.telefono && (
-                    <a href={`tel:${c.telefono}`} className="inline-flex items-center gap-1 hover:text-primary transition-colors">
-                      <Phone className="size-3" />{c.telefono}
+                    <a
+                      href={`tel:${c.telefono}`}
+                      className="inline-flex items-center gap-1 hover:text-primary transition-colors"
+                    >
+                      <Phone className="size-3" />
+                      {c.telefono}
                     </a>
                   )}
                 </div>
@@ -356,9 +422,16 @@ function InquilinosTab({ items, alquilerById }: { items: Cliente[]; alquilerById
                         className="flex items-center gap-2 text-[11px] rounded-md bg-muted/60 border border-border/60 px-2 py-1 hover:bg-muted transition-colors"
                       >
                         <Building2 className="size-3 text-muted-foreground shrink-0" />
-                        <span className="font-medium truncate">{inm.calle} {inm.numero}</span>
-                        <span className="text-muted-foreground shrink-0">{[inm.barrio, inm.localidad].filter(Boolean).join(", ")}</span>
-                        <span className="ml-auto font-semibold text-primary shrink-0">{formatEuro(inm.precioFinal || inm.precio)}<span className="font-normal text-muted-foreground">/mes</span></span>
+                        <span className="font-medium truncate">
+                          {inm.calle} {inm.numero}
+                        </span>
+                        <span className="text-muted-foreground shrink-0">
+                          {[inm.barrio, inm.localidad].filter(Boolean).join(", ")}
+                        </span>
+                        <span className="ml-auto font-semibold text-primary shrink-0">
+                          {formatEuro(inm.precioFinal || inm.precio)}
+                          <span className="font-normal text-muted-foreground">/mes</span>
+                        </span>
                       </Link>
                     ))}
                   </div>
@@ -379,7 +452,10 @@ function ActivosTab({ items }: { items: { inmueble: Inmueble; inquilino: Cliente
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {items.map(({ inmueble: i, inquilino }) => (
-        <div key={i.id} className="rounded-lg border border-border bg-card overflow-hidden flex flex-col">
+        <div
+          key={i.id}
+          className="rounded-lg border border-border bg-card overflow-hidden flex flex-col"
+        >
           {/* Property header */}
           <Link
             to="/inmuebles/$id"
@@ -392,7 +468,11 @@ function ActivosTab({ items }: { items: { inmueble: Inmueble; inquilino: Cliente
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold truncate">
                 {i.calle || "Sin dirección"} {i.numero}
-                {i.ref && <span className="ml-1.5 text-[11px] font-mono text-muted-foreground">#{cleanRef(i.ref)}</span>}
+                {i.ref && (
+                  <span className="ml-1.5 text-[11px] font-mono text-muted-foreground">
+                    #{cleanRef(i.ref)}
+                  </span>
+                )}
               </div>
               <div className="text-[11px] text-muted-foreground truncate">
                 {[i.barrio, i.localidad].filter(Boolean).join(" · ") || i.tipo}
@@ -417,13 +497,21 @@ function ActivosTab({ items }: { items: { inmueble: Inmueble; inquilino: Cliente
                 <div className="text-sm font-medium truncate">{inquilino.nombre}</div>
                 <div className="text-[11px] text-muted-foreground flex gap-3 flex-wrap mt-0.5">
                   {inquilino.telefono && (
-                    <a href={`tel:${inquilino.telefono}`} className="inline-flex items-center gap-1 hover:text-primary">
-                      <Phone className="size-3" />{inquilino.telefono}
+                    <a
+                      href={`tel:${inquilino.telefono}`}
+                      className="inline-flex items-center gap-1 hover:text-primary"
+                    >
+                      <Phone className="size-3" />
+                      {inquilino.telefono}
                     </a>
                   )}
                   {inquilino.email && (
-                    <a href={`mailto:${inquilino.email}`} className="inline-flex items-center gap-1 hover:text-primary">
-                      <Mail className="size-3" />{inquilino.email}
+                    <a
+                      href={`mailto:${inquilino.email}`}
+                      className="inline-flex items-center gap-1 hover:text-primary"
+                    >
+                      <Mail className="size-3" />
+                      {inquilino.email}
                     </a>
                   )}
                 </div>
@@ -439,7 +527,5 @@ function ActivosTab({ items }: { items: { inmueble: Inmueble; inquilino: Cliente
 }
 
 function Empty({ text }: { text: string }) {
-  return (
-    <div className="text-center text-sm text-muted-foreground py-16">{text}</div>
-  );
+  return <div className="text-center text-sm text-muted-foreground py-16">{text}</div>;
 }

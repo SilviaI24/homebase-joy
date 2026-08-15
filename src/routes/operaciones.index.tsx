@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { RouteError } from "@/components/RouteError";
 import { Input } from "@/components/ui/input";
 import {
   Banknote,
@@ -22,6 +23,8 @@ import {
 import { operacionesQuery, agentesQuery, allInmueblesQuery } from "@/lib/queries";
 import {
   createOperacion,
+  closeOperacion,
+  getOperationCloseBlockers,
   updateOperacionEstado,
   type OperacionTipo,
   type OperacionEstado,
@@ -33,7 +36,10 @@ export const Route = createFileRoute("/operaciones/")({
   head: () => ({
     meta: [
       { title: "Operaciones · El Sol Grupo CRM" },
-      { name: "description", content: "Gestión de operaciones inmobiliarias: ventas, alquileres y comisiones." },
+      {
+        name: "description",
+        content: "Gestión de operaciones inmobiliarias: ventas, alquileres y comisiones.",
+      },
     ],
   }),
   loader: ({ context }) => {
@@ -49,72 +55,90 @@ export const Route = createFileRoute("/operaciones/")({
   ),
   errorComponent: ({ error }) => (
     <AppShell title="Operaciones">
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        Error: {error.message}
-      </div>
+      <RouteError error={error} />
     </AppShell>
   ),
 });
 
-const TIPOS: OperacionTipo[]   = ["Venta", "Alquiler", "Valoración", "Servicio"];
+const TIPOS: OperacionTipo[] = ["Venta", "Alquiler", "Valoración", "Servicio"];
 const ESTADOS: OperacionEstado[] = ["Abierta", "En negociación", "Cerrada", "Cancelada"];
 
 const ESTADO_STYLE: Record<OperacionEstado, string> = {
-  "Abierta":         "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  "En negociación":  "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  "Cerrada":         "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  "Cancelada":       "bg-zinc-500/10 text-zinc-500",
+  Abierta: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  "En negociación": "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  Cerrada: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  Cancelada: "bg-zinc-500/10 text-zinc-500",
 };
 
 function fmtEur(n: number | null) {
   if (n == null) return "—";
-  return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(n);
 }
 function fmtDate(s: string | null) {
   if (!s) return "—";
-  try { return new Date(s).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }); }
-  catch { return s.slice(0, 10); }
+  try {
+    return new Date(s).toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return s.slice(0, 10);
+  }
 }
 
 function OperacionesPage() {
-  const { data }    = useSuspenseQuery(operacionesQuery);
+  const { data } = useSuspenseQuery(operacionesQuery);
   const { data: agData } = useSuspenseQuery(agentesQuery);
   const { data: inmData } = useSuspenseQuery(allInmueblesQuery);
-  const qc          = useQueryClient();
+  const qc = useQueryClient();
+  const { canSeeFinanciero, canCreate, canClose } = data.permissions;
 
   const [estadoFilter, setEstadoFilter] = useState<OperacionEstado | "Todas">("Todas");
-  const [tipoFilter,   setTipoFilter]   = useState<OperacionTipo | "Todos">("Todos");
-  const [showForm,     setShowForm]     = useState(false);
+  const [tipoFilter, setTipoFilter] = useState<OperacionTipo | "Todos">("Todos");
+  const [showForm, setShowForm] = useState(false);
 
   // Form state
-  const [fTipo,        setFTipo]        = useState<OperacionTipo>("Venta");
-  const [fPrecio,      setFPrecio]      = useState("");
+  const [fTipo, setFTipo] = useState<OperacionTipo>("Venta");
+  const [fPrecio, setFPrecio] = useState("");
   const [fComisionPct, setFComisionPct] = useState("3");
-  const [fAgenteId,    setFAgenteId]    = useState("");
-  const [fVendedorQ,   setFVendedorQ]   = useState("");
-  const [fVendedor,    setFVendedor]    = useState<{ id: string; nombre: string } | null>(null);
-  const [fCompradorQ,  setFCompradorQ]  = useState("");
-  const [fComprador,   setFComprador]   = useState<{ id: string; nombre: string } | null>(null);
-  const [fPropertyQ,   setFPropertyQ]   = useState("");
-  const [fProperty,    setFProperty]    = useState<{ id: string; label: string } | null>(null);
-  const [fNotas,       setFNotas]       = useState("");
+  const [fAgenteId, setFAgenteId] = useState("");
+  const [fVendedorQ, setFVendedorQ] = useState("");
+  const [fVendedor, setFVendedor] = useState<{ id: string; nombre: string } | null>(null);
+  const [fCompradorQ, setFCompradorQ] = useState("");
+  const [fComprador, setFComprador] = useState<{ id: string; nombre: string } | null>(null);
+  const [fPropertyQ, setFPropertyQ] = useState("");
+  const [fProperty, setFProperty] = useState<{ id: string; label: string } | null>(null);
+  const [fNotas, setFNotas] = useState("");
 
   const propertyResults = useMemo(() => {
     if (!fPropertyQ.trim() || fPropertyQ.length < 2) return [];
     const q = fPropertyQ.toLowerCase();
-    return (inmData?.inmuebles ?? [])
-      .filter(p =>
-        p.calle.toLowerCase().includes(q) ||
-        p.ref.toLowerCase().includes(q) ||
-        p.barrio?.toLowerCase().includes(q)
+    const pool =
+      fTipo === "Venta"
+        ? (inmData?.inmuebles ?? [])
+        : fTipo === "Alquiler"
+          ? (inmData?.alquileres ?? [])
+          : [...(inmData?.inmuebles ?? []), ...(inmData?.alquileres ?? [])];
+    return pool
+      .filter(
+        (p) =>
+          p.calle.toLowerCase().includes(q) ||
+          p.ref.toLowerCase().includes(q) ||
+          p.barrio?.toLowerCase().includes(q),
       )
       .slice(0, 8)
-      .map(p => ({ id: p.id, label: `${p.ref} — ${p.calle} ${p.numero ?? ""}`.trim() }));
-  }, [fPropertyQ, inmData]);
+      .map((p) => ({ id: p.id, label: `${p.ref} — ${p.calle} ${p.numero ?? ""}`.trim() }));
+  }, [fPropertyQ, fTipo, inmData]);
 
-  const createFn        = useServerFn(createOperacion);
-  const updateEstadoFn  = useServerFn(updateOperacionEstado);
-  const searchFn        = useServerFn(searchContactos);
+  const createFn = useServerFn(createOperacion);
+  const closeFn = useServerFn(closeOperacion);
+  const updateEstadoFn = useServerFn(updateOperacionEstado);
+  const searchFn = useServerFn(searchContactos);
 
   const { data: vendedorResults } = useQuery({
     queryKey: ["contact-search-v", fVendedorQ],
@@ -129,34 +153,43 @@ function OperacionesPage() {
     staleTime: 10_000,
   });
 
-  const precio     = parseFloat(fPrecio.replace(/\./g, "").replace(",", ".")) || null;
-  const pct        = parseFloat(fComisionPct) || null;
-  const comisionCalc = precio && pct ? precio * pct / 100 : null;
+  const precio = parseFloat(fPrecio.replace(/\./g, "").replace(",", ".")) || null;
+  const pct = parseFloat(fComisionPct) || null;
+  const comisionCalc = precio && pct ? (precio * pct) / 100 : null;
 
   const createMut = useMutation({
-    mutationFn: () => createFn({
-      data: {
-        tipo: fTipo,
-        precioOperacion: precio,
-        comisionPct: pct,
-        propertyId: fProperty?.id ?? null,
-        agenteId: fAgenteId || null,
-        vendedorId: fVendedor?.id ?? null,
-        compradorId: fComprador?.id ?? null,
-        notas: fNotas,
-      },
-    }),
+    mutationFn: () =>
+      createFn({
+        data: {
+          tipo: fTipo,
+          precioOperacion: canClose ? precio : null,
+          comisionPct: canClose ? pct : null,
+          propertyId: fProperty?.id ?? null,
+          agenteId: fAgenteId || null,
+          vendedorId: fVendedor?.id ?? null,
+          compradorId: fComprador?.id ?? null,
+          notas: fNotas,
+        },
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["operaciones"] });
       toast.success("Operación creada");
       setShowForm(false);
-      setFPrecio(""); setFComisionPct("3"); setFAgenteId("");
-      setFVendedor(null); setFVendedorQ("");
-      setFComprador(null); setFCompradorQ("");
-      setFProperty(null); setFPropertyQ("");
+      setFPrecio("");
+      setFComisionPct("3");
+      setFAgenteId("");
+      setFVendedor(null);
+      setFVendedorQ("");
+      setFComprador(null);
+      setFCompradorQ("");
+      setFProperty(null);
+      setFPropertyQ("");
       setFNotas("");
     },
-    onError: (e: Error) => toast.error(e.message || "Error al crear"),
+    onError: (e: Error) => {
+      console.error("No se pudo crear la operación", e);
+      toast.error(e.message || "No se pudo crear la operación. Revisa los datos.");
+    },
   });
 
   const estadoMut = useMutation({
@@ -166,58 +199,116 @@ function OperacionesPage() {
       qc.invalidateQueries({ queryKey: ["operaciones"] });
       toast.success("Estado actualizado");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      console.error("No se pudo actualizar la operación", e);
+      toast.error(e.message || "No se pudo actualizar el estado de la operación.");
+    },
+  });
+
+  const closeMut = useMutation({
+    mutationFn: (id: string) => closeFn({ data: { id } }),
+    onSuccess: (result) => {
+      void Promise.all([
+        qc.invalidateQueries({ queryKey: ["operaciones"] }),
+        qc.invalidateQueries({ queryKey: ["all-inmuebles"] }),
+        qc.invalidateQueries({ queryKey: ["clientes"] }),
+        qc.invalidateQueries({ queryKey: ["seguimientos"] }),
+      ]);
+      toast.success(result.alreadyClosed ? "La operación ya estaba cerrada" : "Operación cerrada");
+    },
+    onError: (e: Error) => {
+      console.error("No se pudo cerrar la operación", e);
+      toast.error(e.message || "No se pudo cerrar la operación de forma segura.");
+    },
   });
 
   const filtered = useMemo(() => {
     let rows = data.operaciones;
-    if (estadoFilter !== "Todas") rows = rows.filter(r => r.estado === estadoFilter);
-    if (tipoFilter !== "Todos")   rows = rows.filter(r => r.tipo === tipoFilter);
+    if (estadoFilter !== "Todas") rows = rows.filter((r) => r.estado === estadoFilter);
+    if (tipoFilter !== "Todos") rows = rows.filter((r) => r.tipo === tipoFilter);
     return rows;
   }, [data.operaciones, estadoFilter, tipoFilter]);
 
   // KPIs
   const kpis = useMemo(() => {
     const ops = data.operaciones;
-    const cerradas = ops.filter(o => o.estado === "Cerrada");
-    const activas  = ops.filter(o => o.estado === "Abierta" || o.estado === "En negociación");
+    const cerradas = ops.filter((o) => o.estado === "Cerrada");
+    const activas = ops.filter((o) => o.estado === "Abierta" || o.estado === "En negociación");
     const totalComision = cerradas.reduce((s, o) => s + (o.comisionTotal ?? 0), 0);
     const pipelineValor = activas.reduce((s, o) => s + (o.precioOperacion ?? 0), 0);
-    return { total: ops.length, cerradas: cerradas.length, activas: activas.length, totalComision, pipelineValor };
+    return {
+      total: ops.length,
+      cerradas: cerradas.length,
+      activas: activas.length,
+      totalComision,
+      pipelineValor,
+    };
   }, [data.operaciones]);
 
   return (
     <AppShell title="Operaciones">
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-        <KpiCard icon={Banknote}     label="Total"          value={kpis.total.toString()} />
-        <KpiCard icon={Clock}        label="En curso"       value={kpis.activas.toString()} tone="amber" />
-        <KpiCard icon={CheckCircle2} label="Cerradas"       value={kpis.cerradas.toString()} tone="emerald" />
-        <KpiCard icon={TrendingUp}   label="Comisiones"     value={fmtEur(kpis.totalComision)} tone="gold" />
+        <KpiCard icon={Banknote} label="Total" value={kpis.total.toString()} />
+        <KpiCard icon={Clock} label="En curso" value={kpis.activas.toString()} tone="amber" />
+        <KpiCard
+          icon={CheckCircle2}
+          label="Cerradas"
+          value={kpis.cerradas.toString()}
+          tone="emerald"
+        />
+        <KpiCard
+          icon={canSeeFinanciero ? TrendingUp : X}
+          label={canSeeFinanciero ? "Comisiones" : "Canceladas"}
+          value={
+            canSeeFinanciero
+              ? fmtEur(kpis.totalComision)
+              : data.operaciones.filter((op) => op.estado === "Cancelada").length.toString()
+          }
+          tone={canSeeFinanciero ? "gold" : "default"}
+        />
       </div>
 
       {/* Filters + new button */}
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex flex-wrap gap-1.5">
-          {(["Todas", ...ESTADOS] as const).map(e => (
-            <button key={e} onClick={() => setEstadoFilter(e as OperacionEstado | "Todas")}
+          {(["Todas", ...ESTADOS] as const).map((e) => (
+            <button
+              key={e}
+              onClick={() => setEstadoFilter(e as OperacionEstado | "Todas")}
               className={`px-3 py-1 rounded-full text-[11px] font-medium border transition-all ${
-                estadoFilter === e ? "bg-primary text-primary-foreground border-transparent" : "bg-card border-border text-muted-foreground hover:text-foreground"
-              }`}>{e}</button>
+                estadoFilter === e
+                  ? "bg-primary text-primary-foreground border-transparent"
+                  : "bg-card border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {e}
+            </button>
           ))}
           <span className="w-px h-5 bg-border self-center" />
-          {(["Todos", ...TIPOS] as const).map(t => (
-            <button key={t} onClick={() => setTipoFilter(t as OperacionTipo | "Todos")}
+          {(["Todos", ...TIPOS] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTipoFilter(t as OperacionTipo | "Todos")}
               className={`px-3 py-1 rounded-full text-[11px] font-medium border transition-all ${
-                tipoFilter === t ? "bg-foreground text-background border-transparent" : "bg-card border-border text-muted-foreground hover:text-foreground"
-              }`}>{t}</button>
+                tipoFilter === t
+                  ? "bg-foreground text-background border-transparent"
+                  : "bg-card border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t}
+            </button>
           ))}
         </div>
-        <button onClick={() => setShowForm(v => !v)}
-          className="h-8 px-3 inline-flex items-center gap-1.5 rounded-md border border-input bg-background text-xs font-medium hover:bg-accent transition-colors shrink-0">
-          {showForm ? <X className="size-3.5" /> : <Plus className="size-3.5" />}
-          {showForm ? "Cancelar" : "Nueva operación"}
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="h-8 px-3 inline-flex items-center gap-1.5 rounded-md border border-input bg-background text-xs font-medium hover:bg-accent transition-colors shrink-0"
+          >
+            {showForm ? <X className="size-3.5" /> : <Plus className="size-3.5" />}
+            {showForm ? "Cancelar" : "Nueva operación"}
+          </button>
+        )}
       </div>
 
       {/* Form */}
@@ -225,14 +316,19 @@ function OperacionesPage() {
         <div className="rounded-lg border border-border bg-card p-5 mb-5">
           <h3 className="text-sm font-semibold mb-4">Nueva operación</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
             {/* Tipo */}
             <div>
-              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">Tipo *</label>
+              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+                Tipo *
+              </label>
               <div className="flex flex-wrap gap-1.5">
-                {TIPOS.map(t => (
-                  <button key={t} type="button" onClick={() => setFTipo(t)}
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${fTipo === t ? "bg-primary text-primary-foreground border-transparent" : "bg-background border-border text-muted-foreground hover:text-foreground"}`}>
+                {TIPOS.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setFTipo(t)}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${fTipo === t ? "bg-primary text-primary-foreground border-transparent" : "bg-background border-border text-muted-foreground hover:text-foreground"}`}
+                  >
                     {t}
                   </button>
                 ))}
@@ -241,13 +337,21 @@ function OperacionesPage() {
 
             {/* Inmueble */}
             <div className="sm:col-span-2">
-              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">Inmueble</label>
+              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+                Inmueble
+              </label>
               {fProperty ? (
                 <div className="flex items-center gap-2 h-9 rounded-md border border-input bg-muted/40 px-3 text-sm">
                   <Building2 className="size-3.5 text-muted-foreground shrink-0" />
                   <span className="flex-1 truncate">{fProperty.label}</span>
-                  <button type="button" onClick={() => { setFProperty(null); setFPropertyQ(""); }}
-                    className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFProperty(null);
+                      setFPropertyQ("");
+                    }}
+                    className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                  >
                     <X className="size-3.5" />
                   </button>
                 </div>
@@ -255,15 +359,21 @@ function OperacionesPage() {
                 <div className="relative">
                   <Input
                     value={fPropertyQ}
-                    onChange={e => setFPropertyQ(e.target.value)}
+                    onChange={(e) => setFPropertyQ(e.target.value)}
                     placeholder="Buscar por ref, calle o barrio…"
                   />
                   {propertyResults.length > 0 && (
                     <div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-popover shadow-md overflow-hidden">
-                      {propertyResults.map(p => (
-                        <button key={p.id} type="button"
-                          onClick={() => { setFProperty(p); setFPropertyQ(""); }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left">
+                      {propertyResults.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setFProperty(p);
+                            setFPropertyQ("");
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
+                        >
                           <Building2 className="size-3.5 text-muted-foreground shrink-0" />
                           <span className="truncate">{p.label}</span>
                         </button>
@@ -276,54 +386,108 @@ function OperacionesPage() {
 
             {/* Agente */}
             <div>
-              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">Agente responsable</label>
-              <select value={fAgenteId} onChange={e => setFAgenteId(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring">
-                <option value="">Sin asignar</option>
-                {agData.agentes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+                Agente responsable
+              </label>
+              <select
+                value={fAgenteId}
+                onChange={(e) => setFAgenteId(e.target.value)}
+                className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">Automático · agente actual</option>
+                {agData.agentes.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.nombre}
+                  </option>
+                ))}
               </select>
             </div>
 
             {/* Vendedor (propietario) */}
-            <ContactPicker label="Vendedor / Propietario" value={fVendedor} query={fVendedorQ}
+            <ContactPicker
+              label="Vendedor / Propietario"
+              value={fVendedor}
+              query={fVendedorQ}
               results={vendedorResults?.contacts ?? []}
-              onQuery={setFVendedorQ} onSelect={setFVendedor} onClear={() => { setFVendedor(null); setFVendedorQ(""); }} />
+              onQuery={setFVendedorQ}
+              onSelect={setFVendedor}
+              onClear={() => {
+                setFVendedor(null);
+                setFVendedorQ("");
+              }}
+            />
 
             {/* Comprador / Inquilino */}
-            <ContactPicker label="Comprador / Inquilino" value={fComprador} query={fCompradorQ}
+            <ContactPicker
+              label="Comprador / Inquilino"
+              value={fComprador}
+              query={fCompradorQ}
               results={compradorResults?.contacts ?? []}
-              onQuery={setFCompradorQ} onSelect={setFComprador} onClear={() => { setFComprador(null); setFCompradorQ(""); }} />
+              onQuery={setFCompradorQ}
+              onSelect={setFComprador}
+              onClear={() => {
+                setFComprador(null);
+                setFCompradorQ("");
+              }}
+            />
 
-            {/* Precio */}
-            <div>
-              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">Precio operación (€)</label>
-              <Input value={fPrecio} onChange={e => setFPrecio(e.target.value)}
-                placeholder="Ej: 185000" type="text" inputMode="decimal" />
-            </div>
+            {canClose && (
+              <>
+                {/* Precio */}
+                <div>
+                  <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+                    Precio operación (€)
+                  </label>
+                  <Input
+                    value={fPrecio}
+                    onChange={(e) => setFPrecio(e.target.value)}
+                    placeholder="Ej: 185000"
+                    type="text"
+                    inputMode="decimal"
+                  />
+                </div>
 
-            {/* Comisión % */}
-            <div>
-              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">Comisión (%)</label>
-              <Input value={fComisionPct} onChange={e => setFComisionPct(e.target.value)}
-                placeholder="Ej: 3" type="text" inputMode="decimal" />
-              {comisionCalc !== null && (
-                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
-                  = {fmtEur(comisionCalc)}
-                </p>
-              )}
-            </div>
+                {/* Comisión % */}
+                <div>
+                  <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+                    Comisión (%)
+                  </label>
+                  <Input
+                    value={fComisionPct}
+                    onChange={(e) => setFComisionPct(e.target.value)}
+                    placeholder="Ej: 3"
+                    type="text"
+                    inputMode="decimal"
+                  />
+                  {comisionCalc !== null && (
+                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
+                      = {fmtEur(comisionCalc)}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* Notas */}
             <div className="sm:col-span-2">
-              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">Notas</label>
-              <textarea value={fNotas} onChange={e => setFNotas(e.target.value)} rows={2}
+              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+                Notas
+              </label>
+              <textarea
+                value={fNotas}
+                onChange={(e) => setFNotas(e.target.value)}
+                rows={2}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring resize-none"
-                placeholder="Observaciones…" />
+                placeholder="Observaciones…"
+              />
             </div>
           </div>
 
-          <button onClick={() => createMut.mutate()} disabled={!fTipo || createMut.isPending}
-            className="mt-4 h-9 px-6 inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-40 transition-opacity">
+          <button
+            onClick={() => createMut.mutate()}
+            disabled={!fTipo || createMut.isPending}
+            className="mt-4 h-9 px-6 inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-40 transition-opacity"
+          >
             {createMut.isPending ? "Creando…" : "Crear operación"}
           </button>
         </div>
@@ -336,10 +500,15 @@ function OperacionesPage() {
         </div>
       ) : (
         <div className="rounded-lg border border-border bg-card overflow-hidden divide-y divide-border">
-          {filtered.map(op => (
-            <OperacionRow key={op.id} op={op}
+          {filtered.map((op) => (
+            <OperacionRow
+              key={op.id}
+              op={op}
               onEstadoChange={(estado) => estadoMut.mutate({ id: op.id, estado })}
-              isPending={estadoMut.isPending} />
+              onClose={() => closeMut.mutate(op.id)}
+              isPending={estadoMut.isPending || closeMut.isPending}
+              canClose={canClose}
+            />
           ))}
         </div>
       )}
@@ -349,15 +518,22 @@ function OperacionesPage() {
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function KpiCard({ icon: Icon, label, value, tone = "default" }: {
-  icon: typeof Banknote; label: string; value: string;
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  tone = "default",
+}: {
+  icon: typeof Banknote;
+  label: string;
+  value: string;
   tone?: "default" | "amber" | "emerald" | "gold";
 }) {
   const toneMap = {
     default: "text-primary bg-primary/10",
-    amber:   "text-amber-600 dark:text-amber-400 bg-amber-500/10",
+    amber: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
     emerald: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
-    gold:    "text-[var(--gold)] bg-[var(--gold)]/10",
+    gold: "text-[var(--gold)] bg-[var(--gold)]/10",
   };
   return (
     <div className="rounded-lg border border-border bg-card p-4">
@@ -372,7 +548,15 @@ function KpiCard({ icon: Icon, label, value, tone = "default" }: {
   );
 }
 
-function ContactPicker({ label, value, query, results, onQuery, onSelect, onClear }: {
+function ContactPicker({
+  label,
+  value,
+  query,
+  results,
+  onQuery,
+  onSelect,
+  onClear,
+}: {
   label: string;
   value: { id: string; nombre: string } | null;
   query: string;
@@ -383,20 +567,37 @@ function ContactPicker({ label, value, query, results, onQuery, onSelect, onClea
 }) {
   return (
     <div>
-      <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">{label}</label>
+      <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+        {label}
+      </label>
       {value ? (
         <div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2">
           <span className="text-sm font-medium">{value.nombre}</span>
-          <button type="button" onClick={onClear} className="text-[11px] text-muted-foreground hover:text-foreground">cambiar</button>
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            cambiar
+          </button>
         </div>
       ) : (
         <div className="relative">
-          <Input value={query} onChange={e => onQuery(e.target.value)} placeholder="Buscar contacto…" className="text-sm" />
+          <Input
+            value={query}
+            onChange={(e) => onQuery(e.target.value)}
+            placeholder="Buscar contacto…"
+            className="text-sm"
+          />
           {query.length >= 2 && results.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md overflow-hidden z-20 shadow-xl">
-              {results.map(c => (
-                <button key={c.id} type="button" onClick={() => onSelect(c)}
-                  className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors border-b border-border last:border-0">
+              {results.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => onSelect(c)}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-accent transition-colors border-b border-border last:border-0"
+                >
                   {c.nombre}
                 </button>
               ))}
@@ -408,19 +609,31 @@ function ContactPicker({ label, value, query, results, onQuery, onSelect, onClea
   );
 }
 
-function OperacionRow({ op, onEstadoChange, isPending }: {
+function OperacionRow({
+  op,
+  onEstadoChange,
+  onClose,
+  isPending,
+  canClose,
+}: {
   op: OperacionRow;
   onEstadoChange: (e: OperacionEstado) => void;
+  onClose: () => void;
   isPending: boolean;
+  canClose: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const closeBlockers = getOperationCloseBlockers(op);
 
   return (
     <div className="px-4 py-3.5 hover:bg-accent/20 transition-colors">
       <div className="flex items-start gap-3">
         {/* Estado + tipo */}
         <div className="flex flex-col items-start gap-1.5 shrink-0 min-w-[100px]">
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${ESTADO_STYLE[op.estado]}`}>
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${ESTADO_STYLE[op.estado]}`}
+          >
             {op.estado}
           </span>
           <span className="text-[11px] text-muted-foreground">{op.tipo}</span>
@@ -433,9 +646,16 @@ function OperacionRow({ op, onEstadoChange, isPending }: {
             <div className="flex items-center gap-1.5 text-xs font-medium mb-1">
               <Building2 className="size-3 text-muted-foreground shrink-0" />
               {op.propertyId ? (
-                <Link to="/inmuebles/$id" params={{ id: op.propertyId }} className="hover:text-primary transition-colors truncate">
-                  {op.propertyCalle}{op.propertyBarrio ? ` · ${op.propertyBarrio}` : ""}
-                  {op.propertyRef ? <span className="text-muted-foreground ml-1">({op.propertyRef})</span> : null}
+                <Link
+                  to="/inmuebles/$id"
+                  params={{ id: op.propertyId }}
+                  className="hover:text-primary transition-colors truncate"
+                >
+                  {op.propertyCalle}
+                  {op.propertyBarrio ? ` · ${op.propertyBarrio}` : ""}
+                  {op.propertyRef ? (
+                    <span className="text-muted-foreground ml-1">({op.propertyRef})</span>
+                  ) : null}
                 </Link>
               ) : (
                 <span className="truncate">{op.propertyCalle}</span>
@@ -480,29 +700,86 @@ function OperacionRow({ op, onEstadoChange, isPending }: {
           )}
           {op.fechaApertura && (
             <span className="text-[10px] text-muted-foreground flex items-center gap-1 justify-end">
-              <Calendar className="size-2.5" />{fmtDate(op.fechaApertura)}
+              <Calendar className="size-2.5" />
+              {fmtDate(op.fechaApertura)}
             </span>
           )}
         </div>
       </div>
 
       {/* Estado inline change */}
-      <div className="mt-2.5 pt-2 border-t border-border/50 relative">
-        <button onClick={() => setOpen(v => !v)} disabled={isPending}
-          className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors">
-          Cambiar estado <ChevronDown className="size-3" />
-        </button>
-        {open && (
-          <div className="absolute bottom-full left-0 mb-1 bg-card border border-border rounded-md overflow-hidden z-10 shadow-lg flex">
-            {ESTADOS.filter(e => e !== op.estado).map(e => (
-              <button key={e} onClick={() => { onEstadoChange(e); setOpen(false); }}
-                className={`px-3 py-2 text-[11px] font-medium hover:bg-accent transition-colors border-r border-border last:border-0 ${ESTADO_STYLE[e]}`}>
-                {e}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      {op.estado !== "Cerrada" && (
+        <div className="mt-2.5 pt-2 border-t border-border/50 relative">
+          <button
+            onClick={() => setOpen((v) => !v)}
+            disabled={isPending}
+            className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Cambiar estado <ChevronDown className="size-3" />
+          </button>
+          {open && (
+            <div className="absolute bottom-full left-0 mb-1 bg-card border border-border rounded-md overflow-hidden z-10 shadow-lg flex">
+              {ESTADOS.filter((e) => e !== op.estado && (canClose || e !== "Cerrada")).map((e) => (
+                <button
+                  key={e}
+                  onClick={() => {
+                    if (e === "Cerrada") setConfirmClose(true);
+                    else onEstadoChange(e);
+                    setOpen(false);
+                  }}
+                  className={`px-3 py-2 text-[11px] font-medium hover:bg-accent transition-colors border-r border-border last:border-0 ${ESTADO_STYLE[e]}`}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          )}
+          {confirmClose && (
+            <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+              <p className="text-xs font-semibold text-foreground">
+                {closeBlockers.length > 0
+                  ? "La operación todavía no puede cerrarse"
+                  : "Confirmar cierre definitivo"}
+              </p>
+              {closeBlockers.length > 0 ? (
+                <ul className="mt-2 space-y-1 text-[11px] text-amber-800 dark:text-amber-200">
+                  {closeBlockers.map((blocker) => (
+                    <li key={blocker} className="flex gap-1.5">
+                      <span aria-hidden="true">•</span>
+                      <span>{blocker}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                  Se actualizarán conjuntamente la operación, el inmueble, las partes, el pipeline y
+                  el seguimiento. Una operación cerrada no podrá reabrirse desde el CRM.
+                </p>
+              )}
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmClose(false)}
+                  disabled={isPending}
+                  className="h-8 rounded-md border border-input bg-background px-3 text-xs font-medium hover:bg-accent disabled:opacity-40"
+                >
+                  {closeBlockers.length > 0 ? "Revisar operación" : "Volver"}
+                </button>
+                {closeBlockers.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={isPending}
+                    className="h-8 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+                  >
+                    {isPending ? "Cerrando…" : "Cerrar operación"}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

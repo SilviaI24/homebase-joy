@@ -2,20 +2,51 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useMemo, lazy, Suspense } from "react";
 import {
-  AreaChart, Area, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, LineChart, Line,
+  AreaChart,
+  Area,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Cell,
+  LineChart,
+  Line,
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
+import { RouteError } from "@/components/RouteError";
 import { isAlquiler, type Inmueble } from "@/lib/inmuebles.functions";
-import { allInmueblesQuery, clientesQueryOpts, visitasQuery, leadsQueryOpts, insightsQuery, statsQuery, operacionesQuery, myRoleQuery } from "@/lib/queries";
+import {
+  allInmueblesQuery,
+  clientesQueryOpts,
+  visitasQuery,
+  leadsQueryOpts,
+  insightsQuery,
+  statsQuery,
+  operacionesQuery,
+  myRoleQuery,
+} from "@/lib/queries";
 import type { LeadInsight } from "@/lib/clientes.functions";
 import { cleanRef } from "@/lib/format";
 import type { LucideIcon } from "lucide-react";
 import {
-  TrendingUp, TrendingDown, Sparkles, ArrowRight,
-  Users, UserRound, HandCoins, CalendarCheck,
-  MapPin, Home, CalendarDays, CheckCircle2,
-  Flame, BellOff, Banknote,
+  TrendingUp,
+  TrendingDown,
+  Sparkles,
+  ArrowRight,
+  Users,
+  UserRound,
+  HandCoins,
+  CalendarCheck,
+  MapPin,
+  Home,
+  CalendarDays,
+  CheckCircle2,
+  Flame,
+  BellOff,
+  Banknote,
 } from "lucide-react";
 
 const EvolucionChart = lazy(() => import("@/components/EvolucionChart"));
@@ -53,9 +84,7 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
   errorComponent: ({ error }) => (
     <AppShell title="Dashboard">
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        Error cargando datos: {error.message}
-      </div>
+      <RouteError error={error} />
     </AppShell>
   ),
 });
@@ -66,13 +95,19 @@ function moneyShort(v: number): string {
   return `${v} €`;
 }
 function moneyFull(v: number): string {
-  return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(v);
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(v);
 }
 function fmtDate(s: string | null): string {
   if (!s) return "—";
   try {
     return new Date(s).toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
-  } catch { return s; }
+  } catch {
+    return s;
+  }
 }
 function calcDelta(cur: number, prev: number): number | null {
   if (prev === 0) return cur > 0 ? 100 : null;
@@ -82,14 +117,22 @@ function calcDelta(cur: number, prev: number): number | null {
 const COMISION_VENTA = 0.03;
 
 const ANALYTICS_PALETTE = [
-  "#c9a94a", "#60a5fa", "#34d399", "#f472b6",
-  "#a78bfa", "#fb923c", "#38bdf8", "#4ade80",
+  "#c9a94a",
+  "#60a5fa",
+  "#34d399",
+  "#f472b6",
+  "#a78bfa",
+  "#fb923c",
+  "#38bdf8",
+  "#4ade80",
 ];
 
 function fmtMes(mes: string) {
   const [y, m] = mes.split("-");
-  return new Date(Number(y), Number(m) - 1, 1)
-    .toLocaleDateString("es-ES", { month: "short", year: "2-digit" });
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("es-ES", {
+    month: "short",
+    year: "2-digit",
+  });
 }
 
 function Dashboard() {
@@ -123,7 +166,10 @@ function Dashboard() {
     }
     const captCount: Record<string, number> = {};
     const ventaCount: Record<string, number> = {};
-    months.forEach((m) => { captCount[m.key] = 0; ventaCount[m.key] = 0; });
+    months.forEach((m) => {
+      captCount[m.key] = 0;
+      ventaCount[m.key] = 0;
+    });
     inmuebles.forEach((i) => {
       if (i.fechaInicio) {
         const k = i.fechaInicio.slice(0, 7);
@@ -142,7 +188,12 @@ function Dashboard() {
 
     const lastCapt = seriesData[seriesData.length - 1]?.Captaciones ?? 0;
     const prevCapt = seriesData[seriesData.length - 2]?.Captaciones ?? 0;
-    const captDelta = prevCapt === 0 ? (lastCapt > 0 ? 100 : 0) : Math.round(((lastCapt - prevCapt) / prevCapt) * 100);
+    const captDelta =
+      prevCapt === 0
+        ? lastCapt > 0
+          ? 100
+          : 0
+        : Math.round(((lastCapt - prevCapt) / prevCapt) * 100);
     const sparkCapt = seriesData.slice(-8).map((d, i) => ({ i, v: d.Captaciones }));
 
     const recientes = [...inmuebles]
@@ -181,10 +232,21 @@ function Dashboard() {
     const prospectosWeb = inmuebles.filter((i) => i.publicacion === "PROSPECTO").length;
 
     return {
-      inmuebles, activos, reservados, vendidos, alquilados,
-      valorCartera, seriesData, sparkCapt, captDelta,
-      recientes, comisionMes, comisionAnual, comisionPipeline,
-      estancados, prospectosWeb,
+      inmuebles,
+      activos,
+      reservados,
+      vendidos,
+      alquilados,
+      valorCartera,
+      seriesData,
+      sparkCapt,
+      captDelta,
+      recientes,
+      comisionMes,
+      comisionAnual,
+      comisionPipeline,
+      estancados,
+      prospectosWeb,
     };
   }, [inmData]);
 
@@ -210,17 +272,26 @@ function Dashboard() {
     const visitas = visData.visitas as VisRow[];
     const now = new Date();
     const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const prevMonthKey = now.getMonth() === 0
-      ? `${now.getFullYear() - 1}-12`
-      : `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
+    const prevMonthKey =
+      now.getMonth() === 0
+        ? `${now.getFullYear() - 1}-12`
+        : `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
 
-    const captMes = inmuebles.filter(i => i.fechaInicio?.startsWith(curMonth)).length;
-    const captPrev = inmuebles.filter(i => i.fechaInicio?.startsWith(prevMonthKey)).length;
-    const cierresMes = inmuebles.filter(i => i.fechaEscritura?.startsWith(curMonth) && !isAlquiler(i.tipo)).length;
-    const cierresPrev = inmuebles.filter(i => i.fechaEscritura?.startsWith(prevMonthKey) && !isAlquiler(i.tipo)).length;
-    const visitasMes = visitas.filter(v => v.estado === "Realizada" && v.fecha?.startsWith(curMonth)).length;
-    const visitasPrev = visitas.filter(v => v.estado === "Realizada" && v.fecha?.startsWith(prevMonthKey)).length;
-    const reservasTotal = inmuebles.filter(i => i.estatus === "Reservado").length;
+    const captMes = inmuebles.filter((i) => i.fechaInicio?.startsWith(curMonth)).length;
+    const captPrev = inmuebles.filter((i) => i.fechaInicio?.startsWith(prevMonthKey)).length;
+    const cierresMes = inmuebles.filter(
+      (i) => i.fechaEscritura?.startsWith(curMonth) && !isAlquiler(i.tipo),
+    ).length;
+    const cierresPrev = inmuebles.filter(
+      (i) => i.fechaEscritura?.startsWith(prevMonthKey) && !isAlquiler(i.tipo),
+    ).length;
+    const visitasMes = visitas.filter(
+      (v) => v.estado === "Realizada" && v.fecha?.startsWith(curMonth),
+    ).length;
+    const visitasPrev = visitas.filter(
+      (v) => v.estado === "Realizada" && v.fecha?.startsWith(prevMonthKey),
+    ).length;
+    const reservasTotal = inmuebles.filter((i) => i.estatus === "Reservado").length;
 
     return { captMes, captPrev, cierresMes, cierresPrev, visitasMes, visitasPrev, reservasTotal };
   }, [inmData, visData]);
@@ -230,10 +301,18 @@ function Dashboard() {
     const inmuebles = inmData.inmuebles;
     // Normaliza acentos y espacios para unificar variantes del mismo municipio
     function normalizeKey(s: string): string {
-      return s.trim().normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/\s+/g, " ");
+      return s
+        .trim()
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "")
+        .toLowerCase()
+        .replace(/\s+/g, " ");
     }
-    const map = new Map<string, { display: string; captaciones: number; ventas: number; activos: number }>();
-    inmuebles.forEach(i => {
+    const map = new Map<
+      string,
+      { display: string; captaciones: number; ventas: number; activos: number }
+    >();
+    inmuebles.forEach((i) => {
       const raw = i.localidad || "Sin zona";
       const key = normalizeKey(raw);
       if (!map.has(key)) map.set(key, { display: raw, captaciones: 0, ventas: 0, activos: 0 });
@@ -243,16 +322,16 @@ function Dashboard() {
       if (i.estatus === "Activo") d.activos++;
     });
     return [...map.values()]
-      .filter(d => d.captaciones > 0 || d.activos > 0)
+      .filter((d) => d.captaciones > 0 || d.activos > 0)
       .sort((a, b) => b.captaciones - a.captaciones)
       .slice(0, 7);
   }, [inmData]);
 
   // ── Cartera por tipo ──
   const carteraBreakdown = useMemo(() => {
-    const activos = inmData.inmuebles.filter(i => i.estatus === "Activo");
+    const activos = inmData.inmuebles.filter((i) => i.estatus === "Activo");
     const map = new Map<string, { count: number; valor: number }>();
-    activos.forEach(i => {
+    activos.forEach((i) => {
       const tipo = i.tipo || "Otros";
       const prev = map.get(tipo) ?? { count: 0, valor: 0 };
       map.set(tipo, { count: prev.count + 1, valor: prev.valor + (i.precio ?? 0) });
@@ -267,29 +346,34 @@ function Dashboard() {
   // ── Analytics (stats + ops) ──
   const analytics = useMemo(() => {
     const pipeline = [
-      { label: "Lead",       value: statsData.pipeline["Lead"] ?? 0,       color: "#94a3b8" },
-      { label: "Prospecto",  value: statsData.pipeline["Prospecto"] ?? 0,  color: "#60a5fa" },
-      { label: "Cliente",    value: statsData.pipeline["Cliente"] ?? 0,    color: "#c9a94a" },
-      { label: "Histórico",  value: statsData.pipeline["Histórico"] ?? 0,  color: "#34d399" },
+      { label: "Lead", value: statsData.pipeline["Lead"] ?? 0, color: "#94a3b8" },
+      { label: "Prospecto", value: statsData.pipeline["Prospecto"] ?? 0, color: "#60a5fa" },
+      { label: "Cliente", value: statsData.pipeline["Cliente"] ?? 0, color: "#c9a94a" },
+      { label: "Histórico", value: statsData.pipeline["Histórico"] ?? 0, color: "#34d399" },
       { label: "Descartado", value: statsData.pipeline["Descartado"] ?? 0, color: "#f87171" },
     ];
     const totalContactos = pipeline.reduce((s, p) => s + p.value, 0);
     const convRate = totalContactos
       ? Math.round(((statsData.pipeline["Cliente"] ?? 0) / totalContactos) * 100)
       : 0;
-    const maxPipelineVal = Math.max(...pipeline.map(p => p.value), 1);
+    const maxPipelineVal = Math.max(...pipeline.map((p) => p.value), 1);
 
     const canalData = Object.entries(statsData.canales)
-      .map(([name, value]) => ({ name: name === "null" ? "Sin canal" : name, value: value as number }))
+      .map(([name, value]) => ({
+        name: name === "null" ? "Sin canal" : name,
+        value: value as number,
+      }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 10);
 
-    const leadsChartData = statsData.leadsPorMes.map(m => ({
-      total: m.total, mes: fmtMes(m.mes),
+    const leadsChartData = statsData.leadsPorMes.map((m) => ({
+      total: m.total,
+      mes: fmtMes(m.mes),
     }));
 
-    const visitasChartData = statsData.visitasPorMes.map(m => ({
-      ...m, mes: fmtMes(m.mes),
+    const visitasChartData = statsData.visitasPorMes.map((m) => ({
+      ...m,
+      mes: fmtMes(m.mes),
     }));
 
     const ops = opsData.operaciones;
@@ -300,9 +384,16 @@ function Dashboard() {
       .reduce((s: number, o: any) => s + (o.precioOperacion ?? 0), 0);
 
     return {
-      pipeline, totalContactos, convRate, maxPipelineVal,
-      canalData, leadsChartData, visitasChartData,
-      opsCerradas, totalComision, pipelineValorOps,
+      pipeline,
+      totalContactos,
+      convRate,
+      maxPipelineVal,
+      canalData,
+      leadsChartData,
+      visitasChartData,
+      opsCerradas,
+      totalComision,
+      pipelineValorOps,
     };
   }, [statsData, opsData]);
 
@@ -315,7 +406,7 @@ function Dashboard() {
       const wStart = new Date(eightWeeksAgo.getTime() + k * 7 * 86400000);
       const wEnd = new Date(wStart.getTime() + 7 * 86400000);
       const label = `${wStart.getDate()}/${wStart.getMonth() + 1}`;
-      const count = visitas.filter(v => {
+      const count = visitas.filter((v) => {
         if (!v.fecha) return false;
         const vd = new Date(v.fecha);
         return vd >= wStart && vd < wEnd;
@@ -324,12 +415,16 @@ function Dashboard() {
     });
 
     const inmMap = new Map<string, { id: string; dir: string; count: number }>();
-    visitas.forEach(v => {
+    visitas.forEach((v) => {
       const ids = v.inmuebleIds ?? [];
       const calles = v.inmuebleCalles ?? [];
       const numeros = v.inmuebleNumeros ?? [];
       ids.forEach((id, idx) => {
-        const prev = inmMap.get(id) ?? { id, dir: `${calles[idx] ?? ""} ${numeros[idx] ?? ""}`.trim(), count: 0 };
+        const prev = inmMap.get(id) ?? {
+          id,
+          dir: `${calles[idx] ?? ""} ${numeros[idx] ?? ""}`.trim(),
+          count: 0,
+        };
         inmMap.set(id, { ...prev, count: prev.count + 1 });
       });
     });
@@ -347,35 +442,62 @@ function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
         <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 flex flex-col min-h-[200px]">
           <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-4 flex items-center gap-2">
-            Comisiones este mes
-            <span className="normal-case tracking-normal text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-normal">est.</span>
+            {myRole.isFinanciero ? "Comisiones este mes" : "Actividad próxima"}
+            {myRole.isFinanciero && (
+              <span className="normal-case tracking-normal text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-normal">
+                est.
+              </span>
+            )}
           </div>
           <div className="flex-1">
             <div
               className="font-display font-bold text-gold tabular-nums leading-none tracking-tighter"
               style={{ fontSize: "clamp(2.75rem, 7vw, 4.5rem)" }}
             >
-              {moneyShort(stats.comisionMes)}
+              {myRole.isFinanciero ? moneyShort(stats.comisionMes) : visStats.proximas}
             </div>
             <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
-              <span className="text-muted-foreground">
-                Año en curso{" "}
-                <strong className="text-foreground font-semibold">{moneyShort(stats.comisionAnual)}</strong>
-                <span className="text-[9px] ml-1 opacity-50">est.</span>
-              </span>
-              <span className="text-muted-foreground">
-                Pipeline{" "}
-                <strong className="text-foreground font-semibold">{moneyShort(stats.comisionPipeline)}</strong>
-                <span className="text-[9px] ml-1 opacity-50">est.</span>
-              </span>
+              {myRole.isFinanciero ? (
+                <>
+                  <span className="text-muted-foreground">
+                    Año en curso{" "}
+                    <strong className="text-foreground font-semibold">
+                      {moneyShort(stats.comisionAnual)}
+                    </strong>
+                    <span className="text-[9px] ml-1 opacity-50">est.</span>
+                  </span>
+                  <span className="text-muted-foreground">
+                    Pipeline{" "}
+                    <strong className="text-foreground font-semibold">
+                      {moneyShort(stats.comisionPipeline)}
+                    </strong>
+                    <span className="text-[9px] ml-1 opacity-50">est.</span>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-muted-foreground">Visitas en los próximos 7 días</span>
+                  <span className="text-muted-foreground">
+                    Leads activos{" "}
+                    <strong className="text-foreground font-semibold">{leadsCount}</strong>
+                  </span>
+                </>
+              )}
               <span className="text-muted-foreground">
                 Conversión{" "}
                 <strong className="text-foreground font-semibold">{visStats.tasaCierre}%</strong>
               </span>
               {stats.captDelta !== 0 && (
-                <span className={`inline-flex items-center gap-0.5 font-semibold ${stats.captDelta > 0 ? "text-emerald-600" : "text-destructive"}`}>
-                  {stats.captDelta > 0 ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-                  {stats.captDelta > 0 ? "+" : ""}{stats.captDelta}% captaciones MoM
+                <span
+                  className={`inline-flex items-center gap-0.5 font-semibold ${stats.captDelta > 0 ? "text-emerald-600" : "text-destructive"}`}
+                >
+                  {stats.captDelta > 0 ? (
+                    <TrendingUp className="size-3" />
+                  ) : (
+                    <TrendingDown className="size-3" />
+                  )}
+                  {stats.captDelta > 0 ? "+" : ""}
+                  {stats.captDelta}% captaciones MoM
                 </span>
               )}
             </div>
@@ -390,7 +512,15 @@ function Dashboard() {
                       <stop offset="100%" stopColor="var(--gold)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <Area type="monotone" dataKey="v" stroke="var(--gold)" strokeWidth={1.75} fill="url(#bentospk)" dot={false} isAnimationActive={false} />
+                  <Area
+                    type="monotone"
+                    dataKey="v"
+                    stroke="var(--gold)"
+                    strokeWidth={1.75}
+                    fill="url(#bentospk)"
+                    dot={false}
+                    isAnimationActive={false}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -398,8 +528,14 @@ function Dashboard() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <div className="flex-1 rounded-2xl bg-sidebar p-5 flex flex-col" style={{ color: "var(--sidebar-foreground)" }}>
-            <div className="text-[10px] uppercase tracking-[0.22em] font-medium mb-3" style={{ opacity: 0.45 }}>
+          <div
+            className="flex-1 rounded-2xl bg-sidebar p-5 flex flex-col"
+            style={{ color: "var(--sidebar-foreground)" }}
+          >
+            <div
+              className="text-[10px] uppercase tracking-[0.22em] font-medium mb-3"
+              style={{ opacity: 0.45 }}
+            >
               Cartera activa
             </div>
             <div className="flex-1">
@@ -410,31 +546,57 @@ function Dashboard() {
                 {stats.reservados.length} reservados · {moneyShort(stats.valorCartera)}
               </div>
             </div>
-            <Link to="/inmuebles" className="mt-3 text-xs font-medium inline-flex items-center gap-1 transition-opacity hover:opacity-100" style={{ opacity: 0.40 }}>
+            <Link
+              to="/inmuebles"
+              className="mt-3 text-xs font-medium inline-flex items-center gap-1 transition-opacity hover:opacity-100"
+              style={{ opacity: 0.4 }}
+            >
               Ver cartera <ArrowRight className="size-3" />
             </Link>
           </div>
           <div className="flex-1 rounded-2xl border border-border bg-card p-5 grid grid-cols-3 divide-x divide-border">
             <div className="pr-3">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Clientes</div>
-              <div className="text-3xl font-display font-bold tabular-nums leading-none">{cliTotal}</div>
-              <Link to="/clientes" search={{ id: undefined }} className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
+                Clientes
+              </div>
+              <div className="text-3xl font-display font-bold tabular-nums leading-none">
+                {cliTotal}
+              </div>
+              <Link
+                to="/clientes"
+                search={{ id: undefined }}
+                className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors"
+              >
                 Ver todos <ArrowRight className="size-2.5" />
               </Link>
             </div>
             <div className="px-3">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Visitas / 7d</div>
-              <div className="text-3xl font-display font-bold tabular-nums leading-none">{visStats.proximas}</div>
-              <Link to="/visitas" className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
+                Visitas / 7d
+              </div>
+              <div className="text-3xl font-display font-bold tabular-nums leading-none">
+                {visStats.proximas}
+              </div>
+              <Link
+                to="/visitas"
+                className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors"
+              >
                 Ver agenda <ArrowRight className="size-2.5" />
               </Link>
             </div>
             <div className="pl-3">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Prospectos</div>
-              <div className={`text-3xl font-display font-bold tabular-nums leading-none ${stats.prospectosWeb > 0 ? "text-violet-600 dark:text-violet-400" : ""}`}>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
+                Prospectos
+              </div>
+              <div
+                className={`text-3xl font-display font-bold tabular-nums leading-none ${stats.prospectosWeb > 0 ? "text-violet-600 dark:text-violet-400" : ""}`}
+              >
                 {stats.prospectosWeb}
               </div>
-              <Link to="/prospectos" className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors">
+              <Link
+                to="/prospectos"
+                className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors"
+              >
                 Revisar <ArrowRight className="size-2.5" />
               </Link>
             </div>
@@ -479,7 +641,11 @@ function Dashboard() {
 
       {/* ── ROW 2: Evolución + Actividad por zona ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
-        <Suspense fallback={<div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5 h-[284px] animate-pulse bg-muted/30" />}>
+        <Suspense
+          fallback={
+            <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5 h-[284px] animate-pulse bg-muted/30" />
+          }
+        >
           <EvolucionChart seriesData={stats.seriesData} />
         </Suspense>
         <DepartamentosPanel data={departamentos} />
@@ -487,7 +653,10 @@ function Dashboard() {
 
       {/* ── ROW 2.5: Pipeline ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-        <Link to="/mis-leads" className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group">
+        <Link
+          to="/mis-leads"
+          className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group"
+        >
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center justify-center size-8 rounded-xl bg-muted">
               <UserRound className="size-4 text-foreground" />
@@ -495,12 +664,20 @@ function Dashboard() {
             <ArrowRight className="size-3.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
           </div>
           <div>
-            <div className="text-2xl font-display font-bold tabular-nums leading-none">{leadsCount}</div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">Leads activos</div>
+            <div className="text-2xl font-display font-bold tabular-nums leading-none">
+              {leadsCount}
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">
+              Leads activos
+            </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">Pendientes de cualificar</div>
           </div>
         </Link>
-        <Link to="/clientes" search={{ id: undefined }} className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group">
+        <Link
+          to="/clientes"
+          search={{ id: undefined }}
+          className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group"
+        >
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center justify-center size-8 rounded-xl bg-emerald-500/10">
               <Users className="size-4 text-emerald-600 dark:text-emerald-400" />
@@ -508,12 +685,19 @@ function Dashboard() {
             <ArrowRight className="size-3.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
           </div>
           <div>
-            <div className="text-2xl font-display font-bold tabular-nums leading-none">{cliTotal}</div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">En seguimiento</div>
+            <div className="text-2xl font-display font-bold tabular-nums leading-none">
+              {cliTotal}
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">
+              En seguimiento
+            </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">Activos · Prospectos</div>
           </div>
         </Link>
-        <Link to="/inmuebles" className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group">
+        <Link
+          to="/inmuebles"
+          className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group"
+        >
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center justify-center size-8 rounded-xl bg-gold/10">
               <HandCoins className="size-4 text-gold" />
@@ -521,12 +705,19 @@ function Dashboard() {
             <ArrowRight className="size-3.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
           </div>
           <div>
-            <div className="text-2xl font-display font-bold tabular-nums leading-none">{stats.reservados.length}</div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">Reservados</div>
+            <div className="text-2xl font-display font-bold tabular-nums leading-none">
+              {stats.reservados.length}
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">
+              Reservados
+            </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">Inmuebles en reserva</div>
           </div>
         </Link>
-        <Link to="/visitas" className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group">
+        <Link
+          to="/visitas"
+          className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group"
+        >
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center justify-center size-8 rounded-xl bg-primary/10">
               <CalendarCheck className="size-4 text-primary" />
@@ -534,8 +725,12 @@ function Dashboard() {
             <ArrowRight className="size-3.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
           </div>
           <div>
-            <div className="text-2xl font-display font-bold tabular-nums leading-none">{visStats.proximas}</div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">Visitas · 7 días</div>
+            <div className="text-2xl font-display font-bold tabular-nums leading-none">
+              {visStats.proximas}
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">
+              Visitas · 7 días
+            </div>
             <div className="text-[11px] text-muted-foreground mt-0.5">Agendadas próxima semana</div>
           </div>
         </Link>
@@ -544,7 +739,11 @@ function Dashboard() {
       {/* ── ROW 3: Cartera tipo + Visitas analytics + SilvIA ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
         <CarteraBreakdown data={carteraBreakdown.list} maxValor={carteraBreakdown.maxValor} />
-        <Suspense fallback={<div className="rounded-2xl border border-border bg-card p-5 h-64 animate-pulse bg-muted/30" />}>
+        <Suspense
+          fallback={
+            <div className="rounded-2xl border border-border bg-card p-5 h-64 animate-pulse bg-muted/30" />
+          }
+        >
           <VisitasAnalytics data={visitasAnalytics} />
         </Suspense>
         <Link
@@ -556,7 +755,9 @@ function Dashboard() {
           </div>
           <div className="mt-4">
             <div className="text-base font-semibold tracking-tight">SilvIA</div>
-            <div className="text-sm text-muted-foreground mt-0.5">{leadsCount} leads en seguimiento</div>
+            <div className="text-sm text-muted-foreground mt-0.5">
+              {leadsCount} leads en seguimiento
+            </div>
             <div className="text-xs text-muted-foreground mt-1">Gestionados por IA</div>
           </div>
           <div className="mt-5 inline-flex items-center gap-1 text-xs font-medium text-gold group-hover:gap-2 transition-all">
@@ -578,13 +779,18 @@ function Dashboard() {
         <div className="lg:col-span-2 rounded-2xl border border-border bg-card overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
             <h3 className="text-sm font-semibold">Captaciones recientes</h3>
-            <Link to="/inmuebles" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors">
+            <Link
+              to="/inmuebles"
+              className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
+            >
               Ver todas <ArrowRight className="size-3" />
             </Link>
           </div>
           <div className="divide-y divide-border">
             {stats.recientes.length === 0 ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">Sin captaciones recientes.</div>
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                Sin captaciones recientes.
+              </div>
             ) : (
               stats.recientes.map((i) => <RecentRow key={i.id} i={i} />)
             )}
@@ -617,35 +823,47 @@ function Dashboard() {
               </p>
             </div>
             <div className="space-y-2">
-              {analytics.pipeline.filter(p => p.value > 0).map(p => (
-                <div key={p.label} className="flex items-center gap-3">
-                  <span className="text-[11px] w-20 text-muted-foreground shrink-0">{p.label}</span>
-                  <div className="flex-1 h-5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.max(2, Math.round((p.value / analytics.maxPipelineVal) * 100))}%`,
-                        background: p.color,
-                      }}
-                    />
+              {analytics.pipeline
+                .filter((p) => p.value > 0)
+                .map((p) => (
+                  <div key={p.label} className="flex items-center gap-3">
+                    <span className="text-[11px] w-20 text-muted-foreground shrink-0">
+                      {p.label}
+                    </span>
+                    <div className="flex-1 h-5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${Math.max(2, Math.round((p.value / analytics.maxPipelineVal) * 100))}%`,
+                          background: p.color,
+                        }}
+                      />
+                    </div>
+                    <span className="text-[12px] font-semibold tabular-nums w-8 text-right">
+                      {p.value}
+                    </span>
                   </div>
-                  <span className="text-[12px] font-semibold tabular-nums w-8 text-right">{p.value}</span>
-                </div>
-              ))}
+                ))}
             </div>
             {myRole.isFinanciero && (
               <div className="mt-4 pt-3 border-t border-border flex flex-wrap gap-x-6 gap-y-2">
                 <div>
                   <div className="text-[10px] text-muted-foreground">Pipeline (valor real)</div>
-                  <div className="text-[13px] font-semibold tabular-nums">{moneyFull(analytics.pipelineValorOps)}</div>
+                  <div className="text-[13px] font-semibold tabular-nums">
+                    {moneyFull(analytics.pipelineValorOps)}
+                  </div>
                 </div>
                 <div>
                   <div className="text-[10px] text-muted-foreground">Ops. cerradas</div>
-                  <div className="text-[13px] font-semibold tabular-nums">{analytics.opsCerradas.length}</div>
+                  <div className="text-[13px] font-semibold tabular-nums">
+                    {analytics.opsCerradas.length}
+                  </div>
                 </div>
                 <div>
                   <div className="text-[10px] text-muted-foreground">Comisiones reales</div>
-                  <div className="text-[13px] font-semibold tabular-nums">{moneyFull(analytics.totalComision)}</div>
+                  <div className="text-[13px] font-semibold tabular-nums">
+                    {moneyFull(analytics.totalComision)}
+                  </div>
                 </div>
               </div>
             )}
@@ -656,12 +874,35 @@ function Dashboard() {
             <h3 className="text-sm font-semibold mb-1">Canal de captación</h3>
             <p className="text-[11px] text-muted-foreground mb-4">Distribución por origen</p>
             <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={analytics.canalData} layout="vertical" margin={{ left: 0, right: 20, top: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 10 }} stroke="var(--color-muted-foreground)" />
-                <YAxis type="category" dataKey="name" width={96} tick={{ fontSize: 9 }} stroke="var(--color-muted-foreground)" />
+              <BarChart
+                data={analytics.canalData}
+                layout="vertical"
+                margin={{ left: 0, right: 20, top: 0, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--color-border)"
+                  horizontal={false}
+                />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 10 }}
+                  stroke="var(--color-muted-foreground)"
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={96}
+                  tick={{ fontSize: 9 }}
+                  stroke="var(--color-muted-foreground)"
+                />
                 <Tooltip
-                  contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }}
+                  contentStyle={{
+                    background: "var(--color-card)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 8,
+                    fontSize: 11,
+                  }}
                   cursor={{ fill: "var(--color-accent)" }}
                 />
                 <Bar dataKey="value" name="Contactos" radius={[0, 4, 4, 0]}>
@@ -680,12 +921,32 @@ function Dashboard() {
             <h3 className="text-sm font-semibold mb-1">Leads captados</h3>
             <p className="text-[11px] text-muted-foreground mb-4">Últimos 12 meses</p>
             <ResponsiveContainer width="100%" height={160}>
-              <BarChart data={analytics.leadsChartData} margin={{ left: -16, right: 4, top: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-                <XAxis dataKey="mes" tick={{ fontSize: 9 }} stroke="var(--color-muted-foreground)" />
-                <YAxis tick={{ fontSize: 10 }} stroke="var(--color-muted-foreground)" allowDecimals={false} />
+              <BarChart
+                data={analytics.leadsChartData}
+                margin={{ left: -16, right: 4, top: 0, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--color-border)"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="mes"
+                  tick={{ fontSize: 9 }}
+                  stroke="var(--color-muted-foreground)"
+                />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  stroke="var(--color-muted-foreground)"
+                  allowDecimals={false}
+                />
                 <Tooltip
-                  contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }}
+                  contentStyle={{
+                    background: "var(--color-card)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 8,
+                    fontSize: 11,
+                  }}
                   cursor={{ fill: "var(--color-accent)" }}
                 />
                 <Bar dataKey="total" name="Leads" fill="var(--gold)" radius={[3, 3, 0, 0]} />
@@ -694,52 +955,94 @@ function Dashboard() {
           </div>
           <div className="rounded-2xl border border-border bg-card p-5">
             <h3 className="text-sm font-semibold mb-1">Visitas</h3>
-            <p className="text-[11px] text-muted-foreground mb-4">Realizadas vs canceladas · 12 meses</p>
+            <p className="text-[11px] text-muted-foreground mb-4">
+              Realizadas vs canceladas · 12 meses
+            </p>
             <ResponsiveContainer width="100%" height={160}>
-              <LineChart data={analytics.visitasChartData} margin={{ left: -16, right: 8, top: 4, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-                <XAxis dataKey="mes" tick={{ fontSize: 9 }} stroke="var(--color-muted-foreground)" />
-                <YAxis tick={{ fontSize: 10 }} stroke="var(--color-muted-foreground)" allowDecimals={false} />
+              <LineChart
+                data={analytics.visitasChartData}
+                margin={{ left: -16, right: 8, top: 4, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--color-border)"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="mes"
+                  tick={{ fontSize: 9 }}
+                  stroke="var(--color-muted-foreground)"
+                />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  stroke="var(--color-muted-foreground)"
+                  allowDecimals={false}
+                />
                 <Tooltip
-                  contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 11 }}
+                  contentStyle={{
+                    background: "var(--color-card)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 8,
+                    fontSize: 11,
+                  }}
                   cursor={{ stroke: "var(--color-border)" }}
                 />
-                <Line dataKey="realizadas" name="Realizadas" stroke="var(--gold)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                <Line dataKey="canceladas" name="Canceladas" stroke="#f87171" strokeWidth={2} dot={{ r: 2 }} strokeDasharray="4 2" />
+                <Line
+                  dataKey="realizadas"
+                  name="Realizadas"
+                  stroke="var(--gold)"
+                  strokeWidth={2}
+                  dot={{ r: 2 }}
+                  activeDot={{ r: 4 }}
+                />
+                <Line
+                  dataKey="canceladas"
+                  name="Canceladas"
+                  stroke="#f87171"
+                  strokeWidth={2}
+                  dot={{ r: 2 }}
+                  strokeDasharray="4 2"
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Actividad por agente — solo financiero/admin */}
-        {myRole.isFinanciero && statsData.agentes.filter((a: any) => a.leads + a.clientes > 0).length > 0 && (
-          <div className="rounded-2xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Banknote className="size-4 text-gold" />
-              <h3 className="text-sm font-semibold">Actividad por agente</h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {statsData.agentes.filter((a: any) => a.leads + a.clientes > 0).map((a: any) => (
-                <div key={a.nombre} className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border">
-                  <div className="size-8 rounded-full grid place-items-center text-[11px] font-bold border border-border bg-card shrink-0">
-                    {a.nombre.slice(0, 1).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[12px] font-medium truncate">{a.nombre}</div>
-                    <div className="flex gap-3 mt-0.5">
-                      <span className="text-[10px] text-muted-foreground">
-                        <span className="font-semibold text-foreground">{a.leads}</span> leads
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        <span className="font-semibold text-gold">{a.clientes}</span> clientes
-                      </span>
+        {myRole.isFinanciero &&
+          statsData.agentes.filter((a: any) => a.leads + a.clientes > 0).length > 0 && (
+            <div className="rounded-2xl border border-border bg-card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Banknote className="size-4 text-gold" />
+                <h3 className="text-sm font-semibold">Actividad por agente</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {statsData.agentes
+                  .filter((a: any) => a.leads + a.clientes > 0)
+                  .map((a: any) => (
+                    <div
+                      key={a.nombre}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border"
+                    >
+                      <div className="size-8 rounded-full grid place-items-center text-[11px] font-bold border border-border bg-card shrink-0">
+                        {a.nombre.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[12px] font-medium truncate">{a.nombre}</div>
+                        <div className="flex gap-3 mt-0.5">
+                          <span className="text-[10px] text-muted-foreground">
+                            <span className="font-semibold text-foreground">{a.leads}</span> leads
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            <span className="font-semibold text-gold">{a.clientes}</span> clientes
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
     </AppShell>
   );
@@ -748,34 +1051,52 @@ function Dashboard() {
 // ── Sub-components ───────────────────────────────────────────────────
 
 function PulsoChip({
-  label, value, prev, icon: Icon, iconColor, iconBg,
+  label,
+  value,
+  prev,
+  icon: Icon,
+  iconColor,
+  iconBg,
 }: {
-  label: string; value: number; prev?: number;
-  icon: LucideIcon; iconColor: string; iconBg: string;
+  label: string;
+  value: number;
+  prev?: number;
+  icon: LucideIcon;
+  iconColor: string;
+  iconBg: string;
 }) {
   const d = prev !== undefined ? calcDelta(value, prev) : null;
   return (
     <div className="rounded-2xl border border-border bg-card p-4 flex items-center gap-3">
-      <span className={`inline-flex items-center justify-center size-9 rounded-xl shrink-0 ${iconBg}`}>
+      <span
+        className={`inline-flex items-center justify-center size-9 rounded-xl shrink-0 ${iconBg}`}
+      >
         <Icon className={`size-4 ${iconColor}`} />
       </span>
       <div className="min-w-0 flex-1">
         <div className="text-2xl font-display font-bold tabular-nums leading-none">{value}</div>
-        <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mt-1 leading-tight">{label}</div>
+        <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mt-1 leading-tight">
+          {label}
+        </div>
       </div>
       {d !== null && (
-        <div className={`shrink-0 text-xs font-semibold ${d >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-          {d >= 0 ? "+" : ""}{d}%
+        <div
+          className={`shrink-0 text-xs font-semibold ${d >= 0 ? "text-emerald-600" : "text-destructive"}`}
+        >
+          {d >= 0 ? "+" : ""}
+          {d}%
         </div>
       )}
     </div>
   );
 }
 
-function DepartamentosPanel({ data }: {
+function DepartamentosPanel({
+  data,
+}: {
   data: { display: string; captaciones: number; ventas: number; activos: number }[];
 }) {
-  const maxCap = Math.max(1, ...data.map(d => d.captaciones));
+  const maxCap = Math.max(1, ...data.map((d) => d.captaciones));
   const totalCapt = data.reduce((s, d) => s + d.captaciones, 0);
   const totalVentas = data.reduce((s, d) => s + d.ventas, 0);
   return (
@@ -785,15 +1106,18 @@ function DepartamentosPanel({ data }: {
           <MapPin className="size-4 text-gold" /> Actividad por zona
         </h3>
         <div className="text-[10px] text-muted-foreground tabular-nums text-right leading-tight">
-          <span className="font-semibold text-foreground">{totalCapt}</span> capt<br />
+          <span className="font-semibold text-foreground">{totalCapt}</span> capt
+          <br />
           <span className="font-semibold text-foreground">{totalVentas}</span> vtas
         </div>
       </div>
       {data.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Sin datos.</div>
+        <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+          Sin datos.
+        </div>
       ) : (
         <div className="flex-1 space-y-2.5">
-          {data.map(d => (
+          {data.map((d) => (
             <div key={d.display}>
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-xs font-medium truncate">{d.display}</span>
@@ -819,30 +1143,42 @@ function DepartamentosPanel({ data }: {
         </div>
       )}
       <div className="mt-3 pt-3 border-t border-border flex gap-4 text-[10px] text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-gold inline-block" />Captaciones</span>
-        <span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-emerald-500/40 inline-block" />Ventas</span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2 rounded-sm bg-gold inline-block" />
+          Captaciones
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2 rounded-sm bg-emerald-500/40 inline-block" />
+          Ventas
+        </span>
       </div>
     </div>
   );
 }
 
-function CarteraBreakdown({ data, maxValor }: {
+function CarteraBreakdown({
+  data,
+  maxValor,
+}: {
   data: { tipo: string; count: number; valor: number }[];
   maxValor: number;
 }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
-      <h3 className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-4">Cartera activa · por tipo</h3>
+      <h3 className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-4">
+        Cartera activa · por tipo
+      </h3>
       {data.length === 0 ? (
         <div className="py-8 text-center text-sm text-muted-foreground">Sin activos.</div>
       ) : (
         <div className="space-y-3">
-          {data.map(d => (
+          {data.map((d) => (
             <div key={d.tipo}>
               <div className="flex items-baseline justify-between text-xs mb-1.5">
                 <span className="font-medium truncate max-w-[55%]">{d.tipo}</span>
                 <span className="text-muted-foreground tabular-nums shrink-0 text-[11px]">
-                  <span className="font-semibold text-foreground">{d.count}</span> · {moneyShort(d.valor)}
+                  <span className="font-semibold text-foreground">{d.count}</span> ·{" "}
+                  {moneyShort(d.valor)}
                 </span>
               </div>
               <div className="h-1.5 rounded-full bg-muted overflow-hidden">
@@ -866,10 +1202,14 @@ function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: number 
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <TrendingDown className="size-4 text-alert" /> Inmuebles estancados
         </h3>
-        <p className="text-[11px] text-muted-foreground mt-0.5">Activos sin escritura tras +90 días.</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5">
+          Activos sin escritura tras +90 días.
+        </p>
       </div>
       {estancados.length === 0 ? (
-        <div className="p-6 text-center text-xs text-muted-foreground">Sin alertas. Cartera saludable.</div>
+        <div className="p-6 text-center text-xs text-muted-foreground">
+          Sin alertas. Cartera saludable.
+        </div>
       ) : (
         <ul className="divide-y divide-border">
           {estancados.map(({ i, dias }) => (
@@ -883,7 +1223,9 @@ function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: number 
                   {dias}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium truncate">{i.calle || "Sin dirección"} {i.numero}</div>
+                  <div className="text-xs font-medium truncate">
+                    {i.calle || "Sin dirección"} {i.numero}
+                  </div>
                   <div className="text-[11px] text-muted-foreground truncate">
                     {[i.barrio, i.localidad].filter(Boolean).join(" · ") || i.tipo}
                   </div>
@@ -910,7 +1252,11 @@ function RecentRow({ i }: { i: Inmueble }) {
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium truncate">
           {i.calle || "Sin dirección"} {i.numero}
-          {i.ref && <span className="ml-2 text-[11px] font-mono text-muted-foreground">#{cleanRef(i.ref)}</span>}
+          {i.ref && (
+            <span className="ml-2 text-[11px] font-mono text-muted-foreground">
+              #{cleanRef(i.ref)}
+            </span>
+          )}
         </div>
         <div className="text-xs text-muted-foreground truncate">
           {[i.barrio, i.localidad].filter(Boolean).join(" · ") || "—"} · {i.tipo || "—"}
@@ -918,7 +1264,9 @@ function RecentRow({ i }: { i: Inmueble }) {
         </div>
       </div>
       <div className="text-right shrink-0">
-        <div className="text-sm font-semibold tabular-nums">{i.precio ? moneyFull(i.precio) : "—"}</div>
+        <div className="text-sm font-semibold tabular-nums">
+          {i.precio ? moneyFull(i.precio) : "—"}
+        </div>
         <div className="text-[11px] text-muted-foreground">{fmtDate(i.fechaInicio)}</div>
       </div>
     </Link>
@@ -928,11 +1276,15 @@ function RecentRow({ i }: { i: Inmueble }) {
 function ScoreBadge({ score }: { score: number }) {
   const pct = Math.round(score * 100);
   const color =
-    pct >= 70 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" :
-    pct >= 40 ? "bg-gold/15 text-[var(--gold)]" :
-    "bg-muted text-muted-foreground";
+    pct >= 70
+      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+      : pct >= 40
+        ? "bg-gold/15 text-[var(--gold)]"
+        : "bg-muted text-muted-foreground";
   return (
-    <span className={`inline-flex items-center justify-center size-8 rounded-lg text-[11px] font-bold tabular-nums shrink-0 ${color}`}>
+    <span
+      className={`inline-flex items-center justify-center size-8 rounded-lg text-[11px] font-bold tabular-nums shrink-0 ${color}`}
+    >
       {pct}
     </span>
   );
@@ -945,12 +1297,17 @@ function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <Flame className="size-4 text-[var(--gold)]" /> Leads más calientes
         </h3>
-        <Link to="/mis-leads" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors">
+        <Link
+          to="/mis-leads"
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
+        >
           Ver todos <ArrowRight className="size-3" />
         </Link>
       </div>
       {leads.length === 0 ? (
-        <div className="p-6 text-center text-xs text-muted-foreground">Sin leads con score alto.</div>
+        <div className="p-6 text-center text-xs text-muted-foreground">
+          Sin leads con score alto.
+        </div>
       ) : (
         <ul className="divide-y divide-border">
           {leads.map((lead) => (
@@ -966,7 +1323,9 @@ function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
                   <div className="text-[11px] text-muted-foreground truncate">
                     {lead.telefono ?? "Sin tel."} · {lead.ciclo_vida}
                     {lead.diasSinContacto !== null && (
-                      <span className={`ml-1 ${lead.diasSinContacto < 7 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                      <span
+                        className={`ml-1 ${lead.diasSinContacto < 7 ? "text-emerald-600 dark:text-emerald-400" : ""}`}
+                      >
                         · {lead.diasSinContacto}d
                       </span>
                     )}
@@ -993,12 +1352,17 @@ function SinSeguimientoPanel({ leads }: { leads: LeadInsight[] }) {
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <BellOff className="size-4 text-destructive" /> Sin seguimiento · +30 días
         </h3>
-        <Link to="/mis-leads" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors">
+        <Link
+          to="/mis-leads"
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
+        >
           Ver todos <ArrowRight className="size-3" />
         </Link>
       </div>
       {leads.length === 0 ? (
-        <div className="p-6 text-center text-xs text-muted-foreground">Sin leads sin atender. Bien hecho.</div>
+        <div className="p-6 text-center text-xs text-muted-foreground">
+          Sin leads sin atender. Bien hecho.
+        </div>
       ) : (
         <ul className="divide-y divide-border">
           {leads.map((lead) => (

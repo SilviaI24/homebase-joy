@@ -1,26 +1,37 @@
 import { useMemo } from "react";
-import {
-  Phone,
-  MessageCircle,
-  Globe,
-  Bot,
-  CalendarDays,
-  Sparkles,
-} from "lucide-react";
+import { Phone, MessageCircle, Globe, Bot, CalendarDays, Sparkles } from "lucide-react";
 import type { Cliente } from "@/lib/clientes.functions";
 
-export type Canal = "WhatsApp" | "Llamada" | "Idealista" | "Otro";
+export type Canal = "WhatsApp" | "Voz" | "Idealista" | "Otro";
 
-export function inferCanal(c: Cliente): Canal {
+type ConversationChannelSource = Pick<
+  Cliente,
+  "canalOrigen" | "solicitud" | "motivo" | "conversaciones" | "seccion"
+>;
+
+export function inferCanal(c: ConversationChannelSource): Canal {
+  const origen = c.canalOrigen.trim().toLowerCase();
+  if (origen === "silvia-whatsapp") return "WhatsApp";
+  if (origen === "silvia-voz") return "Voz";
+  if (origen === "idealista") return "Idealista";
   const txt = `${c.solicitud} ${c.motivo} ${c.conversaciones} ${c.seccion}`.toLowerCase();
   if (/idealista/.test(txt)) return "Idealista";
   if (/whats|wa\b|wsp/.test(txt)) return "WhatsApp";
-  if (/llamad|tel[eé]fono|call/.test(txt) || c.motivo) return "Llamada";
+  if (/llamad|tel[eé]fono|call|\bvoz\b/.test(txt)) return "Voz";
   return "Otro";
 }
 
 export function hasSilviaConversation(c: Cliente): boolean {
-  return (c.motivo?.trim().length ?? 0) > 0 || (c.conversaciones?.trim().length ?? 0) > 0;
+  const origen = c.canalOrigen.trim().toLowerCase();
+  if (origen === "silvia-whatsapp" || origen === "silvia-voz") return true;
+  if (origen) return false;
+
+  const texto = `${c.motivo} ${c.solicitud} ${c.conversaciones}`;
+  return (
+    c.conversaciones.trim().length > 0 &&
+    !/idealista/i.test(texto) &&
+    /whats|llamad|tel[eé]fono|call|\bvoz\b/i.test(texto)
+  );
 }
 
 const CANAL_MAP: Record<Canal, { cls: string; icon: typeof Phone }> = {
@@ -28,7 +39,7 @@ const CANAL_MAP: Record<Canal, { cls: string; icon: typeof Phone }> = {
     cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
     icon: MessageCircle,
   },
-  Llamada: {
+  Voz: {
     cls: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
     icon: Phone,
   },
@@ -44,10 +55,7 @@ const CANAL_MAP: Record<Canal, { cls: string; icon: typeof Phone }> = {
 
 export function CanalChip({ canal, size = "sm" }: { canal: Canal; size?: "sm" | "xs" }) {
   const { cls, icon: Icon } = CANAL_MAP[canal];
-  const sz =
-    size === "xs"
-      ? "px-1.5 py-0.5 text-[10px]"
-      : "px-2 py-0.5 text-[10px]";
+  const sz = size === "xs" ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[10px]";
   return (
     <span className={`inline-flex items-center gap-1 rounded-full font-medium ${sz} ${cls}`}>
       <Icon className="size-3" />
@@ -124,12 +132,7 @@ function parseTranscript(raw: string): Block[] {
       continue;
     }
     const fieldM = line.match(FIELD_RE);
-    if (
-      fieldM &&
-      fieldM[1].length < 25 &&
-      !/^https?$/i.test(fieldM[1]) &&
-      fieldM[2].length < 200
-    ) {
+    if (fieldM && fieldM[1].length < 25 && !/^https?$/i.test(fieldM[1]) && fieldM[2].length < 200) {
       blocks.push({ kind: "field", label: fieldM[1].trim(), value: fieldM[2].trim() });
       continue;
     }

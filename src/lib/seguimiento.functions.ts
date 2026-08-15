@@ -1,14 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSupa } from "./supabase.server";
-import { requireAuth } from "@/lib/auth.server";
+import { requirePermission } from "@/lib/crm-auth.server";
 
-export type SeguimientoTipo =
-  | "Llamada"
-  | "WhatsApp"
-  | "Email"
-  | "Visita"
-  | "Nota"
-  | "SilvIA";
+export type SeguimientoTipo = "Llamada" | "WhatsApp" | "Email" | "Visita" | "Nota" | "SilvIA";
 
 export type SeguimientoRow = {
   id: string;
@@ -22,23 +16,23 @@ export type SeguimientoRow = {
   agenteNombre: string | null;
 };
 
-export const listSeguimientos = createServerFn({ method: "GET" }).handler(
-  async () => {
-    await requireAuth();
-    const supa = getSupa();
+export const listSeguimientos = createServerFn({ method: "GET" }).handler(async () => {
+  await requirePermission("seguimiento.read");
+  const supa = getSupa();
 
-    const { data, error } = await supa
-      .from("seguimiento")
-      .select(
-        "id, tipo, texto, fecha, created_at, contact_id, agente_id, contacts(nombre), agents(id, nombre)",
-      )
-      .order("created_at", { ascending: false })
-      .limit(300);
+  const { data, error } = await supa
+    .from("seguimiento")
+    .select(
+      "id, tipo, texto, fecha, created_at, contact_id, agente_id, contacts(nombre), agents(id, nombre)",
+    )
+    .order("created_at", { ascending: false })
+    .limit(300);
 
-    if (error) throw new Error(`listSeguimientos: ${error.message}`);
+  if (error) throw new Error(`listSeguimientos: ${error.message}`);
 
-    return {
-      seguimientos: (data ?? []).map((r: any): SeguimientoRow => ({
+  return {
+    seguimientos: (data ?? []).map(
+      (r: any): SeguimientoRow => ({
         id: r.id,
         tipo: r.tipo ?? "Nota",
         texto: r.texto ?? "",
@@ -48,10 +42,10 @@ export const listSeguimientos = createServerFn({ method: "GET" }).handler(
         contactoNombre: r.contacts?.nombre ?? "Sin nombre",
         agenteId: r.agents?.id ?? null,
         agenteNombre: r.agents?.nombre ?? null,
-      })),
-    };
-  },
-);
+      }),
+    ),
+  };
+});
 
 export type CreateSeguimientoPayload = {
   contactId: string;
@@ -61,17 +55,25 @@ export type CreateSeguimientoPayload = {
 };
 
 export const createSeguimiento = createServerFn({ method: "POST" })
-  .validator((d: CreateSeguimientoPayload) => d)
+  .validator((d: CreateSeguimientoPayload) => {
+    const tipos: SeguimientoTipo[] = ["Llamada", "WhatsApp", "Email", "Visita", "Nota", "SilvIA"];
+    if (!d?.contactId) throw new Error("Contacto requerido");
+    if (!d.texto?.trim()) throw new Error("La nota no puede estar vacía");
+    if (!tipos.includes(d.tipo)) throw new Error("Tipo de seguimiento inválido");
+    return d;
+  })
   .handler(async ({ data }) => {
-    await requireAuth();
+    const { crm } = await requirePermission("seguimiento.create");
     const supa = getSupa();
 
     const insert: Record<string, unknown> = {
       contact_id: data.contactId,
       tipo: data.tipo,
       texto: data.texto.trim(),
+      fecha: new Date().toISOString(),
     };
-    if (data.agenteId) insert.agente_id = data.agenteId;
+    const agenteId = data.agenteId ?? crm.agentId;
+    if (agenteId) insert.agente_id = agenteId;
 
     const { error } = await supa.from("seguimiento").insert(insert);
     if (error) throw new Error(`createSeguimiento: ${error.message}`);
@@ -84,7 +86,7 @@ export type SearchContactosPayload = { q: string };
 export const searchContactos = createServerFn({ method: "GET" })
   .validator((d: SearchContactosPayload) => d)
   .handler(async ({ data }) => {
-    await requireAuth();
+    await requirePermission("contacts.read");
     if (!data.q || data.q.trim().length < 2) return { contacts: [] };
     const supa = getSupa();
     const { data: rows, error } = await supa

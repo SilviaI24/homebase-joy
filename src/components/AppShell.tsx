@@ -24,14 +24,18 @@ import {
   UserPlus,
   LogOut,
   UserCircle,
+  HandCoins,
+  UserCog,
+  ShieldCheck,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { prospectoQuery, notificationsQuery } from "@/lib/queries";
+import { prospectoQuery, notificationsQuery, myRoleQuery } from "@/lib/queries";
 import { askSilvia } from "@/lib/silvia.functions";
 import type { Notif } from "@/lib/notifications.functions";
 import { useAuth } from "@/context/auth";
+import type { CrmCapability } from "@/lib/crm-auth.server";
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
@@ -60,36 +64,61 @@ function useTheme() {
 
 // ── Nav config ────────────────────────────────────────────────────────────────
 
-type NavItem = { to: string; label: string; icon: typeof LayoutDashboard };
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  capability?: CrmCapability;
+};
 type NavGroup = { label?: string; items: NavItem[] };
 
 const navGroups: NavGroup[] = [
-  { items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard }] },
+  {
+    items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard, capability: "contacts.read" }],
+  },
   {
     label: "Cartera",
     items: [
-      { to: "/inmuebles", label: "Ventas", icon: Building2 },
-      { to: "/alquileres", label: "Alquiler", icon: KeyRound },
+      { to: "/inmuebles", label: "Ventas", icon: Building2, capability: "properties.read" },
+      { to: "/alquileres", label: "Alquiler", icon: KeyRound, capability: "properties.read" },
     ],
   },
   {
     label: "Contactos",
     items: [
-      { to: "/mis-leads", label: "Leads", icon: Inbox },
-      { to: "/prospectos", label: "Prospectos", icon: Hourglass },
-      { to: "/clientes", label: "Clientes", icon: Users },
+      { to: "/mis-leads", label: "Leads", icon: Inbox, capability: "contacts.read" },
+      { to: "/prospectos", label: "Prospectos", icon: Hourglass, capability: "contacts.read" },
+      { to: "/clientes", label: "Clientes", icon: Users, capability: "contacts.read" },
     ],
   },
   {
     label: "Gestión",
     items: [
-      { to: "/visitas",      label: "Visitas",      icon: CalendarDays },
-      { to: "/seguimiento",  label: "Seguimiento",  icon: MessageSquare },
+      { to: "/visitas", label: "Visitas", icon: CalendarDays, capability: "visits.read" },
+      {
+        to: "/seguimiento",
+        label: "Seguimiento",
+        icon: MessageSquare,
+        capability: "seguimiento.read",
+      },
+      { to: "/operaciones", label: "Operaciones", icon: HandCoins, capability: "operations.read" },
+      { to: "/comerciales", label: "Equipo", icon: UserCog, capability: "contacts.read" },
     ],
   },
   {
     label: "IA",
-    items: [{ to: "/silvia", label: "SilvIA", icon: Sparkles }],
+    items: [{ to: "/silvia", label: "SilvIA", icon: Sparkles, capability: "silvia.use" }],
+  },
+  {
+    label: "Administración",
+    items: [
+      {
+        to: "/permisos",
+        label: "Permisos",
+        icon: ShieldCheck,
+        capability: "permissions.manage",
+      },
+    ],
   },
   {
     label: "Cuenta",
@@ -98,17 +127,22 @@ const navGroups: NavGroup[] = [
 ];
 
 const mobileNav: NavItem[] = [
-  { to: "/",           label: "Dashboard",  icon: LayoutDashboard },
-  { to: "/mis-leads",  label: "Leads",      icon: Inbox },
-  { to: "/visitas",    label: "Visitas",    icon: CalendarDays },
-  { to: "/seguimiento",label: "Acciones",   icon: MessageSquare },
-  { to: "/silvia",     label: "SilvIA",     icon: Sparkles },
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, capability: "contacts.read" },
+  { to: "/mis-leads", label: "Leads", icon: Inbox, capability: "contacts.read" },
+  { to: "/visitas", label: "Visitas", icon: CalendarDays, capability: "visits.read" },
+  {
+    to: "/seguimiento",
+    label: "Acciones",
+    icon: MessageSquare,
+    capability: "seguimiento.read",
+  },
+  { to: "/silvia", label: "SilvIA", icon: Sparkles, capability: "silvia.use" },
 ];
 
 // ── Prospectos badge ──────────────────────────────────────────────────────────
 
-function ProspectosBadge() {
-  const { data } = useQuery(prospectoQuery);
+function ProspectosBadge({ enabled }: { enabled: boolean }) {
+  const { data } = useQuery({ ...prospectoQuery, enabled });
   const count = data?.prospectos.length ?? 0;
   if (!count) return null;
   return (
@@ -139,8 +173,8 @@ const PRIO_LABEL: Record<Notif["prioridad"], string> = {
   info: "Novedades",
 };
 
-function NotificationBell() {
-  const { data } = useQuery(notificationsQuery);
+function NotificationBell({ enabled }: { enabled: boolean }) {
+  const { data } = useQuery({ ...notificationsQuery, enabled });
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -275,10 +309,9 @@ const SpeechRecognitionCtor =
     ? (window.SpeechRecognition ?? window.webkitSpeechRecognition)
     : null;
 
-function SilviaFloat() {
-  const pathname = useRouterState({ select: s => s.location.pathname });
+function SilviaFloat({ enabled }: { enabled: boolean }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
-  if (pathname.startsWith("/silvia")) return null;
   const [msgs, setMsgs] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -291,6 +324,8 @@ function SilviaFloat() {
   useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs, open]);
+
+  if (!enabled || pathname.startsWith("/silvia")) return null;
 
   async function send() {
     const msg = input.trim();
@@ -305,7 +340,8 @@ function SilviaFloat() {
       const { reply } = await askFn({ data: { messages: history } });
       setMsgs((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      console.error("SilvIA no ha podido responder", e);
+      setError("No he podido completar la consulta. Inténtalo de nuevo en unos segundos.");
     } finally {
       setLoading(false);
     }
@@ -396,8 +432,7 @@ function SilviaFloat() {
           <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
             {msgs.length === 0 && (
               <div className="text-center text-[11px] text-muted-foreground pt-6 px-4 leading-relaxed">
-                Hola, soy SilvIA. Puedo ayudarte a gestionar leads, buscar propiedades y ejecutar
-                acciones en el CRM.
+                Hola, soy SilvIA. Puedo ayudarte a consultar contactos, visitas e inmuebles del CRM.
               </div>
             )}
             {msgs.map((m, i) => (
@@ -490,7 +525,17 @@ const LINK_CLS =
 
 // ── Sidebar content (shared desktop + mobile drawer) ─────────────────────────
 
-function SidebarContent({ onLinkClick, dark, onThemeToggle }: { onLinkClick?: () => void; dark?: boolean; onThemeToggle?: () => void }) {
+function SidebarContent({
+  onLinkClick,
+  dark,
+  onThemeToggle,
+  allowedCapabilities,
+}: {
+  onLinkClick?: () => void;
+  dark?: boolean;
+  onThemeToggle?: () => void;
+  allowedCapabilities: Set<CrmCapability>;
+}) {
   return (
     <>
       {/* Logo */}
@@ -515,36 +560,42 @@ function SidebarContent({ onLinkClick, dark, onThemeToggle }: { onLinkClick?: ()
 
       {/* Nav */}
       <nav className="flex-1 p-2 overflow-y-auto pt-3 space-y-3 md:space-y-5">
-        {navGroups.map((group, gi) => (
-          <div key={gi}>
-            {group.label && (
-              <div className="px-3 pb-1.5 flex items-center gap-2">
-                <span className="text-[9px] uppercase tracking-[0.16em] text-sidebar-foreground/35 font-semibold">
-                  {group.label}
-                </span>
-                <span className="flex-1 h-px bg-sidebar-border/60" />
+        {navGroups.map((group, gi) => {
+          const visibleItems = group.items.filter(
+            (item) => !item.capability || allowedCapabilities.has(item.capability),
+          );
+          if (visibleItems.length === 0) return null;
+          return (
+            <div key={gi}>
+              {group.label && (
+                <div className="px-3 pb-1.5 flex items-center gap-2">
+                  <span className="text-[9px] uppercase tracking-[0.16em] text-sidebar-foreground/35 font-semibold">
+                    {group.label}
+                  </span>
+                  <span className="flex-1 h-px bg-sidebar-border/60" />
+                </div>
+              )}
+              <div className="space-y-0.5">
+                {visibleItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to as "/"}
+                      activeOptions={{ exact: item.to === "/" }}
+                      className={LINK_CLS}
+                      onClick={onLinkClick}
+                    >
+                      <Icon className="size-[15px] shrink-0 opacity-70 group-[.active]:opacity-100" />
+                      {item.label}
+                      {item.to === "/prospectos" && <ProspectosBadge enabled />}
+                    </Link>
+                  );
+                })}
               </div>
-            )}
-            <div className="space-y-0.5">
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to as "/"}
-                    activeOptions={{ exact: item.to === "/" }}
-                    className={LINK_CLS}
-                    onClick={onLinkClick}
-                  >
-                    <Icon className="size-[15px] shrink-0 opacity-70 group-[.active]:opacity-100" />
-                    {item.label}
-                    {item.to === "/prospectos" && <ProspectosBadge />}
-                  </Link>
-                );
-              })}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Footer */}
@@ -586,14 +637,23 @@ export function AppShell({
 }) {
   const { dark, toggle } = useTheme();
   const { signOut, user } = useAuth();
+  const { data: access } = useQuery(myRoleQuery);
+  const allowedCapabilities = new Set(access?.allowedCapabilities ?? []);
+  const notificationsEnabled =
+    allowedCapabilities.has("contacts.read") &&
+    allowedCapabilities.has("properties.read") &&
+    allowedCapabilities.has("visits.read");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
-
       {/* ── Sidebar — desktop ── */}
       <aside className="hidden md:flex w-56 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border shrink-0">
-        <SidebarContent dark={dark} onThemeToggle={toggle} />
+        <SidebarContent
+          dark={dark}
+          onThemeToggle={toggle}
+          allowedCapabilities={allowedCapabilities}
+        />
       </aside>
 
       {/* ── Mobile drawer overlay ── */}
@@ -619,7 +679,12 @@ export function AppShell({
         >
           <X className="size-4" />
         </button>
-        <SidebarContent onLinkClick={() => setDrawerOpen(false)} dark={dark} onThemeToggle={toggle} />
+        <SidebarContent
+          onLinkClick={() => setDrawerOpen(false)}
+          dark={dark}
+          onThemeToggle={toggle}
+          allowedCapabilities={allowedCapabilities}
+        />
       </aside>
 
       {/* ── Main ── */}
@@ -651,7 +716,7 @@ export function AppShell({
 
           <div className="flex items-center gap-2 shrink-0">
             {actions}
-            <NotificationBell />
+            <NotificationBell enabled={notificationsEnabled} />
             <button
               onClick={toggle}
               title={dark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
@@ -677,26 +742,28 @@ export function AppShell({
 
       {/* ── Mobile bottom nav ── */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-card/95 backdrop-blur-md border-t border-border flex items-stretch h-14">
-        {mobileNav.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.to}
-              to={item.to as "/"}
-              activeOptions={{ exact: item.to === "/" }}
-              className="flex-1 flex flex-col items-center justify-center gap-1 text-muted-foreground [&.active]:text-gold transition-colors duration-150 py-1"
-            >
-              <Icon className="size-[18px]" />
-              <span className="text-[9px] font-medium leading-none tracking-wide">
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
+        {mobileNav
+          .filter((item) => !item.capability || allowedCapabilities.has(item.capability))
+          .map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.to}
+                to={item.to as "/"}
+                activeOptions={{ exact: item.to === "/" }}
+                className="flex-1 flex flex-col items-center justify-center gap-1 text-muted-foreground [&.active]:text-gold transition-colors duration-150 py-1"
+              >
+                <Icon className="size-[18px]" />
+                <span className="text-[9px] font-medium leading-none tracking-wide">
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
       </nav>
 
       {/* ── SilvIA flotante (global) ── */}
-      <SilviaFloat />
+      <SilviaFloat enabled={allowedCapabilities.has("silvia.use")} />
     </div>
   );
 }

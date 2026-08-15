@@ -9,6 +9,7 @@ import {
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { RouteError } from "@/components/RouteError";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
 
 import { SafeImage } from "@/components/SafeImage";
@@ -120,7 +121,6 @@ const visitasQuery = (id: string) =>
     staleTime: 60_000,
   });
 
-
 export const Route = createFileRoute("/inmuebles/$id")({
   head: () => ({
     meta: [{ title: "Ficha de inmueble · El Sol Grupo CRM" }],
@@ -134,9 +134,7 @@ export const Route = createFileRoute("/inmuebles/$id")({
   errorComponent: ({ error }) => (
     <AppShell title="Inmueble">
       <BackLink />
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        Error: {error.message}
-      </div>
+      <RouteError error={error} />
     </AppShell>
   ),
   notFoundComponent: () => (
@@ -169,7 +167,11 @@ function formatEuro(n: number | null) {
 function formatDate(s: string | null) {
   if (!s) return "—";
   try {
-    return new Date(s).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
+    return new Date(s).toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   } catch {
     return s;
   }
@@ -197,10 +199,7 @@ function Field({
   value: React.ReactNode;
   hideEmpty?: boolean;
 }) {
-  const isEmpty =
-    value == null ||
-    value === "" ||
-    (typeof value === "number" && value === 0);
+  const isEmpty = value == null || value === "" || (typeof value === "number" && value === 0);
   if (hideEmpty && isEmpty) return null;
   return (
     <div className="py-2 border-b border-border/40 last:border-0">
@@ -242,9 +241,24 @@ function statusTint(estatus: string) {
   return map[estatus] ?? "bg-secondary text-secondary-foreground";
 }
 
-const ORIENTACION_OPTS = ["Norte", "Sur", "Este", "Oeste", "Noreste", "Noroeste", "Sureste", "Suroeste"];
+const ORIENTACION_OPTS = [
+  "Norte",
+  "Sur",
+  "Este",
+  "Oeste",
+  "Noreste",
+  "Noroeste",
+  "Sureste",
+  "Suroeste",
+];
 
-function OrientacionDetailSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function OrientacionDetailSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
   const [custom, setCustom] = useState(() => value !== "" && !ORIENTACION_OPTS.includes(value));
   if (custom) {
     return (
@@ -258,9 +272,14 @@ function OrientacionDetailSelect({ value, onChange }: { value: string; onChange:
         />
         <button
           type="button"
-          onClick={() => { setCustom(false); onChange(""); }}
+          onClick={() => {
+            setCustom(false);
+            onChange("");
+          }}
           className="h-8 px-2 rounded border border-input bg-background text-sm text-muted-foreground hover:bg-accent"
-        >✕</button>
+        >
+          ✕
+        </button>
       </div>
     );
   }
@@ -268,13 +287,19 @@ function OrientacionDetailSelect({ value, onChange }: { value: string; onChange:
     <select
       value={ORIENTACION_OPTS.includes(value) ? value : ""}
       onChange={(e) => {
-        if (e.target.value === "__custom__") { setCustom(true); onChange(""); }
-        else onChange(e.target.value);
+        if (e.target.value === "__custom__") {
+          setCustom(true);
+          onChange("");
+        } else onChange(e.target.value);
       }}
       className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
     >
       <option value="">—</option>
-      {ORIENTACION_OPTS.map((o) => <option key={o} value={o}>{o}</option>)}
+      {ORIENTACION_OPTS.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
       <option value="__custom__">+ Personalizado…</option>
     </select>
   );
@@ -295,7 +320,9 @@ function EditSpecField({
 }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">{label}</div>
+      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
+        {label}
+      </div>
       {type === "select" && options ? (
         <select
           value={value}
@@ -303,7 +330,11 @@ function EditSpecField({
           className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
         >
           <option value="">—</option>
-          {options.map((o) => <option key={o} value={o}>{o}</option>)}
+          {options.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
         </select>
       ) : type === "orientacion" ? (
         <OrientacionDetailSelect value={value} onChange={onChange} />
@@ -380,9 +411,7 @@ function DetailView({
   detailReady: boolean;
   onAfterSave: () => Promise<void>;
   onDelete: () => Promise<void>;
-  mutationFn: (
-    payload: Parameters<typeof updateInmueble>[0]["data"],
-  ) => Promise<unknown>;
+  mutationFn: (payload: Parameters<typeof updateInmueble>[0]["data"]) => Promise<unknown>;
   id: string;
 }) {
   const [estatus, setEstatus] = useState(inmueble.estatus || "Activo");
@@ -403,7 +432,9 @@ function DetailView({
   const [planta, setPlanta] = useState(inmueble.planta);
   const [estado, setEstado] = useState(inmueble.estado);
   const [anoConstruccion, setAnoConstruccion] = useState(inmueble.anoConstruccion);
-  const [certificacionEnergetica, setCertificacionEnergetica] = useState(inmueble.certificacionEnergetica);
+  const [certificacionEnergetica, setCertificacionEnergetica] = useState(
+    inmueble.certificacionEnergetica,
+  );
   const [calefaccion, setCalefaccion] = useState(inmueble.calefaccion);
   const [orientacion, setOrientacion] = useState(inmueble.orientacion);
   const [garaje, setGaraje] = useState(inmueble.garaje);
@@ -478,14 +509,32 @@ function DetailView({
     inmueble.observaciones,
     inmueble.descripcion,
     inmueble.imagenesAttachments.map((a) => a.id).join(","),
-    inmueble.habitaciones, inmueble.banos, inmueble.superficie, inmueble.planta,
-    inmueble.estado, inmueble.anoConstruccion, inmueble.certificacionEnergetica,
-    inmueble.calefaccion, inmueble.orientacion, inmueble.garaje, inmueble.trastero,
-    inmueble.ascensor, inmueble.armariosEmpotrados, inmueble.terraza, inmueble.balcon,
-    inmueble.gastosComunidad, inmueble.referenciaCatastral,
-    inmueble.fechaInicio, inmueble.fechaExclusiva, inmueble.fechaFinExclusiva,
-    inmueble.fechaReserva, inmueble.fechaEscritura,
-    inmueble.honorarios, inmueble.tipoExclusiva, inmueble.notaria, inmueble.llaves,
+    inmueble.habitaciones,
+    inmueble.banos,
+    inmueble.superficie,
+    inmueble.planta,
+    inmueble.estado,
+    inmueble.anoConstruccion,
+    inmueble.certificacionEnergetica,
+    inmueble.calefaccion,
+    inmueble.orientacion,
+    inmueble.garaje,
+    inmueble.trastero,
+    inmueble.ascensor,
+    inmueble.armariosEmpotrados,
+    inmueble.terraza,
+    inmueble.balcon,
+    inmueble.gastosComunidad,
+    inmueble.referenciaCatastral,
+    inmueble.fechaInicio,
+    inmueble.fechaExclusiva,
+    inmueble.fechaFinExclusiva,
+    inmueble.fechaReserva,
+    inmueble.fechaEscritura,
+    inmueble.honorarios,
+    inmueble.tipoExclusiva,
+    inmueble.notaria,
+    inmueble.llaves,
     JSON.stringify(inmueble.documentos),
   ]);
 
@@ -522,9 +571,7 @@ function DetailView({
       agentesIds,
       observaciones,
       descripcion,
-      ...(imagesDirty
-        ? { imagenesAttachmentIds: imagenesOrder.map((a) => a.id) }
-        : {}),
+      ...(imagesDirty ? { imagenesAttachmentIds: imagenesOrder.map((a) => a.id) } : {}),
       habitaciones,
       banos,
       superficie,
@@ -609,9 +656,13 @@ function DetailView({
 
   const pageTitle = inmueble.calle
     ? `${inmueble.calle}${inmueble.numero ? " " + inmueble.numero : ""}`
-    : inmueble.ref ? `Ref #${cleanRef(inmueble.ref)}` : "Inmueble";
-  const pageSubtitle = [inmueble.localidad, inmueble.ref ? `Ref #${cleanRef(inmueble.ref)}` : null]
-    .filter(Boolean).join(" · ") || undefined;
+    : inmueble.ref
+      ? `Ref #${cleanRef(inmueble.ref)}`
+      : "Inmueble";
+  const pageSubtitle =
+    [inmueble.localidad, inmueble.ref ? `Ref #${cleanRef(inmueble.ref)}` : null]
+      .filter(Boolean)
+      .join(" · ") || undefined;
 
   return (
     <AppShell title={pageTitle} subtitle={pageSubtitle}>
@@ -629,7 +680,9 @@ function DetailView({
           <div>
             <p className="font-semibold">Inmueble prospecto — pendiente de revisión</p>
             <p className="text-xs mt-0.5 text-violet-700 dark:text-violet-400">
-              Este inmueble llegó desde el valorador web. El propietario solicitó ser contactado. Revisa los datos, contacta con él y cambia la publicación a <strong>SUBIR</strong> o <strong>PUBLICADO</strong> cuando corresponda.
+              Este inmueble llegó desde el valorador web. El propietario solicitó ser contactado.
+              Revisa los datos, contacta con él y cambia la publicación a <strong>SUBIR</strong> o{" "}
+              <strong>PUBLICADO</strong> cuando corresponda.
             </p>
           </div>
         </div>
@@ -689,10 +742,15 @@ function DetailView({
                     ) : null}
                   </div>
                 </div>
-                {(inmueble.habitaciones || inmueble.banos || inmueble.superficie || inmueble.tipo) && (
+                {(inmueble.habitaciones ||
+                  inmueble.banos ||
+                  inmueble.superficie ||
+                  inmueble.tipo) && (
                   <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/90">
                     {inmueble.tipo && (
-                      <span className="inline-flex items-center gap-1.5 font-medium">{inmueble.tipo}</span>
+                      <span className="inline-flex items-center gap-1.5 font-medium">
+                        {inmueble.tipo}
+                      </span>
                     )}
                     {inmueble.habitaciones && (
                       <span className="inline-flex items-center gap-1.5">
@@ -737,7 +795,12 @@ function DetailView({
           <div className="border-b border-border">
             <nav className="flex gap-0">
               {(["detalles", "historial", "visitas", "documentos"] as const).map((t) => {
-                const labels: Record<typeof t, string> = { detalles: "Detalles", historial: "Historial", visitas: "Visitas", documentos: "Documentos" };
+                const labels: Record<typeof t, string> = {
+                  detalles: "Detalles",
+                  historial: "Historial",
+                  visitas: "Visitas",
+                  documentos: "Documentos",
+                };
                 return (
                   <button
                     key={t}
@@ -795,179 +858,271 @@ function DetailView({
           )}
 
           {/* Tab: Detalles — Características */}
-          {tab === "detalles" && <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="font-display text-base font-semibold mb-4">Características</h3>
-            {!detailReady ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="rounded-md border border-border bg-background px-3 py-2.5 space-y-1">
-                    <SkeletonLine className="w-1/2" />
-                    <SkeletonLine className="w-3/4" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Tipo — read-only */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">Tipo</div>
-                    <div className="h-8 px-2 flex items-center rounded border border-input bg-muted text-sm text-muted-foreground">{inmueble.tipo || "—"}</div>
-                  </div>
-                  <EditSpecField label="Habitaciones" value={habitaciones} onChange={setHabitaciones} />
-                  <EditSpecField label="Baños" value={banos} onChange={setBanos} />
-                  <EditSpecField label="Superficie (m²)" value={superficie} onChange={setSuperficie} />
-                  <EditSpecField label="Planta" value={planta} onChange={setPlanta} />
-                  <EditSpecField
-                    label="Estado"
-                    value={estado}
-                    onChange={setEstado}
-                    type="select"
-                    options={["Nuevo", "A reformar", "Reformado", "Buen estado", "Para entrar", "Obra nueva"]}
-                  />
-                  <EditSpecField label="Año construcción" value={anoConstruccion} onChange={setAnoConstruccion} />
-                  <EditSpecField label="Cert. energética" value={certificacionEnergetica} onChange={setCertificacionEnergetica} />
-                  <EditSpecField label="Calefacción" value={calefaccion} onChange={setCalefaccion} />
-                  <EditSpecField label="Orientación" value={orientacion} onChange={setOrientacion} type="orientacion" />
-                  <EditSpecField
-                    label="Garaje"
-                    value={garaje}
-                    onChange={setGaraje}
-                    type="select"
-                    options={["Sí", "No", "Opcional"]}
-                  />
-                  <EditSpecField
-                    label="Trastero"
-                    value={trastero}
-                    onChange={setTrastero}
-                    type="select"
-                    options={["Sí", "No"]}
-                  />
-                  <EditSpecField
-                    label="Ascensor"
-                    value={ascensor}
-                    onChange={setAscensor}
-                    type="select"
-                    options={["Sí", "No"]}
-                  />
-                  <EditSpecField
-                    label="Armarios"
-                    value={armariosEmpotrados}
-                    onChange={setArmariosEmpotrados}
-                    type="select"
-                    options={["Sí", "No"]}
-                  />
-                  <EditSpecField label="Terraza" value={terraza} onChange={setTerraza} />
-                  <EditSpecField label="Balcón" value={balcon} onChange={setBalcon} />
-                  <EditSpecField label="Gastos com." value={gastosComunidad} onChange={setGastosComunidad} />
-                  <EditSpecField label="Ref. catastral" value={referenciaCatastral} onChange={setReferenciaCatastral} />
-                </div>
-              </div>
-            )}
-          </div>}
-
-          {/* Tab: Historial */}
-          {tab === "historial" && <>
-          <TiempoMercadoPanel inmueble={inmueble} detailReady={detailReady} />
-
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="font-display text-base font-semibold mb-4 flex items-center gap-2">
-              <Calendar className="size-4 text-primary" /> Historial
-            </h3>
-            {detailReady ? (
-              <>
-                <ol className="relative ml-3 space-y-5 before:absolute before:left-0 before:top-1 before:bottom-1 before:w-px before:bg-border">
-                  {[
-                    { label: "Captación / inicio", value: fechaInicio, set: setFechaInicio },
-                    { label: "Autorización exclusiva", value: fechaExclusiva, set: setFechaExclusiva },
-                    { label: "Fin de exclusividad", value: fechaFinExclusiva, set: setFechaFinExclusiva },
-                    { label: "Reserva", value: fechaReserva, set: setFechaReserva },
-                    { label: "Escritura", value: fechaEscritura, set: setFechaEscritura },
-                  ].map((ev) => {
-                    const done = !!ev.value;
-                    return (
-                      <li key={ev.label} className="relative pl-6">
-                        <span
-                          className={`absolute -left-[7px] top-0.5 inline-flex items-center justify-center size-4 rounded-full ring-2 ring-card ${
-                            done ? "bg-primary text-primary-foreground" : "bg-muted border border-border"
-                          }`}
-                        >
-                          {done && <Check className="size-2.5" />}
-                        </span>
-                        <div className={`text-sm font-medium ${done ? "text-foreground" : "text-muted-foreground"}`}>
-                          {ev.label}
-                        </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <input
-                            type="date"
-                            value={ev.value ? ev.value.slice(0, 10) : ""}
-                            onChange={(e) => ev.set(e.target.value)}
-                            className="h-7 px-2 rounded border border-input bg-background text-xs"
-                          />
-                          {ev.value && (
-                            <span className="text-xs text-muted-foreground">{formatDate(ev.value)}</span>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-                <div className="grid grid-cols-2 gap-x-6 mt-5 pt-4 border-t border-border">
-                  <div className="py-2">
-                    <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">Notaría</div>
-                    <input type="text" value={notaria} onChange={(e) => setNotaria(e.target.value)}
-                      className="w-full h-8 px-2 rounded border border-input bg-background text-sm" />
-                  </div>
-                  <div className="py-2">
-                    <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">Honorarios</div>
-                    <input type="text" value={honorarios} onChange={(e) => setHonorarios(e.target.value)}
-                      className="w-full h-8 px-2 rounded border border-input bg-background text-sm" />
-                  </div>
-                  <div className="py-2">
-                    <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">Tipo exclusiva</div>
-                    <input type="text" value={tipoExclusiva} onChange={(e) => setTipoExclusiva(e.target.value)}
-                      className="w-full h-8 px-2 rounded border border-input bg-background text-sm" />
-                  </div>
-                  <div className="py-2">
-                    <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">Llaves</div>
-                    <input type="text" value={llaves} onChange={(e) => setLlaves(e.target.value)}
-                      className="w-full h-8 px-2 rounded border border-input bg-background text-sm" />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-2">
-                <SkeletonLine className="w-1/2" />
-                <SkeletonLine className="w-2/3" />
-                <SkeletonLine className="w-1/3" />
-              </div>
-            )}
-          </div>
-
-          {/* Changelog automático */}
-          {detailReady && inmueble.changelog.length > 0 && (
+          {tab === "detalles" && (
             <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-              <h3 className="font-display text-base font-semibold mb-4 flex items-center gap-2">
-                <Hash className="size-4 text-primary" /> Cambios registrados
-              </h3>
-              <ol className="space-y-3">
-                {[...inmueble.changelog].reverse().map((c, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm">
-                    <span className="shrink-0 mt-0.5 text-[10px] text-muted-foreground whitespace-nowrap">{formatDate(c.ts)}</span>
-                    <span className="font-medium text-foreground/70 shrink-0">{c.field}:</span>
-                    <span className="text-muted-foreground line-through shrink-0">{c.old || "—"}</span>
-                    <span className="text-foreground/80">→ {c.new || "—"}</span>
-                  </li>
-                ))}
-              </ol>
+              <h3 className="font-display text-base font-semibold mb-4">Características</h3>
+              {!detailReady ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="rounded-md border border-border bg-background px-3 py-2.5 space-y-1"
+                    >
+                      <SkeletonLine className="w-1/2" />
+                      <SkeletonLine className="w-3/4" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Tipo — read-only */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
+                        Tipo
+                      </div>
+                      <div className="h-8 px-2 flex items-center rounded border border-input bg-muted text-sm text-muted-foreground">
+                        {inmueble.tipo || "—"}
+                      </div>
+                    </div>
+                    <EditSpecField
+                      label="Habitaciones"
+                      value={habitaciones}
+                      onChange={setHabitaciones}
+                    />
+                    <EditSpecField label="Baños" value={banos} onChange={setBanos} />
+                    <EditSpecField
+                      label="Superficie (m²)"
+                      value={superficie}
+                      onChange={setSuperficie}
+                    />
+                    <EditSpecField label="Planta" value={planta} onChange={setPlanta} />
+                    <EditSpecField
+                      label="Estado"
+                      value={estado}
+                      onChange={setEstado}
+                      type="select"
+                      options={[
+                        "Nuevo",
+                        "A reformar",
+                        "Reformado",
+                        "Buen estado",
+                        "Para entrar",
+                        "Obra nueva",
+                      ]}
+                    />
+                    <EditSpecField
+                      label="Año construcción"
+                      value={anoConstruccion}
+                      onChange={setAnoConstruccion}
+                    />
+                    <EditSpecField
+                      label="Cert. energética"
+                      value={certificacionEnergetica}
+                      onChange={setCertificacionEnergetica}
+                    />
+                    <EditSpecField
+                      label="Calefacción"
+                      value={calefaccion}
+                      onChange={setCalefaccion}
+                    />
+                    <EditSpecField
+                      label="Orientación"
+                      value={orientacion}
+                      onChange={setOrientacion}
+                      type="orientacion"
+                    />
+                    <EditSpecField
+                      label="Garaje"
+                      value={garaje}
+                      onChange={setGaraje}
+                      type="select"
+                      options={["Sí", "No", "Opcional"]}
+                    />
+                    <EditSpecField
+                      label="Trastero"
+                      value={trastero}
+                      onChange={setTrastero}
+                      type="select"
+                      options={["Sí", "No"]}
+                    />
+                    <EditSpecField
+                      label="Ascensor"
+                      value={ascensor}
+                      onChange={setAscensor}
+                      type="select"
+                      options={["Sí", "No"]}
+                    />
+                    <EditSpecField
+                      label="Armarios"
+                      value={armariosEmpotrados}
+                      onChange={setArmariosEmpotrados}
+                      type="select"
+                      options={["Sí", "No"]}
+                    />
+                    <EditSpecField label="Terraza" value={terraza} onChange={setTerraza} />
+                    <EditSpecField label="Balcón" value={balcon} onChange={setBalcon} />
+                    <EditSpecField
+                      label="Gastos com."
+                      value={gastosComunidad}
+                      onChange={setGastosComunidad}
+                    />
+                    <EditSpecField
+                      label="Ref. catastral"
+                      value={referenciaCatastral}
+                      onChange={setReferenciaCatastral}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
-          </>}
+
+          {/* Tab: Historial */}
+          {tab === "historial" && (
+            <>
+              <TiempoMercadoPanel inmueble={inmueble} detailReady={detailReady} />
+
+              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                <h3 className="font-display text-base font-semibold mb-4 flex items-center gap-2">
+                  <Calendar className="size-4 text-primary" /> Historial
+                </h3>
+                {detailReady ? (
+                  <>
+                    <ol className="relative ml-3 space-y-5 before:absolute before:left-0 before:top-1 before:bottom-1 before:w-px before:bg-border">
+                      {[
+                        { label: "Captación / inicio", value: fechaInicio, set: setFechaInicio },
+                        {
+                          label: "Autorización exclusiva",
+                          value: fechaExclusiva,
+                          set: setFechaExclusiva,
+                        },
+                        {
+                          label: "Fin de exclusividad",
+                          value: fechaFinExclusiva,
+                          set: setFechaFinExclusiva,
+                        },
+                        { label: "Reserva", value: fechaReserva, set: setFechaReserva },
+                        { label: "Escritura", value: fechaEscritura, set: setFechaEscritura },
+                      ].map((ev) => {
+                        const done = !!ev.value;
+                        return (
+                          <li key={ev.label} className="relative pl-6">
+                            <span
+                              className={`absolute -left-[7px] top-0.5 inline-flex items-center justify-center size-4 rounded-full ring-2 ring-card ${
+                                done
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted border border-border"
+                              }`}
+                            >
+                              {done && <Check className="size-2.5" />}
+                            </span>
+                            <div
+                              className={`text-sm font-medium ${done ? "text-foreground" : "text-muted-foreground"}`}
+                            >
+                              {ev.label}
+                            </div>
+                            <div className="mt-1 flex items-center gap-2">
+                              <input
+                                type="date"
+                                value={ev.value ? ev.value.slice(0, 10) : ""}
+                                onChange={(e) => ev.set(e.target.value)}
+                                className="h-7 px-2 rounded border border-input bg-background text-xs"
+                              />
+                              {ev.value && (
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDate(ev.value)}
+                                </span>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                    <div className="grid grid-cols-2 gap-x-6 mt-5 pt-4 border-t border-border">
+                      <div className="py-2">
+                        <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
+                          Notaría
+                        </div>
+                        <input
+                          type="text"
+                          value={notaria}
+                          onChange={(e) => setNotaria(e.target.value)}
+                          className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
+                        />
+                      </div>
+                      <div className="py-2">
+                        <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
+                          Honorarios
+                        </div>
+                        <input
+                          type="text"
+                          value={honorarios}
+                          onChange={(e) => setHonorarios(e.target.value)}
+                          className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
+                        />
+                      </div>
+                      <div className="py-2">
+                        <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
+                          Tipo exclusiva
+                        </div>
+                        <input
+                          type="text"
+                          value={tipoExclusiva}
+                          onChange={(e) => setTipoExclusiva(e.target.value)}
+                          className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
+                        />
+                      </div>
+                      <div className="py-2">
+                        <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
+                          Llaves
+                        </div>
+                        <input
+                          type="text"
+                          value={llaves}
+                          onChange={(e) => setLlaves(e.target.value)}
+                          className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <SkeletonLine className="w-1/2" />
+                    <SkeletonLine className="w-2/3" />
+                    <SkeletonLine className="w-1/3" />
+                  </div>
+                )}
+              </div>
+
+              {/* Changelog automático */}
+              {detailReady && inmueble.changelog.length > 0 && (
+                <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                  <h3 className="font-display text-base font-semibold mb-4 flex items-center gap-2">
+                    <Hash className="size-4 text-primary" /> Cambios registrados
+                  </h3>
+                  <ol className="space-y-3">
+                    {[...inmueble.changelog].reverse().map((c, i) => (
+                      <li key={i} className="flex items-start gap-3 text-sm">
+                        <span className="shrink-0 mt-0.5 text-[10px] text-muted-foreground whitespace-nowrap">
+                          {formatDate(c.ts)}
+                        </span>
+                        <span className="font-medium text-foreground/70 shrink-0">{c.field}:</span>
+                        <span className="text-muted-foreground line-through shrink-0">
+                          {c.old || "—"}
+                        </span>
+                        <span className="text-foreground/80">→ {c.new || "—"}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </>
+          )}
 
           {/* Tab: Visitas */}
           {tab === "visitas" && <VisitasPanel id={id} />}
         </div>
-
 
         {/* Panel lateral */}
         <aside className="space-y-6">
@@ -1038,13 +1193,23 @@ function DetailView({
         <div className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-between gap-4 px-4 py-3 bg-card border-t border-border shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.15)] md:left-56">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {saveStatus === "pending" ? (
-              <><Loader2 className="size-3.5 animate-spin" /> Guardando…</>
+              <>
+                <Loader2 className="size-3.5 animate-spin" /> Guardando…
+              </>
             ) : saveStatus === "saved" ? (
-              <><Check className="size-3.5 text-emerald-600" /> <span className="text-emerald-700 dark:text-emerald-400">Guardado</span></>
+              <>
+                <Check className="size-3.5 text-emerald-600" />{" "}
+                <span className="text-emerald-700 dark:text-emerald-400">Guardado</span>
+              </>
             ) : saveStatus === "error" ? (
-              <><span className="size-2 rounded-full bg-destructive" /> Error al guardar</>
+              <>
+                <span className="size-2 rounded-full bg-destructive" /> Error al guardar
+              </>
             ) : (
-              <><span className="size-2 rounded-full bg-amber-500 animate-pulse" /> Guardando en 2 s…</>
+              <>
+                <span className="size-2 rounded-full bg-amber-500 animate-pulse" /> Guardando en 2
+                s…
+              </>
             )}
           </div>
           <button
@@ -1190,7 +1355,11 @@ function DocumentosPanel({
                   onChange={(e) => setNewType(e.target.value)}
                   className="h-8 px-2 rounded border border-input bg-background text-sm"
                 >
-                  {DOC_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                  {DOC_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex gap-2">
@@ -1204,7 +1373,11 @@ function DocumentosPanel({
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setAdding(false); setNewUrl(""); setNewName(""); }}
+                  onClick={() => {
+                    setAdding(false);
+                    setNewUrl("");
+                    setNewName("");
+                  }}
                   className="h-8 px-3 rounded border border-input bg-background text-xs text-muted-foreground hover:bg-accent transition-colors"
                 >
                   Cancelar
@@ -1228,12 +1401,26 @@ function TiempoMercadoPanel({
   const todayIso = new Date().toISOString();
   const diasEnMercado = diffDays(inmueble.fechaInicio, todayIso);
 
-  const hitos: { label: string; from: string | null; to: string | null; tone?: Parameters<typeof StatBox>[0]["tone"] }[] = [
+  const hitos: {
+    label: string;
+    from: string | null;
+    to: string | null;
+    tone?: Parameters<typeof StatBox>[0]["tone"];
+  }[] = [
     { label: "Captación → Exclusiva", from: inmueble.fechaInicio, to: inmueble.fechaExclusiva },
-    { label: "Exclusiva → Fin exclusividad", from: inmueble.fechaExclusiva, to: inmueble.fechaFinExclusiva },
+    {
+      label: "Exclusiva → Fin exclusividad",
+      from: inmueble.fechaExclusiva,
+      to: inmueble.fechaFinExclusiva,
+    },
     { label: "Inicio → Reserva", from: inmueble.fechaInicio, to: inmueble.fechaReserva },
     { label: "Reserva → Escritura", from: inmueble.fechaReserva, to: inmueble.fechaEscritura },
-    { label: "Ciclo total (inicio → escritura)", from: inmueble.fechaInicio, to: inmueble.fechaEscritura, tone: "primary" },
+    {
+      label: "Ciclo total (inicio → escritura)",
+      from: inmueble.fechaInicio,
+      to: inmueble.fechaEscritura,
+      tone: "primary",
+    },
   ];
 
   const completados = hitos.filter((h) => h.from && h.to);
@@ -1242,10 +1429,10 @@ function TiempoMercadoPanel({
     inmueble.estatus === "Vendido" || inmueble.estatus === "Alquilado"
       ? "emerald"
       : inmueble.estatus === "Reservado"
-      ? "primary"
-      : inmueble.estatus === "Baja"
-      ? "destructive"
-      : "default";
+        ? "primary"
+        : inmueble.estatus === "Baja"
+          ? "destructive"
+          : "default";
 
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -1265,11 +1452,7 @@ function TiempoMercadoPanel({
               tone={diasEnMercado != null && diasEnMercado > 180 ? "destructive" : statusTone}
               hint={inmueble.estatus}
             />
-            <StatBox
-              label="Estado actual"
-              value={inmueble.estatus || "—"}
-              tone={statusTone}
-            />
+            <StatBox label="Estado actual" value={inmueble.estatus || "—"} tone={statusTone} />
           </div>
 
           {completados.length > 0 && (
@@ -1316,9 +1499,23 @@ function ManagementPanel(props: {
   onDelete: () => Promise<void>;
 }) {
   const {
-    estatus, setEstatus, publicacion, setPublicacion, precio, setPrecio,
-    precioFinal, setPrecioFinal, agentesIds, setAgentesIds, observaciones,
-    setObservaciones, detailReady, dirty, mutation, onSave, onDelete,
+    estatus,
+    setEstatus,
+    publicacion,
+    setPublicacion,
+    precio,
+    setPrecio,
+    precioFinal,
+    setPrecioFinal,
+    agentesIds,
+    setAgentesIds,
+    observaciones,
+    setObservaciones,
+    detailReady,
+    dirty,
+    mutation,
+    onSave,
+    onDelete,
   } = props;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -1346,7 +1543,11 @@ function ManagementPanel(props: {
             onChange={(e) => setEstatus(e.target.value)}
             className="mt-1 w-full h-9 px-2 rounded-md border border-input bg-background text-sm"
           >
-            {ESTATUS_OPCIONES.map((s) => <option key={s} value={s}>{s}</option>)}
+            {ESTATUS_OPCIONES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -1357,7 +1558,11 @@ function ManagementPanel(props: {
             onChange={(e) => setPublicacion(e.target.value)}
             className="mt-1 w-full h-9 px-2 rounded-md border border-input bg-background text-sm"
           >
-            {PUBLICACION_OPCIONES.map((s) => <option key={s} value={s}>{s}</option>)}
+            {PUBLICACION_OPCIONES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -1365,7 +1570,9 @@ function ManagementPanel(props: {
           <div>
             <label className="text-xs font-medium text-muted-foreground">Precio (€)</label>
             <input
-              type="number" min={0} value={precio}
+              type="number"
+              min={0}
+              value={precio}
               onChange={(e) => setPrecio(e.target.value)}
               className="mt-1 w-full h-9 px-2 rounded-md border border-input bg-background text-sm"
             />
@@ -1373,7 +1580,9 @@ function ManagementPanel(props: {
           <div>
             <label className="text-xs font-medium text-muted-foreground">Precio final (€)</label>
             <input
-              type="number" min={0} value={precioFinal}
+              type="number"
+              min={0}
+              value={precioFinal}
               onChange={(e) => setPrecioFinal(e.target.value)}
               className="mt-1 w-full h-9 px-2 rounded-md border border-input bg-background text-sm"
             />
@@ -1389,11 +1598,15 @@ function ManagementPanel(props: {
               onClick={() => setAgentesOpen(true)}
               className="mt-1 w-full text-left h-auto min-h-9 px-2 py-1.5 rounded-md border border-input bg-background text-sm hover:bg-accent disabled:opacity-50"
             >
-              {detailReady
-                ? agentesIds.length === 0
-                  ? <span className="text-muted-foreground">Sin asignar — clic para editar</span>
-                  : `${agentesIds.length} asignado${agentesIds.length === 1 ? "" : "s"} — editar`
-                : <span className="text-muted-foreground">Esperando datos…</span>}
+              {detailReady ? (
+                agentesIds.length === 0 ? (
+                  <span className="text-muted-foreground">Sin asignar — clic para editar</span>
+                ) : (
+                  `${agentesIds.length} asignado${agentesIds.length === 1 ? "" : "s"} — editar`
+                )
+              ) : (
+                <span className="text-muted-foreground">Esperando datos…</span>
+              )}
             </button>
           ) : agentesQ.isLoading ? (
             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
@@ -1404,7 +1617,10 @@ function ManagementPanel(props: {
               {(agentesQ.data?.agentes ?? []).map((a) => {
                 const checked = agentesIds.includes(a.id);
                 return (
-                  <label key={a.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent rounded px-1 py-0.5">
+                  <label
+                    key={a.id}
+                    className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent rounded px-1 py-0.5"
+                  >
                     <input
                       type="checkbox"
                       checked={checked}
@@ -1430,7 +1646,8 @@ function ManagementPanel(props: {
         <div>
           <label className="text-xs font-medium text-muted-foreground">Observaciones</label>
           <textarea
-            rows={3} value={observaciones}
+            rows={3}
+            value={observaciones}
             onChange={(e) => setObservaciones(e.target.value)}
             className="mt-1 w-full px-2 py-1.5 rounded-md border border-input bg-background text-sm"
           />
@@ -1461,14 +1678,20 @@ function ManagementPanel(props: {
             </button>
           ) : (
             <div className="space-y-2">
-              <p className="text-xs text-destructive font-medium">¿Eliminar este inmueble? Esta acción no se puede deshacer.</p>
+              <p className="text-xs text-destructive font-medium">
+                ¿Eliminar este inmueble? Esta acción no se puede deshacer.
+              </p>
               <div className="flex gap-2">
                 <button
                   type="button"
                   disabled={deleting}
                   onClick={async () => {
                     setDeleting(true);
-                    try { await onDelete(); } finally { setDeleting(false); }
+                    try {
+                      await onDelete();
+                    } finally {
+                      setDeleting(false);
+                    }
                   }}
                   className="flex-1 h-8 text-xs font-semibold rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
                 >
@@ -1522,7 +1745,10 @@ function VisitasPanel({ id }: { id: string }) {
 
   const stats = useMemo(() => {
     const total = visitas.length;
-    let confirmadas = 0, realizadas = 0, canceladas = 0, pendientes = 0;
+    let confirmadas = 0,
+      realizadas = 0,
+      canceladas = 0,
+      pendientes = 0;
     const clientesSet = new Set<string>();
     const agentesSet = new Set<string>();
     let lastPast: number | null = null;
@@ -1563,9 +1789,19 @@ function VisitasPanel({ id }: { id: string }) {
     const daysUntil = nextFuture != null ? Math.ceil((nextFuture - now) / 86400000) : null;
     const maxMonth = Math.max(1, ...months.map((m) => m.count));
     return {
-      total, confirmadas, realizadas, canceladas, pendientes,
-      clientes: clientesSet.size, agentes: agentesSet.size,
-      conversion, efectivas, daysSince, daysUntil, months, maxMonth,
+      total,
+      confirmadas,
+      realizadas,
+      canceladas,
+      pendientes,
+      clientes: clientesSet.size,
+      agentes: agentesSet.size,
+      conversion,
+      efectivas,
+      daysSince,
+      daysUntil,
+      months,
+      maxMonth,
     };
   }, [visitas, now]);
 
@@ -1577,12 +1813,13 @@ function VisitasPanel({ id }: { id: string }) {
         </h3>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            {visitasQ.isLoading ? "Cargando…" : `${visitas.length} registro${visitas.length === 1 ? "" : "s"}`}
+            {visitasQ.isLoading
+              ? "Cargando…"
+              : `${visitas.length} registro${visitas.length === 1 ? "" : "s"}`}
           </span>
           <NewVisitaDialog defaultInmuebleId={id} />
         </div>
       </div>
-
 
       {visitasQ.isLoading ? (
         <div className="space-y-2">
@@ -1595,7 +1832,11 @@ function VisitasPanel({ id }: { id: string }) {
         <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <StatBox label="Total" value={stats.total} />
-            <StatBox label="Conversión" value={`${stats.conversion}%`} hint={`${stats.efectivas} efectivas`} />
+            <StatBox
+              label="Conversión"
+              value={`${stats.conversion}%`}
+              hint={`${stats.efectivas} efectivas`}
+            />
             <StatBox label="Clientes" value={stats.clientes} />
             <StatBox label="Agentes" value={stats.agentes} />
           </div>
@@ -1646,12 +1887,8 @@ function VisitasPanel({ id }: { id: string }) {
             </div>
           </div>
 
-          {futuras.length > 0 && (
-            <VisitaList title="Próximas" visitas={futuras} />
-          )}
-          {pasadas.length > 0 && (
-            <VisitaList title="Histórico" visitas={pasadas} muted />
-          )}
+          {futuras.length > 0 && <VisitaList title="Próximas" visitas={futuras} />}
+          {pasadas.length > 0 && <VisitaList title="Histórico" visitas={pasadas} muted />}
         </div>
       )}
     </div>
@@ -1673,22 +1910,22 @@ function StatBox({
     tone === "emerald"
       ? "text-emerald-700 dark:text-emerald-300"
       : tone === "primary"
-      ? "text-primary"
-      : tone === "destructive"
-      ? "text-destructive"
-      : tone === "muted"
-      ? "text-muted-foreground"
-      : "text-foreground";
+        ? "text-primary"
+        : tone === "destructive"
+          ? "text-destructive"
+          : tone === "muted"
+            ? "text-muted-foreground"
+            : "text-foreground";
   const accent =
     tone === "emerald"
       ? "before:bg-emerald-500"
       : tone === "primary"
-      ? "before:bg-primary"
-      : tone === "destructive"
-      ? "before:bg-destructive"
-      : tone === "muted"
-      ? "before:bg-muted-foreground/40"
-      : "before:bg-border";
+        ? "before:bg-primary"
+        : tone === "destructive"
+          ? "before:bg-destructive"
+          : tone === "muted"
+            ? "before:bg-muted-foreground/40"
+            : "before:bg-border";
   return (
     <div
       className={`relative rounded-md border border-border bg-background px-3 py-2.5 overflow-hidden before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] ${accent}`}
@@ -1696,7 +1933,9 @@ function StatBox({
       <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground">
         {label}
       </div>
-      <div className={`text-lg font-display font-semibold leading-tight mt-0.5 tabular-nums ${toneCls}`}>
+      <div
+        className={`text-lg font-display font-semibold leading-tight mt-0.5 tabular-nums ${toneCls}`}
+      >
         {value}
       </div>
       {hint && <div className="text-[10px] text-muted-foreground mt-0.5">{hint}</div>}
@@ -1749,10 +1988,7 @@ function VisitaList({
               {v.clientesTelefonos.length > 0 && (
                 <div className="flex items-center gap-1">
                   <Phone className="size-3" />
-                  <a
-                    href={`tel:${v.clientesTelefonos[0]}`}
-                    className="hover:text-primary"
-                  >
+                  <a href={`tel:${v.clientesTelefonos[0]}`} className="hover:text-primary">
                     {v.clientesTelefonos.join(", ")}
                   </a>
                 </div>
@@ -1802,7 +2038,9 @@ function PhotoUpload({
 }) {
   const addFn = useServerFn(addImagenToInmueble);
   const [isDragging, setIsDragging] = useState(false);
-  const [uploading, setUploading] = useState<Array<{ name: string; status: "uploading" | "done" | "error" }>>([]);
+  const [uploading, setUploading] = useState<
+    Array<{ name: string; status: "uploading" | "done" | "error" }>
+  >([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleFiles(files: FileList | null) {
@@ -1812,11 +2050,13 @@ function PhotoUpload({
       setUploading((u) => [...u, { name: file.name, status: "uploading" }]);
       try {
         const base64 = await fileToBase64(file);
-        const { url } = await addFn({ data: { id: propertyId, base64, filename: file.name, mimeType: file.type } });
-        setUploading((u) => u.map((x) => x.name === file.name ? { ...x, status: "done" } : x));
+        const { url } = await addFn({
+          data: { id: propertyId, base64, filename: file.name, mimeType: file.type },
+        });
+        setUploading((u) => u.map((x) => (x.name === file.name ? { ...x, status: "done" } : x)));
         onUploaded(url);
       } catch {
-        setUploading((u) => u.map((x) => x.name === file.name ? { ...x, status: "error" } : x));
+        setUploading((u) => u.map((x) => (x.name === file.name ? { ...x, status: "error" } : x)));
       }
     }
     setTimeout(() => setUploading([]), 3000);
@@ -1824,9 +2064,16 @@ function PhotoUpload({
 
   return (
     <div
-      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDragging(true);
+      }}
       onDragLeave={() => setIsDragging(false)}
-      onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files); }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        handleFiles(e.dataTransfer.files);
+      }}
       className={`px-3 py-3 border-t border-border bg-card transition-colors ${isDragging ? "bg-primary/5" : ""}`}
     >
       <input
@@ -1835,7 +2082,10 @@ function PhotoUpload({
         accept="image/*"
         multiple
         className="sr-only"
-        onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
+        onChange={(e) => {
+          handleFiles(e.target.files);
+          e.target.value = "";
+        }}
       />
       <div className="flex items-center gap-3 flex-wrap">
         <button

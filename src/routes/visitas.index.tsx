@@ -14,6 +14,7 @@ import {
   Legend,
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
+import { RouteError } from "@/components/RouteError";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
 import { Input } from "@/components/ui/input";
 
@@ -68,27 +69,23 @@ export const Route = createFileRoute("/visitas/")({
   ),
   errorComponent: ({ error }) => (
     <AppShell title="Visitas">
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        Error cargando visitas: {error.message}
-      </div>
+      <RouteError error={error} />
     </AppShell>
   ),
 });
 
-// Estados reales de Airtable, ordenados por ciclo de vida de la visita:
-// Pendiente → Confirmada → Completado · Anulada / Borrada (terminales negativos)
+// Estados canónicos de ESGI. La UI no inventa estados que la base no puede
+// conservar al recargar.
 const ESTADO_COLORS: Record<string, string> = {
-  Pendiente:  "var(--gold)",
-  Confirmada: "var(--chart-5)",
-  Completado: "var(--chart-1)",
-  Anulada:    "var(--destructive)",
-  Borrada:    "var(--muted-foreground)",
+  Programada: "var(--gold)",
+  Realizada: "var(--chart-1)",
+  Cancelada: "var(--destructive)",
 };
 
-const ESTADOS = ["Pendiente", "Confirmada", "Completado", "Anulada", "Borrada"] as const;
-const ESTADOS_EXITO       = new Set(["Completado"]);
-const ESTADOS_CANCELACION = new Set(["Anulada", "Borrada"]);
-const ESTADOS_AGENDADA    = new Set(["Confirmada", "Pendiente"]);
+const ESTADOS = ["Programada", "Realizada", "Cancelada"] as const;
+const ESTADOS_EXITO = new Set(["Realizada"]);
+const ESTADOS_CANCELACION = new Set(["Cancelada"]);
+const ESTADOS_AGENDADA = new Set(["Programada"]);
 
 const tooltipStyle = {
   background: "var(--card)",
@@ -156,7 +153,13 @@ function VisitasPage() {
           ? startOfYear
           : now - 365 * 86400000;
   const periodoDays =
-    periodo === "30d" ? 30 : periodo === "90d" ? 90 : periodo === "ytd" ? Math.max(1, Math.round((now - startOfYear) / 86400000)) : 365;
+    periodo === "30d"
+      ? 30
+      : periodo === "90d"
+        ? 90
+        : periodo === "ytd"
+          ? Math.max(1, Math.round((now - startOfYear) / 86400000))
+          : 365;
 
   const stats = useMemo(() => {
     const enPeriodo = visitas.filter((v) => {
@@ -213,7 +216,8 @@ function VisitasPage() {
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       months.push({ key, label: d.toLocaleDateString("es-ES", { month: "short" }) });
     }
-    const monthCount: Record<string, { total: number; confirmadas: number; canceladas: number }> = {};
+    const monthCount: Record<string, { total: number; confirmadas: number; canceladas: number }> =
+      {};
     months.forEach((m) => (monthCount[m.key] = { total: 0, confirmadas: 0, canceladas: 0 }));
     visitas.forEach((v) => {
       if (!v.fecha) return;
@@ -226,7 +230,7 @@ function VisitasPage() {
     const seriesData = months.map((m) => ({
       mes: m.label,
       Total: monthCount[m.key].total,
-      Confirmadas: monthCount[m.key].confirmadas,
+      Realizadas: monthCount[m.key].confirmadas,
       Canceladas: monthCount[m.key].canceladas,
     }));
     const sparkTotal = seriesData.slice(-8).map((d, i) => ({ i, v: d.Total }));
@@ -239,9 +243,7 @@ function VisitasPage() {
     const topInmuebles = Array.from(inmCount.entries())
       .map(([id, count]) => {
         const meta = inmIndex.get(id);
-        const label = meta
-          ? `${meta.calle || "—"} ${meta.numero || ""}`.trim()
-          : id.slice(0, 6);
+        const label = meta ? `${meta.calle || "—"} ${meta.numero || ""}`.trim() : id.slice(0, 6);
         return { id, label, count, barrio: meta?.barrio ?? "" };
       })
       .sort((a, b) => b.count - a.count)
@@ -315,7 +317,6 @@ function VisitasPage() {
 
   return (
     <AppShell title="Visitas y actividad">
-
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
         <div className="inline-flex rounded-md border border-border bg-card overflow-hidden text-xs">
@@ -333,16 +334,40 @@ function VisitasPage() {
 
       {/* ── KPIs ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-        <KpiCard icon={CalendarDays} label="Visitas en periodo" value={stats.enPeriodo.length.toString()}
-          hint={`${visitas.length} totales`} tone="primary"
-          sparkData={stats.sparkTotal} sparkColor="var(--chart-5)" delta={stats.deltaPct} />
-        <KpiCard icon={Clock} label="Próximas 14 días" value={stats.proximas14.length.toString()}
-          hint={`${stats.hoy.length} hoy · ${stats.proximas.length} en total`} tone="violet" />
-        <KpiCard icon={CheckCircle2} label="Tasa realización" value={`${stats.ratioConfirm}%`}
-          hint={`${stats.confirmadas.length} realizadas`} tone="emerald" progress={stats.ratioConfirm} />
-        <KpiCard icon={XCircle} label="Tasa cancelación" value={`${stats.ratioCancel}%`}
-          hint={`${stats.canceladas.length} canceladas`} tone="amber"
-          progress={stats.ratioCancel} progressTone="amber" />
+        <KpiCard
+          icon={CalendarDays}
+          label="Visitas en periodo"
+          value={stats.enPeriodo.length.toString()}
+          hint={`${visitas.length} totales`}
+          tone="primary"
+          sparkData={stats.sparkTotal}
+          sparkColor="var(--chart-5)"
+          delta={stats.deltaPct}
+        />
+        <KpiCard
+          icon={Clock}
+          label="Próximas 14 días"
+          value={stats.proximas14.length.toString()}
+          hint={`${stats.hoy.length} hoy · ${stats.proximas.length} en total`}
+          tone="violet"
+        />
+        <KpiCard
+          icon={CheckCircle2}
+          label="Tasa realización"
+          value={`${stats.ratioConfirm}%`}
+          hint={`${stats.confirmadas.length} realizadas`}
+          tone="emerald"
+          progress={stats.ratioConfirm}
+        />
+        <KpiCard
+          icon={XCircle}
+          label="Tasa cancelación"
+          value={`${stats.ratioCancel}%`}
+          hint={`${stats.canceladas.length} canceladas`}
+          tone="amber"
+          progress={stats.ratioCancel}
+          progressTone="amber"
+        />
       </div>
 
       {/* ── Calendario ── */}
@@ -356,22 +381,33 @@ function VisitasPage() {
           <h3 className="text-sm font-semibold flex items-center gap-2">
             <Clock className="size-4 text-muted-foreground" />
             Todas las visitas
-            <span className="text-xs font-normal text-muted-foreground">· {filteredActividad.length}</span>
+            <span className="text-xs font-normal text-muted-foreground">
+              · {filteredActividad.length}
+            </span>
           </h3>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
               <Search className="size-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar cliente, calle, agente…" className="h-8 pl-7 w-56 text-xs" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar cliente, calle, agente…"
+                className="h-8 pl-7 w-56 text-xs"
+              />
             </div>
             <div className="inline-flex rounded-md border border-border overflow-hidden text-[11px]">
-              <button onClick={() => setEstadoFilter(null)}
-                className={`px-2 py-1 transition-colors ${!estadoFilter ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}>
+              <button
+                onClick={() => setEstadoFilter(null)}
+                className={`px-2 py-1 transition-colors ${!estadoFilter ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+              >
                 Todas
               </button>
               {ESTADOS.map((e) => (
-                <button key={e} onClick={() => setEstadoFilter(estadoFilter === e ? null : e)}
-                  className={`px-2 py-1 transition-colors border-l border-border ${estadoFilter === e ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}>
+                <button
+                  key={e}
+                  onClick={() => setEstadoFilter(estadoFilter === e ? null : e)}
+                  className={`px-2 py-1 transition-colors border-l border-border ${estadoFilter === e ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+                >
                   {e}
                 </button>
               ))}
@@ -392,8 +428,12 @@ function VisitasPage() {
         {stats.pieData.length > 0 && (
           <div className="rounded-lg border border-border bg-card p-4 mb-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Distribución por estado</span>
-              <span className="text-xs text-muted-foreground">{stats.enPeriodo.length} visitas</span>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Distribución por estado
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {stats.enPeriodo.length} visitas
+              </span>
             </div>
             {/* Stacked bar */}
             <div className="flex h-3 rounded-full overflow-hidden gap-px mb-3">
@@ -401,7 +441,10 @@ function VisitasPage() {
                 <button
                   key={p.name}
                   onClick={() => setEstadoFilter(estadoFilter === p.name ? null : p.name)}
-                  style={{ width: `${(p.value / pieTotal) * 100}%`, background: ESTADO_COLORS[p.name] ?? "#cbd5e1" }}
+                  style={{
+                    width: `${(p.value / pieTotal) * 100}%`,
+                    background: ESTADO_COLORS[p.name] ?? "#cbd5e1",
+                  }}
                   className={`transition-opacity ${estadoFilter && estadoFilter !== p.name ? "opacity-25" : "opacity-100"}`}
                   title={`${p.name}: ${p.value}`}
                 />
@@ -415,10 +458,15 @@ function VisitasPage() {
                   onClick={() => setEstadoFilter(estadoFilter === p.name ? null : p.name)}
                   className={`flex items-center gap-1.5 text-[11px] transition-opacity ${estadoFilter && estadoFilter !== p.name ? "opacity-40" : ""}`}
                 >
-                  <span className="inline-block size-2 rounded-full shrink-0" style={{ background: ESTADO_COLORS[p.name] ?? "#cbd5e1" }} />
+                  <span
+                    className="inline-block size-2 rounded-full shrink-0"
+                    style={{ background: ESTADO_COLORS[p.name] ?? "#cbd5e1" }}
+                  />
                   <span className="text-foreground/80">{p.name}</span>
                   <span className="font-semibold tabular-nums">{p.value}</span>
-                  <span className="text-muted-foreground">({Math.round((p.value / pieTotal) * 100)}%)</span>
+                  <span className="text-muted-foreground">
+                    ({Math.round((p.value / pieTotal) * 100)}%)
+                  </span>
                 </button>
               ))}
             </div>
@@ -427,9 +475,17 @@ function VisitasPage() {
 
         {/* Evolución + ranking */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <ChartCard title="Evolución mensual" subtitle="12 meses · realizadas vs canceladas" icon={TrendingUp} className="lg:col-span-1">
+          <ChartCard
+            title="Evolución mensual"
+            subtitle="12 meses · realizadas vs canceladas"
+            icon={TrendingUp}
+            className="lg:col-span-1"
+          >
             <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={stats.seriesData} margin={{ top: 4, right: 6, left: -20, bottom: 0 }}>
+              <AreaChart
+                data={stats.seriesData}
+                margin={{ top: 4, right: 6, left: -20, bottom: 0 }}
+              >
                 <defs>
                   <linearGradient id="gConf" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.45} />
@@ -441,32 +497,65 @@ function VisitasPage() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="mes" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} stroke="var(--border)" />
-                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} stroke="var(--border)" allowDecimals={false} />
+                <XAxis
+                  dataKey="mes"
+                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                  stroke="var(--border)"
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                  stroke="var(--border)"
+                  allowDecimals={false}
+                />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
-                <Area type="monotone" dataKey="Confirmadas" stroke="var(--chart-1)" strokeWidth={2} fill="url(#gConf)" />
-                <Area type="monotone" dataKey="Canceladas" stroke="var(--destructive)" strokeWidth={2} fill="url(#gCanc)" />
+                <Area
+                  type="monotone"
+                  dataKey="Realizadas"
+                  stroke="var(--chart-1)"
+                  strokeWidth={2}
+                  fill="url(#gConf)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="Canceladas"
+                  stroke="var(--destructive)"
+                  strokeWidth={2}
+                  fill="url(#gCanc)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
 
           <ChartCard title="Inmuebles más visitados" icon={Building2}>
-            {stats.topInmuebles.length === 0 ? <EmptyChart /> : (
+            {stats.topInmuebles.length === 0 ? (
+              <EmptyChart />
+            ) : (
               <div className="space-y-2.5">
                 {stats.topInmuebles.map((t, idx) => {
                   const pct = Math.max(6, Math.round((t.count / stats.maxTopInm) * 100));
                   return (
-                    <Link key={t.id} to="/inmuebles/$id" params={{ id: t.id }} className="block group">
+                    <Link
+                      key={t.id}
+                      to="/inmuebles/$id"
+                      params={{ id: t.id }}
+                      className="block group"
+                    >
                       <div className="flex items-baseline justify-between gap-2 mb-1">
                         <div className="text-xs font-medium truncate group-hover:text-primary transition-colors">
-                          <span className="text-muted-foreground tabular-nums mr-1.5">{idx + 1}.</span>
-                          {t.label}{t.barrio && <span className="text-muted-foreground"> · {t.barrio}</span>}
+                          <span className="text-muted-foreground tabular-nums mr-1.5">
+                            {idx + 1}.
+                          </span>
+                          {t.label}
+                          {t.barrio && <span className="text-muted-foreground"> · {t.barrio}</span>}
                         </div>
                         <div className="text-xs font-semibold tabular-nums shrink-0">{t.count}</div>
                       </div>
                       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400" style={{ width: `${pct}%` }} />
+                        <div
+                          className="h-full bg-gradient-to-r from-emerald-500 to-teal-400"
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
                     </Link>
                   );
@@ -476,7 +565,9 @@ function VisitasPage() {
           </ChartCard>
 
           <ChartCard title="Actividad por agente" icon={UserCog}>
-            {stats.topAgentes.length === 0 ? <EmptyChart /> : (
+            {stats.topAgentes.length === 0 ? (
+              <EmptyChart />
+            ) : (
               <div className="space-y-2.5">
                 {stats.topAgentes.map((a, idx) => {
                   const pct = Math.max(6, Math.round((a.count / stats.maxTopAg) * 100));
@@ -484,7 +575,9 @@ function VisitasPage() {
                     <div key={a.mail}>
                       <div className="flex items-baseline justify-between gap-2 mb-1">
                         <div className="text-xs font-medium truncate">
-                          <span className="text-muted-foreground tabular-nums mr-1.5">{idx + 1}.</span>
+                          <span className="text-muted-foreground tabular-nums mr-1.5">
+                            {idx + 1}.
+                          </span>
                           {a.label}
                         </div>
                         <div className="text-xs tabular-nums shrink-0">
@@ -493,7 +586,10 @@ function VisitasPage() {
                         </div>
                       </div>
                       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-primary to-accent" style={{ width: `${pct}%` }} />
+                        <div
+                          className="h-full bg-gradient-to-r from-primary to-accent"
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
                     </div>
                   );
@@ -648,7 +744,7 @@ function getMonday(ts: number): number {
 // ── CalendarSemanal ────────────────────────────────────────────────────────────
 
 const HOUR_START = 8;
-const HOUR_END   = 21;
+const HOUR_END = 21;
 const HOURS = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i);
 
 function CalendarSemanal({
@@ -668,16 +764,19 @@ function CalendarSemanal({
     month: new Date(now).getMonth(),
   }));
 
-  const weekDays = useMemo(() =>
-    Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(weekStart + i * 86400000);
-      return {
-        key: d.toISOString().slice(0, 10),
-        date: d,
-        label: d.toLocaleDateString("es-ES", { weekday: "short" }).toUpperCase().slice(0, 3),
-        num: d.getDate(),
-      };
-    }), [weekStart]);
+  const weekDays = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekStart + i * 86400000);
+        return {
+          key: d.toISOString().slice(0, 10),
+          date: d,
+          label: d.toLocaleDateString("es-ES", { weekday: "short" }).toUpperCase().slice(0, 3),
+          num: d.getDate(),
+        };
+      }),
+    [weekStart],
+  );
 
   const visitsByDayHour = useMemo(() => {
     const map = new Map<string, VisitaFull[]>();
@@ -697,19 +796,21 @@ function CalendarSemanal({
     return s;
   }, [visitas]);
 
-  const selectedVisits = useMemo(() =>
-    visitas
-      .filter((v) => v.fecha?.slice(0, 10) === selectedDay)
-      .sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? "")),
-    [visitas, selectedDay]);
+  const selectedVisits = useMemo(
+    () =>
+      visitas
+        .filter((v) => v.fecha?.slice(0, 10) === selectedDay)
+        .sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? "")),
+    [visitas, selectedDay],
+  );
 
   const weekStats = useMemo(() => {
     const keys = new Set(weekDays.map((d) => d.key));
     const inWeek = visitas.filter((v) => v.fecha && keys.has(v.fecha.slice(0, 10)));
     return {
       total: inWeek.length,
-      realizadas: inWeek.filter((v) => v.estado === "Completado").length,
-      pendientes: inWeek.filter((v) => v.estado === "Pendiente" || v.estado === "Confirmada").length,
+      realizadas: inWeek.filter((v) => v.estado === "Realizada").length,
+      pendientes: inWeek.filter((v) => v.estado === "Programada").length,
     };
   }, [visitas, weekDays]);
 
@@ -721,9 +822,16 @@ function CalendarSemanal({
     return `${a.num} ${a.date.toLocaleDateString("es-ES", { month: "short" })} – ${z.num} ${z.date.toLocaleDateString("es-ES", { month: "short" })}`;
   })();
 
-  function prevWeek() { setWeekStart((w) => w - 7 * 86400000); }
-  function nextWeek() { setWeekStart((w) => w + 7 * 86400000); }
-  function goToday()  { setWeekStart(getMonday(now)); setSelectedDay(todayStr); }
+  function prevWeek() {
+    setWeekStart((w) => w - 7 * 86400000);
+  }
+  function nextWeek() {
+    setWeekStart((w) => w + 7 * 86400000);
+  }
+  function goToday() {
+    setWeekStart(getMonday(now));
+    setSelectedDay(todayStr);
+  }
 
   function handleDaySelect(dateStr: string) {
     setSelectedDay(dateStr);
@@ -736,14 +844,23 @@ function CalendarSemanal({
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/20">
         <CalendarDays className="size-4 text-muted-foreground shrink-0" />
         <h3 className="text-sm font-semibold flex-1">Calendario</h3>
-        <button onClick={goToday} className="px-3 h-7 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors">
+        <button
+          onClick={goToday}
+          className="px-3 h-7 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
+        >
           Hoy
         </button>
-        <button onClick={prevWeek} className="size-7 rounded-md border border-border flex items-center justify-center hover:bg-accent transition-colors text-muted-foreground">
+        <button
+          onClick={prevWeek}
+          className="size-7 rounded-md border border-border flex items-center justify-center hover:bg-accent transition-colors text-muted-foreground"
+        >
           <ChevronLeft className="size-3.5" />
         </button>
         <span className="text-xs font-semibold min-w-[120px] text-center">{weekLabel}</span>
-        <button onClick={nextWeek} className="size-7 rounded-md border border-border flex items-center justify-center hover:bg-accent transition-colors text-muted-foreground">
+        <button
+          onClick={nextWeek}
+          className="size-7 rounded-md border border-border flex items-center justify-center hover:bg-accent transition-colors text-muted-foreground"
+        >
           <ChevronRight className="size-3.5" />
         </button>
         <div className="w-px h-4 bg-border mx-1" />
@@ -764,12 +881,12 @@ function CalendarSemanal({
             onSelectDay={handleDaySelect}
             onPrevMonth={() =>
               setMiniMonth(({ year, month }) =>
-                month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 }
+                month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 },
               )
             }
             onNextMonth={() =>
               setMiniMonth(({ year, month }) =>
-                month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 }
+                month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 },
               )
             }
           />
@@ -779,7 +896,10 @@ function CalendarSemanal({
             </div>
             {Object.entries(ESTADO_COLORS).map(([estado, color]) => (
               <div key={estado} className="flex items-center gap-1.5 mb-1.5">
-                <span className="inline-block size-2 rounded-full shrink-0" style={{ background: color }} />
+                <span
+                  className="inline-block size-2 rounded-full shrink-0"
+                  style={{ background: color }}
+                />
                 <span className="text-xs text-foreground/80">{estado}</span>
               </div>
             ))}
@@ -792,8 +912,8 @@ function CalendarSemanal({
           <div className="grid grid-cols-[44px_repeat(7,1fr)] sticky top-0 bg-card z-10 border-b border-border">
             <div />
             {weekDays.map((d) => {
-              const isToday   = d.key === todayStr;
-              const isSel     = d.key === selectedDay;
+              const isToday = d.key === todayStr;
+              const isSel = d.key === selectedDay;
               const isWeekend = d.date.getDay() === 0 || d.date.getDay() === 6;
               return (
                 <button
@@ -801,8 +921,12 @@ function CalendarSemanal({
                   onClick={() => setSelectedDay(d.key)}
                   className={`flex flex-col items-center py-2 border-l border-border transition-colors hover:bg-accent/40 ${isSel ? "bg-primary/5" : isWeekend ? "bg-muted/30" : ""}`}
                 >
-                  <span className="text-[9px] font-semibold tracking-widest text-muted-foreground">{d.label}</span>
-                  <span className={`mt-1 w-7 h-7 flex items-center justify-center rounded-full text-sm font-semibold transition-colors ${isToday ? "bg-primary text-primary-foreground" : ""}`}>
+                  <span className="text-[9px] font-semibold tracking-widest text-muted-foreground">
+                    {d.label}
+                  </span>
+                  <span
+                    className={`mt-1 w-7 h-7 flex items-center justify-center rounded-full text-sm font-semibold transition-colors ${isToday ? "bg-primary text-primary-foreground" : ""}`}
+                  >
                     {d.num}
                   </span>
                 </button>
@@ -812,28 +936,37 @@ function CalendarSemanal({
 
           {/* Hour rows */}
           {HOURS.map((h) => (
-            <div key={h} className="grid grid-cols-[44px_repeat(7,1fr)] border-b border-border/40 min-h-[56px]">
+            <div
+              key={h}
+              className="grid grid-cols-[44px_repeat(7,1fr)] border-b border-border/40 min-h-[56px]"
+            >
               <div className="text-[9px] text-muted-foreground px-1.5 pt-1 text-right border-r border-border/40 select-none">
                 {String(h).padStart(2, "0")}:00
               </div>
               {weekDays.map((d) => {
                 const isWeekend = d.date.getDay() === 0 || d.date.getDay() === 6;
-                const isSel     = d.key === selectedDay;
-                const isToday   = d.key === todayStr;
+                const isSel = d.key === selectedDay;
+                const isToday = d.key === todayStr;
                 const cellVisits = visitsByDayHour.get(`${d.key}-${h}`) ?? [];
                 return (
                   <div
                     key={d.key}
                     className={`border-l border-border/40 p-0.5 ${
-                      isSel ? "bg-primary/[0.04]" : isToday ? "bg-primary/[0.02]" : isWeekend ? "bg-muted/20" : ""
+                      isSel
+                        ? "bg-primary/[0.04]"
+                        : isToday
+                          ? "bg-primary/[0.02]"
+                          : isWeekend
+                            ? "bg-muted/20"
+                            : ""
                     }`}
                   >
                     {cellVisits.map((v) => {
-                      const color  = ESTADO_COLORS[v.estado] ?? "#94a3b8";
-                      const inmId  = v.inmuebleIds[0];
-                      const meta   = inmId ? inmIndex.get(inmId) : null;
-                      const label  = meta ? meta.calle.trim() : v.actividad || "Visita";
-                      const mins   = v.fecha ? new Date(v.fecha).getMinutes() : 0;
+                      const color = ESTADO_COLORS[v.estado] ?? "#94a3b8";
+                      const inmId = v.inmuebleIds[0];
+                      const meta = inmId ? inmIndex.get(inmId) : null;
+                      const label = meta ? meta.calle.trim() : v.actividad || "Visita";
+                      const mins = v.fecha ? new Date(v.fecha).getMinutes() : 0;
                       const timeStr = `${String(h).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
                       const chip = (
                         <div
@@ -841,13 +974,19 @@ function CalendarSemanal({
                           style={{ background: `${color}18`, borderLeft: `2px solid ${color}` }}
                           title={`${timeStr} · ${label}`}
                         >
-                          <div className="font-semibold tabular-nums" style={{ color }}>{timeStr}</div>
+                          <div className="font-semibold tabular-nums" style={{ color }}>
+                            {timeStr}
+                          </div>
                           <div className="truncate text-foreground/80">{label}</div>
                         </div>
                       );
                       return inmId ? (
-                        <Link key={v.id} to="/inmuebles/$id" params={{ id: inmId }}>{chip}</Link>
-                      ) : <div key={v.id}>{chip}</div>;
+                        <Link key={v.id} to="/inmuebles/$id" params={{ id: inmId }}>
+                          {chip}
+                        </Link>
+                      ) : (
+                        <div key={v.id}>{chip}</div>
+                      );
                     })}
                   </div>
                 );
@@ -861,10 +1000,18 @@ function CalendarSemanal({
           {/* Selected day detail */}
           <div>
             <div className="text-sm font-semibold">
-              {selectedDay === todayStr ? "Hoy" : new Date(selectedDay + "T12:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "short" })}
+              {selectedDay === todayStr
+                ? "Hoy"
+                : new Date(selectedDay + "T12:00:00").toLocaleDateString("es-ES", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "short",
+                  })}
             </div>
             <div className="text-xs text-muted-foreground mb-3">
-              {selectedVisits.length === 0 ? "Sin eventos" : `${selectedVisits.length} ${selectedVisits.length === 1 ? "evento" : "eventos"}`}
+              {selectedVisits.length === 0
+                ? "Sin eventos"
+                : `${selectedVisits.length} ${selectedVisits.length === 1 ? "evento" : "eventos"}`}
             </div>
             {selectedVisits.length === 0 ? (
               <div className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
@@ -875,7 +1022,7 @@ function CalendarSemanal({
                 {selectedVisits.map((v) => {
                   const color = ESTADO_COLORS[v.estado] ?? "#94a3b8";
                   const inmId = v.inmuebleIds[0];
-                  const meta  = inmId ? inmIndex.get(inmId) : null;
+                  const meta = inmId ? inmIndex.get(inmId) : null;
                   const label = meta
                     ? `${meta.calle} ${meta.numero || ""}`.trim()
                     : v.actividad || "Visita";
@@ -885,9 +1032,15 @@ function CalendarSemanal({
                       className="rounded-md border border-border p-2 text-[10px] leading-snug"
                       style={{ borderLeftColor: color, borderLeftWidth: 2 }}
                     >
-                      <div className="font-semibold tabular-nums text-foreground">{fmtTime(v.fecha) || "—"}</div>
+                      <div className="font-semibold tabular-nums text-foreground">
+                        {fmtTime(v.fecha) || "—"}
+                      </div>
                       {inmId ? (
-                        <Link to="/inmuebles/$id" params={{ id: inmId }} className="truncate text-foreground/80 hover:text-primary transition-colors block">
+                        <Link
+                          to="/inmuebles/$id"
+                          params={{ id: inmId }}
+                          className="truncate text-foreground/80 hover:text-primary transition-colors block"
+                        >
                           {label}
                         </Link>
                       ) : (
@@ -896,7 +1049,9 @@ function CalendarSemanal({
                       {v.clientesNombres.length > 0 && (
                         <div className="truncate text-muted-foreground">{v.clientesNombres[0]}</div>
                       )}
-                      <div className="font-medium mt-0.5" style={{ color }}>{v.estado}</div>
+                      <div className="font-medium mt-0.5" style={{ color }}>
+                        {v.estado}
+                      </div>
                     </div>
                   );
                 })}
@@ -911,9 +1066,13 @@ function CalendarSemanal({
             </div>
             <div className="grid grid-cols-2 gap-2 text-center">
               {[
-                { label: "Visitas",    val: weekStats.total,      color: "" },
-                { label: "Realizadas", val: weekStats.realizadas,  color: "" },
-                { label: "Pendientes", val: weekStats.pendientes,  color: weekStats.pendientes > 0 ? "text-amber-500" : "" },
+                { label: "Visitas", val: weekStats.total, color: "" },
+                { label: "Realizadas", val: weekStats.realizadas, color: "" },
+                {
+                  label: "Pendientes",
+                  val: weekStats.pendientes,
+                  color: weekStats.pendientes > 0 ? "text-amber-500" : "",
+                },
               ].map(({ label, val, color }) => (
                 <div key={label} className="rounded-md border border-border p-2">
                   <div className={`text-xl font-semibold tabular-nums ${color}`}>{val}</div>
@@ -931,16 +1090,30 @@ function CalendarSemanal({
 // ── MiniCalendar ───────────────────────────────────────────────────────────────
 
 function MiniCalendar({
-  year, month, today, selected, weekStart, daysWithVisits,
-  onSelectDay, onPrevMonth, onNextMonth,
+  year,
+  month,
+  today,
+  selected,
+  weekStart,
+  daysWithVisits,
+  onSelectDay,
+  onPrevMonth,
+  onNextMonth,
 }: {
-  year: number; month: number; today: string; selected: string;
-  weekStart: number; daysWithVisits: Set<string>;
+  year: number;
+  month: number;
+  today: string;
+  selected: string;
+  weekStart: number;
+  daysWithVisits: Set<string>;
   onSelectDay: (d: string) => void;
-  onPrevMonth: () => void; onNextMonth: () => void;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
 }) {
-  const monthLabel = new Date(year, month, 1)
-    .toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+  const monthLabel = new Date(year, month, 1).toLocaleDateString("es-ES", {
+    month: "long",
+    year: "numeric",
+  });
 
   const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // Mon=0
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -962,34 +1135,47 @@ function MiniCalendar({
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <button onClick={onPrevMonth} className="size-5 flex items-center justify-center rounded hover:bg-accent text-muted-foreground transition-colors">
+        <button
+          onClick={onPrevMonth}
+          className="size-5 flex items-center justify-center rounded hover:bg-accent text-muted-foreground transition-colors"
+        >
           <ChevronLeft className="size-3" />
         </button>
         <span className="text-[11px] font-semibold capitalize">{monthLabel}</span>
-        <button onClick={onNextMonth} className="size-5 flex items-center justify-center rounded hover:bg-accent text-muted-foreground transition-colors">
+        <button
+          onClick={onNextMonth}
+          className="size-5 flex items-center justify-center rounded hover:bg-accent text-muted-foreground transition-colors"
+        >
           <ChevronRight className="size-3" />
         </button>
       </div>
       <div className="grid grid-cols-7 text-center text-[9px]">
-        {["L","M","X","J","V","S","D"].map((d) => (
-          <div key={d} className="text-muted-foreground font-semibold pb-1">{d}</div>
+        {["L", "M", "X", "J", "V", "S", "D"].map((d) => (
+          <div key={d} className="text-muted-foreground font-semibold pb-1">
+            {d}
+          </div>
         ))}
         {cells.map((day, i) => {
           if (!day) return <div key={`e-${i}`} />;
           const ds = dateStr(day);
           const isTod = ds === today;
           const isSel = ds === selected;
-          const inWk  = isInWeek(day);
-          const hasV  = daysWithVisits.has(ds);
+          const inWk = isInWeek(day);
+          const hasV = daysWithVisits.has(ds);
           return (
             <button
               key={day}
               onClick={() => onSelectDay(ds)}
               className={`relative h-6 w-full flex items-center justify-center rounded text-[10px] transition-colors leading-none
-                ${isSel ? "bg-primary text-primary-foreground font-bold" :
-                  isTod  ? "bg-primary/20 text-primary font-semibold" :
-                  inWk   ? "bg-primary/8 text-foreground" :
-                           "text-foreground/70 hover:bg-accent"}`}
+                ${
+                  isSel
+                    ? "bg-primary text-primary-foreground font-bold"
+                    : isTod
+                      ? "bg-primary/20 text-primary font-semibold"
+                      : inWk
+                        ? "bg-primary/8 text-foreground"
+                        : "text-foreground/70 hover:bg-accent"
+                }`}
             >
               {day}
               {hasV && !isSel && (
@@ -1003,7 +1189,7 @@ function MiniCalendar({
   );
 }
 
-const ESTADOS_ACTIVOS = new Set(["Pendiente", "Confirmada"]);
+const ESTADOS_ACTIVOS = new Set(["Programada"]);
 
 type DayGroup = {
   key: string;
@@ -1055,9 +1241,9 @@ function ListaDiaria({
   const [collapsedPast, setCollapsedPast] = useState(true);
   const groups = useMemo(() => buildDayGroups(visitas, now), [visitas, now]);
   const futureGroups = groups.filter((g) => g.isFuture);
-  const pastGroups   = groups.filter((g) => !g.isFuture).reverse();
-  const pastCount    = pastGroups.reduce((s, g) => s + g.items.length, 0);
-  const pastVisible  = collapsedPast ? pastGroups.slice(0, 5) : pastGroups;
+  const pastGroups = groups.filter((g) => !g.isFuture).reverse();
+  const pastCount = pastGroups.reduce((s, g) => s + g.items.length, 0);
+  const pastVisible = collapsedPast ? pastGroups.slice(0, 5) : pastGroups;
 
   if (groups.length === 0) {
     return (
@@ -1080,20 +1266,25 @@ function ListaDiaria({
             onClick={() => setCollapsedPast((v) => !v)}
             className="w-full flex items-center gap-2 px-4 py-2 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
           >
-            {collapsedPast ? <ChevronDown className="size-3.5 text-muted-foreground" /> : <ChevronUp className="size-3.5 text-muted-foreground" />}
+            {collapsedPast ? (
+              <ChevronDown className="size-3.5 text-muted-foreground" />
+            ) : (
+              <ChevronUp className="size-3.5 text-muted-foreground" />
+            )}
             <span className="text-[11px] font-medium text-muted-foreground">
               Historial · {pastCount} visitas
             </span>
           </button>
-          {!collapsedPast && pastVisible.map((g) => (
-            <DaySection key={g.key} group={g} inmIndex={inmIndex} now={now} past />
-          ))}
-          {collapsedPast && pastGroups.length > 0 && (
-            /* preview: show last 3 past visits compactly */
-            pastVisible.slice(0, 2).map((g) => (
+          {!collapsedPast &&
+            pastVisible.map((g) => (
               <DaySection key={g.key} group={g} inmIndex={inmIndex} now={now} past />
-            ))
-          )}
+            ))}
+          {collapsedPast &&
+            pastGroups.length > 0 &&
+            /* preview: show last 3 past visits compactly */
+            pastVisible
+              .slice(0, 2)
+              .map((g) => <DaySection key={g.key} group={g} inmIndex={inmIndex} now={now} past />)}
         </>
       )}
     </div>
@@ -1114,11 +1305,17 @@ function DaySection({
   return (
     <>
       {/* Separator row */}
-      <div className={`flex items-center gap-3 px-4 py-1.5 select-none ${group.isToday ? "bg-primary/5" : "bg-muted/30"}`}>
-        <span className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${group.isToday ? "text-primary" : "text-muted-foreground"}`}>
+      <div
+        className={`flex items-center gap-3 px-4 py-1.5 select-none ${group.isToday ? "bg-primary/5" : "bg-muted/30"}`}
+      >
+        <span
+          className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${group.isToday ? "text-primary" : "text-muted-foreground"}`}
+        >
           {group.label}
         </span>
-        <span className={`text-[10px] tabular-nums ${group.isToday ? "text-primary/70" : "text-muted-foreground/60"}`}>
+        <span
+          className={`text-[10px] tabular-nums ${group.isToday ? "text-primary/70" : "text-muted-foreground/60"}`}
+        >
           {group.items.length}
         </span>
       </div>
@@ -1154,27 +1351,41 @@ function VisitaRowDiaria({
     onError: (e: Error) => toast.error(e.message || "Error al actualizar"),
   });
 
-  const inmId   = v.inmuebleIds[0];
-  const meta    = inmId ? inmIndex.get(inmId) : null;
-  const calle   = meta ? `${meta.calle || ""} ${meta.numero || ""}`.trim() : "";
-  const label   = calle || v.actividad || "Sin dirección";
-  const color   = ESTADO_COLORS[v.estado] ?? "#94a3b8";
+  const inmId = v.inmuebleIds[0];
+  const meta = inmId ? inmIndex.get(inmId) : null;
+  const calle = meta ? `${meta.calle || ""} ${meta.numero || ""}`.trim() : "";
+  const label = calle || v.actividad || "Sin dirección";
+  const color = ESTADO_COLORS[v.estado] ?? "#94a3b8";
   const isActive = ESTADOS_ACTIVOS.has(v.estado);
-  const pending  = mut.isPending;
+  const pending = mut.isPending;
 
-  const addressEl = inmId
-    ? <Link to="/inmuebles/$id" params={{ id: inmId }} className="truncate hover:text-primary transition-colors">{label}</Link>
-    : <span className="truncate">{label}</span>;
+  const addressEl = inmId ? (
+    <Link
+      to="/inmuebles/$id"
+      params={{ id: inmId }}
+      className="truncate hover:text-primary transition-colors"
+    >
+      {label}
+    </Link>
+  ) : (
+    <span className="truncate">{label}</span>
+  );
 
   return (
-    <div className={`flex items-center gap-3 px-4 h-10 hover:bg-accent/30 transition-colors ${past ? "opacity-70" : ""}`}>
+    <div
+      className={`flex items-center gap-3 px-4 h-10 hover:bg-accent/30 transition-colors ${past ? "opacity-70" : ""}`}
+    >
       {/* Hora */}
       <span className="w-11 shrink-0 text-right text-xs tabular-nums text-muted-foreground font-medium">
         {fmtTime(v.fecha) || "—"}
       </span>
 
       {/* Estado dot */}
-      <span className="size-2 rounded-full shrink-0" style={{ background: color }} title={v.estado} />
+      <span
+        className="size-2 rounded-full shrink-0"
+        style={{ background: color }}
+        title={v.estado}
+      />
 
       {/* Dirección */}
       <span className="flex-1 min-w-0 text-xs font-medium text-foreground truncate">
@@ -1202,7 +1413,7 @@ function VisitaRowDiaria({
       {isActive ? (
         <div className="flex items-center gap-1 shrink-0">
           <button
-            onClick={() => mut.mutate("Completado")}
+            onClick={() => mut.mutate("Realizada")}
             disabled={pending}
             title="Realizada"
             className="size-7 flex items-center justify-center rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
@@ -1210,7 +1421,7 @@ function VisitaRowDiaria({
             <CheckCheck className="size-3.5" />
           </button>
           <button
-            onClick={() => mut.mutate("Anulada")}
+            onClick={() => mut.mutate("Cancelada")}
             disabled={pending}
             title="Anular"
             className="size-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive hover:bg-destructive/5 transition-colors disabled:opacity-50"

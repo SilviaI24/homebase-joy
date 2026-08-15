@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
+import { RouteError } from "@/components/RouteError";
 import { allInmueblesQuery, agentesQuery, visitasQuery } from "@/lib/queries";
 
 export const Route = createFileRoute("/comerciales/")({
@@ -17,9 +18,7 @@ export const Route = createFileRoute("/comerciales/")({
     ]),
   errorComponent: ({ error }) => (
     <AppShell title="Comerciales">
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        Error cargando datos: {error.message}
-      </div>
+      <RouteError error={error} />
     </AppShell>
   ),
 });

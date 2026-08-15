@@ -1,6 +1,21 @@
 import { queryOptions } from "@tanstack/react-query";
-import { listAllInmuebles, listAgentes, listProspectos } from "@/lib/inmuebles.functions";
-import { listClientes, listLeads, getLeadInsightsFn } from "@/lib/clientes.functions";
+import {
+  listAllInmuebles,
+  listAgentes,
+  listProspectos,
+  listInmueblesPage,
+  type InmueblesPageParams,
+} from "@/lib/inmuebles.functions";
+import {
+  listClientes,
+  listLeads,
+  listConversacionesIa,
+  getLeadInsightsFn,
+  listClientesPage,
+  getClientesStats,
+  getClienteById,
+  listConversacionesIaPage,
+} from "@/lib/clientes.functions";
 import { listVisitas } from "@/lib/visitas.functions";
 import { getNotifications } from "@/lib/notifications.functions";
 import { listSeguimientos } from "@/lib/seguimiento.functions";
@@ -14,8 +29,6 @@ export const agentesQuery = queryOptions({
   staleTime: 10 * 60 * 1000,
   gcTime: 60 * 60 * 1000,
 });
-
-
 
 // Cache compartida por todas las rutas que necesitan inmuebles/alquileres.
 // Una sola llamada a Airtable alimenta dashboard, inmuebles, alquileres y comerciales.
@@ -38,6 +51,13 @@ export const leadsQueryOpts = queryOptions({
   queryFn: () => listLeads(),
   staleTime: 5 * 60 * 1000,
   gcTime: 30 * 60 * 1000,
+});
+
+export const iaConversationsQuery = queryOptions({
+  queryKey: ["ia-conversations"],
+  queryFn: () => listConversacionesIa(),
+  staleTime: 2 * 60 * 1000,
+  gcTime: 15 * 60 * 1000,
 });
 
 export const visitasQuery = queryOptions({
@@ -96,3 +116,68 @@ export const myRoleQuery = queryOptions({
   staleTime: 10 * 60 * 1000,
   gcTime: 60 * 60 * 1000,
 });
+
+// ── Paginated query factories ─────────────────────────────────────────────────
+
+/** Paginated inmuebles query — one entry per (page + filters) combination. */
+export function inmueblesPageQuery(params: Partial<InmueblesPageParams>) {
+  return queryOptions({
+    queryKey: ["inmuebles-page", params],
+    queryFn: () => listInmueblesPage({ data: params }),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: (prev) => prev,
+  });
+}
+
+/** Paginated contacts (ciclo_vida='Cliente') query. */
+export function clientesPageQuery(params: {
+  page?: number;
+  pageSize?: number;
+  seg?: string;
+  q?: string;
+}) {
+  return queryOptions({
+    queryKey: ["clientes-page", params],
+    queryFn: () => listClientesPage({ data: params }),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: (prev) => prev,
+  });
+}
+
+/** Global KPI counts for clientes (segmento totals). Cached 5 min. */
+export const clientesStatsQuery = queryOptions({
+  queryKey: ["clientes-stats"],
+  queryFn: () => getClientesStats(),
+  staleTime: 5 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
+});
+
+/** Full cliente detail for Sheet panel. */
+export function clienteDetailQuery(id: string | null) {
+  return queryOptions({
+    queryKey: ["cliente-detail", id],
+    queryFn: () => getClienteById({ data: { id: id! } }),
+    enabled: Boolean(id),
+    staleTime: 1 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+/** Paginated SilvIA conversations query. */
+export function iaConversationsPageQuery(params: {
+  page?: number;
+  pageSize?: number;
+  tab?: string;
+  q?: string;
+  canal?: string;
+}) {
+  return queryOptions({
+    queryKey: ["ia-conversations-page", params],
+    queryFn: () => listConversacionesIaPage({ data: params }),
+    staleTime: 1 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: (prev) => prev,
+  });
+}

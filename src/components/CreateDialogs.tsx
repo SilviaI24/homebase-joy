@@ -2,7 +2,16 @@ import { useState, useRef, useEffect, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Plus, Loader2, X, Upload, Link2, CheckCircle2, AlertCircle, TriangleAlert } from "lucide-react";
+import {
+  Plus,
+  Loader2,
+  X,
+  Upload,
+  Link2,
+  CheckCircle2,
+  AlertCircle,
+  TriangleAlert,
+} from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import {
@@ -122,7 +131,11 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
   const [telefonoVal, setTelefonoVal] = useState("");
 
   useEffect(() => {
-    if (!open) { setEmailVal(""); setTelefonoVal(""); return; }
+    if (!open) {
+      setEmailVal("");
+      setTelefonoVal("");
+      return;
+    }
     const t = setTimeout(() => {
       setEmailVal(form.email?.trim() ?? "");
       setTelefonoVal(form.telefono?.trim() ?? "");
@@ -132,7 +145,8 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
 
   const dupQuery = useQuery({
     queryKey: ["dup-check", emailVal, telefonoVal],
-    queryFn: () => checkDupFn({ data: { email: emailVal || undefined, telefono: telefonoVal || undefined } }),
+    queryFn: () =>
+      checkDupFn({ data: { email: emailVal || undefined, telefono: telefonoVal || undefined } }),
     enabled: open && (emailVal.length > 4 || telefonoVal.length > 7),
     staleTime: 5000,
   });
@@ -290,7 +304,11 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
                     <li key={d.id}>{d.nombre || "Sin nombre"}</li>
                   ))}
                 </ul>
-                <Link to="/clientes" search={{ id: undefined }} className="font-medium underline hover:no-underline">
+                <Link
+                  to="/clientes"
+                  search={{ id: undefined }}
+                  className="font-medium underline hover:no-underline"
+                >
                   Ver contactos
                 </Link>
               </div>
@@ -429,7 +447,7 @@ const F = {
     key: "estatus",
     label: "Estatus",
     kind: "select",
-    options: ["Pendiente", "Activo", "Reservado", "Vendido", "Alquilado", "Baja", "Prospección"],
+    options: ["Prospección", "Activo", "Reservado", "Vendido", "Alquilado", "Baja"],
   } satisfies FieldDef,
   estado: {
     key: "estado",
@@ -494,7 +512,7 @@ const F = {
     key: "publicacion",
     label: "Publicación",
     kind: "select",
-    options: ["SUBIR", "PUBLICADO"],
+    options: ["PROSPECTO", "SUBIR", "PUBLICADO"],
   } satisfies FieldDef,
   enlaceTours: {
     key: "enlaceTours",
@@ -586,6 +604,7 @@ function getSchemaForTipo(t: TipoInmueble): FieldDef[] {
         F.llaves,
         F.enlaceTours,
         F.descripcion,
+        F.publicacion,
         F.imagenesUrls,
         F.documentacionUrls,
       ];
@@ -604,12 +623,14 @@ function getSchemaForTipo(t: TipoInmueble): FieldDef[] {
         F.descripcion,
         F.observaciones,
         F.enlaceTours,
+        F.publicacion,
         F.imagenesUrls,
         F.documentacionUrls,
       ];
     case "Piso":
       return [
         F.ref,
+        F.estatus,
         F.estado,
         F.precio,
         F.localidad,
@@ -663,6 +684,7 @@ function getSchemaForTipo(t: TipoInmueble): FieldDef[] {
     case "Nave":
       return [
         F.ref,
+        F.estatus,
         F.estado,
         F.precio,
         F.localidad,
@@ -692,6 +714,7 @@ function getSchemaForTipo(t: TipoInmueble): FieldDef[] {
     case "Trastero":
       return [
         F.ref,
+        F.estatus,
         F.precio,
         F.estado,
         F.calle,
@@ -718,6 +741,7 @@ function getSchemaForTipo(t: TipoInmueble): FieldDef[] {
         F.superficie,
         F.descripcion,
         F.observaciones,
+        F.publicacion,
         F.imagenesUrls,
         F.documentacionUrls,
       ];
@@ -742,11 +766,14 @@ function PropietarioBlock({
 }) {
   const clientes = useQuery(clientesQueryOpts);
   const [filter, setFilter] = useState("");
-  const list = (clientes.data?.clientes ?? [])
-    .filter((c) =>
-      filter ? `${c.nombre} ${c.telefono}`.toLowerCase().includes(filter.toLowerCase()) : true,
-    )
-    .slice(0, 80)
+  const matching = (clientes.data?.clientes ?? []).filter((c) =>
+    filter ? `${c.nombre} ${c.telefono}`.toLowerCase().includes(filter.toLowerCase()) : true,
+  );
+  const list = [
+    ...matching.filter((c) => selected.includes(c.id)),
+    ...matching.filter((c) => !selected.includes(c.id)),
+  ]
+    .slice(0, 30)
     .map((c) => ({ id: c.id, label: `${c.nombre}${c.telefono ? ` · ${c.telefono}` : ""}` }));
 
   return (
@@ -769,6 +796,11 @@ function PropietarioBlock({
           className="mb-2"
         />
         <MultiSelect options={list} value={selected} onChange={onChange} />
+        {matching.length > list.length && (
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Mostrando {list.length} de {matching.length}. Escribe nombre o teléfono para acotar.
+          </p>
+        )}
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Fecha de inicio">
@@ -1066,7 +1098,10 @@ export function NewInmuebleDialog({
   const [open, setOpen] = useState(false);
   const agentes = useQuery({ ...agentesQuery, enabled: open });
   const [tipo, setTipo] = useState<TipoInmueble | null>(null);
-  const [values, setValues] = useState<Record<string, string>>({ publicacion: "SUBIR" });
+  const [values, setValues] = useState<Record<string, string>>({
+    estatus: "Prospección",
+    publicacion: "PROSPECTO",
+  });
   const [ag, setAg] = useState<string[]>([]);
   const [propietarios, setPropietarios] = useState<string[]>([]);
   const [fechaInicio, setFechaInicio] = useState<string>(new Date().toISOString().slice(0, 10));
@@ -1076,7 +1111,7 @@ export function NewInmuebleDialog({
 
   const reset = () => {
     setTipo(null);
-    setValues({ publicacion: "SUBIR" });
+    setValues({ estatus: "Prospección", publicacion: "PROSPECTO" });
     setAg([]);
     setPropietarios([]);
     setFechaInicio(new Date().toISOString().slice(0, 10));
@@ -1102,8 +1137,8 @@ export function NewInmuebleDialog({
     const payload: CreateInmueblePayload = {
       calle: values.calle ?? "",
       tipo,
-      estatus: values.estatus || "Pendiente",
-      publicacion: values.publicacion || "SUBIR",
+      estatus: values.estatus || "Prospección",
+      publicacion: values.publicacion || "PROSPECTO",
       fechaInicio: fechaInicio || null,
       fechaExclusiva: fechaExclusiva || null,
       agentesIds: ag.length ? ag : undefined,
@@ -1300,7 +1335,7 @@ export function NewVisitaDialog({
   const clientes = useQuery({ ...clientesQueryOpts, enabled: open });
   const [form, setForm] = useState<CreateVisitaPayload>({
     fecha: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
-    estado: "Pendiente",
+    estado: "Programada",
     inmueblesIds: defaultInmuebleId ? [defaultInmuebleId] : [],
     clientesIds: defaultClienteId ? [defaultClienteId] : [],
   });
@@ -1368,11 +1403,11 @@ export function NewVisitaDialog({
           </Field>
           <Field label="Estado">
             <select
-              value={form.estado ?? "Pendiente"}
+              value={form.estado ?? "Programada"}
               onChange={(e) => setForm({ ...form, estado: e.target.value })}
               className="h-9 px-3 rounded-md border border-input bg-background text-sm w-full"
             >
-              {["Pendiente", "Confirmada", "Realizada", "Cancelada", "No realizada"].map((s) => (
+              {["Programada", "Realizada", "Cancelada"].map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>

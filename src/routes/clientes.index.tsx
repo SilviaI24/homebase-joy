@@ -1,24 +1,26 @@
 import { createFileRoute, useRouter, Link } from "@tanstack/react-router";
-import { useSuspenseQuery, useQueryClient, useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState, useDeferredValue } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/AppShell";
+import { RouteError } from "@/components/RouteError";
 import { NewClienteDialog } from "@/components/CreateDialogs";
 import { SafeImage } from "@/components/SafeImage";
+import { Pagination } from "@/components/pagination/Pagination";
 import {
-  listClientes,
   deleteContacto,
   actualizarCicloVida,
   gestionarRol,
   buscarInmuebles,
   getContactoActividad,
   type Cliente,
+  type ClienteRow,
   type MiniInmueble,
   type Segmento,
   type Etapa,
   ETAPAS,
 } from "@/lib/clientes.functions";
-import { clientesQueryOpts } from "@/lib/queries";
+import { clientesPageQuery, clientesStatsQuery, clienteDetailQuery } from "@/lib/queries";
 
 import {
   Search,
@@ -34,7 +36,6 @@ import {
   CalendarDays,
   MapPin,
   ChevronRight,
-  ChevronDown,
   Euro,
   Sparkles,
   MessageSquare,
@@ -61,11 +62,18 @@ import {
 } from "@/components/silvia/conversation";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
-const clientesQuery = clientesQueryOpts;
+const PAGE_SIZE = 50;
 
 export const Route = createFileRoute("/clientes/")({
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (
+    s: Record<string, unknown>,
+  ): { id?: string; page?: number; seg?: string; q?: string } => ({
     id: typeof s.id === "string" ? s.id : undefined,
+    page: typeof s.page === "number" && s.page >= 1 ? Math.floor(s.page) : undefined,
+    seg: ["Todos", "Propietario", "Comprador", "Inquilino"].includes(s.seg as string)
+      ? (s.seg as string)
+      : undefined,
+    q: typeof s.q === "string" ? s.q : undefined,
   }),
   head: () => ({
     meta: [
@@ -73,13 +81,17 @@ export const Route = createFileRoute("/clientes/")({
       { name: "description", content: "Gestión de clientes activos e historial." },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(clientesQuery),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(
+        clientesPageQuery({ page: 1, pageSize: PAGE_SIZE, seg: "Todos", q: "" }),
+      ),
+      context.queryClient.ensureQueryData(clientesStatsQuery),
+    ]),
   component: ClientesPage,
   errorComponent: ({ error }) => (
     <AppShell title="Clientes">
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        Error cargando clientes: {error.message}
-      </div>
+      <RouteError error={error} />
     </AppShell>
   ),
 });
@@ -162,7 +174,7 @@ function csvEsc(v: string) {
   return v.includes(",") || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
-function exportCSV(clientes: Cliente[]) {
+function exportCSV(clientes: ClienteRow[]) {
   const header = "Nombre,Email,Teléfono,Ciclo de vida,Canal origen,Creado";
   const rows = clientes.map((c) => {
     const cols = [
@@ -170,7 +182,7 @@ function exportCSV(clientes: Cliente[]) {
       c.email,
       c.telefono,
       c.etapa,
-      "", // canal_origen not fetched in clientesQueryOpts
+      c.canalOrigen,
       c.fecha ? new Date(c.fecha).toLocaleDateString("es-ES") : "",
     ];
     return cols.map(csvEsc).join(",");
@@ -191,15 +203,23 @@ function exportCSV(clientes: Cliente[]) {
 
 function initials(name: string): string {
   if (!name) return "—";
-  return name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("");
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
 }
 
 function SegmentoBadge({ s }: { s: Segmento }) {
   const m = SEG_META[s];
   const Icon = m.icon;
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${m.chip}`}>
-      <Icon className="size-3" />{s}
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${m.chip}`}
+    >
+      <Icon className="size-3" />
+      {s}
     </span>
   );
 }
@@ -208,8 +228,11 @@ function EtapaBadge({ e }: { e: Etapa }) {
   const m = ETAPA_META[e];
   const Icon = m.icon;
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${m.chip}`}>
-      <Icon className="size-3" />{e}
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${m.chip}`}
+    >
+      <Icon className="size-3" />
+      {e}
     </span>
   );
 }
@@ -217,73 +240,62 @@ function EtapaBadge({ e }: { e: Etapa }) {
 // ─── Page ───────────────────────────────────────────────────────────────────────
 
 function ClientesPage() {
-  const { data } = useSuspenseQuery(clientesQuery);
   const router = useRouter();
-  const search = Route.useSearch();
+  const rawSearch = Route.useSearch();
   const navigate = Route.useNavigate();
-  const [q, setQ] = useState("");
-  const deferredQ = useDeferredValue(q);
-  const [seg, setSeg] = useState<Segmento | "Todos">("Todos");
+
+  // Apply defaults for optional search params.
+  const search = {
+    id: rawSearch.id,
+    page: rawSearch.page ?? 1,
+    seg: rawSearch.seg ?? "Todos",
+    q: rawSearch.q ?? "",
+  };
+
+  const { data: listData, isFetching } = useQuery(
+    clientesPageQuery({
+      page: search.page,
+      pageSize: PAGE_SIZE,
+      seg: search.seg,
+      q: search.q,
+    }),
+  );
+
+  const { data: statsData } = useQuery(clientesStatsQuery);
+
+  const clientes = listData?.clientes ?? [];
+  const total = listData?.total ?? 0;
+  const segmentoCounts = statsData ?? { Propietario: 0, Comprador: 0, Inquilino: 0, total: 0 };
+
   const [selectedId, setSelectedId] = useState<string | null>(search.id ?? null);
 
   useEffect(() => {
-    if (!search.id) return;
-    const c = data.clientes.find((x) => x.id === search.id);
-    if (!c) return;
-    setSelectedId(c.id);
-  }, [search.id, data.clientes]);
+    if (search.id) setSelectedId(search.id);
+  }, [search.id]);
 
   function selectCliente(id: string | null) {
     setSelectedId(id);
-    navigate({ search: { id: id ?? undefined }, replace: true });
+    navigate({ search: (prev) => ({ ...prev, id: id ?? undefined }), replace: true });
   }
 
-  const activoCount = useMemo(
-    () => data.clientes.filter((c) => CLIENTE_SEGS.includes(c.segmento) && c.etapa === "Cliente").length,
-    [data.clientes],
-  );
+  function goPage(p: number) {
+    navigate({ search: (prev) => ({ ...prev, page: p }) });
+  }
 
-  const kpiCounts = useMemo(() => {
-    const m: Partial<Record<Segmento, number>> = {};
-    data.clientes.forEach((c) => {
-      if (CLIENTE_SEGS.includes(c.segmento) && c.etapa === "Cliente")
-        m[c.segmento] = (m[c.segmento] ?? 0) + 1;
-    });
-    return m;
-  }, [data.clientes]);
+  function changeSeg(s: string) {
+    navigate({ search: (prev) => ({ ...prev, seg: s, page: 1 }) });
+  }
 
-  const baseSet = useMemo(() => {
-    return data.clientes.filter((c) => {
-      if (!CLIENTE_SEGS.includes(c.segmento)) return false;
-      if (c.etapa !== "Cliente") return false;
-      if (seg !== "Todos" && seg !== c.segmento) return false;
-      return true;
-    });
-  }, [data.clientes, seg]);
+  function changeQ(q: string) {
+    navigate({ search: (prev) => ({ ...prev, q, page: 1 }) });
+  }
 
-  const filtered = useMemo(() => {
-    const n = deferredQ.trim().toLowerCase();
-    return baseSet.filter((c) => {
-      if (!n) return true;
-      return (
-        c.nombre.toLowerCase().includes(n) ||
-        c.email.toLowerCase().includes(n) ||
-        c.telefono.toLowerCase().includes(n) ||
-        c.dni.toLowerCase().includes(n) ||
-        c.propiedadRefs.some((r) => r.toLowerCase().includes(n)) ||
-        c.propiedadCalles.some((s) => s.toLowerCase().includes(n))
-      );
-    });
-  }, [baseSet, deferredQ]);
+  const { data: detailData, isLoading: detailLoading } = useQuery(clienteDetailQuery(selectedId));
+  const selected = detailData?.cliente ?? null;
 
-  const activos = filtered;
+  const activoCount = segmentoCounts.total;
 
-  const selected = useMemo(
-    () => data.clientes.find((c) => c.id === selectedId) ?? null,
-    [data.clientes, selectedId],
-  );
-
-  const segmentosTabs: Array<Segmento | "Todos"> = ["Todos", "Propietario", "Comprador", "Inquilino"];
+  const segmentosTabs: string[] = ["Todos", "Propietario", "Comprador", "Inquilino"];
 
   return (
     <AppShell title="Clientes">
@@ -292,28 +304,38 @@ function ClientesPage() {
         {CLIENTE_SEGS.map((s) => {
           const m = SEG_META[s];
           const Icon = m.icon;
-          const count = kpiCounts[s] ?? 0;
+          const count = (segmentoCounts as Record<string, number>)[s] ?? 0;
           const pct = activoCount ? Math.round((count / activoCount) * 100) : 0;
-          const active = seg === s;
+          const active = search.seg === s;
           return (
             <button
               key={s}
-              onClick={() => setSeg(active ? "Todos" : s)}
+              onClick={() => changeSeg(active ? "Todos" : s)}
               className={`group relative text-left rounded-xl border border-border bg-card p-3 overflow-hidden transition-all hover:border-foreground/20 hover:shadow-sm ${active ? `ring-2 ${m.ring}` : ""}`}
             >
-              <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${m.tone} opacity-60`} />
+              <div
+                className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${m.tone} opacity-60`}
+              />
               <div className="relative flex items-start justify-between gap-2">
                 <div>
-                  <div className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${m.color}`}>
-                    <Icon className="size-3.5" />{m.label}
+                  <div
+                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${m.color}`}
+                  >
+                    <Icon className="size-3.5" />
+                    {m.label}
                   </div>
                   <div className="mt-1 text-2xl font-bold tracking-tight">{count}</div>
                   <div className="text-[11px] text-muted-foreground">{pct}% del total activo</div>
                 </div>
-                <ChevronRight className={`size-4 text-muted-foreground transition-transform ${active ? "rotate-90 text-foreground" : "group-hover:translate-x-0.5"}`} />
+                <ChevronRight
+                  className={`size-4 text-muted-foreground transition-transform ${active ? "rotate-90 text-foreground" : "group-hover:translate-x-0.5"}`}
+                />
               </div>
               <div className="relative mt-2 h-1 rounded-full bg-muted overflow-hidden">
-                <div className={`h-full ${SEG_BAR[s]}`} style={{ width: `${Math.min(100, pct)}%` }} />
+                <div
+                  className={`h-full ${SEG_BAR[s]}`}
+                  style={{ width: `${Math.min(100, pct)}%` }}
+                />
               </div>
             </button>
           );
@@ -325,19 +347,22 @@ function ClientesPage() {
         <div className="relative flex-1 min-w-[240px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+            value={search.q}
+            onChange={(e) => changeQ(e.target.value)}
             aria-label="Buscar clientes"
-            placeholder="Buscar por nombre, email, teléfono, DNI o referencia…"
+            placeholder="Buscar por nombre, email o teléfono…"
             className="w-full h-9 pl-9 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button onClick={() => router.invalidate()} className="h-9 px-3 rounded-md border border-input bg-background text-sm hover:bg-accent">
+          <button
+            onClick={() => router.invalidate()}
+            className="h-9 px-3 rounded-md border border-input bg-background text-sm hover:bg-accent"
+          >
             Refrescar
           </button>
           <button
-            onClick={() => exportCSV(activos)}
+            onClick={() => exportCSV(clientes)}
             className="h-9 px-3 rounded-md border border-input bg-background text-sm hover:bg-accent inline-flex items-center gap-1.5"
           >
             <Download className="size-4" />
@@ -351,31 +376,57 @@ function ClientesPage() {
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-card p-1">
           {segmentosTabs.map((s) => {
-            const active = seg === s;
-            const count = s === "Todos" ? activoCount : kpiCounts[s as Segmento] ?? 0;
+            const active = search.seg === s;
+            const count =
+              s === "Todos"
+                ? segmentoCounts.total
+                : ((segmentoCounts as Record<string, number>)[s] ?? 0);
             return (
               <button
                 key={s}
-                onClick={() => setSeg(s)}
+                onClick={() => changeSeg(s)}
                 className={`px-2.5 h-7 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-1 ${active ? "bg-primary text-primary-foreground" : "text-foreground/70 hover:bg-accent"}`}
               >
                 {s}
-                <span className={`text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>{count}</span>
+                <span className={`text-[10px] ${active ? "opacity-80" : "text-muted-foreground"}`}>
+                  {count}
+                </span>
               </button>
             );
           })}
         </div>
-        <div className="ml-auto text-xs text-muted-foreground">
-          {activos.length} activos
-        </div>
+        <div className="ml-auto text-xs text-muted-foreground">{total} en esta página</div>
       </div>
 
-      {/* Activos */}
-      <ClientesTable clientes={activos} selectedId={selectedId} onSelect={selectCliente} />
+      {/* Table */}
+      <ClientesTable clientes={clientes} selectedId={selectedId} onSelect={selectCliente} />
 
-      <Sheet open={!!selected} onOpenChange={(o) => !o && selectCliente(null)}>
+      {/* Pagination */}
+      <Pagination
+        page={search.page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onPage={goPage}
+        isFetching={isFetching}
+        className="mt-2"
+      />
+
+      {/* Detail panel */}
+      <Sheet
+        open={!!selectedId}
+        onOpenChange={(o) => {
+          if (!o) selectCliente(null);
+        }}
+      >
         <SheetContent side="right" className="w-full sm:max-w-xl p-0 overflow-y-auto">
-          {selected && <ClienteDetalle cliente={selected} onDeleted={() => selectCliente(null)} />}
+          {detailLoading && (
+            <div className="flex items-center justify-center h-full min-h-[200px] text-sm text-muted-foreground animate-pulse">
+              Cargando…
+            </div>
+          )}
+          {selected && !detailLoading && (
+            <ClienteDetalle cliente={selected} onDeleted={() => selectCliente(null)} />
+          )}
         </SheetContent>
       </Sheet>
     </AppShell>
@@ -390,13 +441,15 @@ function ClientesTable({
   onSelect,
   dimmed = false,
 }: {
-  clientes: Cliente[];
+  clientes: ClienteRow[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   dimmed?: boolean;
 }) {
   return (
-    <div className={`rounded-xl border border-border bg-card overflow-hidden ${dimmed ? "opacity-80" : ""}`}>
+    <div
+      className={`rounded-xl border border-border bg-card overflow-hidden ${dimmed ? "opacity-80" : ""}`}
+    >
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-muted-foreground">
@@ -410,7 +463,6 @@ function ClientesTable({
           <tbody>
             {clientes.map((c) => {
               const active = c.id === selectedId;
-              const hasSilvia = hasSilviaConversation(c);
               const m = SEG_META[c.segmento];
               return (
                 <tr
@@ -420,15 +472,20 @@ function ClientesTable({
                 >
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`shrink-0 size-9 rounded-full grid place-items-center text-[11px] font-bold border ${m.chip}`}>
+                      <div
+                        className={`shrink-0 size-9 rounded-full grid place-items-center text-[11px] font-bold border ${m.chip}`}
+                      >
                         {initials(c.nombre)}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-medium truncate max-w-[200px]">{c.nombre || "—"}</span>
-                          {hasSilvia && (
+                          <span className="font-medium truncate max-w-[200px]">
+                            {c.nombre || "—"}
+                          </span>
+                          {c.hasSilvia && (
                             <Link
                               to="/silvia"
+                              search={{}}
                               onClick={(e) => e.stopPropagation()}
                               title="Ver conversación con SilvIA"
                               className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-primary/10 text-primary px-1.5 py-0.5 hover:bg-primary/20"
@@ -447,19 +504,17 @@ function ClientesTable({
                     <SegmentoBadge s={c.segmento} />
                   </td>
                   <td className="px-3 py-2.5 text-xs hidden md:table-cell">
-                    {c.inmueblesActivos.length > 0 ? (
+                    {c.inmueblesActivosCount > 0 ? (
                       <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
                         <Building2 className="size-3.5" />
-                        {c.inmueblesActivos.length} activo{c.inmueblesActivos.length !== 1 ? "s" : ""}
+                        {c.inmueblesActivosCount} activo
+                        {c.inmueblesActivosCount !== 1 ? "s" : ""}
                       </span>
-                    ) : c.inmueblesHistorico.length > 0 ? (
+                    ) : c.inmueblesHistoricoCount > 0 ? (
                       <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
                         <CheckCircle2 className="size-3.5" />
-                        {c.inmueblesHistorico.length} cerrado{c.inmueblesHistorico.length !== 1 ? "s" : ""}
-                      </span>
-                    ) : c.matches.length > 0 ? (
-                      <span className="inline-flex items-center gap-1 text-primary">
-                        <Sparkles className="size-3.5" />{c.matches.length} match
+                        {c.inmueblesHistoricoCount} cerrado
+                        {c.inmueblesHistoricoCount !== 1 ? "s" : ""}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
@@ -487,9 +542,17 @@ function ClientesTable({
 
 // ─── Edición inline ────────────────────────────────────────────────────────────
 
-const TIPOS_ROL = ["Propietario", "Comprador", "Inquilino"] as const;
+const TIPOS_ROL = ["Propietario", "Arrendador", "Comprador", "Inquilino"] as const;
 
-function EditableEtapaBadge({ contactId, etapa, onUpdated }: { contactId: string; etapa: Etapa; onUpdated: () => Promise<void> }) {
+function EditableEtapaBadge({
+  contactId,
+  etapa,
+  onUpdated,
+}: {
+  contactId: string;
+  etapa: Etapa;
+  onUpdated: () => Promise<void>;
+}) {
   const updateFn = useServerFn(actualizarCicloVida);
   const [saving, setSaving] = useState(false);
   const m = ETAPA_META[etapa];
@@ -503,18 +566,35 @@ function EditableEtapaBadge({ contactId, etapa, onUpdated }: { contactId: string
         try {
           await updateFn({ data: { contactId, cicloVida: e.target.value } });
           await onUpdated();
-        } finally { setSaving(false); }
+        } finally {
+          setSaving(false);
+        }
       }}
       className={`rounded-full px-2 py-0.5 text-[10px] font-medium cursor-pointer border-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring appearance-none ${m.chip} ${saving ? "opacity-50" : ""}`}
     >
-      {ETAPAS.map((e) => <option key={e} value={e}>{e}</option>)}
+      {ETAPAS.map((e) => (
+        <option key={e} value={e}>
+          {e}
+        </option>
+      ))}
     </select>
   );
 }
 
-function PropertyRolEditor({ p, contactId, onChanged }: { p: MiniInmueble; contactId: string; onChanged: () => Promise<void> }) {
+function PropertyRolEditor({
+  p,
+  contactId,
+  onChanged,
+}: {
+  p: MiniInmueble;
+  contactId: string;
+  onChanged: () => Promise<void>;
+}) {
   const rolFn = useServerFn(gestionarRol);
   const [saving, setSaving] = useState(false);
+  const tiposPermitidos = p.esAlquiler
+    ? (["Arrendador", "Inquilino"] as const)
+    : (["Propietario", "Comprador"] as const);
   return (
     <div className="mt-1.5 flex items-center gap-2 px-1">
       <select
@@ -526,11 +606,17 @@ function PropertyRolEditor({ p, contactId, onChanged }: { p: MiniInmueble; conta
           try {
             await rolFn({ data: { contactId, propertyId: p.id, tipo: e.target.value } });
             await onChanged();
-          } finally { setSaving(false); }
+          } finally {
+            setSaving(false);
+          }
         }}
         className="text-[10px] h-6 rounded border border-input bg-background px-1.5 cursor-pointer"
       >
-        {TIPOS_ROL.map((t) => <option key={t} value={t}>{t}</option>)}
+        {tiposPermitidos.map((t) => (
+          <option key={t} value={t}>
+            {t === "Arrendador" ? "Propietario (alquiler)" : t}
+          </option>
+        ))}
       </select>
       <button
         disabled={saving}
@@ -540,7 +626,9 @@ function PropertyRolEditor({ p, contactId, onChanged }: { p: MiniInmueble; conta
           try {
             await rolFn({ data: { contactId, propertyId: p.id, tipo: null } });
             await onChanged();
-          } finally { setSaving(false); }
+          } finally {
+            setSaving(false);
+          }
         }}
         title="Desvincular"
         aria-label="Desvincular inmueble"
@@ -553,17 +641,26 @@ function PropertyRolEditor({ p, contactId, onChanged }: { p: MiniInmueble; conta
   );
 }
 
-function AñadirInmueblePanel({ contactId, onAdded }: { contactId: string; onAdded: () => Promise<void> }) {
+function AñadirInmueblePanel({
+  contactId,
+  onAdded,
+}: {
+  contactId: string;
+  onAdded: () => Promise<void>;
+}) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [results, setResults] = useState<MiniInmueble[]>([]);
   const [tipo, setTipo] = useState<string>("Comprador");
   const [saving, setSaving] = useState(false);
   const buscarFn = useServerFn(buscarInmuebles);
-  const rolFn    = useServerFn(gestionarRol);
+  const rolFn = useServerFn(gestionarRol);
 
   useEffect(() => {
-    if (q.trim().length < 2) { setResults([]); return; }
+    if (q.trim().length < 2) {
+      setResults([]);
+      return;
+    }
     const t = setTimeout(async () => {
       const res = await buscarFn({ data: { q } });
       setResults(res.results as MiniInmueble[]);
@@ -585,8 +682,18 @@ function AñadirInmueblePanel({ contactId, onAdded }: { contactId: string; onAdd
   return (
     <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Vincular inmueble</span>
-        <button onClick={() => { setOpen(false); setQ(""); setResults([]); }} aria-label="Cerrar panel de vincular inmueble" className="text-muted-foreground hover:text-foreground">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Vincular inmueble
+        </span>
+        <button
+          onClick={() => {
+            setOpen(false);
+            setQ("");
+            setResults([]);
+          }}
+          aria-label="Cerrar panel de vincular inmueble"
+          className="text-muted-foreground hover:text-foreground"
+        >
           <X className="size-3.5" />
         </button>
       </div>
@@ -605,7 +712,11 @@ function AñadirInmueblePanel({ contactId, onAdded }: { contactId: string; onAdd
           aria-label="Tipo de rol del contacto en el inmueble"
           className="h-8 px-2 text-xs rounded border border-input bg-background"
         >
-          {TIPOS_ROL.map((t) => <option key={t} value={t}>{t}</option>)}
+          {TIPOS_ROL.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
         </select>
       </div>
       {results.length > 0 && (
@@ -619,14 +730,22 @@ function AñadirInmueblePanel({ contactId, onAdded }: { contactId: string; onAdd
                   try {
                     await rolFn({ data: { contactId, propertyId: p.id, tipo } });
                     await onAdded();
-                    setOpen(false); setQ(""); setResults([]);
-                  } finally { setSaving(false); }
+                    setOpen(false);
+                    setQ("");
+                    setResults([]);
+                  } finally {
+                    setSaving(false);
+                  }
                 }}
                 className="w-full text-left rounded-md border border-border bg-background px-2.5 py-2 text-xs hover:bg-accent disabled:opacity-50"
               >
-                <span className="font-semibold text-primary">#{p.ref || p.id.slice(0, 6)}</span>
-                {" "}— {[p.calle, p.numero].filter(Boolean).join(" ") || "Sin dirección"}
-                <span className={`ml-2 text-[10px] rounded-full px-1.5 py-0.5 ${estatusClase(p.estatus)}`}>{p.estatus}</span>
+                <span className="font-semibold text-primary">#{p.ref || p.id.slice(0, 6)}</span> —{" "}
+                {[p.calle, p.numero].filter(Boolean).join(" ") || "Sin dirección"}
+                <span
+                  className={`ml-2 text-[10px] rounded-full px-1.5 py-0.5 ${estatusClase(p.estatus)}`}
+                >
+                  {p.estatus}
+                </span>
               </button>
             </li>
           ))}
@@ -661,16 +780,29 @@ function InmuebleCard({ p }: { p: MiniInmueble }) {
       className="group flex gap-3 rounded-xl border border-border bg-background p-3 hover:shadow-md hover:border-primary/30 transition-all"
     >
       <div className="shrink-0">
-        <SafeImage src={p.imagen} alt={p.calle || p.ref} className="h-20 w-28 rounded-lg" imgClassName="object-cover" />
+        <SafeImage
+          src={p.imagen}
+          alt={p.calle || p.ref}
+          className="h-20 w-28 rounded-lg"
+          imgClassName="object-cover"
+        />
       </div>
       <div className="min-w-0 flex-1 flex flex-col justify-between">
         <div>
           <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-            <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">#{p.ref || p.id}</span>
+            <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+              #{p.ref || p.id}
+            </span>
             {p.estatus && (
-              <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${estatusClase(p.estatus)}`}>{p.estatus}</span>
+              <span
+                className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${estatusClase(p.estatus)}`}
+              >
+                {p.estatus}
+              </span>
             )}
-            <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${p.esAlquiler ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-blue-500/10 text-blue-600 dark:text-blue-400"}`}>
+            <span
+              className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${p.esAlquiler ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-blue-500/10 text-blue-600 dark:text-blue-400"}`}
+            >
               {p.esAlquiler ? "Alquiler" : "Venta"}
             </span>
             <span className="text-[10px] text-muted-foreground">{p.categoria}</span>
@@ -724,14 +856,22 @@ function ClienteTimeline({ cliente }: { cliente: Cliente }) {
 
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-3 font-medium">Historial</div>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-3 font-medium">
+        Historial
+      </div>
       <ol className="relative border-l border-border ml-2 space-y-4">
         <li className="ml-4">
           <span className="absolute -left-1.5 flex items-center justify-center size-3 rounded-full bg-primary/20 border border-primary/40">
             <span className="size-1.5 rounded-full bg-primary" />
           </span>
           <div className="text-[11px] text-muted-foreground">
-            {cliente.fecha ? new Date(cliente.fecha).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }) : "Fecha desconocida"}
+            {cliente.fecha
+              ? new Date(cliente.fecha).toLocaleDateString("es-ES", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "Fecha desconocida"}
           </div>
           <div className="text-xs font-medium text-foreground">Contacto registrado</div>
         </li>
@@ -750,10 +890,14 @@ function ClienteTimeline({ cliente }: { cliente: Cliente }) {
         ))}
         {todos.map((n, i) => (
           <li key={i} className="ml-4">
-            <span className={`absolute -left-1.5 flex items-center justify-center size-3 rounded-full ${n.tipo === "feedback" ? "bg-amber-500/20 border-amber-500/40" : "bg-muted border-border"}`}>
-              {n.tipo === "feedback"
-                ? <StickyNote className="size-1.5 text-amber-500" />
-                : <MessageSquare className="size-1.5 text-muted-foreground" />}
+            <span
+              className={`absolute -left-1.5 flex items-center justify-center size-3 rounded-full ${n.tipo === "feedback" ? "bg-amber-500/20 border-amber-500/40" : "bg-muted border-border"}`}
+            >
+              {n.tipo === "feedback" ? (
+                <StickyNote className="size-1.5 text-amber-500" />
+              ) : (
+                <MessageSquare className="size-1.5 text-muted-foreground" />
+              )}
             </span>
             <div className="text-[11px] text-muted-foreground">{n.fecha}</div>
             <div className="text-xs text-foreground leading-snug">{n.texto}</div>
@@ -773,7 +917,13 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
   const [deleting, setDeleting] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
-  const refresh = async () => { await qc.invalidateQueries({ queryKey: ["clientes"] }); };
+  const refresh = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["clientes-page"] }),
+      qc.invalidateQueries({ queryKey: ["clientes-stats"] }),
+      qc.invalidateQueries({ queryKey: ["cliente-detail", cliente.id] }),
+    ]);
+  };
 
   const { data: actividadData, isLoading: actividadLoading } = useQuery({
     queryKey: ["actividad", cliente.id],
@@ -784,14 +934,20 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
   return (
     <aside className="bg-card">
       <header className="relative p-5 border-b border-border overflow-hidden">
-        <div className={`absolute inset-0 bg-gradient-to-br ${segMeta.tone} opacity-70 pointer-events-none`} />
+        <div
+          className={`absolute inset-0 bg-gradient-to-br ${segMeta.tone} opacity-70 pointer-events-none`}
+        />
         <div className="relative flex items-start gap-3">
-          <div className={`shrink-0 size-12 rounded-full grid place-items-center text-sm font-bold border ${segMeta.chip}`}>
+          <div
+            className={`shrink-0 size-12 rounded-full grid place-items-center text-sm font-bold border ${segMeta.chip}`}
+          >
             {initials(cliente.nombre)}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="font-semibold text-base truncate flex-1">{cliente.nombre || "Sin nombre"}</h2>
+              <h2 className="font-semibold text-base truncate flex-1">
+                {cliente.nombre || "Sin nombre"}
+              </h2>
               <button
                 onClick={() => setEditMode((v) => !v)}
                 title={editMode ? "Salir del modo edición" : "Editar relaciones y etapa"}
@@ -802,9 +958,15 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
             </div>
             <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
               <SegmentoBadge s={cliente.segmento} />
-              {editMode
-                ? <EditableEtapaBadge contactId={cliente.id} etapa={cliente.etapa} onUpdated={refresh} />
-                : <EtapaBadge e={cliente.etapa} />}
+              {editMode ? (
+                <EditableEtapaBadge
+                  contactId={cliente.id}
+                  etapa={cliente.etapa}
+                  onUpdated={refresh}
+                />
+              ) : (
+                <EtapaBadge e={cliente.etapa} />
+              )}
               {cliente.trabajado && (
                 <span className="text-[10px] bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 rounded-full px-2 py-0.5">
                   {cliente.trabajado}
@@ -821,7 +983,11 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
           <Row icon={<Phone className="size-3.5" />} label="Teléfono" value={cliente.telefono} />
           <Row icon={<Mail className="size-3.5" />} label="Email" value={cliente.email} />
           <Row icon={<IdCard className="size-3.5" />} label="DNI" value={cliente.dni} />
-          <Row icon={<Briefcase className="size-3.5" />} label="Profesión" value={cliente.profesion} />
+          <Row
+            icon={<Briefcase className="size-3.5" />}
+            label="Profesión"
+            value={cliente.profesion}
+          />
           <Row
             icon={<CalendarDays className="size-3.5" />}
             label="Fecha alta"
@@ -850,13 +1016,16 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
                 </span>
               )}
               {cliente.preferencias.zonas.slice(0, 4).map((z) => (
-                <span key={z} className="inline-flex items-center gap-1 text-[11px] font-medium rounded-full bg-gold/15 text-foreground px-2.5 py-1 capitalize">
+                <span
+                  key={z}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium rounded-full bg-gold/15 text-foreground px-2.5 py-1 capitalize"
+                >
                   {z}
                 </span>
               ))}
               {cliente.duplicados > 1 && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 px-2.5 py-1">
-                  {cliente.duplicados} llamadas registradas
+                  {cliente.duplicados} posibles registros duplicados
                 </span>
               )}
             </div>
@@ -869,7 +1038,9 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
               {cliente.inmueblesActivos.map((p) => (
                 <li key={p.id}>
                   <InmuebleCard p={p} />
-                  {editMode && <PropertyRolEditor p={p} contactId={cliente.id} onChanged={refresh} />}
+                  {editMode && (
+                    <PropertyRolEditor p={p} contactId={cliente.id} onChanged={refresh} />
+                  )}
                 </li>
               ))}
             </ul>
@@ -887,7 +1058,9 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
               {cliente.inmueblesHistorico.map((p) => (
                 <li key={p.id}>
                   <InmuebleCard p={p} />
-                  {editMode && <PropertyRolEditor p={p} contactId={cliente.id} onChanged={refresh} />}
+                  {editMode && (
+                    <PropertyRolEditor p={p} contactId={cliente.id} onChanged={refresh} />
+                  )}
                 </li>
               ))}
             </ul>
@@ -900,32 +1073,40 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
           </Section>
         )}
 
-        {cliente.etapa !== "Histórico" && cliente.inmueblesActivos.length === 0 && cliente.matches.length > 0 && (
-          <Section
-            title={
-              <span className="flex items-center gap-1.5">
-                <Sparkles className="size-3.5 text-primary" />
-                Posibles matches ({cliente.matches.length})
-              </span>
-            }
-          >
-            <p className="text-[11px] text-muted-foreground mb-2">Inmuebles activos que encajan con sus intereses.</p>
-            <ul className="space-y-3">
-              {cliente.matches.map((m) => (
-                <li key={m.inmueble.id} className="space-y-1.5">
-                  <InmuebleCard p={m.inmueble} />
-                  <div className="flex flex-wrap gap-1 pl-1">
-                    {m.razones.map((r, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-primary/10 text-primary px-2 py-0.5">
-                        <Sparkles className="size-2.5" />{r}
-                      </span>
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </Section>
-        )}
+        {cliente.etapa !== "Histórico" &&
+          cliente.inmueblesActivos.length === 0 &&
+          cliente.matches.length > 0 && (
+            <Section
+              title={
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="size-3.5 text-primary" />
+                  Posibles matches ({cliente.matches.length})
+                </span>
+              }
+            >
+              <p className="text-[11px] text-muted-foreground mb-2">
+                Inmuebles activos que encajan con sus intereses.
+              </p>
+              <ul className="space-y-3">
+                {cliente.matches.map((m) => (
+                  <li key={m.inmueble.id} className="space-y-1.5">
+                    <InmuebleCard p={m.inmueble} />
+                    <div className="flex flex-wrap gap-1 pl-1">
+                      {m.razones.map((r, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1 text-[10px] font-medium rounded-full bg-primary/10 text-primary px-2 py-0.5"
+                        >
+                          <Sparkles className="size-2.5" />
+                          {r}
+                        </span>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
 
         {hasSilviaConversation(cliente) && (
           <Section
@@ -934,7 +1115,11 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
                 <Sparkles className="size-3.5 text-primary" />
                 Conversación con SilvIA
                 <CanalChip canal={inferCanal(cliente)} />
-                <Link to="/silvia" className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline">
+                <Link
+                  to="/silvia"
+                  search={{}}
+                  className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+                >
                   Abrir en SilvIA <ArrowUpRight className="size-3" />
                 </Link>
               </span>
@@ -942,8 +1127,12 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
           >
             {cliente.motivo && (
               <div className="rounded-md bg-muted/40 border border-border p-3">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Motivo</div>
-                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">{cliente.motivo}</p>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                  Motivo
+                </div>
+                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                  {cliente.motivo}
+                </p>
               </div>
             )}
             {cliente.conversaciones && (
@@ -959,10 +1148,17 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
           <Row label="Sección" value={cliente.seccion} multiline />
           {cliente.categoria.length > 0 && (
             <div>
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Categoría de interés</div>
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                Categoría de interés
+              </div>
               <div className="flex flex-wrap gap-1">
                 {cliente.categoria.map((c) => (
-                  <span key={c} className="text-[10px] rounded-full bg-secondary text-secondary-foreground px-2 py-0.5">{c}</span>
+                  <span
+                    key={c}
+                    className="text-[10px] rounded-full bg-secondary text-secondary-foreground px-2 py-0.5"
+                  >
+                    {c}
+                  </span>
                 ))}
               </div>
             </div>
@@ -971,7 +1167,11 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
 
         {(cliente.contratoTrabajo || cliente.mascota || cliente.avalista) && (
           <Section title="Perfil alquiler">
-            <Row icon={<ShieldCheck className="size-3.5" />} label="Contrato" value={cliente.contratoTrabajo} />
+            <Row
+              icon={<ShieldCheck className="size-3.5" />}
+              label="Contrato"
+              value={cliente.contratoTrabajo}
+            />
             <Row icon={<Dog className="size-3.5" />} label="Mascota" value={cliente.mascota} />
             <Row label="Avalista" value={cliente.avalista} />
           </Section>
@@ -986,8 +1186,17 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
             <ul className="space-y-1">
               {cliente.attachments.map((a, i) => (
                 <li key={i}>
-                  <a href={a.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs rounded-md border border-border px-2 py-1.5 hover:bg-accent">
-                    {a.type.startsWith("image/") ? <Paperclip className="size-3.5 text-muted-foreground" /> : <FileText className="size-3.5 text-muted-foreground" />}
+                  <a
+                    href={a.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-xs rounded-md border border-border px-2 py-1.5 hover:bg-accent"
+                  >
+                    {a.type.startsWith("image/") ? (
+                      <Paperclip className="size-3.5 text-muted-foreground" />
+                    ) : (
+                      <FileText className="size-3.5 text-muted-foreground" />
+                    )}
                     <span className="truncate flex-1">{a.filename}</span>
                   </a>
                 </li>
@@ -1000,7 +1209,12 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
           <Section title="Agentes asignados">
             <div className="flex flex-wrap gap-1">
               {cliente.agentesMails.map((m, i) => (
-                <span key={i} className="text-[10px] rounded-full bg-muted text-foreground/80 px-2 py-0.5">{m}</span>
+                <span
+                  key={i}
+                  className="text-[10px] rounded-full bg-muted text-foreground/80 px-2 py-0.5"
+                >
+                  {m}
+                </span>
               ))}
             </div>
           </Section>
@@ -1027,22 +1241,24 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
                 const texto = ev.texto.length > 80 ? ev.texto.slice(0, 80) + "…" : ev.texto;
                 return (
                   <li key={ev.id} className="flex items-start gap-2.5 text-xs">
-                    <div className={`shrink-0 mt-0.5 size-6 rounded-full flex items-center justify-center ${ev.tipo === "seguimiento" ? "bg-primary/10 text-primary" : "bg-blue-500/10 text-blue-500"}`}>
+                    <div
+                      className={`shrink-0 mt-0.5 size-6 rounded-full flex items-center justify-center ${ev.tipo === "seguimiento" ? "bg-primary/10 text-primary" : "bg-blue-500/10 text-blue-500"}`}
+                    >
                       <Icon className="size-3.5" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-[10px] text-muted-foreground">{fecha}</span>
-                        <span className={`text-[10px] font-medium rounded-full px-1.5 py-0.5 ${ev.tipo === "seguimiento" ? "bg-primary/10 text-primary" : "bg-blue-500/10 text-blue-600 dark:text-blue-400"}`}>
+                        <span
+                          className={`text-[10px] font-medium rounded-full px-1.5 py-0.5 ${ev.tipo === "seguimiento" ? "bg-primary/10 text-primary" : "bg-blue-500/10 text-blue-600 dark:text-blue-400"}`}
+                        >
                           {ev.subtipo}
                         </span>
                         {ev.extra && (
                           <span className="text-[10px] text-muted-foreground">{ev.extra}</span>
                         )}
                       </div>
-                      {texto && (
-                        <p className="text-foreground/80 leading-snug mt-0.5">{texto}</p>
-                      )}
+                      {texto && <p className="text-foreground/80 leading-snug mt-0.5">{texto}</p>}
                     </div>
                   </li>
                 );
@@ -1053,28 +1269,43 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
 
         <div className="pt-2 border-t border-border">
           {!confirmDelete ? (
-            <button onClick={() => setConfirmDelete(true)} className="flex items-center gap-1.5 text-xs text-destructive hover:underline">
-              <Trash2 className="size-3.5" />Eliminar contacto
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="flex items-center gap-1.5 text-xs text-destructive hover:underline"
+            >
+              <Trash2 className="size-3.5" />
+              Eliminar contacto
             </button>
           ) : (
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">¿Seguro? Esta acción no se puede deshacer.</p>
+              <p className="text-xs text-muted-foreground">
+                ¿Seguro? Esta acción no se puede deshacer.
+              </p>
               <div className="flex gap-2">
                 <button
                   onClick={async () => {
                     setDeleting(true);
                     try {
                       await deleteFn({ data: { id: cliente.id } });
-                      await qc.invalidateQueries({ queryKey: ["clientes"] });
+                      await Promise.all([
+                        qc.invalidateQueries({ queryKey: ["clientes-page"] }),
+                        qc.invalidateQueries({ queryKey: ["clientes-stats"] }),
+                      ]);
                       onDeleted();
-                    } finally { setDeleting(false); }
+                    } finally {
+                      setDeleting(false);
+                    }
                   }}
                   disabled={deleting}
                   className="h-8 px-3 text-xs font-medium rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
                 >
                   {deleting ? "Eliminando…" : "Sí, eliminar"}
                 </button>
-                <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="h-8 px-3 text-xs font-medium rounded-md border border-input hover:bg-accent disabled:opacity-50">
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deleting}
+                  className="h-8 px-3 text-xs font-medium rounded-md border border-input hover:bg-accent disabled:opacity-50"
+                >
                   Cancelar
                 </button>
               </div>
@@ -1091,13 +1322,25 @@ function ClienteDetalle({ cliente, onDeleted }: { cliente: Cliente; onDeleted: (
 function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <section>
-      <h3 className="text-xs font-semibold text-foreground/70 uppercase tracking-wide mb-2">{title}</h3>
+      <h3 className="text-xs font-semibold text-foreground/70 uppercase tracking-wide mb-2">
+        {title}
+      </h3>
       <div className="space-y-2">{children}</div>
     </section>
   );
 }
 
-function Row({ label, value, icon, multiline }: { label: string; value: string; icon?: React.ReactNode; multiline?: boolean }) {
+function Row({
+  label,
+  value,
+  icon,
+  multiline,
+}: {
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+  multiline?: boolean;
+}) {
   if (!value) return null;
   return (
     <div className="text-xs">
@@ -1105,7 +1348,9 @@ function Row({ label, value, icon, multiline }: { label: string; value: string; 
         {icon}
         <span className="text-[10px] uppercase tracking-wide">{label}</span>
       </div>
-      <div className={multiline ? "whitespace-pre-wrap text-foreground/90" : "text-foreground/90"}>{value}</div>
+      <div className={multiline ? "whitespace-pre-wrap text-foreground/90" : "text-foreground/90"}>
+        {value}
+      </div>
     </div>
   );
 }

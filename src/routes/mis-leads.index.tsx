@@ -18,7 +18,6 @@ import {
   CalendarPlus,
   StickyNote,
   Loader2,
-  ArrowRight,
   Users,
   Inbox,
   Home,
@@ -38,15 +37,13 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { AppShell } from "@/components/AppShell";
+import { RouteError } from "@/components/RouteError";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
 import { AsignarLeadButton } from "@/components/AsignarLeadButton";
 import { AsociarInmuebleButton } from "@/components/AsociarInmuebleButton";
 import { agentesQuery, leadsQueryOpts } from "@/lib/queries";
 import { type Cliente } from "@/lib/clientes.functions";
-import {
-  updateClienteSeguimiento,
-  type EstadoSeguimiento,
-} from "@/lib/mutations.functions";
+import { updateClienteSeguimiento, type EstadoSeguimiento } from "@/lib/mutations.functions";
 import { deleteContacto } from "@/lib/clientes.functions";
 
 const clientesQuery = leadsQueryOpts;
@@ -75,17 +72,12 @@ export const Route = createFileRoute("/mis-leads/")({
   component: MisLeadsPage,
   errorComponent: ({ error }) => (
     <AppShell title="Mis leads">
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        Error cargando: {error.message}
-      </div>
+      <RouteError error={error} />
     </AppShell>
   ),
 });
 
-const ESTADO_META: Record<
-  EstadoSeguimiento,
-  { cls: string; icon: typeof Clock; label: string }
-> = {
+const ESTADO_META: Record<EstadoSeguimiento, { cls: string; icon: typeof Clock; label: string }> = {
   Pendiente: {
     cls: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
     icon: Clock,
@@ -175,9 +167,7 @@ function formatFecha(iso: string | null): string {
   });
 }
 
-function extraerUltimaNota(
-  obs: string,
-): { fecha: string; texto: string } | null {
+function extraerUltimaNota(obs: string): { fecha: string; texto: string } | null {
   if (!obs || !obs.trim()) return null;
   const lines = obs.split("\n");
   for (let i = lines.length - 1; i >= 0; i--) {
@@ -199,7 +189,7 @@ function MisLeadsPage() {
 
   const agentes = ag.agentes;
   const [savedAgenteId] = useState<string>(() =>
-    typeof window !== "undefined" ? (localStorage.getItem("homebase.misleads.agente") ?? "") : ""
+    typeof window !== "undefined" ? (localStorage.getItem("homebase.misleads.agente") ?? "") : "",
   );
   const agenteId =
     agenteParam ??
@@ -314,21 +304,27 @@ function MisLeadsPage() {
 
       {/* Barra de filtros compartida */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {view === "lista" && (["Pendiente", "Contactado", "Descartado", "Todos"] as const).map((e) => {
-          const active = estadoFilter === e;
-          const meta = e !== "Todos" ? ESTADO_META[e] : null;
-          return (
-            <button key={e} onClick={() => setEstadoFilter(e)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors cursor-pointer ${active ? meta ? meta.cls : "bg-foreground text-background border-foreground" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}
-            >
-              {meta && <meta.icon className="size-3" />}
-              {e}<span className="opacity-70">· {counts[e]}</span>
-            </button>
-          );
-        })}
+        {view === "lista" &&
+          (["Pendiente", "Contactado", "Descartado", "Todos"] as const).map((e) => {
+            const active = estadoFilter === e;
+            const meta = e !== "Todos" ? ESTADO_META[e] : null;
+            return (
+              <button
+                key={e}
+                onClick={() => setEstadoFilter(e)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors cursor-pointer ${active ? (meta ? meta.cls : "bg-foreground text-background border-foreground") : "bg-card border-border text-muted-foreground hover:text-foreground"}`}
+              >
+                {meta && <meta.icon className="size-3" />}
+                {e}
+                <span className="opacity-70">· {counts[e]}</span>
+              </button>
+            );
+          })}
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <input value={q} onChange={(e) => setQ(e.target.value)}
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar por nombre, teléfono o motivo…"
             className="w-full pl-8 pr-3 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
@@ -337,14 +333,18 @@ function MisLeadsPage() {
 
       {/* Filtros por origen */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium mr-1">Origen</span>
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium mr-1">
+          Origen
+        </span>
         {(["Todos", ...Object.keys(ORIGEN_META)] as const).map((k) => {
           const active = origenFilter === k;
           const meta = k !== "Todos" ? ORIGEN_META[k as string] : null;
           const count = origenCounts[k as string] ?? 0;
           return (
-            <button key={k} onClick={() => setOrigenFilter(k as string)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${active ? meta ? meta.cls : "bg-foreground text-background border-foreground" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}
+            <button
+              key={k}
+              onClick={() => setOrigenFilter(k as string)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${active ? (meta ? meta.cls : "bg-foreground text-background border-foreground") : "bg-card border-border text-muted-foreground hover:text-foreground"}`}
             >
               {meta && <meta.icon className="size-3" />}
               {meta ? meta.label : k}
@@ -360,7 +360,9 @@ function MisLeadsPage() {
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
           <Inbox className="mx-auto mb-2 size-6 opacity-50" />
-          {misLeads.length === 0 ? "Este comercial todavía no tiene leads asignados." : "Sin leads en este estado."}
+          {misLeads.length === 0
+            ? "Este comercial todavía no tiene leads asignados."
+            : "Sin leads en este estado."}
         </div>
       ) : (
         <div className="space-y-3">
@@ -381,9 +383,14 @@ const PIPELINE_STAGES: Array<{
   dot: string;
   headerCls: string;
 }> = [
-  { id: "Pendiente",  label: "Nuevos",        dot: "bg-amber-400",  headerCls: "border-amber-400/40" },
-  { id: "Contactado", label: "En seguimiento", dot: "bg-blue-500",   headerCls: "border-blue-500/40" },
-  { id: "Descartado", label: "Archivados",     dot: "bg-slate-400",  headerCls: "border-slate-400/40" },
+  { id: "Pendiente", label: "Nuevos", dot: "bg-amber-400", headerCls: "border-amber-400/40" },
+  {
+    id: "Contactado",
+    label: "En seguimiento",
+    dot: "bg-blue-500",
+    headerCls: "border-blue-500/40",
+  },
+  { id: "Descartado", label: "Archivados", dot: "bg-slate-400", headerCls: "border-slate-400/40" },
 ];
 
 function filterLeadsFn(
@@ -428,10 +435,7 @@ function KanbanView({
   const qc = useQueryClient();
   const fn = useServerFn(updateClienteSeguimiento);
 
-  const filtered = useMemo(
-    () => filterLeadsFn(leads, q, origenFilter),
-    [leads, q, origenFilter],
-  );
+  const filtered = useMemo(() => filterLeadsFn(leads, q, origenFilter), [leads, q, origenFilter]);
 
   const getEstado = (l: { cliente: Cliente; estado: EstadoSeguimiento }) =>
     optimisticStates[l.cliente.id] ?? l.estado;
@@ -443,18 +447,26 @@ function KanbanView({
     const lead = filtered.find((l) => l.cliente.id === draggingId);
     if (!lead || getEstado(lead) === targetStage) return;
     const id = draggingId;
-    setOptimisticStates(prev => ({ ...prev, [id]: targetStage }));
+    setOptimisticStates((prev) => ({ ...prev, [id]: targetStage }));
     setDraggingId(null);
     setOverStage(null);
     fn({ data: { clienteId: id, estado: targetStage } })
       .then(() => {
         toast.success("Lead movido");
         qc.invalidateQueries({ queryKey: ["leads"] });
-        setOptimisticStates(prev => { const n = { ...prev }; delete n[id]; return n; });
+        setOptimisticStates((prev) => {
+          const n = { ...prev };
+          delete n[id];
+          return n;
+        });
       })
       .catch((e: Error) => {
         toast.error(e.message);
-        setOptimisticStates(prev => { const n = { ...prev }; delete n[id]; return n; });
+        setOptimisticStates((prev) => {
+          const n = { ...prev };
+          delete n[id];
+          return n;
+        });
       });
   }
 
@@ -466,7 +478,8 @@ function KanbanView({
           <Zap className="size-4 text-amber-500 shrink-0" />
           <p className="text-sm text-amber-800 dark:text-amber-300">
             <span className="font-semibold">Tu foco hoy</span>
-            {" · "}{pendientes} lead{pendientes !== 1 ? "s" : ""} sin contactar
+            {" · "}
+            {pendientes} lead{pendientes !== 1 ? "s" : ""} sin contactar
           </p>
         </div>
       )}
@@ -479,13 +492,18 @@ function KanbanView({
           return (
             <div
               key={stage.id}
-              onDragOver={(e) => { e.preventDefault(); setOverStage(stage.id); }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setOverStage(stage.id);
+              }}
               onDragLeave={() => setOverStage(null)}
               onDrop={() => handleDrop(stage.id)}
               className={`flex flex-col min-w-[280px] w-[280px] shrink-0 rounded-xl border transition-colors ${isOver ? "border-primary/50 bg-primary/[0.03]" : `border-border ${stage.headerCls}`}`}
             >
               {/* Column header */}
-              <div className={`flex items-center gap-2 px-3 py-2.5 border-b border-border rounded-t-xl bg-muted/30`}>
+              <div
+                className={`flex items-center gap-2 px-3 py-2.5 border-b border-border rounded-t-xl bg-muted/30`}
+              >
                 <span className={`size-2 rounded-full ${stage.dot}`} />
                 <span className="text-sm font-medium">{stage.label}</span>
                 <span className="ml-auto text-xs text-muted-foreground bg-background border border-border rounded-full px-2 py-0.5 font-mono">
@@ -496,7 +514,9 @@ function KanbanView({
               {/* Cards */}
               <div className="flex-1 overflow-y-auto max-h-[calc(100vh-320px)] p-2 space-y-2 min-h-[120px]">
                 {stageLeads.length === 0 ? (
-                  <div className={`flex items-center justify-center h-16 rounded-lg border-2 border-dashed text-xs text-muted-foreground transition-colors ${isOver ? "border-primary/40 bg-primary/[0.03]" : "border-border"}`}>
+                  <div
+                    className={`flex items-center justify-center h-16 rounded-lg border-2 border-dashed text-xs text-muted-foreground transition-colors ${isOver ? "border-primary/40 bg-primary/[0.03]" : "border-border"}`}
+                  >
                     {isOver ? "Soltar aquí" : "Sin leads"}
                   </div>
                 ) : (
@@ -507,7 +527,10 @@ function KanbanView({
                       estado={estado}
                       isDragging={draggingId === cliente.id}
                       onDragStart={() => setDraggingId(cliente.id)}
-                      onDragEnd={() => { setDraggingId(null); setOverStage(null); }}
+                      onDragEnd={() => {
+                        setDraggingId(null);
+                        setOverStage(null);
+                      }}
                     />
                   ))
                 )}
@@ -557,7 +580,9 @@ function KanbanCard({
   function guardarNota() {
     const t = nota.trim();
     if (!t) return;
-    mut.mutate({ data: { clienteId: cliente.id, nota: t, observacionesActuales: cliente.observaciones } });
+    mut.mutate({
+      data: { clienteId: cliente.id, nota: t, observacionesActuales: cliente.observaciones },
+    });
   }
 
   return (
@@ -574,7 +599,9 @@ function KanbanCard({
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-sm font-medium truncate">{cliente.nombre || "Sin nombre"}</span>
             {dias != null && (
-              <span className={`text-[10px] font-mono px-1 py-0.5 rounded ${dias > 14 ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400" : dias > 7 ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400" : "bg-muted text-muted-foreground"}`}>
+              <span
+                className={`text-[10px] font-mono px-1 py-0.5 rounded ${dias > 14 ? "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400" : dias > 7 ? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400" : "bg-muted text-muted-foreground"}`}
+              >
                 {dias}d
               </span>
             )}
@@ -591,8 +618,12 @@ function KanbanCard({
       {cliente.categoria.length > 0 && (
         <div className="px-3 pb-2 flex flex-wrap gap-1">
           {cliente.categoria.slice(0, 2).map((cat) => (
-            <span key={cat} className="inline-flex items-center gap-0.5 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
-              <Tag className="size-2.5" />{cat}
+            <span
+              key={cat}
+              className="inline-flex items-center gap-0.5 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full"
+            >
+              <Tag className="size-2.5" />
+              {cat}
             </span>
           ))}
         </div>
@@ -619,12 +650,20 @@ function KanbanCard({
             className="w-full text-xs rounded-md border border-input bg-background p-2 focus:outline-none focus:ring-1 focus:ring-ring resize-none"
           />
           <div className="flex justify-end gap-1 mt-1">
-            <button onClick={() => { setNotaOpen(false); setNota(""); }}
-              className="text-[10px] px-2 py-0.5 rounded hover:bg-muted text-muted-foreground">
+            <button
+              onClick={() => {
+                setNotaOpen(false);
+                setNota("");
+              }}
+              className="text-[10px] px-2 py-0.5 rounded hover:bg-muted text-muted-foreground"
+            >
               Cancelar
             </button>
-            <button disabled={!nota.trim() || mut.isPending} onClick={guardarNota}
-              className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded bg-primary text-primary-foreground disabled:opacity-60">
+            <button
+              disabled={!nota.trim() || mut.isPending}
+              onClick={guardarNota}
+              className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded bg-primary text-primary-foreground disabled:opacity-60"
+            >
               {mut.isPending && <Loader2 className="size-2.5 animate-spin" />} Guardar
             </button>
           </div>
@@ -634,42 +673,45 @@ function KanbanCard({
       {/* Footer acciones */}
       <div className="flex items-center gap-1 px-3 py-2 border-t border-border bg-muted/20 rounded-b-lg">
         {cliente.telefono && (
-          <a href={`tel:${cliente.telefono.replace(/\s+/g, "")}`}
-            className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground">
-            <Phone className="size-3" />{cliente.telefono}
+          <a
+            href={`tel:${cliente.telefono.replace(/\s+/g, "")}`}
+            className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+          >
+            <Phone className="size-3" />
+            {cliente.telefono}
           </a>
         )}
         <div className="ml-auto flex items-center gap-1">
-          <button onClick={() => { setNotaOpen((o) => !o); }}
-            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+          <button
+            onClick={() => {
+              setNotaOpen((o) => !o);
+            }}
+            aria-label="Añadir nota"
+            title="Añadir nota"
+            className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          >
             <StickyNote className="size-3" />
           </button>
           <NewVisitaDialog
             defaultClienteId={cliente.id}
             trigger={
-              <button type="button"
-                className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 transition-opacity">
+              <button
+                type="button"
+                aria-label="Programar visita"
+                title="Programar visita"
+                className="inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-1 rounded bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+              >
                 <CalendarPlus className="size-3" />
               </button>
             }
           />
-          <Link to="/clientes" search={{ id: cliente.id }}
-            className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground px-1 py-1 rounded hover:bg-muted transition-colors">
-            <ArrowRight className="size-3" />
-          </Link>
         </div>
       </div>
     </div>
   );
 }
 
-function LeadCard({
-  cliente,
-  estado,
-}: {
-  cliente: Cliente;
-  estado: EstadoSeguimiento;
-}) {
+function LeadCard({ cliente, estado }: { cliente: Cliente; estado: EstadoSeguimiento }) {
   const qc = useQueryClient();
   const fn = useServerFn(updateClienteSeguimiento);
   const deleteFn = useServerFn(deleteContacto);
@@ -739,9 +781,7 @@ function LeadCard({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-sm truncate">
-                {cliente.nombre || "Sin nombre"}
-              </span>
+              <span className="font-medium text-sm truncate">{cliente.nombre || "Sin nombre"}</span>
               <span
                 className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded border ${meta.cls}`}
               >
@@ -753,14 +793,11 @@ function LeadCard({
                   title={ultimaNota.texto}
                 >
                   <MessageSquare className="size-3" />
-                  <span className="truncate max-w-[140px]">
-                    {ultimaNota.texto}
-                  </span>
+                  <span className="truncate max-w-[140px]">{ultimaNota.texto}</span>
                   <span className="opacity-70">· {ultimaNota.fecha}</span>
                 </span>
               )}
               <OrigenBadgeEditor cliente={cliente} mut={mut} />
-
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
               {cliente.telefono && (
@@ -855,13 +892,7 @@ function LeadCard({
       )}
 
       <footer className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-t border-border bg-muted/20 rounded-b-lg">
-        <Link
-          to="/clientes"
-          search={{ id: cliente.id }}
-          className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-        >
-          Ver ficha completa <ArrowRight className="size-3" />
-        </Link>
+        <span className="text-[11px] text-muted-foreground">Gestión del lead</span>
         <div className="flex flex-wrap items-center gap-1.5">
           {/* Acciones contextuales según estado */}
           {estado === "Descartado" ? (
@@ -914,10 +945,7 @@ function LeadCard({
             }
           />
           {/* Reasignar */}
-          <AsignarLeadButton
-            clienteId={cliente.id}
-            agentesActuales={cliente.agentesIds}
-          />
+          <AsignarLeadButton clienteId={cliente.id} agentesActuales={cliente.agentesIds} />
           {/* Asociar inmueble */}
           <AsociarInmuebleButton contactId={cliente.id} />
           {/* Eliminar */}
@@ -929,7 +957,11 @@ function LeadCard({
                 disabled={deleteMut.isPending}
                 className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-destructive text-destructive-foreground hover:opacity-90 disabled:opacity-60"
               >
-                {deleteMut.isPending ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
+                {deleteMut.isPending ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <Trash2 className="size-3" />
+                )}
                 Confirmar
               </button>
               <button
@@ -977,7 +1009,13 @@ function OrigenBadgeEditor({
 }) {
   const [open, setOpen] = useState(false);
   const o = ORIGEN_META[cliente.segmento] ?? ORIGEN_META.Lead;
-  const opciones = ["Propietario", "Busca compra", "Busca alquiler", "Prospecto", "Descartado"] as const;
+  const opciones = [
+    "Propietario",
+    "Busca compra",
+    "Busca alquiler",
+    "Prospecto",
+    "Descartado",
+  ] as const;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -1012,7 +1050,9 @@ function OrigenBadgeEditor({
                   isCurrent ? "bg-muted" : ""
                 }`}
               >
-                <span className={`inline-flex items-center justify-center size-5 rounded border ${m.cls}`}>
+                <span
+                  className={`inline-flex items-center justify-center size-5 rounded border ${m.cls}`}
+                >
                   <m.icon className="size-3" />
                 </span>
                 <span className="flex-1 min-w-0">

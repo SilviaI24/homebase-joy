@@ -15,6 +15,7 @@ import { Route as VisitasIndexRouteImport } from './routes/visitas.index'
 import { Route as SilviaIndexRouteImport } from './routes/silvia.index'
 import { Route as SeguimientoIndexRouteImport } from './routes/seguimiento.index'
 import { Route as ProspectosIndexRouteImport } from './routes/prospectos.index'
+import { Route as PermisosIndexRouteImport } from './routes/permisos.index'
 import { Route as PerfilIndexRouteImport } from './routes/perfil.index'
 import { Route as OperacionesIndexRouteImport } from './routes/operaciones.index'
 import { Route as MisLeadsIndexRouteImport } from './routes/mis-leads.index'
@@ -53,6 +54,11 @@ const SeguimientoIndexRoute = SeguimientoIndexRouteImport.update({
 const ProspectosIndexRoute = ProspectosIndexRouteImport.update({
   id: '/prospectos/',
   path: '/prospectos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PermisosIndexRoute = PermisosIndexRouteImport.update({
+  id: '/permisos/',
+  path: '/permisos/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PerfilIndexRoute = PerfilIndexRouteImport.update({
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/mis-leads/': typeof MisLeadsIndexRoute
   '/operaciones/': typeof OperacionesIndexRoute
   '/perfil/': typeof PerfilIndexRoute
+  '/permisos/': typeof PermisosIndexRoute
   '/prospectos/': typeof ProspectosIndexRoute
   '/seguimiento/': typeof SeguimientoIndexRoute
   '/silvia/': typeof SilviaIndexRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/mis-leads': typeof MisLeadsIndexRoute
   '/operaciones': typeof OperacionesIndexRoute
   '/perfil': typeof PerfilIndexRoute
+  '/permisos': typeof PermisosIndexRoute
   '/prospectos': typeof ProspectosIndexRoute
   '/seguimiento': typeof SeguimientoIndexRoute
   '/silvia': typeof SilviaIndexRoute
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/mis-leads/': typeof MisLeadsIndexRoute
   '/operaciones/': typeof OperacionesIndexRoute
   '/perfil/': typeof PerfilIndexRoute
+  '/permisos/': typeof PermisosIndexRoute
   '/prospectos/': typeof ProspectosIndexRoute
   '/seguimiento/': typeof SeguimientoIndexRoute
   '/silvia/': typeof SilviaIndexRoute
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/mis-leads/'
     | '/operaciones/'
     | '/perfil/'
+    | '/permisos/'
     | '/prospectos/'
     | '/seguimiento/'
     | '/silvia/'
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/mis-leads'
     | '/operaciones'
     | '/perfil'
+    | '/permisos'
     | '/prospectos'
     | '/seguimiento'
     | '/silvia'
@@ -203,6 +214,7 @@ export interface FileRouteTypes {
     | '/mis-leads/'
     | '/operaciones/'
     | '/perfil/'
+    | '/permisos/'
     | '/prospectos/'
     | '/seguimiento/'
     | '/silvia/'
@@ -221,6 +233,7 @@ export interface RootRouteChildren {
   MisLeadsIndexRoute: typeof MisLeadsIndexRoute
   OperacionesIndexRoute: typeof OperacionesIndexRoute
   PerfilIndexRoute: typeof PerfilIndexRoute
+  PermisosIndexRoute: typeof PermisosIndexRoute
   ProspectosIndexRoute: typeof ProspectosIndexRoute
   SeguimientoIndexRoute: typeof SeguimientoIndexRoute
   SilviaIndexRoute: typeof SilviaIndexRoute
@@ -269,6 +282,13 @@ declare module '@tanstack/react-router' {
       path: '/prospectos'
       fullPath: '/prospectos/'
       preLoaderRoute: typeof ProspectosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/permisos/': {
+      id: '/permisos/'
+      path: '/permisos'
+      fullPath: '/permisos/'
+      preLoaderRoute: typeof PermisosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/perfil/': {
@@ -349,6 +369,7 @@ const rootRouteChildren: RootRouteChildren = {
   MisLeadsIndexRoute: MisLeadsIndexRoute,
   OperacionesIndexRoute: OperacionesIndexRoute,
   PerfilIndexRoute: PerfilIndexRoute,
+  PermisosIndexRoute: PermisosIndexRoute,
   ProspectosIndexRoute: ProspectosIndexRoute,
   SeguimientoIndexRoute: SeguimientoIndexRoute,
   SilviaIndexRoute: SilviaIndexRoute,

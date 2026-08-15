@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { RouteError } from "@/components/RouteError";
 import { Input } from "@/components/ui/input";
 import {
   MessageSquare,
@@ -31,7 +32,10 @@ export const Route = createFileRoute("/seguimiento/")({
   head: () => ({
     meta: [
       { title: "Seguimiento · El Sol Grupo CRM" },
-      { name: "description", content: "Registro de acciones comerciales: llamadas, WhatsApp, emails, visitas y notas." },
+      {
+        name: "description",
+        content: "Registro de acciones comerciales: llamadas, WhatsApp, emails, visitas y notas.",
+      },
     ],
   }),
   loader: ({ context }) => {
@@ -46,9 +50,7 @@ export const Route = createFileRoute("/seguimiento/")({
   ),
   errorComponent: ({ error }) => (
     <AppShell title="Seguimiento">
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-        Error: {error.message}
-      </div>
+      <RouteError error={error} />
     </AppShell>
   ),
 });
@@ -56,21 +58,21 @@ export const Route = createFileRoute("/seguimiento/")({
 const TIPOS: SeguimientoTipo[] = ["Llamada", "WhatsApp", "Email", "Visita", "Nota", "SilvIA"];
 
 const TIPO_ICONS: Record<SeguimientoTipo, typeof Phone> = {
-  Llamada:  Phone,
+  Llamada: Phone,
   WhatsApp: MessageSquare,
-  Email:    Mail,
-  Visita:   Users,
-  Nota:     FileText,
-  SilvIA:   Bot,
+  Email: Mail,
+  Visita: Users,
+  Nota: FileText,
+  SilvIA: Bot,
 };
 
 const TIPO_COLORS: Record<SeguimientoTipo, string> = {
-  Llamada:  "bg-blue-500/10 text-blue-500 dark:text-blue-400",
+  Llamada: "bg-blue-500/10 text-blue-500 dark:text-blue-400",
   WhatsApp: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  Email:    "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  Visita:   "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  Nota:     "bg-zinc-500/10 text-zinc-500",
-  SilvIA:   "bg-primary/10 text-primary",
+  Email: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  Visita: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  Nota: "bg-zinc-500/10 text-zinc-500",
+  SilvIA: "bg-primary/10 text-primary",
 };
 
 function fmtDate(s: string) {
@@ -86,16 +88,16 @@ function SeguimientoPage() {
   const { data: agData } = useSuspenseQuery(agentesQuery);
   const qc = useQueryClient();
 
-  const [tipoFilter, setTipoFilter]     = useState<SeguimientoTipo | "Todos">("Todos");
+  const [tipoFilter, setTipoFilter] = useState<SeguimientoTipo | "Todos">("Todos");
   const [agenteFilter, setAgenteFilter] = useState("todos");
-  const [search, setSearch]             = useState("");
-  const [showForm, setShowForm]         = useState(false);
+  const [search, setSearch] = useState("");
+  const [showForm, setShowForm] = useState(false);
 
   // Form state
-  const [formQ, setFormQ]             = useState("");
+  const [formQ, setFormQ] = useState("");
   const [formContact, setFormContact] = useState<{ id: string; nombre: string } | null>(null);
-  const [formTipo, setFormTipo]       = useState<SeguimientoTipo>("Llamada");
-  const [formTexto, setFormTexto]     = useState("");
+  const [formTipo, setFormTipo] = useState<SeguimientoTipo>("Llamada");
+  const [formTexto, setFormTexto] = useState("");
 
   const createFn = useServerFn(createSeguimiento);
   const searchFn = useServerFn(searchContactos);
@@ -173,7 +175,9 @@ function SeguimientoPage() {
           >
             <option value="todos">Todos los agentes</option>
             {agData.agentes.map((a) => (
-              <option key={a.id} value={a.id}>{a.nombre}</option>
+              <option key={a.id} value={a.id}>
+                {a.nombre}
+              </option>
             ))}
           </select>
           <button
@@ -209,7 +213,9 @@ function SeguimientoPage() {
           <div className="space-y-4">
             {/* Contact picker */}
             <div>
-              <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wide font-medium">Contacto *</p>
+              <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wide font-medium">
+                Contacto *
+              </p>
               {formContact ? (
                 <div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2.5">
                   <div className="flex items-center gap-2">
@@ -218,7 +224,10 @@ function SeguimientoPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => { setFormContact(null); setFormQ(""); }}
+                    onClick={() => {
+                      setFormContact(null);
+                      setFormQ("");
+                    }}
                     className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                   >
                     cambiar
@@ -233,27 +242,34 @@ function SeguimientoPage() {
                     placeholder="Buscar contacto por nombre…"
                     className="pl-8 text-sm"
                   />
-                  {formQ.length >= 2 && searchResults?.contacts && searchResults.contacts.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md overflow-hidden z-20 shadow-xl">
-                      {searchResults.contacts.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => { setFormContact(c); setFormQ(""); }}
-                          className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-accent transition-colors border-b border-border last:border-0 text-sm"
-                        >
-                          {c.nombre}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {formQ.length >= 2 &&
+                    searchResults?.contacts &&
+                    searchResults.contacts.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md overflow-hidden z-20 shadow-xl">
+                        {searchResults.contacts.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setFormContact(c);
+                              setFormQ("");
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-accent transition-colors border-b border-border last:border-0 text-sm"
+                          >
+                            {c.nombre}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                 </div>
               )}
             </div>
 
             {/* Tipo chips */}
             <div>
-              <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wide font-medium">Tipo *</p>
+              <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wide font-medium">
+                Tipo *
+              </p>
               <div className="flex flex-wrap gap-1.5">
                 {TIPOS.map((t) => (
                   <button
@@ -301,14 +317,16 @@ function SeguimientoPage() {
       ) : (
         <div className="rounded-lg border border-border bg-card overflow-hidden divide-y divide-border">
           {filtered.map((s) => {
-            const Icon  = TIPO_ICONS[s.tipo] ?? FileText;
+            const Icon = TIPO_ICONS[s.tipo] ?? FileText;
             const color = TIPO_COLORS[s.tipo] ?? "bg-zinc-500/10 text-zinc-500";
             return (
               <div
                 key={s.id}
                 className="flex items-start gap-4 px-4 py-3.5 hover:bg-accent/30 transition-colors"
               >
-                <div className={`size-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${color}`}>
+                <div
+                  className={`size-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${color}`}
+                >
                   <Icon className="size-4" strokeWidth={1.5} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -322,9 +340,7 @@ function SeguimientoPage() {
                   )}
                 </div>
                 <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
-                  <span className="text-[11px] text-muted-foreground">
-                    {fmtDate(s.created_at)}
-                  </span>
+                  <span className="text-[11px] text-muted-foreground">{fmtDate(s.created_at)}</span>
                   <ChevronRight className="size-3.5 text-muted-foreground/40" />
                 </div>
               </div>

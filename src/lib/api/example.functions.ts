@@ -13,9 +13,9 @@ import { requireAuth } from "@/lib/auth.server";
 // Functions for server logic.
 
 export const getGreeting = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ name: z.string().min(1) }))
+  .validator(z.object({ name: z.string().min(1) }))
   .handler(async ({ data }) => {
-  await requireAuth();
+    await requireAuth();
     const config = getServerConfig();
     return {
       greeting: `Hello, ${data.name}!`,

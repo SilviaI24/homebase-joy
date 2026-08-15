@@ -1,167 +1,46 @@
 import { createServerFn } from "@tanstack/react-start";
 import OpenAI from "openai";
-import { Resend } from "resend";
+import { cleanRef } from "./format";
+import { requirePermissions } from "./crm-auth.server";
 import { getSupa } from "./supabase.server";
-import { cleanRef, toSentenceCase } from "./format";
-import { requireAuth } from "@/lib/auth.server";
 
-// ── Config ────────────────────────────────────────────────────────────────────
-
-const MODEL           = "gpt-4.1-mini";
-const MAX_TOKENS      = 4096;
-const MAX_HISTORY     = 12;
+const DEFAULT_MODEL = "gpt-4.1-mini";
+const MAX_TOKENS = 4096;
+const MAX_HISTORY = 12;
+const MAX_HISTORY_CHARS = 12_000;
 const MAX_TOOL_ROUNDS = 5;
-const MAX_VENTA       = 35;
-const MAX_ALQUILER    = 15;
-const MAX_LEADS       = 25;
-const MAX_USER_MSG_LEN = 2000; // guardarraíl: mensajes demasiado largos no aportan valor
+const MAX_VENTA = 35;
+const MAX_ALQUILER = 15;
+const MAX_LEADS = 25;
+const MAX_USER_MSG_LEN = 2000;
+const CACHE_TTL = 2 * 60 * 1000;
 
-// ── System prompt ─────────────────────────────────────────────────────────────
+const SYSTEM_PROMPT = `Eres SilvIA, asistente inmobiliaria de El Sol Grupo (Asturias, España).
+Ayudas a los agentes a consultar información del CRM, localizar contactos e inmuebles, hacer matching y preparar el siguiente paso.
 
-const SYSTEM_PROMPT = `Eres SilvIA, IA inmobiliaria de El Sol Grupo (Asturias, España).
-Ayudas a los agentes a gestionar leads, hacer matching y tomar decisiones.
-Puedes ejecutar acciones reales en el CRM: cualificar leads, añadir notas, crear visitas, vincular leads a inmuebles y enviar WhatsApp.
-Cuando el agente te pida hacer algo, hazlo directamente con las herramientas disponibles — no preguntes innecesariamente, actúa.
-Si necesitas el ID de un contacto o inmueble, búscalo primero con la herramienta adecuada.
-Responde siempre en español. Sé directa y concisa. Usa solo datos del contexto CRM adjunto. No inventes datos.
-Al hacer matching lead↔propiedad cita ref y precio. Si detectas riesgo (propiedad >90d sin movimiento, lead sin seguimiento) menciónalo.
+Estás en MODO SOLO CONSULTA:
+- No puedes crear, editar, eliminar, enviar ni confirmar nada.
+- No afirmes que has ejecutado una acción.
+- Si el agente pide una escritura, explica brevemente que debe realizarla desde la pantalla correspondiente del CRM.
+- Puedes usar las herramientas de búsqueda para resolver referencias ambiguas.
 
-REGLA CRÍTICA — ASIGNACIÓN PREVIA A CUALIFICACIÓN:
-Antes de cualificar un lead (cambiar su ciclo de vida de Lead a otro estado), el lead DEBE tener un comercial asignado.
-Si el lead no aparece como "asignado:SÍ" en el contexto, usa asignar_comercial primero.
-Nunca cualifiques un lead sin comercial asignado — el sistema lo bloqueará.
+Responde siempre en español, de forma directa y concisa. Usa solo datos del contexto CRM o de las herramientas. No inventes datos. Al hacer matching, cita referencia y precio cuando estén disponibles.`;
 
-NOMENCLATURA DE CICLO DE VIDA:
-- Lead: interesado en comprar o alquilar (demanda), aún sin cualificar
-- Prospecto: interesado en vender o poner en alquiler (oferta)
-- Cliente: ha firmado contrato con El Sol Grupo
-- Histórico: operación cerrada
-- Descartado: sin interés o duplicado`;
-
-// ── Helpers internos ──────────────────────────────────────────────────────────
-
-// Mapeo de estado display → estado BD (visits)
-const ESTADO_IN: Record<string, string> = {
-  Pendiente:  "Programada",
-  Confirmada: "Programada",
-  Completado: "Realizada",
-  Anulada:    "Cancelada",
-};
-
-function formatNota(nota: string, actual: string): string {
-  const ts = new Date().toLocaleString("es-ES", {
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
-  const linea = `[${ts}] ${toSentenceCase(nota.trim())}`;
-  const prev = actual.trim();
-  return prev ? `${prev}\n${linea}` : linea;
-}
-
-// Resuelve el UUID de una propiedad a partir de su ref (limpia o con sufijo)
-async function resolvePropertyId(supa: ReturnType<typeof getSupa>, ref: string): Promise<string | null> {
-  const clean = cleanRef(ref.trim());
-  const { data } = await supa
-    .from("properties")
-    .select("id")
-    .ilike("ref", `${clean}%`)
-    .limit(1)
-    .single();
-  return data?.id ?? null;
-}
-
-// ── Tool definitions ──────────────────────────────────────────────────────────
-
-const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+const READ_ONLY_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
       name: "buscar_lead",
-      description: "Busca un lead/contacto en la BD por nombre o teléfono. Devuelve id, nombre, teléfono y estado. Úsalo antes de cualquier acción cuando no tengas el contactId.",
+      description: "Busca un contacto en el CRM por nombre, teléfono o email. Solo consulta datos.",
       parameters: {
         type: "object",
         properties: {
-          query: { type: "string", description: "Nombre completo o número de teléfono" },
+          query: {
+            type: "string",
+            description: "Nombre, teléfono o email que se desea localizar",
+          },
         },
         required: ["query"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "cualificar_lead",
-      description: "Cambia el rol de un lead a Comprador, Inquilino o Prospecto y actualiza su ciclo de vida.",
-      parameters: {
-        type: "object",
-        properties: {
-          contactId: { type: "string", description: "ID del contacto (UUID)" },
-          tipo: { type: "string", enum: ["Comprador", "Inquilino", "Prospecto"] },
-        },
-        required: ["contactId", "tipo"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "archivar_lead",
-      description: "Descarta un lead marcándolo como Descartado. Usar cuando el lead no tiene interés o es un duplicado.",
-      parameters: {
-        type: "object",
-        properties: {
-          contactId: { type: "string" },
-        },
-        required: ["contactId"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "agregar_nota",
-      description: "Añade una nota al historial de observaciones de un contacto/lead. Queda registrada con fecha y hora sin borrar el historial previo.",
-      parameters: {
-        type: "object",
-        properties: {
-          contactId: { type: "string" },
-          nota: { type: "string", description: "Texto de la nota a añadir" },
-        },
-        required: ["contactId", "nota"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "crear_visita",
-      description: "Crea una visita a un inmueble. Busca el inmueble por su ref automáticamente.",
-      parameters: {
-        type: "object",
-        properties: {
-          inmueble_ref: { type: "string", description: "Referencia del inmueble (ej: A9755)" },
-          fecha:        { type: "string", description: "Fecha en formato YYYY-MM-DD o YYYY-MM-DD HH:MM" },
-          tipo:         { type: "string", enum: ["Mostrar inmueble", "Valoración", "Sesión fotográfica", "Seguimiento"], description: "Tipo de visita" },
-          contactId:    { type: "string", description: "ID del contacto que visita (opcional)" },
-          comentarios:  { type: "string", description: "Notas o comentarios de la visita (opcional)" },
-        },
-        required: ["inmueble_ref", "fecha", "tipo"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "vincular_lead_inmueble",
-      description: "Vincula un lead a un inmueble concreto con el rol indicado (Comprador o Inquilino). Actualiza su ciclo de vida automáticamente.",
-      parameters: {
-        type: "object",
-        properties: {
-          contactId: { type: "string" },
-          inmueble_ref: { type: "string", description: "Referencia del inmueble (ej: A9755)" },
-          tipo: { type: "string", enum: ["Comprador", "Inquilino", "Propietario"] },
-        },
-        required: ["contactId", "inmueble_ref", "tipo"],
       },
     },
   },
@@ -169,678 +48,378 @@ const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     type: "function",
     function: {
       name: "buscar_inmueble",
-      description: "Busca un inmueble en la BD por nombre de calle, ref o zona. Devuelve id, ref, calle, estatus y precio. Úsalo cuando no encuentres el inmueble en el contexto CRM.",
+      description:
+        "Busca un inmueble en el CRM por referencia, calle, barrio o localidad. Solo consulta datos.",
       parameters: {
         type: "object",
         properties: {
-          query: { type: "string", description: "Nombre de calle, ref o zona del inmueble" },
+          query: {
+            type: "string",
+            description: "Referencia, calle, barrio o localidad",
+          },
         },
         required: ["query"],
       },
     },
   },
-  {
-    type: "function",
-    function: {
-      name: "actualizar_estatus_inmueble",
-      description: "Cambia el estatus de un inmueble: Activo, Reservado, Vendido, Alquilado, Baja o Prospección.",
-      parameters: {
-        type: "object",
-        properties: {
-          propertyId: { type: "string", description: "ID del inmueble (UUID)" },
-          estatus:    { type: "string", enum: ["Activo", "Reservado", "Vendido", "Alquilado", "Baja", "Prospección"] },
-        },
-        required: ["propertyId", "estatus"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "asignar_comercial",
-      description: "Asigna un lead a un comercial. OBLIGATORIO antes de cualificar un lead. Si el lead ya tiene comercial asignado, informa de ello.",
-      parameters: {
-        type: "object",
-        properties: {
-          contactId: { type: "string", description: "ID del contacto/lead (UUID)" },
-          agenteId:  { type: "string", description: "ID del agente/comercial (UUID)" },
-        },
-        required: ["contactId", "agenteId"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "enviar_email",
-      description: "Envía un correo electrónico a un destinatario en nombre de El Sol Grupo.",
-      parameters: {
-        type: "object",
-        properties: {
-          destinatario: { type: "string", description: "Dirección de email del destinatario" },
-          asunto:       { type: "string", description: "Asunto del correo" },
-          cuerpo:       { type: "string", description: "Cuerpo del correo en texto plano" },
-        },
-        required: ["destinatario", "asunto", "cuerpo"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "enviar_whatsapp",
-      description: "Envía un mensaje de WhatsApp al número de teléfono indicado.",
-      parameters: {
-        type: "object",
-        properties: {
-          telefono: { type: "string", description: "Número (9 dígitos ES o formato internacional)" },
-          mensaje: { type: "string", description: "Texto del mensaje" },
-        },
-        required: ["telefono", "mensaje"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "crear_seguimiento",
-      description: "Registra una comunicación o acción de seguimiento en el historial de un contacto (tabla seguimiento). Úsalo para dejar constancia de llamadas, emails, WhatsApps o notas de seguimiento.",
-      parameters: {
-        type: "object",
-        properties: {
-          contactId: { type: "string", description: "ID del contacto (UUID)" },
-          tipo: {
-            type: "string",
-            enum: ["Llamada", "WhatsApp", "Email", "Visita", "Nota", "SilvIA"],
-            description: "Tipo de comunicación",
-          },
-          texto: { type: "string", description: "Descripción de lo ocurrido o acordado" },
-          fecha: { type: "string", description: "Fecha en formato ISO (YYYY-MM-DD o YYYY-MM-DDTHH:MM). Si no se indica, usa la fecha actual." },
-        },
-        required: ["contactId", "tipo", "texto"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "crear_operacion",
-      description: "Crea una operación en el CRM (venta, alquiler, valoración o servicio). Úsalo cuando el agente quiera registrar el inicio de una negociación o cierre.",
-      parameters: {
-        type: "object",
-        properties: {
-          tipo: {
-            type: "string",
-            enum: ["Venta", "Alquiler", "Valoración", "Servicio"],
-          },
-          inmueble_ref: { type: "string", description: "Referencia del inmueble (ej: A9755). Opcional si no hay inmueble concreto." },
-          vendedor_contactId: { type: "string", description: "ID del contacto vendedor/propietario (UUID). Opcional." },
-          comprador_contactId: { type: "string", description: "ID del contacto comprador/inquilino (UUID). Opcional." },
-          precio: { type: "number", description: "Precio de la operación en euros. Opcional." },
-          comision_pct: { type: "number", description: "Porcentaje de comisión (ej: 3 para 3%). Opcional." },
-          notas: { type: "string", description: "Notas o condiciones de la operación. Opcional." },
-        },
-        required: ["tipo"],
-      },
-    },
-  },
 ];
 
-// ── Tool executor ─────────────────────────────────────────────────────────────
+type ChatMessage = { role: "user" | "assistant"; content: string };
+type CrmContextCache = { data: string; ts: number };
+type DirectLookup = { tool: "buscar_lead" | "buscar_inmueble"; query: string };
 
-async function ejecutarHerramienta(name: string, args: Record<string, string>): Promise<string> {
-  const supa = getSupa();
+let crmContextCache: CrmContextCache | null = null;
 
-  // ── buscar_lead ──────────────────────────────────────────────────────────────
-  if (name === "buscar_lead") {
-    const q = (args.query ?? "").toLowerCase().trim();
-    if (!q) return "Consulta vacía.";
-    const { data, error } = await supa
-      .from("contacts")
-      .select("id, nombre, telefono, email, ciclo_vida")
-      .or(`nombre.ilike.%${q}%,telefono.ilike.%${q}%,email.ilike.%${q}%`)
-      .limit(5);
-    if (error) return `Error al buscar: ${error.message}`;
-    if (!data?.length) return `No se encontró ningún contacto con "${args.query}".`;
-    return data
-      .map((c: any) => `id=${c.id} | ${c.nombre} | tel=${c.telefono ?? "—"} | ${c.ciclo_vida}`)
-      .join("\n");
-  }
+function safeSearchTerm(value: unknown): string {
+  if (typeof value !== "string") return "";
 
-  // ── cualificar_lead ──────────────────────────────────────────────────────────
-  if (name === "cualificar_lead") {
-    const { contactId, tipo } = args;
-    if (!contactId) return "Error: contactId requerido.";
-    if (!["Comprador", "Inquilino", "Prospecto"].includes(tipo)) return "Error: tipo inválido.";
-
-    // Verificar que el lead tiene comercial asignado antes de cualificar
-    const { data: asignacion } = await supa
-      .from("contact_agents")
-      .select("agent_id")
-      .eq("contact_id", contactId)
-      .limit(1)
-      .maybeSingle();
-
-    if (!asignacion) {
-      return "No se puede cualificar: este lead no tiene comercial asignado. Usa asignar_comercial primero y luego vuelve a cualificar.";
-    }
-
-    const cicloMap: Record<string, string> = {
-      Comprador: "Cliente", Inquilino: "Cliente", Prospecto: "Prospecto",
-    };
-    const { error } = await supa
-      .from("contacts")
-      .update({ ciclo_vida: cicloMap[tipo], trabajado: "Contactado" })
-      .eq("id", contactId);
-    if (error) return `Error al actualizar: ${error.message}`;
-
-    // Crear contact_role si no existe
-    if (tipo === "Comprador" || tipo === "Inquilino") {
-      const { data: ex } = await supa
-        .from("contact_roles")
-        .select("id")
-        .eq("contact_id", contactId)
-        .eq("tipo", tipo)
-        .limit(1);
-      if (!ex?.length) {
-        await supa.from("contact_roles").insert([{ contact_id: contactId, tipo, estado: "Prospecto" }]);
-      }
-    }
-    return `Lead cualificado como ${tipo} y ciclo de vida actualizado a "${cicloMap[tipo]}".`;
-  }
-
-  // ── archivar_lead ────────────────────────────────────────────────────────────
-  if (name === "archivar_lead") {
-    const { contactId } = args;
-    if (!contactId) return "Error: contactId requerido.";
-
-    const { data: contactData } = await supa
-      .from("contacts")
-      .select("ciclo_vida")
-      .eq("id", contactId)
-      .single();
-    if (!contactData) return "Error: contacto no encontrado.";
-    if (["Cliente", "Histórico"].includes(contactData.ciclo_vida)) {
-      return `No se puede archivar: el contacto tiene ciclo de vida "${contactData.ciclo_vida}". Solo se pueden archivar Leads o Prospectos.`;
-    }
-
-    const { error } = await supa
-      .from("contacts")
-      .update({ ciclo_vida: "Descartado", trabajado: "Descartado" })
-      .eq("id", contactId);
-    if (error) return `Error al archivar: ${error.message}`;
-    return "Lead archivado como Descartado.";
-  }
-
-  // ── añadir_nota ──────────────────────────────────────────────────────────────
-  if (name === "agregar_nota") {
-    const { contactId, nota } = args;
-    if (!contactId) return "Error: contactId requerido.";
-    if (!nota?.trim()) return "Error: nota vacía.";
-
-    // Obtener observaciones actuales para añadir sin borrar el historial
-    const { data: contact, error: fetchErr } = await supa
-      .from("contacts")
-      .select("observaciones")
-      .eq("id", contactId)
-      .single();
-    if (fetchErr) return `Error al obtener contacto: ${fetchErr.message}`;
-
-    const nuevasObs = formatNota(nota, contact?.observaciones ?? "");
-    const { error } = await supa
-      .from("contacts")
-      .update({ observaciones: nuevasObs })
-      .eq("id", contactId);
-    if (error) return `Error al guardar nota: ${error.message}`;
-    return "Nota añadida correctamente con fecha y hora.";
-  }
-
-  // ── crear_visita ─────────────────────────────────────────────────────────────
-  if (name === "crear_visita") {
-    const { inmueble_ref, fecha, contactId, comentarios } = args;
-    if (!inmueble_ref) return "Error: inmueble_ref requerido.";
-    if (!fecha) return "Error: fecha requerida.";
-
-    const propertyId = await resolvePropertyId(supa, inmueble_ref);
-    if (!propertyId) return `No se encontró ningún inmueble con ref "${inmueble_ref}".`;
-
-    const row: Record<string, unknown> = {
-      fecha,
-      estado: ESTADO_IN["Pendiente"],
-      property_id: propertyId,
-      tipo: args.tipo ?? "Mostrar inmueble",
-    };
-    if (contactId) row.contact_id = contactId;
-    if (comentarios?.trim()) row.notas = toSentenceCase(comentarios.trim());
-
-    const { data: inserted, error } = await supa
-      .from("visits")
-      .insert([row])
-      .select("id")
-      .single();
-    if (error) return `Error al crear visita: ${error.message}`;
-
-    return `Visita creada para el ${fecha} en inmueble ${inmueble_ref} (id: ${inserted.id}).`;
-  }
-
-  // ── vincular_lead_inmueble ───────────────────────────────────────────────────
-  if (name === "vincular_lead_inmueble") {
-    const { contactId, inmueble_ref, tipo } = args;
-    if (!contactId) return "Error: contactId requerido.";
-    if (!inmueble_ref) return "Error: inmueble_ref requerido.";
-    if (!["Comprador", "Inquilino", "Propietario"].includes(tipo)) return "Error: tipo inválido.";
-
-    const propertyId = await resolvePropertyId(supa, inmueble_ref);
-    if (!propertyId) return `No se encontró ningún inmueble con ref "${inmueble_ref}".`;
-
-    // Comprador/Inquilino elevan ciclo_vida a "Cliente" — requiere comercial asignado
-    if (["Comprador", "Inquilino"].includes(tipo)) {
-      const { data: asignacion } = await supa
-        .from("contact_agents")
-        .select("agent_id")
-        .eq("contact_id", contactId)
-        .limit(1)
-        .maybeSingle();
-      if (!asignacion) {
-        return `No se puede vincular como ${tipo} sin comercial asignado (el ciclo de vida pasaría a "Cliente"). Usa asignar_comercial primero.`;
-      }
-    }
-
-    // Eliminar rol previo del mismo tipo para evitar duplicados
-    await supa
-      .from("contact_roles")
-      .delete()
-      .eq("contact_id", contactId)
-      .eq("property_id", propertyId)
-      .eq("tipo", tipo);
-
-    const { error } = await supa.from("contact_roles").insert({
-      contact_id: contactId,
-      property_id: propertyId,
-      tipo,
-      estado: "Prospecto",
-    });
-    if (error) return `Error al vincular: ${error.message}`;
-
-    // Actualizar ciclo_vida del contacto
-    const ciclo = ["Comprador", "Inquilino", "Propietario"].includes(tipo) ? "Cliente" : "Prospecto";
-    const { error: cicloErr } = await supa.from("contacts").update({ ciclo_vida: ciclo }).eq("id", contactId);
-    if (cicloErr) return `Vinculado pero error al actualizar ciclo_vida: ${cicloErr.message}`;
-
-    return `Lead vinculado al inmueble ${inmueble_ref} como ${tipo}.`;
-  }
-
-  // ── buscar_inmueble ──────────────────────────────────────────────────────────
-  if (name === "buscar_inmueble") {
-    const q = (args.query ?? "").trim();
-    if (!q) return "Consulta vacía.";
-    const { data, error } = await supa
-      .from("properties")
-      .select("id, ref, calle, barrio, localidad, tipo, estatus, precio, precio_final")
-      .or(`calle.ilike.%${q}%,ref.ilike.%${q}%,barrio.ilike.%${q}%,localidad.ilike.%${q}%`)
-      .neq("estatus", "Baja")
-      .limit(5);
-    if (error) return `Error al buscar: ${error.message}`;
-    if (!data?.length) return `No se encontró ningún inmueble con "${q}".`;
-    return data.map((p: any) => {
-      const precio = p.precio_final ?? p.precio;
-      return `id=${p.id} | ${cleanRef(p.ref ?? "?")} | ${p.calle ?? "?"} | ${[p.barrio, p.localidad].filter(Boolean).join(", ")} | ${p.tipo} | ${precio ? Math.round(precio / 1000) + "k" : "?"} | ${p.estatus}`;
-    }).join("\n");
-  }
-
-  // ── actualizar_estatus_inmueble ───────────────────────────────────────────────
-  if (name === "actualizar_estatus_inmueble") {
-    const { propertyId, estatus } = args;
-    if (!propertyId) return "Error: propertyId requerido.";
-    const valid = ["Activo", "Reservado", "Vendido", "Alquilado", "Baja", "Prospección"];
-    if (!valid.includes(estatus)) return `Error: estatus inválido. Valores permitidos: ${valid.join(", ")}.`;
-
-    // Campos de fecha a actualizar según el nuevo estatus
-    const extra: Record<string, unknown> = {};
-    const today = new Date().toISOString().slice(0, 10);
-    if (estatus === "Reservado") extra.fecha_reserva = today;
-    if (estatus === "Vendido" || estatus === "Alquilado") extra.fecha_escritura = today;
-
-    const { error } = await supa
-      .from("properties")
-      .update({ estatus, ...extra })
-      .eq("id", propertyId);
-    if (error) return `Error al actualizar: ${error.message}`;
-    return `Inmueble actualizado a "${estatus}" correctamente.`;
-  }
-
-  // ── asignar_comercial ────────────────────────────────────────────────────────
-  if (name === "asignar_comercial") {
-    const { contactId, agenteId } = args;
-    if (!contactId) return "Error: contactId requerido.";
-    if (!agenteId)  return "Error: agenteId requerido.";
-
-    const { data: existing } = await supa
-      .from("contact_agents")
-      .select("agent_id")
-      .eq("contact_id", contactId)
-      .eq("agent_id", agenteId)
-      .maybeSingle();
-
-    if (existing) return "Este lead ya está asignado a ese comercial.";
-
-    const { error } = await supa
-      .from("contact_agents")
-      .insert({ contact_id: contactId, agent_id: agenteId });
-
-    if (error) return `Error al asignar: ${error.message}`;
-    return "Lead asignado al comercial correctamente. Ahora puedes cualificarlo.";
-  }
-
-  // ── enviar_email ─────────────────────────────────────────────────────────────
-  if (name === "enviar_email") {
-    const { destinatario, asunto, cuerpo } = args;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinatario ?? "")) return "Error: dirección de email inválida.";
-    if (!asunto?.trim()) return "Error: asunto vacío.";
-    if (!cuerpo?.trim()) return "Error: cuerpo vacío.";
-
-    const key = process.env.RESEND_API_KEY;
-    if (!key) return "Error: RESEND_API_KEY no configurada.";
-
-    const resend = new Resend(key);
-    const html = cuerpo.trim().split("\n").map((l) => `<p>${l}</p>`).join("");
-
-    const { error } = await resend.emails.send({
-      from: "SilvIA · El Sol Grupo <onboarding@resend.dev>",
-      to: destinatario,
-      subject: asunto,
-      html: `<div style="font-family:sans-serif;max-width:600px;margin:auto">${html}<hr style="margin-top:32px;border:none;border-top:1px solid #eee"/><p style="color:#999;font-size:12px">El Sol Grupo · CRM Inmobiliario</p></div>`,
-    });
-
-    if (error) return `Error al enviar email: ${error.message}`;
-    return `Email enviado a ${destinatario}.`;
-  }
-
-  // ── enviar_whatsapp ──────────────────────────────────────────────────────────
-  if (name === "enviar_whatsapp") {
-    const { telefono, mensaje } = args;
-    if (!telefono) return "Error: teléfono requerido.";
-    if (!mensaje?.trim()) return "Error: mensaje vacío.";
-
-    const phoneNumberId = process.env.WABA_PHONE_NUMBER_ID;
-    const token = process.env.WABA_ACCESS_TOKEN;
-    if (!phoneNumberId || !token) return "Error: credenciales WABA no configuradas.";
-
-    let to = telefono.replace(/\D/g, "");
-    if (to.length === 9 && (to.startsWith("6") || to.startsWith("7") || to.startsWith("9"))) {
-      to = "34" + to;
-    }
-    if (to.length < 10) return `Error: número de teléfono inválido (${telefono}).`;
-
-    const res = await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to,
-        type: "text",
-        text: { preview_url: false, body: mensaje },
-      }),
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({})) as any;
-      const msg = body?.error?.message ?? `HTTP ${res.status}`;
-      const code = body?.error?.code;
-      return `Error WhatsApp${code ? ` [${code}]` : ""}: ${msg}`;
-    }
-    return `WhatsApp enviado a ${telefono}.`;
-  }
-
-  // ── crear_seguimiento ────────────────────────────────────────────────────────
-  if (name === "crear_seguimiento") {
-    const { contactId, tipo, texto, fecha } = args;
-    if (!contactId) return "Error: contactId requerido.";
-    if (!texto?.trim()) return "Error: texto vacío.";
-
-    const { data: contactExists } = await supa
-      .from("contacts")
-      .select("id")
-      .eq("id", contactId)
-      .maybeSingle();
-    if (!contactExists) return "Error: no se encontró ningún contacto con ese ID.";
-    const tiposValidos = ["Llamada", "WhatsApp", "Email", "Visita", "Nota", "SilvIA"];
-    if (!tiposValidos.includes(tipo)) return `Error: tipo inválido. Válidos: ${tiposValidos.join(", ")}.`;
-
-    const row: Record<string, unknown> = {
-      contact_id: contactId,
-      tipo,
-      texto: toSentenceCase(texto.trim()),
-      fecha: fecha ?? new Date().toISOString().slice(0, 10),
-    };
-
-    const { data: inserted, error } = await supa
-      .from("seguimiento")
-      .insert([row])
-      .select("id")
-      .single();
-    if (error) return `Error al crear seguimiento: ${error.message}`;
-    return `Seguimiento registrado (${tipo}) con id ${inserted.id}.`;
-  }
-
-  // ── crear_operacion ──────────────────────────────────────────────────────────
-  if (name === "crear_operacion") {
-    const { tipo, inmueble_ref, vendedor_contactId, comprador_contactId, notas } = args;
-    const tiposValidos = ["Venta", "Alquiler", "Valoración", "Servicio"];
-    if (!tiposValidos.includes(tipo)) return `Error: tipo inválido. Válidos: ${tiposValidos.join(", ")}.`;
-
-    if (["Venta", "Alquiler"].includes(tipo) && !inmueble_ref && !vendedor_contactId && !comprador_contactId) {
-      return "Error: para Venta o Alquiler indica al menos un inmueble, un vendedor o un comprador.";
-    }
-
-    const precio = args.precio ? Number(args.precio) : undefined;
-    const comision_pct = args.comision_pct ? Number(args.comision_pct) : undefined;
-
-    if (comision_pct !== undefined && !isNaN(comision_pct) && (comision_pct < 0 || comision_pct > 100)) {
-      return "Error: comision_pct debe estar entre 0 y 100.";
-    }
-
-    const row: Record<string, unknown> = { tipo, estado: "Abierta" };
-
-    if (inmueble_ref) {
-      const propertyId = await resolvePropertyId(supa, inmueble_ref);
-      if (!propertyId) return `No se encontró ningún inmueble con ref "${inmueble_ref}".`;
-      row.property_id = propertyId;
-    }
-    if (vendedor_contactId) row.vendedor_id = vendedor_contactId;
-    if (comprador_contactId) row.comprador_id = comprador_contactId;
-    if (precio && !isNaN(precio)) row.precio_operacion = precio;
-    if (comision_pct && !isNaN(comision_pct)) {
-      row.comision_pct = comision_pct;
-      if (precio && !isNaN(precio)) row.comision_total = Math.round(precio * comision_pct / 100);
-    }
-    if (notas?.trim()) row.notas = toSentenceCase(notas.trim());
-
-    const { data: inserted, error } = await supa
-      .from("operations")
-      .insert([row])
-      .select("id")
-      .single();
-    if (error) return `Error al crear operación: ${error.message}`;
-    return `Operación de ${tipo} creada con id ${inserted.id}${inmueble_ref ? ` para inmueble ${inmueble_ref}` : ""}.`;
-  }
-
-  return `Herramienta desconocida: ${name}`;
+  return value
+    .trim()
+    .slice(0, 120)
+    .replace(/[,%()]/g, " ")
+    .replace(/\s+/g, " ");
 }
 
-// ── CRM context cache (2 min TTL) ─────────────────────────────────────────────
+function inferDirectLookup(message: string): DirectLookup | null {
+  const propertyMarker = /\b(inmueble|propiedad|piso|casa|chalet|local|garaje)\b/i;
+  const contactMarker = /\b(lead|contacto|cliente|persona)\b/i;
+  const propertyMatch = propertyMarker.exec(message);
+  const contactMatch = contactMarker.exec(message);
+  const emailOrPhone = message.match(/[\w.+-]+@[\w.-]+\.\w+|\+?\d[\d\s-]{6,}/);
 
-const CACHE_TTL = 2 * 60 * 1000;
-let _crmCache: { data: string; ts: number } | null = null;
+  const match = propertyMatch ?? contactMatch;
+  const tool: DirectLookup["tool"] = propertyMatch ? "buscar_inmueble" : "buscar_lead";
+  let query = match ? message.slice((match.index ?? 0) + match[0].length) : emailOrPhone?.[0] ?? "";
+  query = query
+    .replace(/^\s*(?:con|de|llamad[oa]|que se llama|por)?\s*/i, "")
+    .replace(/^\s*(?:ref(?:erencia)?\.?|n[úu]mero)\s*/i, "")
+    .replace(/[?.!]+$/g, "");
+
+  query = safeSearchTerm(query);
+  return query.length >= 2 ? { tool, query } : null;
+}
+
+function throwOnQueryError(label: string, error: { message: string } | null): void {
+  if (error) throw new Error(`SilvIA ${label}: ${error.message}`);
+}
+
+async function executeReadOnlyTool(name: string, args: Record<string, unknown>): Promise<string> {
+  const query = safeSearchTerm(args.query);
+  if (query.length < 2) return "Indica al menos dos caracteres para buscar.";
+
+  const supa = getSupa();
+
+  if (name === "buscar_lead") {
+    const { data, error } = await supa
+      .from("contacts")
+      .select("id, nombre, telefono, email, ciclo_vida, solicitud")
+      .or(`nombre.ilike.%${query}%,telefono.ilike.%${query}%,email.ilike.%${query}%`)
+      .limit(5);
+
+    if (error) return `No se pudo consultar contactos: ${error.message}`;
+    if (!data?.length) return `No se encontró ningún contacto con “${query}”.`;
+
+    return [
+      `He encontrado ${data.length} contacto${data.length === 1 ? "" : "s"}:`,
+      ...data.map((contact) => {
+        const details = [
+          contact.ciclo_vida || "Sin clasificar",
+          contact.telefono || null,
+          contact.email || null,
+        ].filter(Boolean);
+        const request = contact.solicitud ? `\n  Solicitud: ${contact.solicitud}` : "";
+        return `- ${contact.nombre || "Sin nombre"} · ${details.join(" · ")}${request}`;
+      }),
+    ].join("\n");
+  }
+
+  if (name === "buscar_inmueble") {
+    const { data, error } = await supa
+      .from("properties")
+      .select(
+        "id, ref, calle, numero, barrio, localidad, tipo, estatus, precio, precio_final, habitaciones, metros_construidos",
+      )
+      .or(
+        `ref.ilike.%${query}%,calle.ilike.%${query}%,barrio.ilike.%${query}%,localidad.ilike.%${query}%`,
+      )
+      .limit(8);
+
+    if (error) return `No se pudo consultar inmuebles: ${error.message}`;
+    if (!data?.length) return `No se encontró ningún inmueble con “${query}”.`;
+
+    return [
+      `He encontrado ${data.length} inmueble${data.length === 1 ? "" : "s"}:`,
+      ...data.map((property) => {
+        const price = property.precio_final ?? property.precio;
+        const address = [property.calle, property.numero].filter(Boolean).join(" ");
+        const zone = [property.barrio, property.localidad].filter(Boolean).join(", ");
+        return [
+          `- Ref. ${cleanRef(property.ref ?? "—")}`,
+          address || "Dirección no disponible",
+          zone || null,
+          property.tipo || null,
+          `${property.habitaciones ?? "—"} hab`,
+          `${property.metros_construidos ?? "—"} m²`,
+          price ? `${Number(price).toLocaleString("es-ES")} €` : "Precio no disponible",
+          property.estatus || "Sin estado",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+      }),
+    ].join("\n");
+  }
+
+  return `Herramienta no disponible en modo consulta: ${name}`;
+}
 
 async function buildCrmContext(): Promise<string> {
-  if (_crmCache && Date.now() - _crmCache.ts < CACHE_TTL) return _crmCache.data;
+  if (crmContextCache && Date.now() - crmContextCache.ts < CACHE_TTL) {
+    return crmContextCache.data;
+  }
 
   const supa = getSupa();
   const today = new Date();
-
   const [propResult, leadsResult, visitsResult, agentsResult] = await Promise.all([
     supa
       .from("properties")
-      .select("ref, calle, barrio, localidad, tipo, habitaciones, precio, precio_final, estatus, es_alquiler, fecha_inicio")
-      .in("estatus", ["Activo", "Reservado", "Pendiente"])
-      .order("fecha_inicio", { ascending: false }),
-
+      .select(
+        "ref, calle, barrio, localidad, tipo, habitaciones, precio, precio_final, estatus, es_alquiler, fecha_inicio",
+      )
+      .in("estatus", ["Activo", "Reservado"])
+      .order("fecha_inicio", { ascending: false })
+      .limit(MAX_VENTA + MAX_ALQUILER + 60),
     supa
       .from("contacts")
-      .select("id, nombre, telefono, solicitud, motivo, ciclo_vida, created_at, contact_agents(agents(id, nombre))")
+      .select(
+        "id, nombre, solicitud, motivo, ciclo_vida, created_at, contact_agents(agents(nombre))",
+      )
       .in("ciclo_vida", ["Lead", "Prospecto"])
       .order("created_at", { ascending: false })
       .limit(MAX_LEADS),
-
     supa
       .from("visits")
       .select("fecha, estado, notas")
-      .in("estado", ["Pendiente", "Confirmada", "Programada"])
-      .gte("fecha", today.toISOString().slice(0, 10))
+      .eq("estado", "Programada")
+      .gte("fecha", today.toISOString())
       .order("fecha", { ascending: true })
       .limit(10),
-
-    supa
-      .from("agents")
-      .select("id, nombre")
-      .eq("activo", true),
+    supa.from("agents").select("nombre").eq("activo", true),
   ]);
 
-  const props  = propResult.data  ?? [];
-  const leads  = leadsResult.data ?? [];
+  throwOnQueryError("inmuebles", propResult.error);
+  throwOnQueryError("contactos", leadsResult.error);
+  throwOnQueryError("visitas", visitsResult.error);
+  throwOnQueryError("agentes", agentsResult.error);
+
+  const properties = propResult.data ?? [];
+  const leads = leadsResult.data ?? [];
   const visits = visitsResult.data ?? [];
   const agents = agentsResult.data ?? [];
+  const venta = properties.filter((property) => !property.es_alquiler).slice(0, MAX_VENTA);
+  const alquiler = properties.filter((property) => property.es_alquiler).slice(0, MAX_ALQUILER);
 
-  const venta    = props.filter((p: any) => !p.es_alquiler).slice(0, MAX_VENTA);
-  const alquiler = props.filter((p: any) => p.es_alquiler).slice(0, MAX_ALQUILER);
-
-  function dias(iso: string | null): string {
+  const daysSince = (iso: string | null): string => {
     if (!iso) return "?";
-    return String(Math.floor((today.getTime() - new Date(iso).getTime()) / 86400000));
-  }
-  function precio(p: any): string {
-    const v = p.precio_final ?? p.precio;
-    return v ? `${Math.round(v / 1000)}k` : "?";
-  }
+    return String(
+      Math.max(0, Math.floor((today.getTime() - new Date(iso).getTime()) / 86_400_000)),
+    );
+  };
+  const price = (property: (typeof properties)[number]): string => {
+    const value = property.precio_final ?? property.precio;
+    return value ? `${Math.round(Number(value) / 1000)}k` : "?";
+  };
+  const zone = (property: (typeof properties)[number]): string =>
+    [property.barrio, property.localidad].filter(Boolean).join(", ") || "?";
+  const street = (property: (typeof properties)[number]): string =>
+    (property.calle ?? "").slice(0, 30) || "?";
 
-  function zona(p: any): string {
-    const parts = [p.barrio, p.localidad].filter(Boolean);
-    return parts.join(", ") || "?";
-  }
-
-  function calle(p: any): string {
-    return (p.calle ?? "").slice(0, 20) || "?";
-  }
-
-  const ventaLines = venta.map((p: any) =>
-    `${cleanRef(p.ref ?? "?")}|${calle(p)}|${zona(p)}|${p.tipo ?? "?"}|${p.habitaciones ?? "?"}h|${precio(p)}|${p.estatus}|${dias(p.fecha_inicio)}d`
-  ).join("\n");
-
-  const alqLines = alquiler.map((p: any) =>
-    `${cleanRef(p.ref ?? "?")}|${calle(p)}|${zona(p)}|${p.tipo ?? "?"}|${p.habitaciones ?? "?"}h|${precio(p)}/m|${p.estatus}`
-  ).join("\n");
-
-  // contactId incluido para que la IA pueda actuar sin necesitar buscar_lead
-  const leadsLines = leads.map((c: any) => {
-    const sol = (c.solicitud || c.motivo || "").slice(0, 70);
-    const tel = (c.telefono ?? "").replace(/\s/g, "") || "—";
-    const agente = (c.contact_agents?.[0]?.agents?.nombre as string | undefined);
-    const asignado = agente ? `asignado:${agente}` : "asignado:NO";
-    return `${c.id}|${c.nombre}|${tel}|${sol}|${asignado}`;
-  }).join("\n");
-
-  const agentsLines = agents.map((a: any) => `${a.id}|${a.nombre}`).join("\n");
-
-  const visitLines = visits.map((v: any) =>
-    `${v.fecha?.slice(0, 10)}|${v.estado}|${(v.notas ?? "").slice(0, 40)}`
-  ).join("\n");
+  const ventaLines = venta
+    .map(
+      (property) =>
+        `${cleanRef(property.ref ?? "?")}|${street(property)}|${zone(property)}|${property.tipo ?? "?"}|${property.habitaciones ?? "?"}h|${price(property)}|${property.estatus}|${daysSince(property.fecha_inicio)}d`,
+    )
+    .join("\n");
+  const alquilerLines = alquiler
+    .map(
+      (property) =>
+        `${cleanRef(property.ref ?? "?")}|${street(property)}|${zone(property)}|${property.tipo ?? "?"}|${property.habitaciones ?? "?"}h|${price(property)}/m|${property.estatus}`,
+    )
+    .join("\n");
+  const leadLines = leads
+    .map((contact) => {
+      const request = (contact.solicitud || contact.motivo || "").slice(0, 100);
+      const assignments = contact.contact_agents as unknown as Array<{
+        agents: { nombre: string } | null;
+      }> | null;
+      const agentName = assignments?.[0]?.agents?.nombre;
+      return `${contact.id}|${contact.nombre}|${contact.ciclo_vida}|${request || "sin solicitud"}|${agentName ? `asignado:${agentName}` : "asignado:NO"}`;
+    })
+    .join("\n");
+  const visitLines = visits
+    .map(
+      (visit) =>
+        `${visit.fecha}|${visit.estado}|${(visit.notas ?? "").slice(0, 80) || "sin notas"}`,
+    )
+    .join("\n");
 
   const sections = [
     `=VENTA(${venta.length})= ref|calle|zona|tipo|hab|precio|estatus|días\n${ventaLines || "Sin datos"}`,
-    `=ALQUILER(${alquiler.length})= ref|calle|zona|tipo|hab|precio/m|estatus\n${alqLines || "Sin datos"}`,
-    `=LEADS(${leads.length})= contactId|nombre|tel|solicitud|asignación\n${leadsLines || "Sin datos"}`,
-    `=COMERCIALES(${agents.length})= agenteId|nombre\n${agentsLines || "Sin datos"}`,
+    `=ALQUILER(${alquiler.length})= ref|calle|zona|tipo|hab|precio/m|estatus\n${alquilerLines || "Sin datos"}`,
+    `=LEADS RECIENTES(${leads.length})= contactId|nombre|estado|solicitud|asignación\n${leadLines || "Sin datos"}`,
+    `=EQUIPO ACTIVO(${agents.length})=\n${agents.map((agent) => agent.nombre).join(", ") || "Sin datos"}`,
   ];
-  if (visits.length) sections.push(`=VISITAS PRÓXIMAS(${visits.length})=\n${visitLines}`);
+  if (visits.length) {
+    sections.push(`=VISITAS PROGRAMADAS(${visits.length})=\n${visitLines}`);
+  }
 
-  const result = sections.join("\n\n");
-  _crmCache = { data: result, ts: Date.now() };
-  return result;
+  const data = sections.join("\n\n");
+  crmContextCache = { data, ts: Date.now() };
+  return data;
 }
 
-// ── Server function ───────────────────────────────────────────────────────────
+function validateMessages(input: { messages: ChatMessage[] }): {
+  messages: ChatMessage[];
+} {
+  if (!Array.isArray(input?.messages) || input.messages.length === 0) {
+    throw new Error("Sin mensajes");
+  }
 
-type ChatMessage = { role: "user" | "assistant"; content: string };
+  const messages = input.messages.slice(-MAX_HISTORY);
+  for (const message of messages) {
+    if (
+      (message.role !== "user" && message.role !== "assistant") ||
+      typeof message.content !== "string" ||
+      !message.content.trim()
+    ) {
+      throw new Error("Historial de conversación inválido");
+    }
+  }
+
+  const last = messages[messages.length - 1];
+  if (last.role !== "user") throw new Error("Último mensaje inválido");
+  if (last.content.length > MAX_USER_MSG_LEN) {
+    throw new Error(
+      `Mensaje demasiado largo (${last.content.length}/${MAX_USER_MSG_LEN} caracteres)`,
+    );
+  }
+
+  const totalCharacters = messages.reduce((total, message) => total + message.content.length, 0);
+  if (totalCharacters > MAX_HISTORY_CHARS) {
+    throw new Error("Historial demasiado largo; inicia una conversación nueva");
+  }
+
+  return { messages };
+}
 
 export const askSilvia = createServerFn({ method: "POST" })
-  .inputValidator((d: { messages: ChatMessage[] }) => {
-    if (!Array.isArray(d?.messages) || !d.messages.length) throw new Error("Sin mensajes");
-    const last = d.messages[d.messages.length - 1];
-    if (last.role !== "user" || !last.content.trim()) throw new Error("Último mensaje inválido");
-    if (last.content.length > MAX_USER_MSG_LEN)
-      throw new Error(`Mensaje demasiado largo (${last.content.length} / ${MAX_USER_MSG_LEN} caracteres). Acórtalo.`);
-    return d;
-  })
+  .validator(validateMessages)
   .handler(async ({ data }) => {
-  await requireAuth();
-    const key = process.env.OPENAI_API_KEY;
-    if (!key) throw new Error("OPENAI_API_KEY no configurada");
+    await requirePermissions("silvia.use", "contacts.read", "properties.read", "visits.read");
 
-    const [client, crmContext] = await Promise.all([
-      Promise.resolve(new OpenAI({ apiKey: key })),
-      buildCrmContext(),
-    ]);
+    const latestMessage = data.messages[data.messages.length - 1]?.content ?? "";
+    const directLookup = inferDirectLookup(latestMessage);
+    if (directLookup) {
+      return {
+        reply: await executeReadOnlyTool(directLookup.tool, { query: directLookup.query }),
+      };
+    }
 
-    const systemMsg: OpenAI.Chat.Completions.ChatCompletionMessageParam = {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return {
+        reply:
+          "La consulta avanzada no está disponible ahora. Sí puedo buscar directamente en el CRM: prueba con “busca el lead Ana” o “busca el inmueble 11754”.",
+      };
+    }
+
+    const client = new OpenAI({ apiKey });
+    let crmContext: string;
+    try {
+      crmContext = await buildCrmContext();
+    } catch (error) {
+      console.error(
+        "SilvIA: no se pudo preparar el contexto CRM",
+        error instanceof Error ? error.message : "error desconocido",
+      );
+      return {
+        reply:
+          "No he podido preparar la consulta ahora. Inténtalo de nuevo o busca directamente un lead o un inmueble.",
+      };
+    }
+    const systemMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam = {
       role: "system",
       content: `${SYSTEM_PROMPT}\n\n${crmContext}`,
     };
+    const conversation = [
+      ...(data.messages as OpenAI.Chat.Completions.ChatCompletionMessageParam[]),
+    ];
 
-    const history = data.messages.slice(-MAX_HISTORY) as OpenAI.Chat.Completions.ChatCompletionMessageParam[];
-    const conversationMsgs: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [...history];
-
-    // Bucle agéntico — máximo MAX_TOOL_ROUNDS rondas de herramientas
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const response = await client.chat.completions.create({
-        model: MODEL,
-        max_completion_tokens: MAX_TOKENS,
-        tools: TOOLS,
-        tool_choice: "auto",
-        messages: [systemMsg, ...conversationMsgs],
-      });
-
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+      let response: OpenAI.Chat.Completions.ChatCompletion;
+      try {
+        response = await client.chat.completions.create({
+          model: process.env.OPENAI_MODEL ?? DEFAULT_MODEL,
+          max_completion_tokens: MAX_TOKENS,
+          tools: READ_ONLY_TOOLS,
+          tool_choice: "auto",
+          messages: [systemMessage, ...conversation],
+        });
+      } catch (error) {
+        console.error(
+          "SilvIA: proveedor de análisis no disponible",
+          error instanceof Error ? error.message : "error desconocido",
+        );
+        return {
+          reply:
+            "La consulta avanzada no está disponible ahora. Las búsquedas directas del CRM siguen funcionando: prueba con “busca el lead Ana” o “busca el inmueble 11754”.",
+        };
+      }
       const choice = response.choices[0];
-      conversationMsgs.push(choice.message as OpenAI.Chat.Completions.ChatCompletionMessageParam);
+      if (!choice) throw new Error("SilvIA no devolvió ninguna respuesta");
 
-      // Sin tool calls → respuesta final
+      conversation.push(choice.message as OpenAI.Chat.Completions.ChatCompletionMessageParam);
+
       if (choice.finish_reason !== "tool_calls" || !choice.message.tool_calls?.length) {
         return { reply: choice.message.content ?? "" };
       }
 
-      // Ejecutar todas las herramientas en paralelo
       const toolResults = await Promise.all(
-        choice.message.tool_calls.map(async (tc: any) => {
-          let args: Record<string, string> = {};
-          try {
-            args = JSON.parse(tc.function?.arguments ?? "{}") as Record<string, string>;
-          } catch {
-            return { tool_call_id: tc.id, result: "Error: argumentos JSON malformados." };
+        choice.message.tool_calls.map(async (toolCall) => {
+          if (toolCall.type !== "function") {
+            return {
+              toolCallId: toolCall.id,
+              result: "Tipo de herramienta no soportado.",
+            };
           }
-          const result = await ejecutarHerramienta(tc.function?.name ?? "", args);
-          return { tool_call_id: tc.id, result };
-        })
+
+          let args: Record<string, unknown>;
+          try {
+            args = JSON.parse(toolCall.function.arguments) as Record<string, unknown>;
+          } catch {
+            return {
+              toolCallId: toolCall.id,
+              result: "Argumentos de búsqueda inválidos.",
+            };
+          }
+
+          return {
+            toolCallId: toolCall.id,
+            result: await executeReadOnlyTool(toolCall.function.name, args),
+          };
+        }),
       );
 
-      for (const tr of toolResults) {
-        conversationMsgs.push({
+      for (const toolResult of toolResults) {
+        conversation.push({
           role: "tool",
-          tool_call_id: tr.tool_call_id,
-          content: tr.result,
-        } as OpenAI.Chat.Completions.ChatCompletionMessageParam);
+          tool_call_id: toolResult.toolCallId,
+          content: toolResult.result,
+        });
       }
     }
 
-    return { reply: "Acciones ejecutadas." };
+    return {
+      reply:
+        "No he podido completar la consulta en el número máximo de pasos. Reformúlala con un contacto, referencia o zona concreta.",
+    };
   });

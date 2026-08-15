@@ -124,7 +124,11 @@ function ComercialesPage() {
 
   // Agent selector — persisted in localStorage
   const [selectedAgente, setSelectedAgente] = useState<string>(() => {
-    try { return localStorage.getItem(LS_KEY) ?? TODOS; } catch { return TODOS; }
+    try {
+      return localStorage.getItem(LS_KEY) ?? TODOS;
+    } catch {
+      return TODOS;
+    }
   });
   useEffect(() => {
     try {
@@ -136,7 +140,9 @@ function ComercialesPage() {
 
   const mailToNombre = useMemo(() => {
     const m = new Map<string, string>();
-    agentes.forEach((a) => { if (a.mail) m.set(a.mail.toLowerCase(), a.nombre); });
+    agentes.forEach((a) => {
+      if (a.mail) m.set(a.mail.toLowerCase(), a.nombre);
+    });
     return m;
   }, [agentes]);
 
@@ -181,7 +187,15 @@ function ComercialesPage() {
         const key = n.trim() || SIN_ASIGNAR;
         let card = byNombre.get(key);
         if (!card) {
-          card = { id: null, nombre: key, mail: "", activos: 0, reservados: 0, inmuebles: [], proximaVisita: null };
+          card = {
+            id: null,
+            nombre: key,
+            mail: "",
+            activos: 0,
+            reservados: 0,
+            inmuebles: [],
+            proximaVisita: null,
+          };
           byNombre.set(key, card);
         }
         card.inmuebles.push(i);
@@ -217,23 +231,61 @@ function ComercialesPage() {
   const actividad = useMemo(() => {
     const evts: ActividadEvt[] = [];
     inmuebles.forEach((i) => {
-      if (i.fechaInicio) evts.push({ key: `c-${i.id}`, fecha: new Date(i.fechaInicio), tipo: "captacion", titulo: `Captación · ${i.calle} ${i.numero ?? ""}`.trim(), sub: i.localidad || "", agentes: i.agentesNombres, to: { id: i.id } });
-      if (i.fechaReserva) evts.push({ key: `r-${i.id}`, fecha: new Date(i.fechaReserva), tipo: "reserva", titulo: `Reserva · ${i.calle} ${i.numero ?? ""}`.trim(), sub: i.localidad || "", agentes: i.agentesNombres, to: { id: i.id } });
-      if (i.fechaEscritura) evts.push({ key: `e-${i.id}`, fecha: new Date(i.fechaEscritura), tipo: "cierre", titulo: `${i.estatus === "Alquilado" ? "Alquiler firmado" : "Escritura"} · ${i.calle} ${i.numero ?? ""}`.trim(), sub: i.localidad || "", agentes: i.agentesNombres, to: { id: i.id } });
+      if (i.fechaInicio)
+        evts.push({
+          key: `c-${i.id}`,
+          fecha: new Date(i.fechaInicio),
+          tipo: "captacion",
+          titulo: `Captación · ${i.calle} ${i.numero ?? ""}`.trim(),
+          sub: i.localidad || "",
+          agentes: i.agentesNombres,
+          to: { id: i.id },
+        });
+      if (i.fechaReserva)
+        evts.push({
+          key: `r-${i.id}`,
+          fecha: new Date(i.fechaReserva),
+          tipo: "reserva",
+          titulo: `Reserva · ${i.calle} ${i.numero ?? ""}`.trim(),
+          sub: i.localidad || "",
+          agentes: i.agentesNombres,
+          to: { id: i.id },
+        });
+      if (i.fechaEscritura)
+        evts.push({
+          key: `e-${i.id}`,
+          fecha: new Date(i.fechaEscritura),
+          tipo: "cierre",
+          titulo:
+            `${i.estatus === "Alquilado" ? "Alquiler firmado" : "Escritura"} · ${i.calle} ${i.numero ?? ""}`.trim(),
+          sub: i.localidad || "",
+          agentes: i.agentesNombres,
+          to: { id: i.id },
+        });
     });
     visitas.forEach((v) => {
       if (!v.fecha) return;
-      const nombres = v.agentesMails.map((m) => mailToNombre.get(m.toLowerCase())).filter((n): n is string => !!n);
-      evts.push({ key: `v-${v.id}`, fecha: new Date(v.fecha), tipo: "visita", titulo: `Visita · ${v.inmuebleCalles[0] ?? "Inmueble"} ${v.inmuebleNumeros[0] ?? ""}`.trim(), sub: v.clientesNombres.join(", ") || v.estado, agentes: nombres, to: v.inmuebleIds[0] ? { id: v.inmuebleIds[0] } : undefined });
+      const nombres = v.agentesMails
+        .map((m) => mailToNombre.get(m.toLowerCase()))
+        .filter((n): n is string => !!n);
+      evts.push({
+        key: `v-${v.id}`,
+        fecha: new Date(v.fecha),
+        tipo: "visita",
+        titulo:
+          `Visita · ${v.inmuebleCalles[0] ?? "Inmueble"} ${v.inmuebleNumeros[0] ?? ""}`.trim(),
+        sub: v.clientesNombres.join(", ") || v.estado,
+        agentes: nombres,
+        to: v.inmuebleIds[0] ? { id: v.inmuebleIds[0] } : undefined,
+      });
     });
     evts.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
     return evts.slice(0, 30);
   }, [inmuebles, visitas, mailToNombre]);
 
   // Workspace del agente seleccionado
-  const agenteCard = selectedAgente !== TODOS
-    ? (directorio.find((c) => c.nombre === selectedAgente) ?? null)
-    : null;
+  const agenteCard =
+    selectedAgente !== TODOS ? (directorio.find((c) => c.nombre === selectedAgente) ?? null) : null;
 
   const proxVisitas = useMemo(() => {
     if (!selectedMail) return [];
@@ -258,16 +310,29 @@ function ComercialesPage() {
   const searchResults = useMemo(() => {
     if (searchQ.trim().length < 2) return [];
     const needle = searchQ.toLowerCase();
-    const results: Array<{ type: "inmueble" | "visita"; id: string; label: string; sub: string }> = [];
+    const results: Array<{ type: "inmueble" | "visita"; id: string; label: string; sub: string }> =
+      [];
     for (const i of inmuebles) {
       const text = `${i.calle} ${i.numero ?? ""} ${i.localidad ?? ""} ${i.ref ?? ""}`.toLowerCase();
-      if (text.includes(needle)) results.push({ type: "inmueble", id: i.id, label: `${i.calle} ${i.numero ?? ""}`.trim(), sub: `${i.localidad ?? ""} · ${i.estatus}` });
+      if (text.includes(needle))
+        results.push({
+          type: "inmueble",
+          id: i.id,
+          label: `${i.calle} ${i.numero ?? ""}`.trim(),
+          sub: `${i.localidad ?? ""} · ${i.estatus}`,
+        });
       if (results.length >= 5) break;
     }
     for (const v of visitas) {
       if (!v.fecha) continue;
       const text = `${v.inmuebleCalles.join(" ")} ${v.clientesNombres.join(" ")}`.toLowerCase();
-      if (text.includes(needle)) results.push({ type: "visita", id: v.id, label: `Visita · ${v.inmuebleCalles[0] ?? "Inmueble"}`, sub: `${v.clientesNombres[0] ?? "Sin cliente"} · ${fmtDateCompact(v.fecha)}` });
+      if (text.includes(needle))
+        results.push({
+          type: "visita",
+          id: v.id,
+          label: `Visita · ${v.inmuebleCalles[0] ?? "Inmueble"}`,
+          sub: `${v.clientesNombres[0] ?? "Sin cliente"} · ${fmtDateCompact(v.fecha)}`,
+        });
       if (results.length >= 8) break;
     }
     return results;
@@ -296,7 +361,9 @@ function ComercialesPage() {
             <div className="px-5 py-3 border-b border-border">
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <Users className="size-4 text-muted-foreground" /> Directorio del equipo
-                <span className="text-xs text-muted-foreground font-normal">· {directorio.length} comerciales</span>
+                <span className="text-xs text-muted-foreground font-normal">
+                  · {directorio.length} comerciales
+                </span>
               </h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
@@ -327,7 +394,9 @@ function AgenteSelector({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-muted-foreground hidden sm:block shrink-0">Trabajando como</span>
+      <span className="text-xs text-muted-foreground hidden sm:block shrink-0">
+        Trabajando como
+      </span>
       <div className="relative">
         <select
           value={value}
@@ -336,7 +405,9 @@ function AgenteSelector({
         >
           <option value={TODOS}>Todos</option>
           {agentes.map((a) => (
-            <option key={a.id} value={a.nombre}>{a.nombre}</option>
+            <option key={a.id} value={a.nombre}>
+              {a.nombre}
+            </option>
           ))}
         </select>
         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
@@ -383,7 +454,10 @@ function GlobalSearch({
       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
       <input
         value={q}
-        onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setOpen(true);
+        }}
         onFocus={() => setOpen(true)}
         placeholder="Buscar inmueble, visita..."
         className="h-8 w-full rounded-md border border-border bg-background pl-8 pr-3 text-xs outline-none focus:border-foreground/30"
@@ -396,8 +470,14 @@ function GlobalSearch({
               onMouseDown={() => handleSelect(r)}
               className="flex items-center gap-3 w-full px-3 py-2 hover:bg-accent/60 transition-colors text-left"
             >
-              <div className={`size-5 rounded flex items-center justify-center shrink-0 ${r.type === "inmueble" ? "bg-primary/10 text-primary" : "bg-violet-500/10 text-violet-600 dark:text-violet-400"}`}>
-                {r.type === "inmueble" ? <Building2 className="size-3" /> : <CalendarCheck className="size-3" />}
+              <div
+                className={`size-5 rounded flex items-center justify-center shrink-0 ${r.type === "inmueble" ? "bg-primary/10 text-primary" : "bg-violet-500/10 text-violet-600 dark:text-violet-400"}`}
+              >
+                {r.type === "inmueble" ? (
+                  <Building2 className="size-3" />
+                ) : (
+                  <CalendarCheck className="size-3" />
+                )}
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-medium truncate">{r.label}</div>
@@ -431,7 +511,8 @@ function NuevaVisitaDialog({
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
-      if (inmuebleRef.current && !inmuebleRef.current.contains(e.target as Node)) setInmuebleOpen(false);
+      if (inmuebleRef.current && !inmuebleRef.current.contains(e.target as Node))
+        setInmuebleOpen(false);
     }
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
@@ -462,15 +543,27 @@ function NuevaVisitaDialog({
     const q = inmuebleQ.toLowerCase();
     const base = inmuebles.filter((i) => i.estatus === "Activo" || i.estatus === "Reservado");
     if (!q) return base.slice(0, 6);
-    return base.filter((i) => `${i.calle} ${i.numero ?? ""} ${i.localidad ?? ""}`.toLowerCase().includes(q)).slice(0, 8);
+    return base
+      .filter((i) => `${i.calle} ${i.numero ?? ""} ${i.localidad ?? ""}`.toLowerCase().includes(q))
+      .slice(0, 8);
   }, [inmuebles, inmuebleQ]);
 
   const selectedInm = inmuebles.find((i) => i.id === inmuebleId);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!inmuebleId) { toast.error("Selecciona un inmueble"); return; }
-    mutate({ data: { fecha: `${fecha}T${hora}:00`, inmueblesIds: [inmuebleId], agentesIds: agenteId ? [agenteId] : [], estado: "Pendiente" } });
+    if (!inmuebleId) {
+      toast.error("Selecciona un inmueble");
+      return;
+    }
+    mutate({
+      data: {
+        fecha: `${fecha}T${hora}:00`,
+        inmueblesIds: [inmuebleId],
+        agentesIds: agenteId ? [agenteId] : [],
+        estado: "Programada",
+      },
+    });
   }
 
   return (
@@ -486,28 +579,61 @@ function NuevaVisitaDialog({
           <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-base font-semibold">Nueva visita</h2>
-              <button onClick={() => { setOpen(false); reset(); }} className="text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  reset();
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X className="size-4" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1">Fecha</label>
-                  <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} required className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                    Fecha
+                  </label>
+                  <input
+                    type="date"
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                    required
+                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                  />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1">Hora</label>
-                  <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} required className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                    Hora
+                  </label>
+                  <input
+                    type="time"
+                    value={hora}
+                    onChange={(e) => setHora(e.target.value)}
+                    required
+                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                  />
                 </div>
               </div>
 
               <div ref={inmuebleRef} className="relative">
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Inmueble *</label>
+                <label className="text-xs font-medium text-muted-foreground block mb-1">
+                  Inmueble *
+                </label>
                 {selectedInm ? (
                   <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-background text-sm">
-                    <span className="flex-1 truncate text-xs">{selectedInm.calle} {selectedInm.numero ?? ""}</span>
-                    <button type="button" onClick={() => { setInmuebleId(""); setInmuebleQ(""); }} className="text-muted-foreground hover:text-foreground shrink-0">
+                    <span className="flex-1 truncate text-xs">
+                      {selectedInm.calle} {selectedInm.numero ?? ""}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInmuebleId("");
+                        setInmuebleQ("");
+                      }}
+                      className="text-muted-foreground hover:text-foreground shrink-0"
+                    >
                       <X className="size-3" />
                     </button>
                   </div>
@@ -517,7 +643,10 @@ function NuevaVisitaDialog({
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                       <input
                         value={inmuebleQ}
-                        onChange={(e) => { setInmuebleQ(e.target.value); setInmuebleOpen(true); }}
+                        onChange={(e) => {
+                          setInmuebleQ(e.target.value);
+                          setInmuebleOpen(true);
+                        }}
                         onFocus={() => setInmuebleOpen(true)}
                         placeholder="Buscar por dirección..."
                         className="h-9 w-full rounded-md border border-border bg-background pl-8 pr-3 text-sm outline-none focus:border-foreground/30"
@@ -529,10 +658,16 @@ function NuevaVisitaDialog({
                           <button
                             key={i.id}
                             type="button"
-                            onMouseDown={() => { setInmuebleId(i.id); setInmuebleOpen(false); }}
+                            onMouseDown={() => {
+                              setInmuebleId(i.id);
+                              setInmuebleOpen(false);
+                            }}
                             className="w-full text-left px-3 py-2 text-xs hover:bg-accent/60 transition-colors"
                           >
-                            {i.calle} {i.numero ?? ""}{i.localidad && <span className="text-muted-foreground"> · {i.localidad}</span>}
+                            {i.calle} {i.numero ?? ""}
+                            {i.localidad && (
+                              <span className="text-muted-foreground"> · {i.localidad}</span>
+                            )}
                           </button>
                         ))}
                       </div>
@@ -542,14 +677,28 @@ function NuevaVisitaDialog({
               </div>
 
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Agente</label>
-                <select value={agenteId} onChange={(e) => setAgenteId(e.target.value)} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30">
+                <label className="text-xs font-medium text-muted-foreground block mb-1">
+                  Agente
+                </label>
+                <select
+                  value={agenteId}
+                  onChange={(e) => setAgenteId(e.target.value)}
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                >
                   <option value="">Sin asignar</option>
-                  {agentes.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                  {agentes.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nombre}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              <button type="submit" disabled={isPending || !inmuebleId} className="w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
+              <button
+                type="submit"
+                disabled={isPending || !inmuebleId}
+                className="w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
                 {isPending ? "Guardando..." : "Agendar visita"}
               </button>
             </form>
@@ -581,7 +730,11 @@ function NuevoClienteDialog({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["clientes"] });
       setOpen(false);
-      setNombre(""); setTelefono(""); setEmail(""); setTipo("Comprador"); setAgenteId("");
+      setNombre("");
+      setTelefono("");
+      setEmail("");
+      setTipo("Comprador");
+      setAgenteId("");
       toast.success("Cliente creado");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -589,7 +742,15 @@ function NuevoClienteDialog({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    mutate({ data: { nombre, telefono: telefono || undefined, email: email || undefined, tipo, agentesIds: agenteId ? [agenteId] : [] } });
+    mutate({
+      data: {
+        nombre,
+        telefono: telefono || undefined,
+        email: email || undefined,
+        tipo,
+        agentesIds: agenteId ? [agenteId] : [],
+      },
+    });
   }
 
   return (
@@ -605,26 +766,58 @@ function NuevoClienteDialog({
           <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-base font-semibold">Nuevo cliente</h2>
-              <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+              <button
+                onClick={() => setOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Nombre *</label>
-                <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre completo" required className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
+                <label className="text-xs font-medium text-muted-foreground block mb-1">
+                  Nombre *
+                </label>
+                <input
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  placeholder="Nombre completo"
+                  required
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1">Teléfono</label>
-                  <input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="600 000 000" className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                    Teléfono
+                  </label>
+                  <input
+                    value={telefono}
+                    onChange={(e) => setTelefono(e.target.value)}
+                    placeholder="600 000 000"
+                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                  />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1">Email</label>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@..." className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="email@..."
+                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                  />
                 </div>
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground block mb-1">Tipo</label>
-                <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30">
+                <select
+                  value={tipo}
+                  onChange={(e) => setTipo(e.target.value)}
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                >
                   <option>Comprador</option>
                   <option>Inquilino</option>
                   <option>Propietario</option>
@@ -633,13 +826,27 @@ function NuevoClienteDialog({
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Agente</label>
-                <select value={agenteId} onChange={(e) => setAgenteId(e.target.value)} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30">
+                <label className="text-xs font-medium text-muted-foreground block mb-1">
+                  Agente
+                </label>
+                <select
+                  value={agenteId}
+                  onChange={(e) => setAgenteId(e.target.value)}
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                >
                   <option value="">Sin asignar</option>
-                  {agentes.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                  {agentes.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nombre}
+                    </option>
+                  ))}
                 </select>
               </div>
-              <button type="submit" disabled={isPending} className="w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors mt-1">
+              <button
+                type="submit"
+                disabled={isPending}
+                className="w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors mt-1"
+              >
                 {isPending ? "Guardando..." : "Crear cliente"}
               </button>
             </form>
@@ -653,8 +860,14 @@ function NuevoClienteDialog({
 // ── NuevaCaptacionDialog ──────────────────────────────────────────────────────
 
 const TIPOS_INMUEBLE = [
-  "Casa · Venta", "Piso · Venta", "Terreno · Venta", "Local · Venta", "Garaje · Venta",
-  "Casa · Alquiler", "Piso · Alquiler", "Local · Alquiler",
+  "Casa · Venta",
+  "Piso · Venta",
+  "Terreno · Venta",
+  "Local · Venta",
+  "Garaje · Venta",
+  "Casa · Alquiler",
+  "Piso · Alquiler",
+  "Local · Alquiler",
 ];
 
 function NuevaCaptacionDialog({
@@ -664,9 +877,17 @@ function NuevaCaptacionDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
-    nombre: "", telefono: "", email: "",
-    tipo: "Casa · Venta", calle: "", numero: "", localidad: "",
-    precio: "", superficie: "", habitaciones: "", agenteId: "",
+    nombre: "",
+    telefono: "",
+    email: "",
+    tipo: "Casa · Venta",
+    calle: "",
+    numero: "",
+    localidad: "",
+    precio: "",
+    superficie: "",
+    habitaciones: "",
+    agenteId: "",
   });
 
   const qc = useQueryClient();
@@ -677,14 +898,27 @@ function NuevaCaptacionDialog({
       qc.invalidateQueries({ queryKey: ["prospectos"] });
       qc.invalidateQueries({ queryKey: ["all-inmuebles"] });
       setOpen(false);
-      setForm({ nombre: "", telefono: "", email: "", tipo: "Casa · Venta", calle: "", numero: "", localidad: "", precio: "", superficie: "", habitaciones: "", agenteId: "" });
+      setForm({
+        nombre: "",
+        telefono: "",
+        email: "",
+        tipo: "Casa · Venta",
+        calle: "",
+        numero: "",
+        localidad: "",
+        precio: "",
+        superficie: "",
+        habitaciones: "",
+        agenteId: "",
+      });
       toast.success("Captación registrada");
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set =
+    (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -718,44 +952,125 @@ function NuevaCaptacionDialog({
           <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-base font-semibold">Nueva captación directa</h2>
-              <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+              <button
+                onClick={() => setOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Propietario</p>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  Propietario
+                </p>
                 <div className="space-y-2">
-                  <input value={form.nombre} onChange={set("nombre")} placeholder="Nombre *" required className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
+                  <input
+                    value={form.nombre}
+                    onChange={set("nombre")}
+                    placeholder="Nombre *"
+                    required
+                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                  />
                   <div className="grid grid-cols-2 gap-2">
-                    <input value={form.telefono} onChange={set("telefono")} placeholder="Teléfono" className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
-                    <input type="email" value={form.email} onChange={set("email")} placeholder="Email" className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
+                    <input
+                      value={form.telefono}
+                      onChange={set("telefono")}
+                      placeholder="Teléfono"
+                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                    />
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={set("email")}
+                      placeholder="Email"
+                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                    />
                   </div>
                 </div>
               </div>
               <div>
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Inmueble</p>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  Inmueble
+                </p>
                 <div className="space-y-2">
-                  <select value={form.tipo} onChange={set("tipo")} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30">
-                    {TIPOS_INMUEBLE.map((t) => <option key={t}>{t}</option>)}
+                  <select
+                    value={form.tipo}
+                    onChange={set("tipo")}
+                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                  >
+                    {TIPOS_INMUEBLE.map((t) => (
+                      <option key={t}>{t}</option>
+                    ))}
                   </select>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="col-span-2">
-                      <input value={form.calle} onChange={set("calle")} placeholder="Calle *" required className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
+                      <input
+                        value={form.calle}
+                        onChange={set("calle")}
+                        placeholder="Calle *"
+                        required
+                        className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                      />
                     </div>
-                    <input value={form.numero} onChange={set("numero")} placeholder="Nº" className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
+                    <input
+                      value={form.numero}
+                      onChange={set("numero")}
+                      placeholder="Nº"
+                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                    />
                   </div>
-                  <input value={form.localidad} onChange={set("localidad")} placeholder="Localidad" className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
+                  <input
+                    value={form.localidad}
+                    onChange={set("localidad")}
+                    placeholder="Localidad"
+                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                  />
                   <div className="grid grid-cols-3 gap-2">
-                    <input value={form.precio} onChange={set("precio")} placeholder="Precio" type="number" min="0" className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
-                    <input value={form.superficie} onChange={set("superficie")} placeholder="m²" type="number" min="0" className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
-                    <input value={form.habitaciones} onChange={set("habitaciones")} placeholder="Hab." type="number" min="0" className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30" />
+                    <input
+                      value={form.precio}
+                      onChange={set("precio")}
+                      placeholder="Precio"
+                      type="number"
+                      min="0"
+                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                    />
+                    <input
+                      value={form.superficie}
+                      onChange={set("superficie")}
+                      placeholder="m²"
+                      type="number"
+                      min="0"
+                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                    />
+                    <input
+                      value={form.habitaciones}
+                      onChange={set("habitaciones")}
+                      placeholder="Hab."
+                      type="number"
+                      min="0"
+                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                    />
                   </div>
-                  <select value={form.agenteId} onChange={set("agenteId")} className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30">
+                  <select
+                    value={form.agenteId}
+                    onChange={set("agenteId")}
+                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
+                  >
                     <option value="">Agente responsable</option>
-                    {agentes.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                    {agentes.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nombre}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
-              <button type="submit" disabled={isPending} className="w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors">
+              <button
+                type="submit"
+                disabled={isPending}
+                className="w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
                 {isPending ? "Guardando..." : "Registrar captación"}
               </button>
             </form>
@@ -768,13 +1083,7 @@ function NuevaCaptacionDialog({
 
 // ── AgendaHoy ─────────────────────────────────────────────────────────────────
 
-function AgendaHoy({
-  visitas,
-  selectedAgente,
-}: {
-  visitas: VisitaRow[];
-  selectedAgente: string;
-}) {
+function AgendaHoy({ visitas, selectedAgente }: { visitas: VisitaRow[]; selectedAgente: string }) {
   const labelDia = new Date().toLocaleDateString("es-ES", {
     weekday: "long",
     day: "numeric",
@@ -796,10 +1105,14 @@ function AgendaHoy({
         )}
       </div>
       {visitas.length === 0 ? (
-        <div className="px-5 py-4 text-xs text-muted-foreground">Sin visitas agendadas para hoy.</div>
+        <div className="px-5 py-4 text-xs text-muted-foreground">
+          Sin visitas agendadas para hoy.
+        </div>
       ) : (
         <div className="divide-y divide-border">
-          {visitas.map((v) => <VisitaRowHoy key={v.id} visita={v} />)}
+          {visitas.map((v) => (
+            <VisitaRowHoy key={v.id} visita={v} />
+          ))}
         </div>
       )}
     </div>
@@ -830,7 +1143,9 @@ function VisitaRowHoy({ visita: v }: { visita: VisitaRow }) {
       <span className="size-2 rounded-full shrink-0" style={{ background: color }} />
       <span className="flex-1 min-w-0 text-xs font-medium truncate">{address}</span>
       {cliente && (
-        <span className="text-[11px] text-muted-foreground truncate hidden sm:block max-w-[140px]">{cliente}</span>
+        <span className="text-[11px] text-muted-foreground truncate hidden sm:block max-w-[140px]">
+          {cliente}
+        </span>
       )}
       {!isActive && (
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0 capitalize">
@@ -841,7 +1156,7 @@ function VisitaRowHoy({ visita: v }: { visita: VisitaRow }) {
         <div className="flex items-center gap-1 shrink-0">
           <button
             disabled={isPending}
-            onClick={() => mutate({ data: { visitaId: v.id, estado: "Completado" } })}
+            onClick={() => mutate({ data: { visitaId: v.id, estado: "Realizada" } })}
             title="Marcar completada"
             className="size-7 rounded flex items-center justify-center text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors disabled:opacity-40"
           >
@@ -849,7 +1164,7 @@ function VisitaRowHoy({ visita: v }: { visita: VisitaRow }) {
           </button>
           <button
             disabled={isPending}
-            onClick={() => mutate({ data: { visitaId: v.id, estado: "Anulada" } })}
+            onClick={() => mutate({ data: { visitaId: v.id, estado: "Cancelada" } })}
             title="Anular visita"
             className="size-7 rounded flex items-center justify-center text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 transition-colors disabled:opacity-40"
           >
@@ -858,7 +1173,11 @@ function VisitaRowHoy({ visita: v }: { visita: VisitaRow }) {
         </div>
       )}
       {v.inmuebleIds[0] && (
-        <Link to="/inmuebles/$id" params={{ id: v.inmuebleIds[0] }} className="text-muted-foreground hover:text-foreground shrink-0">
+        <Link
+          to="/inmuebles/$id"
+          params={{ id: v.inmuebleIds[0] }}
+          className="text-muted-foreground hover:text-foreground shrink-0"
+        >
           <ArrowRight className="size-3.5" />
         </Link>
       )}
@@ -880,15 +1199,22 @@ function AgenteCardHub({ card }: { card: AgenteHub }) {
   return (
     <div className="rounded-lg border border-border bg-background p-4 hover:border-foreground/30 transition-colors flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <div className={`size-9 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${isSinAsignar ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}>
+        <div
+          className={`size-9 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${isSinAsignar ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"}`}
+        >
           {initials || "—"}
         </div>
         <div className="min-w-0">
-          <div className={`text-sm font-semibold truncate ${isSinAsignar ? "italic text-muted-foreground" : ""}`}>
+          <div
+            className={`text-sm font-semibold truncate ${isSinAsignar ? "italic text-muted-foreground" : ""}`}
+          >
             {card.nombre}
           </div>
           {card.mail && (
-            <a href={`mailto:${card.mail}`} className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 truncate">
+            <a
+              href={`mailto:${card.mail}`}
+              className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 truncate"
+            >
               <Mail className="size-3" /> {card.mail}
             </a>
           )}
@@ -897,11 +1223,15 @@ function AgenteCardHub({ card }: { card: AgenteHub }) {
 
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-md border border-border bg-card px-2 py-1.5 text-center">
-          <div className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">{card.activos}</div>
+          <div className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+            {card.activos}
+          </div>
           <div className="text-[10px] text-muted-foreground leading-none mt-0.5">Activos</div>
         </div>
         <div className="rounded-md border border-border bg-card px-2 py-1.5 text-center">
-          <div className="text-sm font-semibold tabular-nums text-amber-700 dark:text-amber-400">{card.reservados}</div>
+          <div className="text-sm font-semibold tabular-nums text-amber-700 dark:text-amber-400">
+            {card.reservados}
+          </div>
           <div className="text-[10px] text-muted-foreground leading-none mt-0.5">Reservados</div>
         </div>
       </div>
@@ -965,14 +1295,23 @@ function ActividadPanel({ actividad, label }: { actividad: ActividadEvt[]; label
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-medium truncate">{e.titulo}</div>
                 <div className="text-[11px] text-muted-foreground truncate">
-                  {e.sub}{e.agentes.length > 0 && <> · {e.agentes.join(", ")}</>}
+                  {e.sub}
+                  {e.agentes.length > 0 && <> · {e.agentes.join(", ")}</>}
                 </div>
                 <div className="text-[10px] text-muted-foreground/80 mt-0.5">
-                  {e.fecha.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" })}
+                  {e.fecha.toLocaleDateString("es-ES", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
                 </div>
               </div>
               {e.to && (
-                <Link to="/inmuebles/$id" params={{ id: e.to.id }} className="text-muted-foreground hover:text-foreground shrink-0">
+                <Link
+                  to="/inmuebles/$id"
+                  params={{ id: e.to.id }}
+                  className="text-muted-foreground hover:text-foreground shrink-0"
+                >
                   <ArrowRight className="size-3.5" />
                 </Link>
               )}
@@ -980,7 +1319,9 @@ function ActividadPanel({ actividad, label }: { actividad: ActividadEvt[]; label
           </li>
         ))}
         {actividad.length === 0 && (
-          <li className="px-4 py-8 text-center text-xs text-muted-foreground">Sin actividad reciente.</li>
+          <li className="px-4 py-8 text-center text-xs text-muted-foreground">
+            Sin actividad reciente.
+          </li>
         )}
       </ol>
     </div>
@@ -1014,7 +1355,9 @@ function AgenteWorkspace({
           <div className="px-5 py-4 text-xs text-muted-foreground">Sin visitas programadas.</div>
         ) : (
           <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
-            {proxVisitas.map((v) => <ProximaVisitaRow key={v.id} visita={v} />)}
+            {proxVisitas.map((v) => (
+              <ProximaVisitaRow key={v.id} visita={v} />
+            ))}
           </div>
         )}
       </div>
@@ -1026,8 +1369,17 @@ function AgenteWorkspace({
             <Building2 className="size-4 text-muted-foreground" /> Inmuebles
           </h3>
           <div className="flex gap-2 text-xs">
-            <span className="text-emerald-700 dark:text-emerald-400 font-medium">{activos.length} activos</span>
-            {reservados.length > 0 && <><span className="text-muted-foreground">·</span><span className="text-amber-700 dark:text-amber-400 font-medium">{reservados.length} reserv.</span></>}
+            <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+              {activos.length} activos
+            </span>
+            {reservados.length > 0 && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-amber-700 dark:text-amber-400 font-medium">
+                  {reservados.length} reserv.
+                </span>
+              </>
+            )}
           </div>
         </div>
         {activos.length === 0 && reservados.length === 0 ? (
@@ -1065,7 +1417,11 @@ function ProximaVisitaRow({ visita: v }: { visita: VisitaRow }) {
         </div>
       </div>
       {v.inmuebleIds[0] && (
-        <Link to="/inmuebles/$id" params={{ id: v.inmuebleIds[0] }} className="text-muted-foreground hover:text-foreground shrink-0">
+        <Link
+          to="/inmuebles/$id"
+          params={{ id: v.inmuebleIds[0] }}
+          className="text-muted-foreground hover:text-foreground shrink-0"
+        >
           <ArrowRight className="size-3.5" />
         </Link>
       )}
@@ -1084,12 +1440,23 @@ function InmuebleRowAgente({ inmueble: i }: { inmueble: Inmueble }) {
       className="flex items-center gap-3 px-5 h-12 hover:bg-accent/30 transition-colors group"
     >
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium truncate">{i.calle} {i.numero ?? ""}</div>
-        <div className="text-[11px] text-muted-foreground truncate">{i.localidad ?? ""}{i.tipo && ` · ${i.tipo}`}</div>
+        <div className="text-xs font-medium truncate">
+          {i.calle} {i.numero ?? ""}
+        </div>
+        <div className="text-[11px] text-muted-foreground truncate">
+          {i.localidad ?? ""}
+          {i.tipo && ` · ${i.tipo}`}
+        </div>
       </div>
-      {i.precio ? <span className="text-xs tabular-nums shrink-0 text-muted-foreground">{moneyShort(i.precio)}</span> : null}
+      {i.precio ? (
+        <span className="text-xs tabular-nums shrink-0 text-muted-foreground">
+          {moneyShort(i.precio)}
+        </span>
+      ) : null}
       {isReservado && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 shrink-0">Reservado</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 shrink-0">
+          Reservado
+        </span>
       )}
       <ArrowRight className="size-3.5 text-muted-foreground/40 group-hover:text-foreground shrink-0 transition-colors" />
     </Link>

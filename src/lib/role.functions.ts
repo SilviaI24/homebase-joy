@@ -1,35 +1,30 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireAuth } from "@/lib/auth.server";
-import { getSupa } from "@/lib/supabase.server";
+import { getAllowedCapabilities, requireCrmUser, type CrmCapability } from "@/lib/crm-auth.server";
 
-export type UserRol = "ADMIN" | "FINANCIERO" | "MANAGER" | "SENIOR" | "AGENTE";
+// UserRol ahora refleja los roles de seguridad de crm_usuarios, no agents.rol.
+// Los niveles profesionales (AGENTE, SENIOR, MANAGER) permanecen en agents.rol
+// y no son roles de acceso al CRM.
+export type UserRol = "ADMIN" | "FINANCIERO" | "COMERCIAL_ADMINISTRATIVO";
 
 export type MyRole = {
   isAdmin: boolean;
   isFinanciero: boolean;
   agentId: string | null;
   rol: UserRol;
+  allowedCapabilities: CrmCapability[];
 };
 
+// Fail-closed: si el usuario no tiene fila activa en crm_usuarios, lanza 403.
+// Eliminado el retorno { isAdmin: true } por defecto — era C-01.
 export const getMyRole = createServerFn({ method: "GET" }).handler(async (): Promise<MyRole> => {
-  const user = await requireAuth();
-  const supa = getSupa();
-
-  const { data: agent } = await supa
-    .from("agents")
-    .select("id, rol")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!agent) {
-    return { isAdmin: true, isFinanciero: true, agentId: null, rol: "ADMIN" };
-  }
-
-  const rol = ((agent.rol as string) ?? "AGENTE") as UserRol;
+  const crm = await requireCrmUser();
+  const allowedCapabilities = await getAllowedCapabilities(crm);
   return {
-    isAdmin: rol === "ADMIN",
-    isFinanciero: rol === "ADMIN" || rol === "FINANCIERO",
-    agentId: agent.id,
-    rol,
+    isAdmin: crm.rolBase === "ADMIN",
+    // Respeta también las excepciones ALLOW/DENY asignadas a la persona.
+    isFinanciero: allowedCapabilities.includes("operations.read_financiero"),
+    agentId: crm.agentId,
+    rol: crm.rolBase,
+    allowedCapabilities,
   };
 });

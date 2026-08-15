@@ -38,7 +38,8 @@ function LoginPage() {
     });
     setLoading(false);
     if (error) {
-      setError(error.message);
+      console.error("No se pudo solicitar el restablecimiento de contraseña", error);
+      setError("No hemos podido enviar el enlace. Revisa el email e inténtalo de nuevo.");
     } else {
       setResetSent(true);
     }
