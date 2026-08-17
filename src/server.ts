@@ -2,6 +2,18 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { checkEnv } from "./lib/env-guard";
+
+const _envCheck = checkEnv({
+  APP_ENV: process.env.APP_ENV,
+  EXPECTED_SUPABASE_PROJECT_REF: process.env.EXPECTED_SUPABASE_PROJECT_REF,
+  SUPABASE_URL: process.env.SUPABASE_URL,
+  VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
+});
+
+if (!_envCheck.ok) {
+  console.error("[env-guard] BLOQUEO:", _envCheck.reason);
+}
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -39,6 +51,13 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    if (!_envCheck.ok) {
+      return new Response("Service unavailable\n", {
+        status: 503,
+        headers: { "content-type": "text/plain; charset=utf-8" },
+      });
+    }
+
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
