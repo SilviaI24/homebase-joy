@@ -792,7 +792,7 @@ export const sendWhatsAppReply = createServerFn({ method: "POST" })
     const phoneNumberId = process.env.WABA_PHONE_NUMBER_ID;
     const token = process.env.WABA_ACCESS_TOKEN;
     if (!phoneNumberId || !token)
-      throw new Error("WABA_PHONE_NUMBER_ID o WABA_ACCESS_TOKEN no configurados en .env.local");
+      throw new Error("Integración WhatsApp no disponible en este entorno");
 
     // Normalize to E.164 without +: strip non-digits, then ensure country code
     let to = data.phone.replace(/\D/g, "");
