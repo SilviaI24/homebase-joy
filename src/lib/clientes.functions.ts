@@ -1030,7 +1030,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         ? (d!.tab as string)
         : "Pendientes";
       const q = typeof d?.q === "string" ? d.q.trim() : "";
-      const canal = ["Todos", "WhatsApp", "Voz"].includes(d?.canal ?? "")
+      const canal = ["Todos", "WhatsApp", "Voz", "Email"].includes(d?.canal ?? "")
         ? (d!.canal as string)
         : "Todos";
       return { page, pageSize, tab, q, canal };
@@ -1050,7 +1050,8 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
       const to = from + data.pageSize - 1;
 
       // Main SilvIA canal filter (OR: primary + legacy)
-      const silviaOrPrimary = "canal_origen.ilike.silvia-whatsapp,canal_origen.ilike.silvia-voz";
+      const silviaOrPrimary =
+        "canal_origen.ilike.silvia-whatsapp,canal_origen.ilike.silvia-voz,canal_origen.ilike.silvia-email";
       const silviaOrLegacy = "and(canal_origen.is.null,conversaciones.not.is.null)";
       const silviaOrFilter = `${silviaOrPrimary},${silviaOrLegacy}`;
 
@@ -1069,6 +1070,8 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         query = query.ilike("canal_origen", "silvia-whatsapp");
       } else if (data.canal === "Voz") {
         query = query.ilike("canal_origen", "silvia-voz");
+      } else if (data.canal === "Email") {
+        query = query.ilike("canal_origen", "silvia-email");
       } else {
         query = query.or(silviaOrFilter);
       }
@@ -1100,7 +1103,8 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
       // Post-fetch: filter out legacy records that mention Idealista
       const validRows = (rows ?? []).filter((row: any) => {
         const origen = (row.canal_origen ?? "").toLowerCase();
-        const esPrimary = origen === "silvia-whatsapp" || origen === "silvia-voz";
+        const esPrimary =
+          origen === "silvia-whatsapp" || origen === "silvia-voz" || origen === "silvia-email";
         if (esPrimary) return true;
         // Legacy: reject if idealista mention in text
         const texto = `${row.motivo ?? ""} ${row.solicitud ?? ""} ${row.conversaciones ?? ""}`;
@@ -1591,3 +1595,88 @@ export const getLeadInsightsFn = createServerFn({ method: "GET" }).handler(async
 
   return { topCalientes, sinSeguimiento, total: scored.length } satisfies LeadInsightsData;
 });
+
+// ── Histórico / Descartado paginado ───────────────────────────────────────────
+// Consulta ligera sin !inner join ni matching de inmuebles.
+
+export type ClienteRowSimple = {
+  id: string;
+  nombre: string;
+  email: string;
+  telefono: string;
+  canalOrigen: string;
+  fecha: string | null;
+  segmento: Segmento;
+  etapa: Etapa;
+  diasDesdeAlta: number | null;
+  agentesIds: string[];
+};
+
+export const listContactosPage = createServerFn({ method: "GET" })
+  .validator(
+    (d: { page?: number; pageSize?: number; q?: string; etapa?: string }) => {
+      const page = Math.max(1, Number(d?.page) || 1);
+      const pageSize = Math.min(200, Math.max(1, Number(d?.pageSize) || 50));
+      const etapa =
+        typeof d?.etapa === "string" && d.etapa.length ? d.etapa : "Histórico";
+      const q = typeof d?.q === "string" ? d.q.trim() : "";
+      return { page, pageSize, etapa, q };
+    },
+  )
+  .handler(
+    async ({ data }): Promise<{ clientes: ClienteRowSimple[]; total: number }> => {
+      await requirePermissions("contacts.read");
+      const supa = getSupa();
+      const from = (data.page - 1) * data.pageSize;
+      const to = from + data.pageSize - 1;
+
+      let query = supa
+        .from("contacts")
+        .select(
+          `id, nombre, email, telefono, ciclo_vida, canal_origen, created_at,
+           contact_roles(tipo, property_id),
+           contact_agents(agent_id)`,
+          { count: "exact" },
+        )
+        .eq("ciclo_vida", data.etapa)
+        .order("created_at", { ascending: false });
+
+      if (data.q) {
+        const needle = escapeLikeCliente(data.q);
+        query = query.or(
+          `nombre.ilike.%${needle}%,email.ilike.%${needle}%,telefono.ilike.%${needle}%`,
+        );
+      }
+
+      const { data: rows, error, count } = await query.range(from, to);
+      if (error) throw new Error("Error al cargar contactos");
+
+      const clientes: ClienteRowSimple[] = (rows ?? []).map((r: any) => {
+        const roles: { tipo: string; property_id: string | null }[] =
+          r.contact_roles ?? [];
+        const agentAssignments: Array<{ agent_id: string }> = r.contact_agents ?? [];
+        const { segmento } = deriveSegmento(
+          roles.map((rl) => ({ ...rl, properties: null })),
+        );
+        const fechaMs = r.created_at ? new Date(r.created_at).getTime() : 0;
+        return {
+          id: r.id,
+          nombre: toTitleCase(s(r.nombre)),
+          email: s(r.email),
+          telefono: s(r.telefono),
+          canalOrigen: s(r.canal_origen),
+          fecha: r.created_at ? r.created_at.slice(0, 10) : null,
+          segmento,
+          etapa: (r.ciclo_vida ?? data.etapa) as Etapa,
+          diasDesdeAlta: fechaMs
+            ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000))
+            : null,
+          agentesIds: agentAssignments
+            .map((a) => a.agent_id)
+            .filter(Boolean),
+        };
+      });
+
+      return { clientes, total: count ?? 0 };
+    },
+  );
