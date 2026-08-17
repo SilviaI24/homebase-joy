@@ -269,7 +269,7 @@ function CaptacionTab() {
 
   async function activar(id: string) {
     try {
-      await activarFn({ data: { id } });
+      await activarFn({ data: { contactId: id } });
       toast.success("Activado — la prospección pasa a propietario");
       qc.invalidateQueries({ queryKey: ["prospectos"] });
     } catch (e: unknown) {
@@ -412,9 +412,8 @@ function CaptacionTab() {
                       calle: form.calle,
                       numero: form.numero,
                       localidad: form.localidad,
-                      valorEstimado: form.valorEstimado ? Number(form.valorEstimado) : null,
-                      agenteId: form.agenteId || null,
-                      observaciones: form.observaciones,
+                      precio: form.valorEstimado ? Number(form.valorEstimado) : undefined,
+                      agentesIds: form.agenteId ? [form.agenteId] : undefined,
                     },
                   })
                 }

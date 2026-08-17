@@ -462,7 +462,7 @@ function KanbanCard({
           </PopoverContent>
         </Popover>
         <AsignarLeadButton clienteId={cliente.id} agentesActuales={cliente.agentesIds} />
-        <AsociarInmuebleButton clienteId={cliente.id} />
+        <AsociarInmuebleButton contactId={cliente.id} />
       </div>
     </div>
   );
@@ -693,7 +693,7 @@ function LeadCard({
           }
         />
         <AsignarLeadButton clienteId={cliente.id} agentesActuales={cliente.agentesIds} />
-        <AsociarInmuebleButton clienteId={cliente.id} />
+        <AsociarInmuebleButton contactId={cliente.id} />
       </div>
     </div>
   );
@@ -1139,7 +1139,7 @@ function ClientesTab() {
 }
 
 function ClienteDetallePanel({ id }: { id: string }) {
-  const { data: cliente, isFetching } = useQuery(clienteDetailQuery(id));
+  const { data: result, isFetching } = useQuery(clienteDetailQuery(id));
   if (isFetching) {
     return (
       <div className="flex items-center justify-center h-40">
@@ -1147,9 +1147,10 @@ function ClienteDetallePanel({ id }: { id: string }) {
       </div>
     );
   }
+  const cliente = result?.cliente;
   if (!cliente) return <div className="text-sm text-muted-foreground p-4">No encontrado.</div>;
 
-  const segCfg = SEG_META[cliente.segmento] ?? SEG_META.Lead;
+  const segCfg = SEG_META[cliente.segmento as keyof typeof SEG_META] ?? SEG_META.Lead;
   const canal = inferCanal(cliente);
 
   return (
