@@ -1,4 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+
+const IS_QA = import.meta.env.VITE_APP_ENV === "qa";
 import type { ReactNode } from "react";
 import {
   Building2,
@@ -675,10 +677,15 @@ export function AppShell({
             <Menu className="size-[15px]" />
           </button>
 
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex items-center gap-2">
             <h1 className="font-display text-base font-semibold tracking-tight truncate leading-tight">
               {title}
             </h1>
+            {IS_QA && (
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                QA
+              </span>
+            )}
             {subtitle && (
               <p className="text-[11px] text-muted-foreground truncate hidden sm:block mt-0.5 leading-none">
                 {subtitle}
