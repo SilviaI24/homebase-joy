@@ -59,9 +59,19 @@ npx supabase db push --dry-run
 
 ## Automatizaciones
 
-- **sync-properties:** Edge Function diaria a las 06:00 UTC (pg_cron). Trae propiedades + imágenes desde Airtable.
-  - Trigger manual: `curl -X POST https://fyrfkbcabmitbfuqeccq.supabase.co/functions/v1/sync-properties -H "x-cron-secret: <CRON_SECRET>"`
-  - CRON_SECRET está en Supabase Vault (nombre: `cron_secret`)
+- **sync-properties:** Edge Function desplegada exclusivamente desde
+  `elsol-client-hub/supabase/functions/sync-properties/index.ts` (v32).
+  **No se despliega desde homebase-joy.** No existe copia local de esta función.
+
+  **Modos** (parámetro `mode` en el body):
+  - `meta` — sync incremental de las últimas 25 h (cron diario 19:00 UTC)
+  - `images` — subida de imágenes de propiedades Activo (cron diario 19:30 UTC)
+  - `meta_full` — sync completo paginado con cursor (cron domingos 18:00 y 18:30 UTC)
+
+  **Autenticación:** el header `x-cron-secret` se valida mediante RPC
+  `verify_cron_secret(p_value)` → Vault. El secreto nunca viaja como respuesta;
+  solo se devuelve `true`/`false`. Rotación futura: actualizar `cron_secret` en
+  Vault sin cambiar código ni variables de entorno.
 
 ## Autenticación server-side (implementado)
 
