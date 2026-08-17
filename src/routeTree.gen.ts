@@ -21,9 +21,13 @@ import { Route as OperacionesIndexRouteImport } from './routes/operaciones.index
 import { Route as MisLeadsIndexRouteImport } from './routes/mis-leads.index'
 import { Route as InmueblesIndexRouteImport } from './routes/inmuebles.index'
 import { Route as EstadisticasIndexRouteImport } from './routes/estadisticas.index'
+import { Route as ContactosIndexRouteImport } from './routes/contactos.index'
 import { Route as ComercialesIndexRouteImport } from './routes/comerciales.index'
 import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
+import { Route as CarteraIndexRouteImport } from './routes/cartera.index'
+import { Route as BandejaIndexRouteImport } from './routes/bandeja.index'
 import { Route as AlquileresIndexRouteImport } from './routes/alquileres.index'
+import { Route as AgendaIndexRouteImport } from './routes/agenda.index'
 import { Route as InmueblesIdRouteImport } from './routes/inmuebles.$id'
 
 const LoginRoute = LoginRouteImport.update({
@@ -86,6 +90,11 @@ const EstadisticasIndexRoute = EstadisticasIndexRouteImport.update({
   path: '/estadisticas/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContactosIndexRoute = ContactosIndexRouteImport.update({
+  id: '/contactos/',
+  path: '/contactos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ComercialesIndexRoute = ComercialesIndexRouteImport.update({
   id: '/comerciales/',
   path: '/comerciales/',
@@ -98,9 +107,24 @@ const ClientesIndexRoute = ClientesIndexRouteImport.update({
   path: '/clientes/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CarteraIndexRoute = CarteraIndexRouteImport.update({
+  id: '/cartera/',
+  path: '/cartera/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BandejaIndexRoute = BandejaIndexRouteImport.update({
+  id: '/bandeja/',
+  path: '/bandeja/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AlquileresIndexRoute = AlquileresIndexRouteImport.update({
   id: '/alquileres/',
   path: '/alquileres/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgendaIndexRoute = AgendaIndexRouteImport.update({
+  id: '/agenda/',
+  path: '/agenda/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InmueblesIdRoute = InmueblesIdRouteImport.update({
@@ -113,9 +137,13 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/inmuebles/$id': typeof InmueblesIdRoute
+  '/agenda/': typeof AgendaIndexRoute
   '/alquileres/': typeof AlquileresIndexRoute
+  '/bandeja/': typeof BandejaIndexRoute
+  '/cartera/': typeof CarteraIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/comerciales/': typeof ComercialesIndexRoute
+  '/contactos/': typeof ContactosIndexRoute
   '/estadisticas/': typeof EstadisticasIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
   '/mis-leads/': typeof MisLeadsIndexRoute
@@ -131,9 +159,13 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/inmuebles/$id': typeof InmueblesIdRoute
+  '/agenda': typeof AgendaIndexRoute
   '/alquileres': typeof AlquileresIndexRoute
+  '/bandeja': typeof BandejaIndexRoute
+  '/cartera': typeof CarteraIndexRoute
   '/clientes': typeof ClientesIndexRoute
   '/comerciales': typeof ComercialesIndexRoute
+  '/contactos': typeof ContactosIndexRoute
   '/estadisticas': typeof EstadisticasIndexRoute
   '/inmuebles': typeof InmueblesIndexRoute
   '/mis-leads': typeof MisLeadsIndexRoute
@@ -150,9 +182,13 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/inmuebles/$id': typeof InmueblesIdRoute
+  '/agenda/': typeof AgendaIndexRoute
   '/alquileres/': typeof AlquileresIndexRoute
+  '/bandeja/': typeof BandejaIndexRoute
+  '/cartera/': typeof CarteraIndexRoute
   '/clientes/': typeof ClientesIndexRoute
   '/comerciales/': typeof ComercialesIndexRoute
+  '/contactos/': typeof ContactosIndexRoute
   '/estadisticas/': typeof EstadisticasIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
   '/mis-leads/': typeof MisLeadsIndexRoute
@@ -170,9 +206,13 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/inmuebles/$id'
+    | '/agenda/'
     | '/alquileres/'
+    | '/bandeja/'
+    | '/cartera/'
     | '/clientes/'
     | '/comerciales/'
+    | '/contactos/'
     | '/estadisticas/'
     | '/inmuebles/'
     | '/mis-leads/'
@@ -188,9 +228,13 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/inmuebles/$id'
+    | '/agenda'
     | '/alquileres'
+    | '/bandeja'
+    | '/cartera'
     | '/clientes'
     | '/comerciales'
+    | '/contactos'
     | '/estadisticas'
     | '/inmuebles'
     | '/mis-leads'
@@ -206,9 +250,13 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/inmuebles/$id'
+    | '/agenda/'
     | '/alquileres/'
+    | '/bandeja/'
+    | '/cartera/'
     | '/clientes/'
     | '/comerciales/'
+    | '/contactos/'
     | '/estadisticas/'
     | '/inmuebles/'
     | '/mis-leads/'
@@ -225,9 +273,13 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   InmueblesIdRoute: typeof InmueblesIdRoute
+  AgendaIndexRoute: typeof AgendaIndexRoute
   AlquileresIndexRoute: typeof AlquileresIndexRoute
+  BandejaIndexRoute: typeof BandejaIndexRoute
+  CarteraIndexRoute: typeof CarteraIndexRoute
   ClientesIndexRoute: typeof ClientesIndexRoute
   ComercialesIndexRoute: typeof ComercialesIndexRoute
+  ContactosIndexRoute: typeof ContactosIndexRoute
   EstadisticasIndexRoute: typeof EstadisticasIndexRoute
   InmueblesIndexRoute: typeof InmueblesIndexRoute
   MisLeadsIndexRoute: typeof MisLeadsIndexRoute
@@ -326,6 +378,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EstadisticasIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/contactos/': {
+      id: '/contactos/'
+      path: '/contactos'
+      fullPath: '/contactos/'
+      preLoaderRoute: typeof ContactosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/comerciales/': {
       id: '/comerciales/'
       path: '/comerciales'
@@ -340,11 +399,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cartera/': {
+      id: '/cartera/'
+      path: '/cartera'
+      fullPath: '/cartera/'
+      preLoaderRoute: typeof CarteraIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bandeja/': {
+      id: '/bandeja/'
+      path: '/bandeja'
+      fullPath: '/bandeja/'
+      preLoaderRoute: typeof BandejaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/alquileres/': {
       id: '/alquileres/'
       path: '/alquileres'
       fullPath: '/alquileres/'
       preLoaderRoute: typeof AlquileresIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agenda/': {
+      id: '/agenda/'
+      path: '/agenda'
+      fullPath: '/agenda/'
+      preLoaderRoute: typeof AgendaIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inmuebles/$id': {
@@ -361,9 +441,13 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   InmueblesIdRoute: InmueblesIdRoute,
+  AgendaIndexRoute: AgendaIndexRoute,
   AlquileresIndexRoute: AlquileresIndexRoute,
+  BandejaIndexRoute: BandejaIndexRoute,
+  CarteraIndexRoute: CarteraIndexRoute,
   ClientesIndexRoute: ClientesIndexRoute,
   ComercialesIndexRoute: ComercialesIndexRoute,
+  ContactosIndexRoute: ContactosIndexRoute,
   EstadisticasIndexRoute: EstadisticasIndexRoute,
   InmueblesIndexRoute: InmueblesIndexRoute,
   MisLeadsIndexRoute: MisLeadsIndexRoute,

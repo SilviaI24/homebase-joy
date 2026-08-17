@@ -5,11 +5,8 @@ import {
   LayoutDashboard,
   Users,
   CalendarDays,
-  KeyRound,
   Sparkles,
   Inbox,
-  Hourglass,
-  MessageSquare,
   Menu,
   Sun,
   Moon,
@@ -74,44 +71,24 @@ type NavGroup = { label?: string; items: NavItem[] };
 
 const navGroups: NavGroup[] = [
   {
-    items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard, capability: "contacts.read" }],
-  },
-  {
-    label: "Cartera",
     items: [
-      { to: "/inmuebles", label: "Ventas", icon: Building2, capability: "properties.read" },
-      { to: "/alquileres", label: "Alquiler", icon: KeyRound, capability: "properties.read" },
+      { to: "/", label: "Dashboard", icon: LayoutDashboard, capability: "contacts.read" },
+      { to: "/bandeja", label: "Bandeja", icon: Inbox, capability: "silvia.use" },
+      { to: "/agenda", label: "Agenda", icon: CalendarDays, capability: "visits.read" },
     ],
   },
   {
-    label: "Contactos",
+    label: "CRM",
     items: [
-      { to: "/mis-leads", label: "Leads", icon: Inbox, capability: "contacts.read" },
-      { to: "/prospectos", label: "Prospectos", icon: Hourglass, capability: "contacts.read" },
-      { to: "/clientes", label: "Clientes", icon: Users, capability: "contacts.read" },
-    ],
-  },
-  {
-    label: "Gestión",
-    items: [
-      { to: "/visitas", label: "Visitas", icon: CalendarDays, capability: "visits.read" },
-      {
-        to: "/seguimiento",
-        label: "Seguimiento",
-        icon: MessageSquare,
-        capability: "seguimiento.read",
-      },
+      { to: "/contactos", label: "Contactos", icon: Users, capability: "contacts.read" },
+      { to: "/cartera", label: "Cartera", icon: Building2, capability: "properties.read" },
       { to: "/operaciones", label: "Operaciones", icon: HandCoins, capability: "operations.read" },
-      { to: "/comerciales", label: "Equipo", icon: UserCog, capability: "contacts.read" },
     ],
   },
   {
-    label: "IA",
-    items: [{ to: "/silvia", label: "SilvIA", icon: Sparkles, capability: "silvia.use" }],
-  },
-  {
-    label: "Administración",
+    label: "Equipo",
     items: [
+      { to: "/comerciales", label: "Equipo", icon: UserCog, capability: "contacts.read" },
       {
         to: "/permisos",
         label: "Permisos",
@@ -128,15 +105,10 @@ const navGroups: NavGroup[] = [
 
 const mobileNav: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, capability: "contacts.read" },
-  { to: "/mis-leads", label: "Leads", icon: Inbox, capability: "contacts.read" },
-  { to: "/visitas", label: "Visitas", icon: CalendarDays, capability: "visits.read" },
-  {
-    to: "/seguimiento",
-    label: "Acciones",
-    icon: MessageSquare,
-    capability: "seguimiento.read",
-  },
-  { to: "/silvia", label: "SilvIA", icon: Sparkles, capability: "silvia.use" },
+  { to: "/bandeja", label: "Bandeja", icon: Inbox, capability: "silvia.use" },
+  { to: "/agenda", label: "Agenda", icon: CalendarDays, capability: "visits.read" },
+  { to: "/contactos", label: "Contactos", icon: Users, capability: "contacts.read" },
+  { to: "/cartera", label: "Cartera", icon: Building2, capability: "properties.read" },
 ];
 
 // ── Prospectos badge ──────────────────────────────────────────────────────────
@@ -325,7 +297,7 @@ function SilviaFloat({ enabled }: { enabled: boolean }) {
     if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs, open]);
 
-  if (!enabled || pathname.startsWith("/silvia")) return null;
+  if (!enabled || pathname.startsWith("/silvia") || pathname.startsWith("/bandeja")) return null;
 
   async function send() {
     const msg = input.trim();
@@ -588,7 +560,7 @@ function SidebarContent({
                     >
                       <Icon className="size-[15px] shrink-0 opacity-70 group-[.active]:opacity-100" />
                       {item.label}
-                      {item.to === "/prospectos" && <ProspectosBadge enabled />}
+                      {item.to === "/cartera" && <ProspectosBadge enabled />}
                     </Link>
                   );
                 })}
