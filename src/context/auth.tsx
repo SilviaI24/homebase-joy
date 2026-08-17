@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading) return;
     const path = router.state.location.pathname;
-    if (!user && path !== "/login") {
+    if (!user && path !== "/login" && path !== "/restablecer-contrasena") {
       router.navigate({ to: "/login" });
     }
   }, [loading, user, router]);

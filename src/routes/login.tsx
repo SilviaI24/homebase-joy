@@ -34,7 +34,7 @@ function LoginPage() {
     setError(null);
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/perfil`,
+      redirectTo: `${window.location.origin}/restablecer-contrasena`,
     });
     setLoading(false);
     if (error) {

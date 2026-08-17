@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RestablecerContrasenaRouteImport } from './routes/restablecer-contrasena'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VisitasIndexRouteImport } from './routes/visitas.index'
@@ -30,6 +31,11 @@ import { Route as AlquileresIndexRouteImport } from './routes/alquileres.index'
 import { Route as AgendaIndexRouteImport } from './routes/agenda.index'
 import { Route as InmueblesIdRouteImport } from './routes/inmuebles.$id'
 
+const RestablecerContrasenaRoute = RestablecerContrasenaRouteImport.update({
+  id: '/restablecer-contrasena',
+  path: '/restablecer-contrasena',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -136,6 +142,7 @@ const InmueblesIdRoute = InmueblesIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/restablecer-contrasena': typeof RestablecerContrasenaRoute
   '/inmuebles/$id': typeof InmueblesIdRoute
   '/agenda/': typeof AgendaIndexRoute
   '/alquileres/': typeof AlquileresIndexRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/restablecer-contrasena': typeof RestablecerContrasenaRoute
   '/inmuebles/$id': typeof InmueblesIdRoute
   '/agenda': typeof AgendaIndexRoute
   '/alquileres': typeof AlquileresIndexRoute
@@ -181,6 +189,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/restablecer-contrasena': typeof RestablecerContrasenaRoute
   '/inmuebles/$id': typeof InmueblesIdRoute
   '/agenda/': typeof AgendaIndexRoute
   '/alquileres/': typeof AlquileresIndexRoute
@@ -205,6 +214,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/restablecer-contrasena'
     | '/inmuebles/$id'
     | '/agenda/'
     | '/alquileres/'
@@ -227,6 +237,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/restablecer-contrasena'
     | '/inmuebles/$id'
     | '/agenda'
     | '/alquileres'
@@ -249,6 +260,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/login'
+    | '/restablecer-contrasena'
     | '/inmuebles/$id'
     | '/agenda/'
     | '/alquileres/'
@@ -272,6 +284,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
+  RestablecerContrasenaRoute: typeof RestablecerContrasenaRoute
   InmueblesIdRoute: typeof InmueblesIdRoute
   AgendaIndexRoute: typeof AgendaIndexRoute
   AlquileresIndexRoute: typeof AlquileresIndexRoute
@@ -294,6 +307,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/restablecer-contrasena': {
+      id: '/restablecer-contrasena'
+      path: '/restablecer-contrasena'
+      fullPath: '/restablecer-contrasena'
+      preLoaderRoute: typeof RestablecerContrasenaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -440,6 +460,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
+  RestablecerContrasenaRoute: RestablecerContrasenaRoute,
   InmueblesIdRoute: InmueblesIdRoute,
   AgendaIndexRoute: AgendaIndexRoute,
   AlquileresIndexRoute: AlquileresIndexRoute,
