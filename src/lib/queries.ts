@@ -15,6 +15,7 @@ import {
   getClientesStats,
   getClienteById,
   listConversacionesIaPage,
+  listContactosPage,
 } from "@/lib/clientes.functions";
 import { listVisitas } from "@/lib/visitas.functions";
 import { getNotifications } from "@/lib/notifications.functions";
@@ -162,6 +163,22 @@ export function clienteDetailQuery(id: string | null) {
     enabled: Boolean(id),
     staleTime: 1 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
+  });
+}
+
+/** Paginated Histórico/Descartado contacts query. */
+export function contactosPageQuery(params: {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  etapa?: string;
+}) {
+  return queryOptions({
+    queryKey: ["contactos-page", params],
+    queryFn: () => listContactosPage({ data: params }),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: (prev) => prev,
   });
 }
 
