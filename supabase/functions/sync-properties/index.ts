@@ -1,17 +1,18 @@
 /**
- * Edge Function: sync-properties v25
+ * Edge Function: sync-properties v26
  *
  * Sin @supabase/supabase-js — fetch() nativo a PostgREST + Storage.
  * NO sube imágenes nuevas (las maneja el script local o el próximo cron).
  * Solo: Fase 1 upsert metadata + Fase 2 reordenado de imagenes.
  *
- * Auth: header `x-cron-secret` = env CRON_SECRET
+ * Auth: header `x-cron-secret` verificado via RPC verify_cron_secret(p_value).
+ *       El secreto vive únicamente en Vault — nunca viaja como respuesta.
+ *       Rotación futura: solo actualizar cron_secret en Vault.
  */
 
 const AIRTABLE_KEY = Deno.env.get("AIRTABLE_KEY") ?? "";
 const AIRTABLE_BASE = "appJHlqz7fFFjJWF1";
 const AIRTABLE_TBL = "tblLEsYvGZqXntJo7";
-const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 const BUCKET = "property-images";
 const BATCH_SIZE = 50;
 
@@ -161,8 +162,22 @@ async function dbUpsertBatch(
   }
 }
 
+async function verifyCronSecret(incoming: string | null): Promise<boolean> {
+  if (!incoming) return false;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/verify_cron_secret`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${SERVICE_KEY}`,
+      "apikey": SERVICE_KEY,
+    },
+    body: JSON.stringify({ p_value: incoming }),
+  });
+  return res.ok && (await res.json()) === true;
+}
+
 Deno.serve(async (req: Request) => {
-  if (CRON_SECRET && req.headers.get("x-cron-secret") !== CRON_SECRET) {
+  if (!await verifyCronSecret(req.headers.get("x-cron-secret"))) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
