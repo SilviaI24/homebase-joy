@@ -149,7 +149,7 @@ function PermissionAdminPage() {
               >
                 <div className="flex items-center gap-2">
                   <span
-                    className={`size-2 rounded-full ${user.activo ? "bg-emerald-500" : "bg-zinc-400"}`}
+                    className={`size-2 rounded-full ${user.activo ? "bg-success" : "bg-zinc-400"}`}
                   />
                   <span className="truncate text-xs font-semibold">{user.nombre}</span>
                 </div>
@@ -206,7 +206,7 @@ function PermissionAdminPage() {
                   }
                   className={`h-9 rounded-lg border px-3 text-xs font-medium transition-colors ${
                     selected.activo
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                      ? "border-success/20 bg-success/10 text-success"
                       : "border-border bg-muted text-muted-foreground"
                   }`}
                 >
@@ -258,14 +258,14 @@ function PermissionAdminPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs font-medium">{permission.descripcion}</span>
                           {permission.sensible && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold text-amber-600">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-[9px] font-semibold text-warning">
                               <LockKeyhole className="size-2.5" /> Sensible
                             </span>
                           )}
                           <span
                             className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${
                               effective
-                                ? "bg-emerald-500/10 text-emerald-600"
+                                ? "bg-success/10 text-success"
                                 : "bg-red-500/10 text-red-600"
                             }`}
                           >

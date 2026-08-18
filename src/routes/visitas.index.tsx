@@ -356,7 +356,7 @@ function VisitasPage() {
           label="Tasa realización"
           value={`${stats.ratioConfirm}%`}
           hint={`${stats.confirmadas.length} realizadas`}
-          tone="emerald"
+          tone="success"
           progress={stats.ratioConfirm}
         />
         <KpiCard
@@ -364,9 +364,9 @@ function VisitasPage() {
           label="Tasa cancelación"
           value={`${stats.ratioCancel}%`}
           hint={`${stats.canceladas.length} canceladas`}
-          tone="amber"
+          tone="warning"
           progress={stats.ratioCancel}
-          progressTone="amber"
+          progressTone="warning"
         />
       </div>
 
@@ -553,7 +553,7 @@ function VisitasPage() {
                       </div>
                       <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-emerald-500 to-teal-400"
+                          className="h-full bg-gradient-to-r from-success to-brand-green"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -621,24 +621,24 @@ function KpiCard({
   sparkColor,
   delta,
   progress,
-  progressTone = "emerald",
+  progressTone = "success",
 }: {
   icon: typeof CalendarDays;
   label: string;
   value: string;
   hint?: string;
-  tone?: "primary" | "emerald" | "violet" | "amber";
+  tone?: "primary" | "success" | "violet" | "warning";
   sparkData?: { i: number; v: number }[];
   sparkColor?: string;
   delta?: number;
   progress?: number;
-  progressTone?: "emerald" | "amber";
+  progressTone?: "success" | "warning";
 }) {
   const toneMap: Record<string, string> = {
     primary: "text-primary bg-primary/10",
-    emerald: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+    success: "text-success bg-success/10",
     violet: "text-primary bg-primary/10",
-    amber: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
+    warning: "text-warning bg-warning/10",
   };
   const positive = (delta ?? 0) >= 0;
   return (
@@ -655,7 +655,7 @@ function KpiCard({
           <div
             className={`inline-flex items-center gap-0.5 text-[11px] font-semibold rounded-full px-1.5 py-0.5 ${
               positive
-                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                ? "bg-success/10 text-success"
                 : "bg-destructive/10 text-destructive"
             }`}
           >
@@ -693,9 +693,9 @@ function KpiCard({
         <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
           <div
             className={`h-full rounded-full ${
-              progressTone === "amber"
-                ? "bg-gradient-to-r from-amber-500 to-orange-400"
-                : "bg-gradient-to-r from-emerald-500 to-teal-400"
+              progressTone === "warning"
+                ? "bg-gradient-to-r from-warning to-warning/70"
+                : "bg-gradient-to-r from-success to-brand-green"
             }`}
             style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
           />
@@ -1071,7 +1071,7 @@ function CalendarSemanal({
                 {
                   label: "Pendientes",
                   val: weekStats.pendientes,
-                  color: weekStats.pendientes > 0 ? "text-amber-500" : "",
+                  color: weekStats.pendientes > 0 ? "text-warning" : "",
                 },
               ].map(({ label, val, color }) => (
                 <div key={label} className="rounded-md border border-border p-2">
@@ -1416,7 +1416,7 @@ function VisitaRowDiaria({
             onClick={() => mut.mutate("Realizada")}
             disabled={pending}
             title="Realizada"
-            className="size-7 flex items-center justify-center rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+            className="size-7 flex items-center justify-center rounded-md border border-success/20 bg-success/10 text-success hover:bg-success/10 transition-colors disabled:opacity-50"
           >
             <CheckCheck className="size-3.5" />
           </button>

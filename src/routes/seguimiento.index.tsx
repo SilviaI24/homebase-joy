@@ -67,10 +67,10 @@ const TIPO_ICONS: Record<SeguimientoTipo, typeof Phone> = {
 };
 
 const TIPO_COLORS: Record<SeguimientoTipo, string> = {
-  Llamada: "bg-blue-500/10 text-blue-500 dark:text-blue-400",
-  WhatsApp: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  Email: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-  Visita: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  Llamada: "bg-info/10 text-info",
+  WhatsApp: "bg-success/10 text-success",
+  Email: "bg-info/10 text-info",
+  Visita: "bg-warning/10 text-warning",
   Nota: "bg-zinc-500/10 text-zinc-500",
   SilvIA: "bg-primary/10 text-primary",
 };

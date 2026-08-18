@@ -64,9 +64,9 @@ const TIPOS: OperacionTipo[] = ["Venta", "Alquiler", "Valoración", "Servicio"];
 const ESTADOS: OperacionEstado[] = ["Abierta", "En negociación", "Cerrada", "Cancelada"];
 
 const ESTADO_STYLE: Record<OperacionEstado, string> = {
-  Abierta: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  "En negociación": "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  Cerrada: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  Abierta: "bg-info/10 text-blue-600 dark:text-info",
+  "En negociación": "bg-warning/10 text-warning",
+  Cerrada: "bg-success/10 text-success",
   Cancelada: "bg-zinc-500/10 text-zinc-500",
 };
 
@@ -460,7 +460,7 @@ function OperacionesPage() {
                     inputMode="decimal"
                   />
                   {comisionCalc !== null && (
-                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
+                    <p className="text-[11px] text-success mt-1 font-medium">
                       = {fmtEur(comisionCalc)}
                     </p>
                   )}
@@ -531,8 +531,8 @@ function KpiCard({
 }) {
   const toneMap = {
     default: "text-primary bg-primary/10",
-    amber: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
-    emerald: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+    amber: "text-warning bg-warning/10",
+    emerald: "text-success bg-success/10",
     gold: "text-[var(--gold)] bg-[var(--gold)]/10",
   };
   return (
@@ -694,7 +694,7 @@ function OperacionRow({
             <span className="text-sm font-semibold tabular-nums">{fmtEur(op.precioOperacion)}</span>
           )}
           {op.comisionTotal !== null && (
-            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium tabular-nums">
+            <span className="text-[11px] text-success font-medium tabular-nums">
               {fmtEur(op.comisionTotal)} ({op.comisionPct}%)
             </span>
           )}
@@ -735,7 +735,7 @@ function OperacionRow({
             </div>
           )}
           {confirmClose && (
-            <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+            <div className="mt-3 rounded-md border border-warning/20 bg-warning/10 p-3">
               <p className="text-xs font-semibold text-foreground">
                 {closeBlockers.length > 0
                   ? "La operación todavía no puede cerrarse"
@@ -770,7 +770,7 @@ function OperacionRow({
                     type="button"
                     onClick={onClose}
                     disabled={isPending}
-                    className="h-8 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+                    className="h-8 rounded-md bg-success px-3 text-xs font-semibold text-white hover:bg-success disabled:opacity-40"
                   >
                     {isPending ? "Cerrando…" : "Cerrar operación"}
                   </button>

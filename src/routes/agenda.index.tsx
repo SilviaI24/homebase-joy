@@ -102,12 +102,12 @@ function AgendaPage() {
 const ESTADO_META: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
   Programada: {
     label: "Programada",
-    color: "text-amber-700 dark:text-amber-400 bg-amber-500/10",
+    color: "text-amber-700 dark:text-warning bg-warning/10",
     icon: Clock,
   },
   Realizada: {
     label: "Realizada",
-    color: "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10",
+    color: "text-success bg-success/10",
     icon: CheckCircle2,
   },
   Cancelada: {
@@ -497,7 +497,7 @@ function ActividadTab() {
                 <div key={v.id} className="relative">
                   <div
                     className={`absolute -left-5 top-1.5 size-3 rounded-full border-2 border-background ${
-                      isRealizada ? "bg-emerald-500" : "bg-slate-400"
+                      isRealizada ? "bg-success" : "bg-slate-400"
                     }`}
                   />
                   <div className="rounded-xl border border-border bg-card p-3">

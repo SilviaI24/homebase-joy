@@ -113,7 +113,7 @@ function PerfilPage() {
             )}
             {err && <p className="text-[11px] text-destructive">{err}</p>}
             {success && (
-              <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
+              <div className="flex items-center gap-1.5 text-[11px] text-success">
                 <Check className="size-3.5" strokeWidth={2.5} />
                 Contraseña actualizada correctamente.
               </div>

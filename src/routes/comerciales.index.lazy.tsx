@@ -471,7 +471,7 @@ function GlobalSearch({
               className="flex items-center gap-3 w-full px-3 py-2 hover:bg-accent/60 transition-colors text-left"
             >
               <div
-                className={`size-5 rounded flex items-center justify-center shrink-0 ${r.type === "inmueble" ? "bg-primary/10 text-primary" : "bg-violet-500/10 text-violet-600 dark:text-violet-400"}`}
+                className={`size-5 rounded flex items-center justify-center shrink-0 ${r.type === "inmueble" ? "bg-primary/10 text-primary" : "bg-info/10 text-info"}`}
               >
                 {r.type === "inmueble" ? (
                   <Building2 className="size-3" />
@@ -1158,7 +1158,7 @@ function VisitaRowHoy({ visita: v }: { visita: VisitaRow }) {
             disabled={isPending}
             onClick={() => mutate({ data: { visitaId: v.id, estado: "Realizada" } })}
             title="Marcar completada"
-            className="size-7 rounded flex items-center justify-center text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors disabled:opacity-40"
+            className="size-7 rounded flex items-center justify-center text-muted-foreground hover:bg-success/10 hover:text-success dark:hover:text-success transition-colors disabled:opacity-40"
           >
             <CheckCheck className="size-3.5" />
           </button>
@@ -1223,13 +1223,13 @@ function AgenteCardHub({ card }: { card: AgenteHub }) {
 
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-md border border-border bg-card px-2 py-1.5 text-center">
-          <div className="text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+          <div className="text-sm font-semibold tabular-nums text-success">
             {card.activos}
           </div>
           <div className="text-[10px] text-muted-foreground leading-none mt-0.5">Activos</div>
         </div>
         <div className="rounded-md border border-border bg-card px-2 py-1.5 text-center">
-          <div className="text-sm font-semibold tabular-nums text-amber-700 dark:text-amber-400">
+          <div className="text-sm font-semibold tabular-nums text-amber-700 dark:text-warning">
             {card.reservados}
           </div>
           <div className="text-[10px] text-muted-foreground leading-none mt-0.5">Reservados</div>
@@ -1369,13 +1369,13 @@ function AgenteWorkspace({
             <Building2 className="size-4 text-muted-foreground" /> Inmuebles
           </h3>
           <div className="flex gap-2 text-xs">
-            <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+            <span className="text-success font-medium">
               {activos.length} activos
             </span>
             {reservados.length > 0 && (
               <>
                 <span className="text-muted-foreground">·</span>
-                <span className="text-amber-700 dark:text-amber-400 font-medium">
+                <span className="text-amber-700 dark:text-warning font-medium">
                   {reservados.length} reserv.
                 </span>
               </>
@@ -1454,7 +1454,7 @@ function InmuebleRowAgente({ inmueble: i }: { inmueble: Inmueble }) {
         </span>
       ) : null}
       {isReservado && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 shrink-0">
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-amber-700 dark:text-warning shrink-0">
           Reservado
         </span>
       )}
@@ -1468,8 +1468,8 @@ function InmuebleRowAgente({ inmueble: i }: { inmueble: Inmueble }) {
 function ActividadIcon({ tipo }: { tipo: "captacion" | "reserva" | "cierre" | "visita" }) {
   const map = {
     captacion: { Icon: KeyRound, cls: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400" },
-    reserva: { Icon: HandCoins, cls: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
-    cierre: { Icon: FileSignature, cls: "bg-blue-500/10 text-blue-700 dark:text-blue-400" },
+    reserva: { Icon: HandCoins, cls: "bg-warning/10 text-amber-700 dark:text-warning" },
+    cierre: { Icon: FileSignature, cls: "bg-info/10 text-blue-700 dark:text-info" },
     visita: { Icon: CalendarCheck, cls: "bg-primary/10 text-primary" },
   } as const;
   const { Icon, cls } = map[tipo];
