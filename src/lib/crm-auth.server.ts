@@ -79,6 +79,17 @@ function isRolBase(value: unknown): value is RolBase {
 
 export async function requireCrmUser(): Promise<CrmUsuario> {
   const user = await requireAuth();
+
+  // DIAG: identify which Supabase project/key is active at runtime
+  const urlRef = (process.env.SUPABASE_URL ?? "").split("//")[1]?.split(".")[0] ?? "?";
+  let keyRef = "?";
+  try {
+    const key = process.env.SUPABASE_SERVICE_KEY ?? "";
+    const payload = JSON.parse(Buffer.from(key.split(".")[1] ?? "", "base64").toString()) as { ref?: string };
+    keyRef = payload.ref ?? "?";
+  } catch {}
+  console.error("[crm] url-ref:", urlRef, "key-ref:", keyRef);
+
   const supa = getSupa();
   const { data, error } = await supa
     .from("crm_usuarios")
@@ -87,7 +98,7 @@ export async function requireCrmUser(): Promise<CrmUsuario> {
     .maybeSingle();
 
   if (error) {
-    throw httpError(`crm_usuarios lookup: ${error.message}`, 500);
+    throw httpError(`crm_usuarios lookup: ${error.message} [url:${urlRef} key:${keyRef}]`, 500);
   }
   if (!data || !data.activo || !isRolBase(data.rol_base)) {
     throw httpError("Acceso denegado: usuario sin perfil CRM activo", 403);
