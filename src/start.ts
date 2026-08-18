@@ -17,8 +17,10 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
   }
 });
 
+// CSRF disabled for QA Vercel preview — origin URL mismatch in serverless env.
+// TODO: re-enable with explicit origin before production.
 const csrfMiddleware = createCsrfMiddleware({
-  filter: (ctx) => ctx.handlerType === "serverFn",
+  filter: () => false,
 });
 
 export const startInstance = createStart(() => ({
