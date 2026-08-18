@@ -231,10 +231,10 @@ function SkeletonLine({ className = "" }: { className?: string }) {
 function statusTint(estatus: string) {
   const map: Record<string, string> = {
     Pendiente: "bg-slate-400 text-white",
-    Activo: "bg-emerald-600 text-white",
-    Reservado: "bg-amber-500 text-white",
-    Vendido: "bg-blue-600 text-white",
-    Alquilado: "bg-blue-600 text-white",
+    Activo: "bg-success text-white",
+    Reservado: "bg-warning text-warning-foreground",
+    Vendido: "bg-info text-white",
+    Alquilado: "bg-brand-green text-white",
     Baja: "bg-muted text-muted-foreground",
     Prospección: "bg-secondary text-secondary-foreground",
   };
@@ -675,11 +675,11 @@ function DetailView({
       )}
 
       {inmueble.publicacion === "PROSPECTO" && (
-        <div className="mb-4 flex items-start gap-3 rounded-lg border border-violet-500/40 bg-violet-500/10 px-4 py-3 text-sm text-violet-800 dark:text-violet-300">
-          <Hourglass className="size-4 mt-0.5 shrink-0 text-violet-600 dark:text-violet-400" />
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-info/40 bg-info/10 px-4 py-3 text-sm text-info">
+          <Hourglass className="size-4 mt-0.5 shrink-0 text-info" />
           <div>
             <p className="font-semibold">Inmueble prospecto — pendiente de revisión</p>
-            <p className="text-xs mt-0.5 text-violet-700 dark:text-violet-400">
+            <p className="text-xs mt-0.5 text-info/80">
               Este inmueble llegó desde el valorador web. El propietario solicitó ser contactado.
               Revisa los datos, contacta con él y cambia la publicación a <strong>SUBIR</strong> o{" "}
               <strong>PUBLICADO</strong> cuando corresponda.
@@ -826,7 +826,7 @@ function DetailView({
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-display text-base font-semibold">Descripción</h3>
                   {descripcion !== inmueble.descripcion && (
-                    <span className="text-[11px] text-amber-600">Sin guardar</span>
+                    <span className="text-[11px] text-warning">Sin guardar</span>
                   )}
                 </div>
                 {detailReady ? (
@@ -1198,8 +1198,8 @@ function DetailView({
               </>
             ) : saveStatus === "saved" ? (
               <>
-                <Check className="size-3.5 text-emerald-600" />{" "}
-                <span className="text-emerald-700 dark:text-emerald-400">Guardado</span>
+                <Check className="size-3.5 text-success" />{" "}
+                <span className="text-success">Guardado</span>
               </>
             ) : saveStatus === "error" ? (
               <>
@@ -1207,7 +1207,7 @@ function DetailView({
               </>
             ) : (
               <>
-                <span className="size-2 rounded-full bg-amber-500 animate-pulse" /> Guardando en 2
+                <span className="size-2 rounded-full bg-warning animate-pulse" /> Guardando en 2
                 s…
               </>
             )}
@@ -1427,7 +1427,7 @@ function TiempoMercadoPanel({
 
   const statusTone: Parameters<typeof StatBox>[0]["tone"] =
     inmueble.estatus === "Vendido" || inmueble.estatus === "Alquilado"
-      ? "emerald"
+      ? "success"
       : inmueble.estatus === "Reservado"
         ? "primary"
         : inmueble.estatus === "Baja"
@@ -1657,12 +1657,12 @@ function ManagementPanel(props: {
           <div className="text-xs text-destructive">{(mutation.error as Error).message}</div>
         )}
         {mutation.isSuccess && !dirty && (
-          <div className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+          <div className="text-xs text-success flex items-center gap-1">
             <Check className="size-3" /> Guardado correctamente
           </div>
         )}
         {dirty && (
-          <div className="text-xs text-amber-600 dark:text-amber-400">
+          <div className="text-xs text-warning">
             Cambios pendientes — usa la barra inferior para guardar.
           </div>
         )}
@@ -1730,7 +1730,7 @@ function formatDateTime(s: string | null) {
 
 function estadoVisitaColor(estado: string) {
   const e = estado.toLowerCase();
-  if (e.includes("confirm")) return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
+  if (e.includes("confirm")) return "bg-success/15 text-success";
   if (e.includes("cancel")) return "bg-destructive/15 text-destructive";
   if (e.includes("realiz")) return "bg-primary/15 text-primary";
   return "bg-muted text-muted-foreground";
@@ -1841,7 +1841,7 @@ function VisitasPanel({ id }: { id: string }) {
             <StatBox label="Agentes" value={stats.agentes} />
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <StatBox label="Confirmadas" value={stats.confirmadas} tone="emerald" />
+            <StatBox label="Confirmadas" value={stats.confirmadas} tone="success" />
             <StatBox label="Realizadas" value={stats.realizadas} tone="primary" />
             <StatBox label="Pendientes" value={stats.pendientes} tone="muted" />
             <StatBox label="Canceladas" value={stats.canceladas} tone="destructive" />
@@ -1904,11 +1904,11 @@ function StatBox({
   label: string;
   value: React.ReactNode;
   hint?: string;
-  tone?: "default" | "emerald" | "primary" | "destructive" | "muted";
+  tone?: "default" | "success" | "primary" | "destructive" | "muted";
 }) {
   const toneCls =
-    tone === "emerald"
-      ? "text-emerald-700 dark:text-emerald-300"
+    tone === "success"
+      ? "text-success"
       : tone === "primary"
         ? "text-primary"
         : tone === "destructive"
@@ -1917,8 +1917,8 @@ function StatBox({
             ? "text-muted-foreground"
             : "text-foreground";
   const accent =
-    tone === "emerald"
-      ? "before:bg-emerald-500"
+    tone === "success"
+      ? "before:bg-success"
       : tone === "primary"
         ? "before:bg-primary"
         : tone === "destructive"
@@ -2107,7 +2107,7 @@ function PhotoUpload({
                   u.status === "uploading"
                     ? "bg-muted text-muted-foreground"
                     : u.status === "done"
-                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                      ? "bg-success/15 text-success"
                       : "bg-destructive/15 text-destructive"
                 }`}
               >
