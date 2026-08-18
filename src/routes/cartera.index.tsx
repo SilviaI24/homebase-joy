@@ -178,20 +178,20 @@ const CANAL_META: Record<
   Web: {
     label: "Web",
     icon: Globe,
-    tabActive: "border-violet-500 text-violet-700 dark:text-violet-300",
-    badgeActive: "bg-violet-500 text-white",
+    tabActive: "border-info text-info",
+    badgeActive: "bg-info text-white",
   },
   SilvIA: {
     label: "SilvIA",
     icon: MessageSquare,
-    tabActive: "border-blue-500 text-blue-700 dark:text-blue-300",
-    badgeActive: "bg-blue-500 text-white",
+    tabActive: "border-gold text-[var(--gold)]",
+    badgeActive: "bg-gold text-gold-foreground",
   },
   Directo: {
     label: "Directo",
     icon: UserRound,
-    tabActive: "border-amber-500 text-amber-700 dark:text-amber-300",
-    badgeActive: "bg-amber-500 text-white",
+    tabActive: "border-warning text-warning",
+    badgeActive: "bg-warning text-warning-foreground",
   },
 };
 const CANALES: ProspectoCanal[] = ["Web", "SilvIA", "Directo"];
@@ -499,7 +499,7 @@ function CaptacionTab() {
                   <td className="py-3 pl-2 pr-4 text-right">
                     <button
                       onClick={() => activar(p.id)}
-                      className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                      className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md bg-success/10 text-success hover:bg-success/20 transition-colors"
                     >
                       <CheckCircle2 className="size-3" /> Activar
                     </button>
@@ -537,8 +537,8 @@ function InmuebleCard({ inm }: { inm: Inmueble }) {
           <span
             className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
               inm.estatus === "Activo"
-                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                ? "bg-success/10 text-success"
+                : "bg-warning/10 text-warning"
             }`}
           >
             {inm.estatus}
@@ -688,7 +688,7 @@ function AlquilerTab() {
                 <span className="text-[10px] font-mono text-muted-foreground">
                   #{cleanRef(inm.ref)}
                 </span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-violet-500/10 text-violet-700 dark:text-violet-400">
+                <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-info/10 text-info">
                   {inm.estatus}
                 </span>
               </div>
@@ -799,9 +799,9 @@ function HistoricoTab() {
                     <span
                       className={`text-[10px] px-2 py-0.5 rounded font-medium ${
                         inm.estatus === "Vendido"
-                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                          ? "bg-success/10 text-success"
                           : inm.estatus === "Alquilado"
-                            ? "bg-violet-500/10 text-violet-700 dark:text-violet-400"
+                            ? "bg-brand-green/10 text-brand-green"
                             : "bg-slate-500/10 text-slate-600 dark:text-slate-400"
                       }`}
                     >

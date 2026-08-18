@@ -200,12 +200,12 @@ function ContactosPage() {
 
 const ESTADO_META: Record<EstadoSeguimiento, { cls: string; icon: typeof Clock; label: string }> = {
   Pendiente: {
-    cls: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
+    cls: "bg-warning/10 text-warning border-warning/30",
     icon: Clock,
     label: "Pendiente",
   },
   Contactado: {
-    cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+    cls: "bg-success/10 text-success border-success/30",
     icon: CheckCircle2,
     label: "Contactado",
   },
@@ -221,7 +221,7 @@ const ORIGEN_META: Record<
   { cls: string; icon: typeof Clock; label: string; descripcion: string }
 > = {
   Propietario: {
-    cls: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30",
+    cls: "bg-info/10 text-info border-info/30",
     icon: Home,
     label: "Propietario",
     descripcion: "Dueño de un inmueble que quiere vender o alquilar con nosotros",
@@ -233,7 +233,7 @@ const ORIGEN_META: Record<
     descripcion: "Ha cerrado una compra con nosotros",
   },
   "Busca compra": {
-    cls: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
+    cls: "bg-warning/10 text-warning border-warning/30",
     icon: ShoppingCart,
     label: "Busca compra",
     descripcion: "Lead interesado en comprar — operación aún no cerrada",
@@ -309,12 +309,12 @@ const PIPELINE_STAGES: Array<{
   dot: string;
   headerCls: string;
 }> = [
-  { id: "Pendiente", label: "Nuevos", dot: "bg-amber-400", headerCls: "border-amber-400/40" },
+  { id: "Pendiente", label: "Nuevos", dot: "bg-warning", headerCls: "border-warning/40" },
   {
     id: "Contactado",
     label: "En seguimiento",
-    dot: "bg-blue-500",
-    headerCls: "border-blue-500/40",
+    dot: "bg-info",
+    headerCls: "border-info/40",
   },
   { id: "Descartado", label: "Archivados", dot: "bg-slate-400", headerCls: "border-slate-400/40" },
 ];
@@ -521,9 +521,9 @@ function KanbanView({
   return (
     <div className="space-y-4">
       {pendientes > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-amber-400/30 bg-amber-50/60 dark:bg-amber-950/20 px-4 py-2.5">
-          <Zap className="size-4 text-amber-500 shrink-0" />
-          <p className="text-sm text-amber-800 dark:text-amber-300">
+        <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-2.5">
+          <Zap className="size-4 text-warning shrink-0" />
+          <p className="text-sm text-warning">
             <span className="font-semibold">Tu foco hoy</span>
             {" · "}
             {pendientes} lead{pendientes !== 1 ? "s" : ""} sin contactar
@@ -908,17 +908,17 @@ const SEG_META: Record<
   Propietario: {
     label: "Propietarios",
     icon: Home,
-    chip: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
+    chip: "bg-success/15 text-success border-success/20",
   },
   Comprador: {
     label: "Compradores",
     icon: ShoppingCart,
-    chip: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/20",
+    chip: "bg-info/15 text-info border-info/20",
   },
   Inquilino: {
     label: "Inquilinos",
     icon: KeyRound,
-    chip: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/20",
+    chip: "bg-brand-green/15 text-brand-green border-brand-green/20",
   },
   Lead: {
     label: "Leads",
