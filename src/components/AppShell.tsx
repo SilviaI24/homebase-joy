@@ -119,7 +119,7 @@ function ProspectosBadge({ enabled }: { enabled: boolean }) {
   const count = data?.prospectos.length ?? 0;
   if (!count) return null;
   return (
-    <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-violet-500 text-white text-[10px] font-bold leading-none px-1">
+    <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-gold text-gold-foreground text-[10px] font-bold leading-none px-1">
       {count > 9 ? "9+" : count}
     </span>
   );
@@ -135,9 +135,9 @@ const TIPO_ICON: Record<Notif["tipo"], typeof Bell> = {
 };
 
 const PRIO_COLOR: Record<Notif["prioridad"], string> = {
-  urgente: "text-red-500",
-  atencion: "text-amber-500",
-  info: "text-blue-500",
+  urgente: "text-destructive",
+  atencion: "text-warning",
+  info: "text-info",
 };
 
 const PRIO_LABEL: Record<Notif["prioridad"], string> = {
@@ -591,7 +591,7 @@ function SidebarContent({
             </button>
           )}
         </div>
-        <span className="size-1.5 rounded-full bg-emerald-500/60" title="Conectado" />
+        <span className="size-1.5 rounded-full bg-success/70" title="Conectado" />
       </div>
     </>
   );

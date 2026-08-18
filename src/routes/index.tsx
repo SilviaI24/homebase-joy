@@ -489,7 +489,7 @@ function Dashboard() {
               </span>
               {stats.captDelta !== 0 && (
                 <span
-                  className={`inline-flex items-center gap-0.5 font-semibold ${stats.captDelta > 0 ? "text-emerald-600" : "text-destructive"}`}
+                  className={`inline-flex items-center gap-0.5 font-semibold ${stats.captDelta > 0 ? "text-success" : "text-destructive"}`}
                 >
                   {stats.captDelta > 0 ? (
                     <TrendingUp className="size-3" />
@@ -589,7 +589,7 @@ function Dashboard() {
                 Prospectos
               </div>
               <div
-                className={`text-3xl font-display font-bold tabular-nums leading-none ${stats.prospectosWeb > 0 ? "text-violet-600 dark:text-violet-400" : ""}`}
+                className={`text-3xl font-display font-bold tabular-nums leading-none ${stats.prospectosWeb > 0 ? "text-info" : ""}`}
               >
                 {stats.prospectosWeb}
               </div>
@@ -619,8 +619,8 @@ function Dashboard() {
           value={pulso.cierresMes}
           prev={pulso.cierresPrev}
           icon={CheckCircle2}
-          iconColor="text-emerald-600 dark:text-emerald-400"
-          iconBg="bg-emerald-500/10"
+          iconColor="text-success"
+          iconBg="bg-success/10"
         />
         <PulsoChip
           label="Visitas realizadas · mes"
@@ -634,8 +634,8 @@ function Dashboard() {
           label="Reservas activas"
           value={pulso.reservasTotal}
           icon={HandCoins}
-          iconColor="text-violet-600 dark:text-violet-400"
-          iconBg="bg-violet-500/10"
+          iconColor="text-info"
+          iconBg="bg-info/10"
         />
       </div>
 
@@ -679,8 +679,8 @@ function Dashboard() {
           className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group"
         >
           <div className="flex items-center justify-between">
-            <span className="inline-flex items-center justify-center size-8 rounded-xl bg-emerald-500/10">
-              <Users className="size-4 text-emerald-600 dark:text-emerald-400" />
+            <span className="inline-flex items-center justify-center size-8 rounded-xl bg-success/10">
+              <Users className="size-4 text-success" />
             </span>
             <ArrowRight className="size-3.5 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
           </div>
@@ -807,7 +807,7 @@ function Dashboard() {
           </span>
           <span className="flex-1 h-px bg-border" />
           {myRole.isFinanciero && (
-            <span className="text-[9px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-medium">
+            <span className="text-[9px] text-success bg-success/10 px-2 py-0.5 rounded-full font-medium">
               Vista financiera
             </span>
           )}
@@ -1081,7 +1081,7 @@ function PulsoChip({
       </div>
       {d !== null && (
         <div
-          className={`shrink-0 text-xs font-semibold ${d >= 0 ? "text-emerald-600" : "text-destructive"}`}
+          className={`shrink-0 text-xs font-semibold ${d >= 0 ? "text-success" : "text-destructive"}`}
         >
           {d >= 0 ? "+" : ""}
           {d}%
@@ -1126,7 +1126,7 @@ function DepartamentosPanel({
                     {d.captaciones}
                   </span>
                   {d.ventas > 0 && (
-                    <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold tabular-nums">
+                    <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded bg-success/10 text-success text-[10px] font-bold tabular-nums">
                       {d.ventas}
                     </span>
                   )}
@@ -1148,7 +1148,7 @@ function DepartamentosPanel({
           Captaciones
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="size-2 rounded-sm bg-emerald-500/40 inline-block" />
+          <span className="size-2 rounded-sm bg-success/40 inline-block" />
           Ventas
         </span>
       </div>
@@ -1277,7 +1277,7 @@ function ScoreBadge({ score }: { score: number }) {
   const pct = Math.round(score * 100);
   const color =
     pct >= 70
-      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+      ? "bg-success/15 text-success"
       : pct >= 40
         ? "bg-gold/15 text-[var(--gold)]"
         : "bg-muted text-muted-foreground";
@@ -1324,7 +1324,7 @@ function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
                     {lead.telefono ?? "Sin tel."} · {lead.ciclo_vida}
                     {lead.diasSinContacto !== null && (
                       <span
-                        className={`ml-1 ${lead.diasSinContacto < 7 ? "text-emerald-600 dark:text-emerald-400" : ""}`}
+                        className={`ml-1 ${lead.diasSinContacto < 7 ? "text-success" : ""}`}
                       >
                         · {lead.diasSinContacto}d
                       </span>
@@ -1332,7 +1332,7 @@ function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
                   </div>
                 </div>
                 {!lead.tieneAgente && (
-                  <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded shrink-0">
+                  <span className="text-[10px] text-warning bg-warning/10 px-1.5 py-0.5 rounded shrink-0">
                     Sin asignar
                   </span>
                 )}
@@ -1382,7 +1382,7 @@ function SinSeguimientoPanel({ leads }: { leads: LeadInsight[] }) {
                   </div>
                 </div>
                 {!lead.tieneAgente && (
-                  <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded shrink-0">
+                  <span className="text-[10px] text-warning bg-warning/10 px-1.5 py-0.5 rounded shrink-0">
                     Sin asignar
                   </span>
                 )}
