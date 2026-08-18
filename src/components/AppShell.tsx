@@ -1,6 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 
-const IS_QA = import.meta.env.VITE_APP_ENV === "qa";
 import type { ReactNode } from "react";
 import {
   Building2,
@@ -611,7 +610,7 @@ export function AppShell({
 }) {
   const { dark, toggle } = useTheme();
   const { signOut, user } = useAuth();
-  const { data: access, error: accessError } = useQuery({ ...myRoleQuery, retry: false });
+  const { data: access } = useQuery(myRoleQuery);
   const allowedCapabilities = new Set(access?.allowedCapabilities ?? []);
   const notificationsEnabled =
     allowedCapabilities.has("contacts.read") &&
@@ -628,14 +627,6 @@ export function AppShell({
           onThemeToggle={toggle}
           allowedCapabilities={allowedCapabilities}
         />
-        {IS_QA && accessError && (
-          <div className="m-2 p-2 rounded text-[9px] text-red-400 bg-red-500/10 border border-red-500/20 break-all leading-tight">
-            <span className="font-bold block mb-1">QA AUTH ERR:</span>
-            {accessError instanceof Error
-              ? accessError.message
-              : JSON.stringify(accessError)}
-          </div>
-        )}
       </aside>
 
       {/* ── Mobile drawer overlay ── */}
@@ -689,11 +680,6 @@ export function AppShell({
             <h1 className="font-display text-base font-semibold tracking-tight truncate leading-tight">
               {title}
             </h1>
-            {IS_QA && (
-              <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                QA
-              </span>
-            )}
             {subtitle && (
               <p className="text-[11px] text-muted-foreground truncate hidden sm:block mt-0.5 leading-none">
                 {subtitle}

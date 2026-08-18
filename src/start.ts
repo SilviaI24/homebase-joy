@@ -17,10 +17,22 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
   }
 });
 
-// CSRF disabled for QA Vercel preview — origin URL mismatch in serverless env.
-// TODO: re-enable with explicit origin before production.
+// Allowed origins: explicit comma-separated list + Vercel deployment URLs.
+// Any origin not in this set fails CSRF validation (fail-closed).
+function buildAllowedOrigins(): Set<string> {
+  const origins = new Set<string>();
+  for (const o of (process.env.CSRF_ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
+    origins.add(o);
+  }
+  const vercelUrl = process.env.VERCEL_URL;
+  if (vercelUrl) origins.add(`https://${vercelUrl}`);
+  const vercelBranchUrl = process.env.VERCEL_BRANCH_URL;
+  if (vercelBranchUrl) origins.add(`https://${vercelBranchUrl}`);
+  return origins;
+}
+
 const csrfMiddleware = createCsrfMiddleware({
-  filter: () => false,
+  origin: (value) => buildAllowedOrigins().has(value),
 });
 
 export const startInstance = createStart(() => ({

@@ -5,8 +5,8 @@ function buildAuthClient(url: string, anonKey: string) {
   let cookies: Record<string, string> = {};
   try {
     cookies = getCookies();
-  } catch (e) {
-    console.error("[auth] getCookies() threw:", e instanceof Error ? e.message : String(e));
+  } catch {
+    // getCookies() is only available inside a server request context
   }
   return createServerClient(url, anonKey, {
     cookies: {
