@@ -239,7 +239,7 @@ function MencionadoCard({
 
   return (
     <div
-      className={`rounded-md border overflow-hidden flex flex-col ${done ? "border-emerald-500/40 bg-emerald-500/[0.04]" : "border-primary/30 bg-primary/[0.03]"}`}
+      className={`rounded-md border overflow-hidden flex flex-col ${done ? "border-success/40 bg-success/[0.04]" : "border-primary/30 bg-primary/[0.03]"}`}
     >
       <Link
         to="/inmuebles/$id"
@@ -273,7 +273,7 @@ function MencionadoCard({
       </Link>
       {/* Confirmar vínculo */}
       {readOnly ? null : done ? (
-        <div className="px-2 py-1.5 border-t border-emerald-500/20 flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+        <div className="px-2 py-1.5 border-t border-success/20 flex items-center gap-1 text-[10px] text-success">
           <Link2 className="size-3" /> Vinculado como {tipo}
         </div>
       ) : (
@@ -649,7 +649,7 @@ function BandejaPage() {
           </div>
           <div className="rounded-md border border-border bg-card px-3 py-2">
             <div className="text-muted-foreground">Cualificados</div>
-            <div className="text-lg font-semibold text-emerald-600">{tabCounts.Cualificados}</div>
+            <div className="text-lg font-semibold text-success">{tabCounts.Cualificados}</div>
           </div>
           <div className="rounded-md border border-border bg-card px-3 py-2">
             <div className="text-muted-foreground">Total</div>
@@ -815,7 +815,7 @@ function BandejaPage() {
                   isArchived
                     ? "border-border opacity-60"
                     : isCualified
-                      ? "border-emerald-500/40"
+                      ? "border-success/40"
                       : "border-border hover:border-foreground/20"
                 }`}
               >
@@ -832,7 +832,7 @@ function BandejaPage() {
                         </span>
                         <CanalChip canal={canal} />
                         {isCualified && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-success bg-success/10 px-1.5 py-0.5 rounded">
                             <UserCheck className="size-3" /> Cualificado
                           </span>
                         )}
@@ -1043,19 +1043,19 @@ function BandejaPage() {
                         <span className="text-[11px] text-muted-foreground mr-0.5">¿Tipo?</span>
                         <button
                           onClick={() => route(c.id, "captacion")}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 cursor-pointer transition-colors"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-info/10 text-info hover:bg-info/20 cursor-pointer transition-colors"
                         >
                           <Home className="size-3" /> Vende / valora
                         </button>
                         <button
                           onClick={() => route(c.id, "compra")}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 cursor-pointer transition-colors"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-warning/10 text-warning hover:bg-warning/20 cursor-pointer transition-colors"
                         >
                           <Search className="size-3" /> Busca comprar
                         </button>
                         <button
                           onClick={() => route(c.id, "alquiler")}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 cursor-pointer transition-colors"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-brand-green/10 text-brand-green hover:bg-brand-green/20 cursor-pointer transition-colors"
                         >
                           <KeyRound className="size-3" /> Busca alquilar
                         </button>
@@ -1071,7 +1071,7 @@ function BandejaPage() {
                       !isCualified && (
                         <button
                           onClick={() => setRouting(c.id)}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 cursor-pointer transition-colors"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-success/10 text-success hover:bg-success/20 cursor-pointer transition-colors"
                         >
                           <UserCheck className="size-3" /> Cualificar
                         </button>
