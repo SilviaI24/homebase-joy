@@ -1,5 +1,5 @@
-import { requireAuth } from "@/lib/auth.server";
-import { getSupa } from "@/lib/supabase.server";
+import { requireAuthClient } from "@/lib/auth.server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const CRM_CAPABILITIES = [
   "contacts.read",
@@ -77,33 +77,19 @@ function isRolBase(value: unknown): value is RolBase {
   return value === "ADMIN" || value === "FINANCIERO" || value === "COMERCIAL_ADMINISTRATIVO";
 }
 
-export async function requireCrmUser(): Promise<CrmUsuario> {
-  const user = await requireAuth();
-
-  // DIAG: identify which Supabase project/key is active at runtime
-  const urlRef = (process.env.SUPABASE_URL ?? "").split("//")[1]?.split(".")[0] ?? "?";
-  let keyRef = "?";
-  try {
-    const key = process.env.SUPABASE_SERVICE_KEY ?? "";
-    const payload = JSON.parse(Buffer.from(key.split(".")[1] ?? "", "base64").toString()) as { ref?: string };
-    keyRef = payload.ref ?? "?";
-  } catch {}
-  console.error("[crm] url-ref:", urlRef, "key-ref:", keyRef);
-
-  const supa = getSupa();
+async function lookupCrmUser(userId: string, supa: SupabaseClient): Promise<CrmUsuario> {
   const { data, error } = await supa
     .from("crm_usuarios")
     .select("user_id, agent_id, rol_base, activo")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (error) {
-    throw httpError(`crm_usuarios lookup: ${error.message} [url:${urlRef} key:${keyRef}]`, 500);
+    throw httpError(`crm_usuarios lookup: ${error.message}`, 500);
   }
   if (!data || !data.activo || !isRolBase(data.rol_base)) {
     throw httpError("Acceso denegado: usuario sin perfil CRM activo", 403);
   }
-
   return {
     userId: data.user_id as string,
     agentId: data.agent_id as string | null,
@@ -111,14 +97,19 @@ export async function requireCrmUser(): Promise<CrmUsuario> {
   };
 }
 
+export async function requireCrmUser(): Promise<CrmUsuario> {
+  const { user, supabase } = await requireAuthClient();
+  return lookupCrmUser(user.id, supabase);
+}
+
 async function evaluatePermissions(
   crm: CrmUsuario,
   capabilities: CrmCapability[],
+  supa: SupabaseClient,
 ): Promise<Map<CrmCapability, boolean>> {
   const requested = [...new Set(capabilities)];
   if (requested.length === 0) return new Map();
 
-  const supa = getSupa();
   const now = new Date().toISOString();
 
   const [overrideResult, presetResult] = await Promise.all([
@@ -173,8 +164,9 @@ async function evaluatePermissions(
 export async function requirePermissions(
   ...capabilities: CrmCapability[]
 ): Promise<PermissionResult> {
-  const crm = await requireCrmUser();
-  const decisions = await evaluatePermissions(crm, capabilities);
+  const { user, supabase } = await requireAuthClient();
+  const crm = await lookupCrmUser(user.id, supabase);
+  const decisions = await evaluatePermissions(crm, capabilities, supabase);
 
   for (const capability of capabilities) {
     if (!decisions.get(capability)) {
@@ -191,7 +183,8 @@ export async function requirePermission(capability: CrmCapability): Promise<Perm
 
 export async function hasPermission(crm: CrmUsuario, capability: CrmCapability): Promise<boolean> {
   try {
-    const decisions = await evaluatePermissions(crm, [capability]);
+    const { supabase } = await requireAuthClient();
+    const decisions = await evaluatePermissions(crm, [capability], supabase);
     return decisions.get(capability) === true;
   } catch (error) {
     console.error(
@@ -203,6 +196,7 @@ export async function hasPermission(crm: CrmUsuario, capability: CrmCapability):
 }
 
 export async function getAllowedCapabilities(crm: CrmUsuario): Promise<CrmCapability[]> {
-  const decisions = await evaluatePermissions(crm, [...CRM_CAPABILITIES]);
+  const { supabase } = await requireAuthClient();
+  const decisions = await evaluatePermissions(crm, [...CRM_CAPABILITIES], supabase);
   return CRM_CAPABILITIES.filter((capability) => decisions.get(capability) === true);
 }
