@@ -1264,7 +1264,7 @@ export const buscarInmuebles = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     await requirePermission("properties.read");
     const supa = getSupa();
-    const q = data.q.trim();
+    const q = data.q.trim().replace(/[,%()]/g, " ").replace(/\s+/g, " ");
     if (q.length < 2) return { results: [] as ReturnType<typeof mapPropertyRow>[] };
     const { data: rows } = await supa
       .from("properties")

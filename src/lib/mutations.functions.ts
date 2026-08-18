@@ -604,19 +604,6 @@ export type SeguimientoPayload = {
   tipo?: string;
 };
 
-function formatNota(nota: string, observacionesActuales: string): string {
-  const ts = new Date().toLocaleString("es-ES", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const linea = `[${ts}] ${toSentenceCase(nota.trim())}`;
-  const prev = observacionesActuales.trim();
-  return prev ? `${prev}\n${linea}` : linea;
-}
-
 export const updateClienteSeguimiento = createServerFn({ method: "POST" })
   .validator((d: SeguimientoPayload) => {
     if (!d?.clienteId) throw new Error("Cliente requerido");
@@ -677,9 +664,6 @@ export const updateClienteSeguimiento = createServerFn({ method: "POST" })
     }
 
     const nota = strOpt(data.nota);
-    if (nota) {
-      up.observaciones = formatNota(nota, data.observacionesActuales ?? "");
-    }
 
     if (Object.keys(up).length > 0) {
       const { error } = await supa.from("contacts").update(up).eq("id", data.clienteId);

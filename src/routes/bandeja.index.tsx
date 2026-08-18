@@ -436,8 +436,6 @@ function BandejaPage() {
   const [routing, setRouting] = useState<string | null>(null);
   const seguimientoFn = useServerFn(updateClienteSeguimiento);
 
-  const IS_QA = import.meta.env.VITE_APP_ENV === "qa";
-
   // WhatsApp reply state
   const [replyOpen, setReplyOpen] = useState<Set<string>>(new Set());
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
@@ -1084,37 +1082,26 @@ function BandejaPage() {
                     )}
 
                     {canal === "WhatsApp" && c.telefono && (
-                      IS_QA ? (
-                        <span
-                          title="Integración WhatsApp desactivada en QA"
-                          className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg opacity-40 cursor-not-allowed select-none"
-                          style={{ background: "#25D366", color: "#fff", border: "1.5px solid #20bc5a" }}
-                        >
-                          <MessageSquare className="size-3.5" />
-                          Desactivada en QA
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => toggleReply(c.id)}
-                          className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm active:scale-95"
-                          style={
-                            replyOpen.has(c.id)
-                              ? {
-                                  background: "transparent",
-                                  color: "#128C7E",
-                                  border: "1.5px solid #25D36640",
-                                }
-                              : {
-                                  background: "#25D366",
-                                  color: "#fff",
-                                  border: "1.5px solid #20bc5a",
-                                }
-                          }
-                        >
-                          <MessageSquare className="size-3.5" />
-                          {replyOpen.has(c.id) ? "Cerrar respuesta" : "Responder por WhatsApp"}
-                        </button>
-                      )
+                      <button
+                        onClick={() => toggleReply(c.id)}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm active:scale-95"
+                        style={
+                          replyOpen.has(c.id)
+                            ? {
+                                background: "transparent",
+                                color: "#128C7E",
+                                border: "1.5px solid #25D36640",
+                              }
+                            : {
+                                background: "#25D366",
+                                color: "#fff",
+                                border: "1.5px solid #20bc5a",
+                              }
+                        }
+                      >
+                        <MessageSquare className="size-3.5" />
+                        {replyOpen.has(c.id) ? "Cerrar respuesta" : "Responder por WhatsApp"}
+                      </button>
                     )}
                     {c.etapa === "Lead" && !isArchived && (
                       <button
