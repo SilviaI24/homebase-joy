@@ -21,6 +21,7 @@ import {
   updateInmueble,
   addImagenToInmueble,
   deleteInmueble,
+  getPropertyDocumentUrl,
   ESTATUS_OPCIONES,
   PUBLICACION_OPCIONES,
   type Inmueble,
@@ -1242,6 +1243,20 @@ function DocumentosPanel({
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState("PDF");
   const [adding, setAdding] = useState(false);
+  const [openingIdx, setOpeningIdx] = useState<number | null>(null);
+  const resolveDocUrl = useServerFn(getPropertyDocumentUrl);
+
+  async function handleOpen(idx: number, value: string) {
+    setOpeningIdx(idx);
+    try {
+      const { url } = await resolveDocUrl({ data: { value } });
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      // property-docs es privado; si falla la firma del enlace, no hay URL directa que abrir.
+    } finally {
+      setOpeningIdx(null);
+    }
+  }
 
   function handleAdd() {
     if (!newUrl.trim()) return;
@@ -1296,14 +1311,19 @@ function DocumentosPanel({
                 <span className="font-medium truncate block">{doc.filename}</span>
                 <span className="text-[10px] text-muted-foreground">{doc.type}</span>
               </div>
-              <a
-                href={doc.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
+              <button
+                type="button"
+                onClick={() => handleOpen(idx, doc.url)}
+                disabled={openingIdx === idx}
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline shrink-0 disabled:opacity-50"
               >
-                <ExternalLink className="size-3" /> Abrir
-              </a>
+                {openingIdx === idx ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <ExternalLink className="size-3" />
+                )}{" "}
+                Abrir
+              </button>
               <button
                 type="button"
                 onClick={() => handleRemove(idx)}

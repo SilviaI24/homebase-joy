@@ -819,6 +819,12 @@ export const addImagenToInmueble = createServerFn({ method: "POST" })
 
 const ALLOWED_BUCKETS = new Set(["property-images", "property-docs"]);
 
+// property-docs es un bucket privado: puede contener contratos, DNI, escrituras...
+// solo para uso interno del personal con permiso "properties.read". property-images
+// sigue siendo público a propósito (fotos comerciales usadas en la web/WordPress).
+const PRIVATE_BUCKETS = new Set(["property-docs"]);
+const SIGNED_URL_TTL_SECONDS = 120;
+
 const ALLOWED_ATTACHMENT_MIME = new Set([
   "image/jpeg",
   "image/png",
@@ -853,8 +859,46 @@ export const uploadPropertyAttachment = createServerFn({ method: "POST" })
       upsert: true,
     });
     if (error) throw new Error(error.message);
+
+    // En un bucket privado no existe URL pública: guardamos solo la ruta interna
+    // (storage_path) y se resuelve a una URL firmada de corta duración al abrirla
+    // — ver getPropertyDocumentUrl.
+    if (PRIVATE_BUCKETS.has(data.bucket)) return { url: path };
+
     const { data: pd } = supa.storage.from(data.bucket).getPublicUrl(path);
     return { url: pd.publicUrl };
+  });
+
+// Los documentos históricos (importados desde Airtable) guardan la URL pública
+// completa que tenía el bucket antes de cerrarse. Aceptamos ambos formatos y
+// extraemos solo la ruta interna del objeto dentro de property-docs.
+function extractPropertyDocsPath(value: string): string | null {
+  const marker = "/storage/v1/object/public/property-docs/";
+  const idx = value.indexOf(marker);
+  if (idx !== -1) return decodeURIComponent(value.slice(idx + marker.length));
+  // Ya es una ruta interna (subida nueva) si no parece una URL externa.
+  if (!/^https?:\/\//i.test(value)) return value;
+  // Cualquier otro http(s) es un enlace externo pegado a mano (p. ej. Google Drive)
+  // — no pertenece a nuestro bucket, se abre tal cual.
+  return null;
+}
+
+export const getPropertyDocumentUrl = createServerFn({ method: "POST" })
+  .validator((d: { value: string }) => {
+    if (!d?.value) throw new Error("value requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    await requirePermission("properties.read");
+    const path = extractPropertyDocsPath(data.value);
+    if (!path) return { url: data.value };
+
+    const supa = getSupa();
+    const { data: signed, error } = await supa.storage
+      .from("property-docs")
+      .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+    if (error) throw new Error(error.message);
+    return { url: signed.signedUrl };
   });
 
 export const deleteInmueble = createServerFn({ method: "POST" })
