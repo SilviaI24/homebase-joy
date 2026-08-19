@@ -3,16 +3,11 @@ import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from "@ta
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Check, LockKeyhole, RotateCcw, ShieldCheck, UserRound, X } from "lucide-react";
+import { LockKeyhole, ShieldCheck, UserRound } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { RouteError } from "@/components/RouteError";
-import type { CrmCapability, RolBase } from "@/lib/crm-auth.server";
-import {
-  listPermissionAdmin,
-  setUserPermission,
-  updateCrmUser,
-  type PermissionAdminUser,
-} from "@/lib/permissions.functions";
+import type { RolBase } from "@/lib/crm-auth.server";
+import { listPermissionAdmin, updateCrmUser } from "@/lib/permissions.functions";
 
 const permissionAdminQuery = queryOptions({
   queryKey: ["permission-admin"],
@@ -24,7 +19,7 @@ export const Route = createFileRoute("/permisos/")({
   head: () => ({
     meta: [
       { title: "Permisos · El Sol Grupo CRM" },
-      { name: "description", content: "Permisos individuales del equipo del CRM." },
+      { name: "description", content: "Rol de acceso de cada persona del equipo." },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(permissionAdminQuery),
@@ -36,30 +31,23 @@ export const Route = createFileRoute("/permisos/")({
   ),
 });
 
+// Solo dos roles asignables hoy en homebase-joy: ADMIN y OPERATIVO. FINANCIERO
+// queda en el catálogo por si algún día este CRM necesita darle acceso, pero
+// su acceso real vive fuera de este repositorio (command center, sin diseñar
+// todavía) — no se asigna desde aquí.
 const ROLE_LABEL: Record<RolBase, string> = {
   ADMIN: "Administrador",
-  FINANCIERO: "Financiero",
-  COMERCIAL_ADMINISTRATIVO: "Comercial / administrativo",
+  FINANCIERO: "Financiero (fuera de este CRM)",
+  OPERATIVO: "Equipo de oficina",
 };
 
-function currentOverride(user: PermissionAdminUser, capability: CrmCapability) {
-  const now = Date.now();
-  const active = user.overrides.filter(
-    (override) =>
-      override.permisoClave === capability &&
-      override.activo &&
-      (!override.expiraAt || new Date(override.expiraAt).getTime() > now),
-  );
-  return active.find((override) => override.efecto === "DENY") ?? active[0] ?? null;
-}
+const ASSIGNABLE_ROLES: RolBase[] = ["ADMIN", "OPERATIVO"];
 
 function PermissionAdminPage() {
   const { data } = useSuspenseQuery(permissionAdminQuery);
   const qc = useQueryClient();
   const updateUserFn = useServerFn(updateCrmUser);
-  const setPermissionFn = useServerFn(setUserPermission);
   const [selectedId, setSelectedId] = useState(data.users[0]?.userId ?? "");
-  const [reason, setReason] = useState("");
 
   const selected = data.users.find((user) => user.userId === selectedId) ?? data.users[0] ?? null;
   const groupedCatalog = useMemo(() => {
@@ -92,26 +80,6 @@ function PermissionAdminPage() {
     },
   });
 
-  const permissionMutation = useMutation({
-    mutationFn: (value: { capability: CrmCapability; effect: "ALLOW" | "DENY" | null }) =>
-      setPermissionFn({
-        data: {
-          userId: selected!.userId,
-          capability: value.capability,
-          effect: value.effect,
-          reason: value.effect ? reason.trim() : undefined,
-        },
-      }),
-    onSuccess: async () => {
-      await refresh();
-      toast.success("Permiso actualizado");
-    },
-    onError: (error: Error) => {
-      console.error("No se pudo actualizar el permiso", error);
-      toast.error("No se pudo actualizar el permiso.");
-    },
-  });
-
   if (!selected) {
     return (
       <AppShell title="Permisos">
@@ -125,7 +93,7 @@ function PermissionAdminPage() {
   return (
     <AppShell
       title="Permisos"
-      subtitle="Activa o bloquea funciones para cada persona sin limitar los datos compartidos del equipo"
+      subtitle="Rol de acceso de cada persona. Todo el equipo de oficina ve y hace lo mismo — sin restricciones por departamento."
     >
       <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="rounded-xl border border-border bg-card p-2 self-start">
@@ -137,10 +105,7 @@ function PermissionAdminPage() {
               <button
                 key={user.userId}
                 type="button"
-                onClick={() => {
-                  setSelectedId(user.userId);
-                  setReason("");
-                }}
+                onClick={() => setSelectedId(user.userId)}
                 className={`w-full rounded-lg px-3 py-2.5 text-left transition-colors ${
                   selected.userId === user.userId
                     ? "bg-accent text-foreground"
@@ -178,11 +143,11 @@ function PermissionAdminPage() {
               <div className="flex flex-wrap items-end gap-3">
                 <label className="space-y-1">
                   <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Rol base
+                    Rol
                   </span>
                   <select
                     value={selected.rolBase}
-                    disabled={userMutation.isPending}
+                    disabled={userMutation.isPending || !ASSIGNABLE_ROLES.includes(selected.rolBase)}
                     onChange={(event) =>
                       userMutation.mutate({
                         rolBase: event.target.value as RolBase,
@@ -191,7 +156,7 @@ function PermissionAdminPage() {
                     }
                     className="h-9 rounded-lg border border-input bg-background px-3 text-xs"
                   >
-                    {(Object.keys(ROLE_LABEL) as RolBase[]).map((role) => (
+                    {ASSIGNABLE_ROLES.map((role) => (
                       <option key={role} value={role}>
                         {ROLE_LABEL[role]}
                       </option>
@@ -214,23 +179,11 @@ function PermissionAdminPage() {
                 </button>
               </div>
             </div>
+          </div>
 
-            <div className="mt-4 border-t border-border pt-4">
-              <label htmlFor="permission-reason" className="text-[11px] font-medium">
-                Motivo del cambio individual
-              </label>
-              <input
-                id="permission-reason"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder="Ej.: responsable temporal de cierres"
-                className="mt-1.5 h-9 w-full rounded-lg border border-input bg-background px-3 text-xs outline-none focus:ring-2 focus:ring-ring"
-              />
-              <p className="mt-1 text-[10px] text-muted-foreground">
-                Obligatorio para permitir o bloquear. “Heredar” recupera el comportamiento del rol
-                base.
-              </p>
-            </div>
+          <div className="rounded-xl border border-border bg-card p-4 text-[11px] text-muted-foreground">
+            Lo que puede hacer <strong className="text-foreground">{ROLE_LABEL[selected.rolBase]}</strong>{" "}
+            — depende solo del rol, no hay excepciones por persona.
           </div>
 
           {groupedCatalog.map(([domain, permissions]) => (
@@ -241,14 +194,7 @@ function PermissionAdminPage() {
               </div>
               <div className="divide-y divide-border">
                 {permissions.map((permission) => {
-                  const override = currentOverride(selected, permission.clave);
-                  const preset = data.presets[selected.rolBase][permission.clave] === true;
-                  const effective = override ? override.efecto === "ALLOW" : preset;
-                  const isSelfCritical =
-                    selected.userId === data.currentUserId &&
-                    (permission.clave === "permissions.manage" ||
-                      permission.clave === "users.manage");
-
+                  const effective = data.presets[selected.rolBase][permission.clave] === true;
                   return (
                     <div
                       key={permission.clave}
@@ -262,62 +208,18 @@ function PermissionAdminPage() {
                               <LockKeyhole className="size-2.5" /> Sensible
                             </span>
                           )}
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${
-                              effective
-                                ? "bg-success/10 text-success"
-                                : "bg-red-500/10 text-red-600"
-                            }`}
-                          >
-                            {effective ? "Activo" : "Bloqueado"}
-                          </span>
                         </div>
                         <div className="mt-1 font-mono text-[9px] text-muted-foreground">
                           {permission.clave}
-                          {override && ` · Excepción: ${override.motivo}`}
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <PermissionButton
-                          active={!override}
-                          label="Heredar"
-                          icon={RotateCcw}
-                          disabled={permissionMutation.isPending}
-                          onClick={() =>
-                            permissionMutation.mutate({
-                              capability: permission.clave,
-                              effect: null,
-                            })
-                          }
-                        />
-                        <PermissionButton
-                          active={override?.efecto === "ALLOW"}
-                          label="Permitir"
-                          icon={Check}
-                          disabled={permissionMutation.isPending || !reason.trim()}
-                          onClick={() =>
-                            permissionMutation.mutate({
-                              capability: permission.clave,
-                              effect: "ALLOW",
-                            })
-                          }
-                        />
-                        <PermissionButton
-                          active={override?.efecto === "DENY"}
-                          label="Bloquear"
-                          icon={X}
-                          disabled={
-                            permissionMutation.isPending || !reason.trim() || isSelfCritical
-                          }
-                          onClick={() =>
-                            permissionMutation.mutate({
-                              capability: permission.clave,
-                              effect: "DENY",
-                            })
-                          }
-                        />
-                      </div>
+                      <span
+                        className={`w-fit rounded-full px-2 py-0.5 text-[9px] font-semibold ${
+                          effective ? "bg-success/10 text-success" : "bg-red-500/10 text-red-600"
+                        }`}
+                      >
+                        {effective ? "Activo" : "Bloqueado"}
+                      </span>
                     </div>
                   );
                 })}
@@ -327,35 +229,5 @@ function PermissionAdminPage() {
         </section>
       </div>
     </AppShell>
-  );
-}
-
-function PermissionButton({
-  active,
-  label,
-  icon: Icon,
-  disabled,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  icon: typeof Check;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={`inline-flex h-8 items-center gap-1 rounded-md border px-2 text-[10px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${
-        active
-          ? "border-gold/40 bg-gold/10 text-gold"
-          : "border-border bg-background text-muted-foreground hover:text-foreground"
-      }`}
-    >
-      <Icon className="size-3" />
-      <span className="hidden sm:inline">{label}</span>
-    </button>
   );
 }

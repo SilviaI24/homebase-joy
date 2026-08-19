@@ -1,44 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { CRM_CAPABILITIES, resolvePermissionDecision } from "@/lib/crm-auth.server";
+import { CRM_CAPABILITIES } from "@/lib/crm-auth.server";
 
-describe("resolución de excepciones RBAC", () => {
-  it("DENY individual prevalece sobre ALLOW y sobre el preset", () => {
-    expect(
-      resolvePermissionDecision({
-        hasDeny: true,
-        hasAllow: true,
-        presetAllowed: true,
-      }),
-    ).toBe(false);
-  });
-
-  it("ALLOW individual habilita una función desactivada en el preset", () => {
-    expect(
-      resolvePermissionDecision({
-        hasDeny: false,
-        hasAllow: true,
-        presetAllowed: false,
-      }),
-    ).toBe(true);
-  });
-
-  it("usa el preset cuando no hay excepción individual", () => {
-    expect(
-      resolvePermissionDecision({
-        hasDeny: false,
-        hasAllow: false,
-        presetAllowed: true,
-      }),
-    ).toBe(true);
-    expect(
-      resolvePermissionDecision({
-        hasDeny: false,
-        hasAllow: false,
-        presetAllowed: false,
-      }),
-    ).toBe(false);
-  });
-});
+// El sistema de excepciones individuales por persona (crm_permisos_usuario)
+// se eliminó el 19 ago 2026 — decisión de David: con solo dos roles activos
+// (ADMIN y OPERATIVO) y sin restricción departamental, el acceso depende
+// únicamente del rol base de cada cuenta. Ver
+// supabase/migrations/20260819153538_simplify_roles_and_drop_individual_overrides.sql.
 
 describe("catálogo RBAC del CRM", () => {
   it("contiene 36 capacidades sin duplicados", () => {

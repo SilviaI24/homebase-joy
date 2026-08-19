@@ -4,7 +4,7 @@ import { getAllowedCapabilities, requireCrmUser, type CrmCapability } from "@/li
 // UserRol ahora refleja los roles de seguridad de crm_usuarios, no agents.rol.
 // Los niveles profesionales (AGENTE, SENIOR, MANAGER) permanecen en agents.rol
 // y no son roles de acceso al CRM.
-export type UserRol = "ADMIN" | "FINANCIERO" | "COMERCIAL_ADMINISTRATIVO";
+export type UserRol = "ADMIN" | "FINANCIERO" | "OPERATIVO";
 
 export type MyRole = {
   isAdmin: boolean;
@@ -21,7 +21,6 @@ export const getMyRole = createServerFn({ method: "GET" }).handler(async (): Pro
   const allowedCapabilities = await getAllowedCapabilities(crm);
   return {
     isAdmin: crm.rolBase === "ADMIN",
-    // Respeta también las excepciones ALLOW/DENY asignadas a la persona.
     isFinanciero: allowedCapabilities.includes("operations.read_financiero"),
     agentId: crm.agentId,
     rol: crm.rolBase,
