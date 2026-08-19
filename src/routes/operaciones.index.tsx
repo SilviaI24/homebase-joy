@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { KpiCard } from "@/components/KpiCard";
 import { RouteError } from "@/components/RouteError";
 import { Input } from "@/components/ui/input";
 import {
@@ -250,12 +251,12 @@ function OperacionesPage() {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard icon={Banknote} label="Total" value={kpis.total.toString()} />
-        <KpiCard icon={Clock} label="En curso" value={kpis.activas.toString()} tone="amber" />
+        <KpiCard icon={Clock} label="En curso" value={kpis.activas.toString()} tone="warning" />
         <KpiCard
           icon={CheckCircle2}
           label="Cerradas"
           value={kpis.cerradas.toString()}
-          tone="emerald"
+          tone="success"
         />
         <KpiCard
           icon={canSeeFinanciero ? TrendingUp : X}
@@ -265,7 +266,7 @@ function OperacionesPage() {
               ? fmtEur(kpis.totalComision)
               : data.operaciones.filter((op) => op.estado === "Cancelada").length.toString()
           }
-          tone={canSeeFinanciero ? "gold" : "default"}
+          tone={canSeeFinanciero ? "gold" : "primary"}
         />
       </div>
 
@@ -517,36 +518,6 @@ function OperacionesPage() {
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
-
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  tone = "default",
-}: {
-  icon: typeof Banknote;
-  label: string;
-  value: string;
-  tone?: "default" | "amber" | "emerald" | "gold";
-}) {
-  const toneMap = {
-    default: "text-primary bg-primary/10",
-    amber: "text-warning bg-warning/10",
-    emerald: "text-success bg-success/10",
-    gold: "text-[var(--gold)] bg-[var(--gold)]/10",
-  };
-  return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-muted-foreground font-medium">{label}</span>
-        <div className={`size-8 rounded-md flex items-center justify-center ${toneMap[tone]}`}>
-          <Icon className="size-4" />
-        </div>
-      </div>
-      <div className="text-2xl font-semibold tabular-nums">{value}</div>
-    </div>
-  );
-}
 
 function ContactPicker({
   label,

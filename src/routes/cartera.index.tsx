@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { AppShell } from "@/components/AppShell";
+import { SectionTabs } from "@/components/SectionTabs";
 import { RouteError } from "@/components/RouteError";
 import { SafeImage } from "@/components/SafeImage";
 import { Pagination } from "@/components/pagination/Pagination";
@@ -143,21 +144,7 @@ function CarteraPage() {
 
   return (
     <AppShell title="Cartera">
-      <div className="mb-6 flex items-center gap-0 border-b border-border overflow-x-auto">
-        {TAB_CONFIG.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap -mb-px cursor-pointer ${
-              tab === t.key
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <SectionTabs tabs={TAB_CONFIG} value={tab} onChange={setTab} />
 
       {tab === "captacion" && <CaptacionTab />}
       {tab === "venta" && <VentaTab />}
