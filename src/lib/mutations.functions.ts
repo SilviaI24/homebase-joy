@@ -480,6 +480,19 @@ export const createProspectoManual = createServerFn({ method: "POST" })
       .single();
     if (cErr) throw new Error(cErr.message);
 
+    // Sin transacción entre contacts/properties/contact_agents/contact_roles
+    // (H-02): si un paso posterior falla, deshacemos lo ya creado en vez de
+    // dejar un contacto o inmueble huérfano — mismo patrón que createCliente,
+    // createInmueble y la Edge Function valorador (C-05).
+    const rollback = async (propertyId?: string) => {
+      if (propertyId) {
+        await supa.from("contact_roles").delete().eq("property_id", propertyId);
+        await supa.from("properties").delete().eq("id", propertyId);
+      }
+      await supa.from("contact_agents").delete().eq("contact_id", contact.id);
+      await supa.from("contacts").delete().eq("id", contact.id);
+    };
+
     // 2. Crear inmueble en estado Prospección
     const isAlq = /^\s*alquiler/i.test(data.tipo);
     const propRow: Record<string, unknown> = {
@@ -505,13 +518,19 @@ export const createProspectoManual = createServerFn({ method: "POST" })
       .insert([propRow])
       .select("id")
       .single();
-    if (pErr) throw new Error(pErr.message);
+    if (pErr) {
+      await rollback();
+      throw new Error(pErr.message);
+    }
 
     if (agentIds.length) {
       const { error: assignmentError } = await supa
         .from("contact_agents")
         .insert(agentIds.map((agentId) => ({ contact_id: contact.id, agent_id: agentId })));
-      if (assignmentError) throw new Error(assignmentError.message);
+      if (assignmentError) {
+        await rollback(property.id);
+        throw new Error(assignmentError.message);
+      }
     }
 
     // 3. Vincular propietario ↔ inmueble
@@ -523,7 +542,10 @@ export const createProspectoManual = createServerFn({ method: "POST" })
         tipo: "Propietario",
       },
     ]);
-    if (rErr) throw new Error(rErr.message);
+    if (rErr) {
+      await rollback(property.id);
+      throw new Error(rErr.message);
+    }
 
     return { contactId: contact.id, propertyId: property.id };
   });
