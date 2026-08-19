@@ -102,7 +102,7 @@ function AgendaPage() {
 const ESTADO_META: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
   Programada: {
     label: "Programada",
-    color: "text-amber-700 dark:text-warning bg-warning/10",
+    color: "text-warning bg-warning/10",
     icon: Clock,
   },
   Realizada: {

@@ -1229,7 +1229,7 @@ function AgenteCardHub({ card }: { card: AgenteHub }) {
           <div className="text-[10px] text-muted-foreground leading-none mt-0.5">Activos</div>
         </div>
         <div className="rounded-md border border-border bg-card px-2 py-1.5 text-center">
-          <div className="text-sm font-semibold tabular-nums text-amber-700 dark:text-warning">
+          <div className="text-sm font-semibold tabular-nums text-warning">
             {card.reservados}
           </div>
           <div className="text-[10px] text-muted-foreground leading-none mt-0.5">Reservados</div>
@@ -1375,7 +1375,7 @@ function AgenteWorkspace({
             {reservados.length > 0 && (
               <>
                 <span className="text-muted-foreground">·</span>
-                <span className="text-amber-700 dark:text-warning font-medium">
+                <span className="text-warning font-medium">
                   {reservados.length} reserv.
                 </span>
               </>
@@ -1454,7 +1454,7 @@ function InmuebleRowAgente({ inmueble: i }: { inmueble: Inmueble }) {
         </span>
       ) : null}
       {isReservado && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-amber-700 dark:text-warning shrink-0">
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning shrink-0">
           Reservado
         </span>
       )}
@@ -1468,8 +1468,8 @@ function InmuebleRowAgente({ inmueble: i }: { inmueble: Inmueble }) {
 function ActividadIcon({ tipo }: { tipo: "captacion" | "reserva" | "cierre" | "visita" }) {
   const map = {
     captacion: { Icon: KeyRound, cls: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400" },
-    reserva: { Icon: HandCoins, cls: "bg-warning/10 text-amber-700 dark:text-warning" },
-    cierre: { Icon: FileSignature, cls: "bg-info/10 text-blue-700 dark:text-info" },
+    reserva: { Icon: HandCoins, cls: "bg-warning/10 text-warning" },
+    cierre: { Icon: FileSignature, cls: "bg-info/10 text-info" },
     visita: { Icon: CalendarCheck, cls: "bg-primary/10 text-primary" },
   } as const;
   const { Icon, cls } = map[tipo];

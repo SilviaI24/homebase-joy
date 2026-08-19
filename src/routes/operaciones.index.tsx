@@ -65,7 +65,7 @@ const TIPOS: OperacionTipo[] = ["Venta", "Alquiler", "Valoración", "Servicio"];
 const ESTADOS: OperacionEstado[] = ["Abierta", "En negociación", "Cerrada", "Cancelada"];
 
 const ESTADO_STYLE: Record<OperacionEstado, string> = {
-  Abierta: "bg-info/10 text-blue-600 dark:text-info",
+  Abierta: "bg-info/10 text-info",
   "En negociación": "bg-warning/10 text-warning",
   Cerrada: "bg-success/10 text-success",
   Cancelada: "bg-zinc-500/10 text-zinc-500",
@@ -713,7 +713,7 @@ function OperacionRow({
                   : "Confirmar cierre definitivo"}
               </p>
               {closeBlockers.length > 0 ? (
-                <ul className="mt-2 space-y-1 text-[11px] text-amber-800 dark:text-amber-200">
+                <ul className="mt-2 space-y-1 text-[11px] text-warning">
                   {closeBlockers.map((blocker) => (
                     <li key={blocker} className="flex gap-1.5">
                       <span aria-hidden="true">•</span>
