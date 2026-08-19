@@ -1,3 +1,10 @@
+// ⚠️  NO EJECUTAR — archivado el 19 ago 2026 (hallazgo H-09, auditoría Codex 14 ago 2026).
+// Script de importación/reparación de una sola vez de la era Airtable, ya migrada.
+// Corre con service_role, sin modo dry-run obligatorio, sin transacción/backup,
+// y puede apuntar al proyecto ESGI real por variables de entorno. Si algún día hace
+// falta reutilizar su lógica: exigir confirmación explícita, dry-run, snapshot previo
+// y aprobación de David antes de tocar producción.
+
 /**
  * Airtable documents → Supabase Storage migration
  *
