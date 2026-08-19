@@ -31,7 +31,11 @@ function buildAllowedOrigins(): Set<string> {
   return origins;
 }
 
+// CSRF only applies to state-changing requests (POST). GET page navigations
+// are never CSRF vectors and Sec-Fetch-Site:'none'/'cross-site' would block
+// direct URL access / Vercel dashboard links otherwise.
 const csrfMiddleware = createCsrfMiddleware({
+  filter: (ctx) => ctx.request.method === "POST",
   origin: (value) => buildAllowedOrigins().has(value),
 });
 
