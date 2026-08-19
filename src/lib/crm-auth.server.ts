@@ -1,4 +1,5 @@
 import { requireAuthClient } from "@/lib/auth.server";
+import { getSupa } from "@/lib/supabase.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const CRM_CAPABILITIES = [
@@ -105,8 +106,8 @@ export async function requireCrmUser(): Promise<CrmUsuario> {
 async function evaluatePermissions(
   crm: CrmUsuario,
   capabilities: CrmCapability[],
-  supa: SupabaseClient,
 ): Promise<Map<CrmCapability, boolean>> {
+  const supa = getSupa();
   const requested = [...new Set(capabilities)];
   if (requested.length === 0) return new Map();
 
@@ -166,7 +167,7 @@ export async function requirePermissions(
 ): Promise<PermissionResult> {
   const { user, supabase } = await requireAuthClient();
   const crm = await lookupCrmUser(user.id, supabase);
-  const decisions = await evaluatePermissions(crm, capabilities, supabase);
+  const decisions = await evaluatePermissions(crm, capabilities);
 
   for (const capability of capabilities) {
     if (!decisions.get(capability)) {
@@ -183,8 +184,7 @@ export async function requirePermission(capability: CrmCapability): Promise<Perm
 
 export async function hasPermission(crm: CrmUsuario, capability: CrmCapability): Promise<boolean> {
   try {
-    const { supabase } = await requireAuthClient();
-    const decisions = await evaluatePermissions(crm, [capability], supabase);
+    const decisions = await evaluatePermissions(crm, [capability]);
     return decisions.get(capability) === true;
   } catch (error) {
     console.error(
@@ -196,7 +196,6 @@ export async function hasPermission(crm: CrmUsuario, capability: CrmCapability):
 }
 
 export async function getAllowedCapabilities(crm: CrmUsuario): Promise<CrmCapability[]> {
-  const { supabase } = await requireAuthClient();
-  const decisions = await evaluatePermissions(crm, [...CRM_CAPABILITIES], supabase);
+  const decisions = await evaluatePermissions(crm, [...CRM_CAPABILITIES]);
   return CRM_CAPABILITIES.filter((capability) => decisions.get(capability) === true);
 }
