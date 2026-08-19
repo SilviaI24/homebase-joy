@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { askSilvia } from "@/lib/silvia.functions";
 import { AppShell } from "@/components/AppShell";
+import { EstatusInmuebleBadge } from "@/components/StatusBadge";
 import { RouteError } from "@/components/RouteError";
 import { SafeImage } from "@/components/SafeImage";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
@@ -254,7 +255,7 @@ function MencionadoCard({
             <span className="text-[10px] font-mono text-muted-foreground">
               #{cleanRef(inm.ref)}
             </span>
-            <span className="text-[10px] text-muted-foreground">{inm.estatus}</span>
+            <EstatusInmuebleBadge estatus={inm.estatus} />
           </div>
           <div className="text-xs font-semibold truncate">
             {inm.calle} {inm.numero}

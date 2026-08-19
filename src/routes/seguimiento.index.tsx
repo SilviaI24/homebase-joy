@@ -146,18 +146,15 @@ function SeguimientoPage() {
     return rows;
   }, [data.seguimientos, tipoFilter, agenteFilter, search]);
 
+  const subtitle =
+    tipoFilter !== "Todos" || agenteFilter !== "todos" || search
+      ? `${filtered.length} de ${data.seguimientos.length} acciones`
+      : `${data.seguimientos.length} acciones registradas`;
+
   return (
-    <AppShell title="Seguimiento">
+    <AppShell title="Seguimiento" subtitle={subtitle}>
       {/* Header bar */}
-      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <div>
-          <h1 className="text-xl font-semibold">Seguimiento</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {tipoFilter !== "Todos" || agenteFilter !== "todos" || search
-              ? `${filtered.length} de ${data.seguimientos.length} acciones`
-              : `${data.seguimientos.length} acciones registradas`}
-          </p>
-        </div>
+      <div className="flex items-center justify-end mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative">
             <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />

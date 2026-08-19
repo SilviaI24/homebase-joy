@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { AppShell } from "@/components/AppShell";
 import { SectionTabs } from "@/components/SectionTabs";
+import { EstatusInmuebleBadge } from "@/components/StatusBadge";
 import { RouteError } from "@/components/RouteError";
 import { SafeImage } from "@/components/SafeImage";
 import { Pagination } from "@/components/pagination/Pagination";
@@ -521,15 +522,7 @@ function InmuebleCard({ inm }: { inm: Inmueble }) {
           <span className="text-[10px] font-mono text-muted-foreground">
             #{cleanRef(inm.ref)}
           </span>
-          <span
-            className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-              inm.estatus === "Activo"
-                ? "bg-success/10 text-success"
-                : "bg-warning/10 text-warning"
-            }`}
-          >
-            {inm.estatus}
-          </span>
+          <EstatusInmuebleBadge estatus={inm.estatus} />
           {dias !== null && dias > 90 && (
             <span className="text-[10px] text-destructive/80 inline-flex items-center gap-0.5">
               <AlertTriangle className="size-2.5" /> {dias}d
@@ -675,9 +668,7 @@ function AlquilerTab() {
                 <span className="text-[10px] font-mono text-muted-foreground">
                   #{cleanRef(inm.ref)}
                 </span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-info/10 text-info">
-                  {inm.estatus}
-                </span>
+                <EstatusInmuebleBadge estatus={inm.estatus} />
               </div>
               <div className="text-sm font-semibold line-clamp-1">
                 {inm.calle} {inm.numero}
@@ -783,17 +774,7 @@ function HistoricoTab() {
                     {cleanRef(inm.ref)}
                   </td>
                   <td className="py-3 px-2">
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded font-medium ${
-                        inm.estatus === "Vendido"
-                          ? "bg-success/10 text-success"
-                          : inm.estatus === "Alquilado"
-                            ? "bg-brand-green/10 text-brand-green"
-                            : "bg-slate-500/10 text-slate-600 dark:text-slate-400"
-                      }`}
-                    >
-                      {inm.estatus}
-                    </span>
+                    <EstatusInmuebleBadge estatus={inm.estatus} />
                   </td>
                   <td className="py-3 pl-2 pr-4 text-right text-sm font-semibold">
                     {formatEuro(inm.precioFinal ?? inm.precio)}
