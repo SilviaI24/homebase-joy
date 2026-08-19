@@ -58,9 +58,9 @@ export const Route = createFileRoute("/visitas/")({
     ],
   }),
   loader: ({ context }) => {
-    context.queryClient.ensureQueryData(visitasQuery);
-    context.queryClient.ensureQueryData(allInmueblesQuery);
-    context.queryClient.ensureQueryData(agentesQuery);
+    context.queryClient.ensureQueryData(visitasQuery).catch(() => {});
+    context.queryClient.ensureQueryData(allInmueblesQuery).catch(() => {});
+    context.queryClient.ensureQueryData(agentesQuery).catch(() => {});
   },
   component: VisitasPage,
   pendingComponent: () => (

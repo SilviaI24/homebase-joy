@@ -44,9 +44,9 @@ export const Route = createFileRoute("/operaciones/")({
     ],
   }),
   loader: ({ context }) => {
-    context.queryClient.ensureQueryData(operacionesQuery);
-    context.queryClient.ensureQueryData(agentesQuery);
-    context.queryClient.ensureQueryData(allInmueblesQuery);
+    context.queryClient.ensureQueryData(operacionesQuery).catch(() => {});
+    context.queryClient.ensureQueryData(agentesQuery).catch(() => {});
+    context.queryClient.ensureQueryData(allInmueblesQuery).catch(() => {});
   },
   component: OperacionesPage,
   pendingComponent: () => (

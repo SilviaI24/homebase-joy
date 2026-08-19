@@ -72,14 +72,14 @@ export const Route = createFileRoute("/")({
     ],
   }),
   loader: ({ context }) => {
-    context.queryClient.ensureQueryData(inmueblesQuery);
-    context.queryClient.ensureQueryData(clientesQuery);
-    context.queryClient.ensureQueryData(visitasQuery);
-    context.queryClient.ensureQueryData(leadsQueryOpts);
-    context.queryClient.ensureQueryData(insightsQuery);
-    context.queryClient.ensureQueryData(statsQuery);
-    context.queryClient.ensureQueryData(operacionesQuery);
-    context.queryClient.ensureQueryData(myRoleQuery);
+    context.queryClient.ensureQueryData(inmueblesQuery).catch(() => {});
+    context.queryClient.ensureQueryData(clientesQuery).catch(() => {});
+    context.queryClient.ensureQueryData(visitasQuery).catch(() => {});
+    context.queryClient.ensureQueryData(leadsQueryOpts).catch(() => {});
+    context.queryClient.ensureQueryData(insightsQuery).catch(() => {});
+    context.queryClient.ensureQueryData(statsQuery).catch(() => {});
+    context.queryClient.ensureQueryData(operacionesQuery).catch(() => {});
+    context.queryClient.ensureQueryData(myRoleQuery).catch(() => {});
   },
   component: Dashboard,
   errorComponent: ({ error }) => (

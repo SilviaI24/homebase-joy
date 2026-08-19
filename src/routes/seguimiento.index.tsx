@@ -39,8 +39,8 @@ export const Route = createFileRoute("/seguimiento/")({
     ],
   }),
   loader: ({ context }) => {
-    context.queryClient.ensureQueryData(seguimientosQuery);
-    context.queryClient.ensureQueryData(agentesQuery);
+    context.queryClient.ensureQueryData(seguimientosQuery).catch(() => {});
+    context.queryClient.ensureQueryData(agentesQuery).catch(() => {});
   },
   component: SeguimientoPage,
   pendingComponent: () => (
