@@ -9,6 +9,7 @@ import {
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { SectionTabs } from "@/components/SectionTabs";
 import { RouteError } from "@/components/RouteError";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
 
@@ -791,32 +792,17 @@ function DetailView({
             )}
           </div>
 
-          {/* Tab bar */}
-          <div className="border-b border-border">
-            <nav className="flex gap-0">
-              {(["detalles", "historial", "visitas", "documentos"] as const).map((t) => {
-                const labels: Record<typeof t, string> = {
-                  detalles: "Detalles",
-                  historial: "Historial",
-                  visitas: "Visitas",
-                  documentos: "Documentos",
-                };
-                return (
-                  <button
-                    key={t}
-                    onClick={() => setTab(t)}
-                    className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                      tab === t
-                        ? "border-primary text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {labels[t]}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
+          <SectionTabs
+            tabs={[
+              { key: "detalles", label: "Detalles" },
+              { key: "historial", label: "Historial" },
+              { key: "visitas", label: "Visitas" },
+              { key: "documentos", label: "Documentos" },
+            ]}
+            value={tab}
+            onChange={setTab}
+            className="mb-0"
+          />
 
           {/* Tab: Detalles */}
           {tab === "detalles" && (

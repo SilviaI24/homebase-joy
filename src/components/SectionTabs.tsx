@@ -9,7 +9,7 @@ export function SectionTabs<T extends string = string>({
   tabs,
   value,
   onChange,
-  className = "",
+  className = "mb-6",
 }: {
   tabs: Tab<T>[];
   value: T;
@@ -18,7 +18,7 @@ export function SectionTabs<T extends string = string>({
 }) {
   return (
     <div
-      className={`mb-6 flex items-center gap-0 border-b border-border overflow-x-auto ${className}`}
+      className={`flex items-center gap-0 border-b border-border overflow-x-auto ${className}`}
     >
       {tabs.map((t) => (
         <button
