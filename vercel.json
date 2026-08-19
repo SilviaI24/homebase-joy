@@ -4,7 +4,9 @@
   "installCommand": "npm ci",
   "framework": null,
   "env": {
-    "APP_ENV": "local",
+    "APP_ENV": "production",
+    "EXPECTED_SUPABASE_PROJECT_REF": "fyrfkbcabmitbfuqeccq",
+    "SUPABASE_URL": "https://fyrfkbcabmitbfuqeccq.supabase.co",
     "VITE_SUPABASE_URL": "https://fyrfkbcabmitbfuqeccq.supabase.co",
     "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ5cmZrYmNhYm1pdGJmdXFlY2NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNTkzMjIsImV4cCI6MjA5NjczNTMyMn0.ZuOU3i6TfiAUJnbDNRygDdlrgg3qMXLAOuEDiOkiLM8"
   }
