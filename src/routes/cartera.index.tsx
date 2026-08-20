@@ -44,12 +44,7 @@ import {
   type ProspectoCanal,
 } from "@/lib/inmuebles.functions";
 import { activarProspecto, createProspectoManual } from "@/lib/mutations.functions";
-import {
-  allInmueblesQuery,
-  inmueblesPageQuery,
-  prospectoQuery,
-  agentesQuery,
-} from "@/lib/queries";
+import { inmueblesPageQuery, prospectoQuery, agentesQuery } from "@/lib/queries";
 import { cleanRef } from "@/lib/format";
 
 const PAGE_SIZE = 48;
@@ -120,10 +115,7 @@ export const Route = createFileRoute("/cartera/")({
         context.queryClient.ensureQueryData(agentesQuery),
       ]);
     }
-    if (tab === "alquiler") {
-      return context.queryClient.ensureQueryData(allInmueblesQuery);
-    }
-    // venta + historico use inmueblesPageQuery (loaded on demand)
+    // venta + alquiler + historico use inmueblesPageQuery (loaded on demand)
     return Promise.resolve();
   },
   component: CarteraPage,
@@ -615,25 +607,27 @@ function VentaTab() {
 function AlquilerTab() {
   const rawSearch = Route.useSearch();
   const navigate = Route.useNavigate();
+  const page = rawSearch.page ?? 1;
   const q = rawSearch.q ?? "";
-  const { data } = useSuspenseQuery(allInmueblesQuery);
 
-  const alquileres = useMemo(() => {
-    const ql = q.trim().toLowerCase();
-    return data.alquileres.filter((inm) => {
-      if (!["Activo", "Reservado"].includes(inm.estatus)) return false;
-      if (!ql) return true;
-      return (
-        (inm.ref ?? "").toLowerCase().includes(ql) ||
-        (inm.calle ?? "").toLowerCase().includes(ql) ||
-        (inm.barrio ?? "").toLowerCase().includes(ql) ||
-        (inm.localidad ?? "").toLowerCase().includes(ql)
-      );
-    });
-  }, [data.alquileres, q]);
+  const { data, isFetching } = useQuery(
+    inmueblesPageQuery({
+      page,
+      pageSize: PAGE_SIZE,
+      statuses: ["Activo", "Reservado"],
+      q,
+      esAlquiler: true,
+    }),
+  );
 
+  const alquileres = data?.inmuebles ?? [];
+  const total = data?.total ?? 0;
+
+  function goPage(p: number) {
+    navigate({ search: (prev) => ({ ...prev, page: p }) });
+  }
   function setQ(val: string) {
-    navigate({ search: (prev) => ({ ...prev, q: val }) });
+    navigate({ search: (prev) => ({ ...prev, q: val, page: 1 }) });
   }
 
   return (
@@ -648,9 +642,7 @@ function AlquilerTab() {
             className="w-full pl-8 pr-3 py-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
-        <span className="text-xs text-muted-foreground ml-auto">
-          {alquileres.length} alquileres
-        </span>
+        <span className="text-xs text-muted-foreground ml-auto">{total} alquileres</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {alquileres.map((inm) => (
@@ -685,12 +677,15 @@ function AlquilerTab() {
           </Link>
         ))}
       </div>
-      {alquileres.length === 0 && (
+      {alquileres.length === 0 && !isFetching && (
         <div className="py-16 text-center text-sm text-muted-foreground">
           <KeyRound className="mx-auto mb-2 size-6 opacity-50" />
           Sin alquileres activos.
         </div>
       )}
+      <div className="mt-6">
+        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPage={goPage} isFetching={isFetching} />
+      </div>
     </div>
   );
 }

@@ -928,6 +928,7 @@ export type InmueblesPageParams = {
   q: string;
   categoria: string;
   agente: string;
+  esAlquiler: boolean;
 };
 
 export type InmueblesPageResult = {
@@ -936,7 +937,9 @@ export type InmueblesPageResult = {
   sectionTotals: { venta: number; prospectos: number; historico: number };
 };
 
-// Paginated fetch for the Cartera de Inmuebles grid (es_alquiler = false only).
+// Paginated fetch for la Cartera de Inmuebles. `esAlquiler` selecciona el universo
+// (false = venta/histórico, true = alquiler) — antes cada universo se separaba
+// client-side a partir de listAllInmuebles; ahora el filtro va en la query SQL.
 // Filters applied server-side: estatus, search text (ref/calle/barrio/localidad/tipo),
 // categoria (via tipo ilike patterns), agente (by nombre or null for unassigned).
 // Returns current page data + total + section totals for tab badges.
@@ -948,7 +951,8 @@ export const listInmueblesPage = createServerFn({ method: "GET" })
     const q = typeof d?.q === "string" ? d.q.trim() : "";
     const categoria = typeof d?.categoria === "string" ? d.categoria : "Todas";
     const agente = typeof d?.agente === "string" ? d.agente : "Todos";
-    return { page, pageSize, statuses, q, categoria, agente };
+    const esAlquiler = d?.esAlquiler === true;
+    return { page, pageSize, statuses, q, categoria, agente, esAlquiler };
   })
   .handler(async ({ data }): Promise<InmueblesPageResult> => {
     await requirePermission("properties.read");
@@ -966,7 +970,7 @@ export const listInmueblesPage = createServerFn({ method: "GET" })
          agents(id, nombre, email)`,
         { count: "exact" },
       )
-      .eq("es_alquiler", false)
+      .eq("es_alquiler", data.esAlquiler)
       .not("estatus", "is", null)
       .order("created_at", { ascending: false, nullsFirst: false });
 
