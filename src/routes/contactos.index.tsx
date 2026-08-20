@@ -56,6 +56,8 @@ import {
   Dog,
   ShieldCheck,
   Sparkles,
+  Archive,
+  RotateCcw,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -91,6 +93,10 @@ import {
   ETAPAS,
   deleteContacto,
   actualizarCicloVida,
+  restaurarContactoDeHistorico,
+  listContactosDuplicados,
+  fusionarContactosDuplicados,
+  type GrupoDuplicado,
   gestionarRol,
   buscarInmuebles,
   getContactoActividad,
@@ -99,18 +105,19 @@ import { updateClienteSeguimiento, type EstadoSeguimiento } from "@/lib/mutation
 
 const PAGE_SIZE = 50;
 
-type ContactosTab = "leads" | "clientes" | "historico" | "descartado";
+type ContactosTab = "leads" | "clientes" | "historico" | "descartado" | "duplicados";
 
 const TAB_CONFIG: Array<{ key: ContactosTab; label: string }> = [
   { key: "leads", label: "Leads" },
   { key: "clientes", label: "Clientes" },
   { key: "historico", label: "Histórico" },
   { key: "descartado", label: "Descartado" },
+  { key: "duplicados", label: "Duplicados" },
 ];
 
 const searchSchema = z.object({
   tab: z
-    .enum(["leads", "clientes", "historico", "descartado"])
+    .enum(["leads", "clientes", "historico", "descartado", "duplicados"])
     .optional(),
   page: z.number().min(1).optional(),
   q: z.string().optional(),
@@ -176,6 +183,7 @@ function ContactosPage() {
       {tab === "descartado" && (
         <SimpleContactsTab etapa="Descartado" />
       )}
+      {tab === "duplicados" && <DuplicadosTab />}
     </AppShell>
   );
 }
@@ -1125,7 +1133,20 @@ function ClientesTab() {
 }
 
 function ClienteDetallePanel({ id }: { id: string }) {
+  const qc = useQueryClient();
+  const archivarFn = useServerFn(actualizarCicloVida);
   const { data: result, isFetching } = useQuery(clienteDetailQuery(id));
+
+  const archivarMutation = useMutation({
+    mutationFn: () => archivarFn({ data: { contactId: id, cicloVida: "Histórico" } }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["cliente-detail", id] });
+      await qc.invalidateQueries({ queryKey: ["contactos-page"] });
+      toast.success("Contacto archivado — pásate a la pestaña Histórico para verlo o restaurarlo");
+    },
+    onError: () => toast.error("No se pudo archivar el contacto"),
+  });
+
   if (isFetching) {
     return (
       <div className="flex items-center justify-center h-40">
@@ -1240,6 +1261,24 @@ function ClienteDetallePanel({ id }: { id: string }) {
           </div>
         </div>
       )}
+
+      {/* M-05: archivar — no borra nada, solo saca al contacto de las vistas
+          del día a día. Se restaura desde la pestaña Histórico. */}
+      <div className="border-t border-border pt-4">
+        <button
+          type="button"
+          disabled={archivarMutation.isPending}
+          onClick={() => {
+            if (confirm(`¿Archivar a ${cliente.nombre || "este contacto"}? Podrás restaurarlo después desde la pestaña Histórico.`)) {
+              archivarMutation.mutate();
+            }
+          }}
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md px-2.5 py-1.5 transition-colors disabled:opacity-50"
+        >
+          <Archive className="size-3.5" />
+          Archivar (mover a Histórico)
+        </button>
+      </div>
     </div>
   );
 }
@@ -1251,12 +1290,23 @@ function ClienteDetallePanel({ id }: { id: string }) {
 function SimpleContactsTab({ etapa }: { etapa: string }) {
   const rawSearch = Route.useSearch();
   const navigate = Route.useNavigate();
+  const qc = useQueryClient();
+  const restaurarFn = useServerFn(restaurarContactoDeHistorico);
   const page = rawSearch.page ?? 1;
   const q = rawSearch.q ?? "";
 
   const { data, isFetching } = useQuery(
     contactosPageQuery({ page, pageSize: PAGE_SIZE, etapa, q }),
   );
+
+  const restaurarMutation = useMutation({
+    mutationFn: (contactId: string) => restaurarFn({ data: { contactId } }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["contactos-page"] });
+      toast.success("Contacto restaurado a su etapa anterior");
+    },
+    onError: () => toast.error("No se pudo restaurar el contacto"),
+  });
 
   const clientes = data?.clientes ?? [];
   const total = data?.total ?? 0;
@@ -1297,12 +1347,18 @@ function SimpleContactsTab({ etapa }: { etapa: string }) {
                 <th className="py-2.5 px-2 text-left font-medium">Email</th>
                 <th className="py-2.5 px-2 text-left font-medium">Segmento</th>
                 <th className="py-2.5 pl-2 pr-4 text-left font-medium">Alta</th>
+                {etapa === "Histórico" && (
+                  <th className="py-2.5 pl-2 pr-4 text-right font-medium">Acción</th>
+                )}
               </tr>
             </thead>
             <tbody>
               {clientes.length === 0 && !isFetching ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                  <td
+                    colSpan={etapa === "Histórico" ? 6 : 5}
+                    className="py-12 text-center text-sm text-muted-foreground"
+                  >
                     <Users className="mx-auto mb-2 size-6 opacity-50" />
                     No hay contactos en {etapa.toLowerCase()}.
                   </td>
@@ -1348,6 +1404,19 @@ function SimpleContactsTab({ etapa }: { etapa: string }) {
                           </span>
                         )}
                       </td>
+                      {etapa === "Histórico" && (
+                        <td className="py-3 pl-2 pr-4 text-right">
+                          <button
+                            type="button"
+                            disabled={restaurarMutation.isPending}
+                            onClick={() => restaurarMutation.mutate(c.id)}
+                            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground border border-dashed border-border rounded-md px-2 py-1 transition-colors disabled:opacity-50"
+                          >
+                            <RotateCcw className="size-3" />
+                            Restaurar
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -1366,6 +1435,119 @@ function SimpleContactsTab({ etapa }: { etapa: string }) {
           isFetching={isFetching}
         />
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DUPLICADOS TAB (M-05) — fusión siempre con revisión humana, nunca automática
+// ─────────────────────────────────────────────────────────────────────────────
+
+function eligeSupervivientePorDefecto(grupo: GrupoDuplicado): string {
+  const conActividad = grupo.contactos.find((c) => c.tieneActividad);
+  if (conActividad) return conActividad.id;
+  // Sin actividad en ninguno: el más reciente suele tener los datos más al día.
+  return [...grupo.contactos].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0]
+    .id;
+}
+
+function GrupoDuplicadoCard({ grupo }: { grupo: GrupoDuplicado }) {
+  const qc = useQueryClient();
+  const fusionarFn = useServerFn(fusionarContactosDuplicados);
+  const [survivorId, setSurvivorId] = useState(() => eligeSupervivientePorDefecto(grupo));
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      fusionarFn({
+        data: {
+          survivorId,
+          loserIds: grupo.contactos.filter((c) => c.id !== survivorId).map((c) => c.id),
+        },
+      }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["contactos-duplicados"] });
+      toast.success(`Fusionados en ${grupo.contactos.find((c) => c.id === survivorId)?.nombre}`);
+    },
+    onError: (error: Error) => toast.error(error.message || "No se pudo fusionar el grupo"),
+  });
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[11px] font-mono text-muted-foreground">{grupo.telNorm}</span>
+        <button
+          type="button"
+          disabled={mutation.isPending}
+          onClick={() => {
+            const nombre = grupo.contactos.find((c) => c.id === survivorId)?.nombre;
+            if (confirm(`Fusionar los otros ${grupo.contactos.length - 1} en "${nombre}"? No se puede deshacer.`)) {
+              mutation.mutate();
+            }
+          }}
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline disabled:opacity-40"
+        >
+          {mutation.isPending ? <Loader2 className="size-3 animate-spin" /> : <Users className="size-3" />}
+          Fusionar en el elegido
+        </button>
+      </div>
+      <div className="space-y-1">
+        {grupo.contactos.map((c) => (
+          <label
+            key={c.id}
+            className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 text-xs cursor-pointer ${
+              c.id === survivorId ? "bg-success/10" : "hover:bg-muted/40"
+            }`}
+          >
+            <input
+              type="radio"
+              name={`survivor-${grupo.telNorm}`}
+              checked={c.id === survivorId}
+              onChange={() => setSurvivorId(c.id)}
+              className="accent-success"
+            />
+            <span className="font-medium truncate max-w-[160px]">{c.nombre}</span>
+            <span className="text-muted-foreground truncate max-w-[180px]">{c.email || "sin email"}</span>
+            <span className="text-muted-foreground/70">{c.cicloVida}</span>
+            {c.tieneActividad && (
+              <span className="rounded-full bg-info/10 text-info px-1.5 py-0.5 text-[9px] font-semibold">
+                con historial
+              </span>
+            )}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DuplicadosTab() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["contactos-duplicados"],
+    queryFn: () => listContactosDuplicados(),
+    staleTime: 60_000,
+  });
+
+  const grupos = data ?? [];
+
+  return (
+    <div>
+      <div className="mb-4 text-xs text-muted-foreground">
+        {isLoading
+          ? "Buscando coincidencias por teléfono…"
+          : `${grupos.length} grupos de posibles duplicados. Elige quién se queda antes de fusionar — nunca se hace solo.`}
+      </div>
+      {!isLoading && grupos.length === 0 ? (
+        <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+          <Users className="mx-auto mb-2 size-6 opacity-50" />
+          No hay duplicados pendientes de revisar.
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {grupos.map((g) => (
+            <GrupoDuplicadoCard key={g.telNorm} grupo={g} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

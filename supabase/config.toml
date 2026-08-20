@@ -173,6 +173,8 @@ enable_refresh_token_rotation = true
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 10
 # Allow/disallow new user signups to your project.
+# H-03: pendiente de confirmar antes de desactivar — ver nota en el informe
+# de la sesión del 19 ago 2026 sobre el flujo de "activar acceso" del Portal.
 enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
