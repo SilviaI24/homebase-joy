@@ -17,9 +17,9 @@ import {
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
 import { RouteError } from "@/components/RouteError";
-import { isAlquiler, type Inmueble } from "@/lib/inmuebles.functions";
+import { type Inmueble } from "@/lib/inmuebles.functions";
 import {
-  allInmueblesLiteQuery,
+  dashboardStatsQuery,
   clientesQueryOpts,
   visitasQuery,
   leadsQueryOpts,
@@ -61,7 +61,6 @@ type VisRow = {
   inmuebleNumeros?: string[];
 };
 
-const inmueblesQuery = allInmueblesLiteQuery;
 const clientesQuery = clientesQueryOpts;
 
 export const Route = createFileRoute("/")({
@@ -72,7 +71,7 @@ export const Route = createFileRoute("/")({
     ],
   }),
   loader: ({ context }) => {
-    context.queryClient.ensureQueryData(inmueblesQuery).catch(() => {});
+    context.queryClient.ensureQueryData(dashboardStatsQuery).catch(() => {});
     context.queryClient.ensureQueryData(clientesQuery).catch(() => {});
     context.queryClient.ensureQueryData(visitasQuery).catch(() => {});
     context.queryClient.ensureQueryData(leadsQueryOpts).catch(() => {});
@@ -114,8 +113,6 @@ function calcDelta(cur: number, prev: number): number | null {
   return Math.round(((cur - prev) / prev) * 100);
 }
 
-const COMISION_VENTA = 0.03;
-
 const ANALYTICS_PALETTE = [
   "#c9a94a",
   "#60a5fa",
@@ -136,7 +133,7 @@ function fmtMes(mes: string) {
 }
 
 function Dashboard() {
-  const { data: inmData } = useSuspenseQuery(inmueblesQuery);
+  const { data: dashStats } = useSuspenseQuery(dashboardStatsQuery);
   const { data: cliData } = useSuspenseQuery(clientesQuery);
   const { data: visData } = useSuspenseQuery(visitasQuery);
   const { data: leadsData } = useSuspenseQuery(leadsQueryOpts);
@@ -147,45 +144,13 @@ function Dashboard() {
 
   const leadsCount = leadsData.clientes.length;
 
+  // M-01-bis: los agregados (conteos, serie de 12 meses, comisiones, pulso,
+  // zonas, cartera por tipo) ya vienen calculados desde SQL
+  // (dashboard_inmuebles_stats, ver dashboardStatsQuery) en vez de traer las
+  // 5.817 filas de properties para sumar aquí. captDelta/sparkCapt siguen
+  // siendo derivaciones puras de la serie, no hace falta pedirlas al server.
   const stats = useMemo(() => {
-    const inmuebles = inmData.inmuebles;
-    const byEstatus = (e: string) => inmuebles.filter((i) => i.estatus === e);
-    const activos = byEstatus("Activo");
-    const reservados = byEstatus("Reservado");
-    const vendidos = byEstatus("Vendido");
-    const alquilados = byEstatus("Alquilado");
-    const valorCartera = activos.reduce((s, i) => s + (i.precio ?? 0), 0);
-
-    const now = new Date();
-    const months: { key: string; label: string }[] = [];
-    for (let k = 11; k >= 0; k--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const label = d.toLocaleDateString("es-ES", { month: "short" });
-      months.push({ key, label });
-    }
-    const captCount: Record<string, number> = {};
-    const ventaCount: Record<string, number> = {};
-    months.forEach((m) => {
-      captCount[m.key] = 0;
-      ventaCount[m.key] = 0;
-    });
-    inmuebles.forEach((i) => {
-      if (i.fechaInicio) {
-        const k = i.fechaInicio.slice(0, 7);
-        if (k in captCount) captCount[k]++;
-      }
-      if (i.fechaEscritura) {
-        const k = i.fechaEscritura.slice(0, 7);
-        if (k in ventaCount) ventaCount[k]++;
-      }
-    });
-    const seriesData = months.map((m) => ({
-      mes: m.label,
-      Captaciones: captCount[m.key],
-      Ventas: ventaCount[m.key],
-    }));
-
+    const seriesData = dashStats.serie;
     const lastCapt = seriesData[seriesData.length - 1]?.Captaciones ?? 0;
     const prevCapt = seriesData[seriesData.length - 2]?.Captaciones ?? 0;
     const captDelta =
@@ -196,59 +161,23 @@ function Dashboard() {
         : Math.round(((lastCapt - prevCapt) / prevCapt) * 100);
     const sparkCapt = seriesData.slice(-8).map((d, i) => ({ i, v: d.Captaciones }));
 
-    const recientes = [...inmuebles]
-      .filter((i) => i.fechaInicio)
-      .sort((a, b) => (b.fechaInicio ?? "").localeCompare(a.fechaInicio ?? ""))
-      .slice(0, 6);
-
-    const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const curYear = String(now.getFullYear());
-    let comisionMes = 0;
-    let comisionAnual = 0;
-    let comisionPipeline = 0;
-    inmuebles.forEach((i) => {
-      if (isAlquiler(i.tipo)) return;
-      const precio = i.precioFinal ?? i.precio ?? 0;
-      if (!precio) return;
-      const fee = precio * COMISION_VENTA;
-      if (i.estatus === "Vendido") {
-        if (i.fechaEscritura?.startsWith(curMonth)) comisionMes += fee;
-        if (i.fechaEscritura?.startsWith(curYear)) comisionAnual += fee;
-      }
-      if (i.estatus === "Activo" || i.estatus === "Reservado") comisionPipeline += fee;
-    });
-
-    const ahora = Date.now();
-    const estancados = activos
-      .map((i) => {
-        if (!i.fechaInicio) return null;
-        const dias = Math.floor((ahora - new Date(i.fechaInicio).getTime()) / 86400000);
-        return dias > 90 ? { i, dias } : null;
-      })
-      .filter((x): x is { i: Inmueble; dias: number } => !!x)
-      .sort((a, b) => b.dias - a.dias)
-      .slice(0, 5);
-
-    const prospectosWeb = inmuebles.filter((i) => i.publicacion === "PROSPECTO").length;
-
     return {
-      inmuebles,
-      activos,
-      reservados,
-      vendidos,
-      alquilados,
-      valorCartera,
+      activos: dashStats.activos,
+      reservados: dashStats.reservados,
+      vendidos: dashStats.vendidos,
+      alquilados: dashStats.alquilados,
+      valorCartera: dashStats.valorCartera,
       seriesData,
       sparkCapt,
       captDelta,
-      recientes,
-      comisionMes,
-      comisionAnual,
-      comisionPipeline,
-      estancados,
-      prospectosWeb,
+      recientes: dashStats.recientes,
+      comisionMes: dashStats.comisionMes,
+      comisionAnual: dashStats.comisionAnual,
+      comisionPipeline: dashStats.comisionPipeline,
+      estancados: dashStats.estancados,
+      prospectosWeb: dashStats.prospectosWeb,
     };
-  }, [inmData]);
+  }, [dashStats]);
 
   const cliTotal = useMemo(() => cliData.clientes.length, [cliData]);
 
@@ -261,14 +190,15 @@ function Dashboard() {
       const d = new Date(x.fecha);
       return d >= now && d <= in7;
     }).length;
-    const ventas = stats.vendidos.length + stats.alquilados.length;
+    const ventas = dashStats.vendidos + dashStats.alquilados;
     const tasaCierre = v.length ? Math.round((ventas / v.length) * 100) : 0;
     return { proximas, tasaCierre };
-  }, [visData, stats]);
+  }, [visData, dashStats]);
 
-  // ── Pulso del mes ──
+  // ── Pulso del mes ── captMes/captPrev/cierresMes/cierresPrev/reservasTotal
+  // vienen ya calculados del server; solo visitasMes/visitasPrev se derivan
+  // aquí porque dependen de visData, que es una query aparte.
   const pulso = useMemo(() => {
-    const inmuebles = inmData.inmuebles;
     const visitas = visData.visitas as VisRow[];
     const now = new Date();
     const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -277,71 +207,27 @@ function Dashboard() {
         ? `${now.getFullYear() - 1}-12`
         : `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
 
-    const captMes = inmuebles.filter((i) => i.fechaInicio?.startsWith(curMonth)).length;
-    const captPrev = inmuebles.filter((i) => i.fechaInicio?.startsWith(prevMonthKey)).length;
-    const cierresMes = inmuebles.filter(
-      (i) => i.fechaEscritura?.startsWith(curMonth) && !isAlquiler(i.tipo),
-    ).length;
-    const cierresPrev = inmuebles.filter(
-      (i) => i.fechaEscritura?.startsWith(prevMonthKey) && !isAlquiler(i.tipo),
-    ).length;
     const visitasMes = visitas.filter(
       (v) => v.estado === "Realizada" && v.fecha?.startsWith(curMonth),
     ).length;
     const visitasPrev = visitas.filter(
       (v) => v.estado === "Realizada" && v.fecha?.startsWith(prevMonthKey),
     ).length;
-    const reservasTotal = inmuebles.filter((i) => i.estatus === "Reservado").length;
 
-    return { captMes, captPrev, cierresMes, cierresPrev, visitasMes, visitasPrev, reservasTotal };
-  }, [inmData, visData]);
+    return { ...dashStats.pulso, visitasMes, visitasPrev };
+  }, [visData, dashStats]);
 
-  // ── Actividad por zona ──
-  const departamentos = useMemo(() => {
-    const inmuebles = inmData.inmuebles;
-    // Normaliza acentos y espacios para unificar variantes del mismo municipio
-    function normalizeKey(s: string): string {
-      return s
-        .trim()
-        .normalize("NFD")
-        .replace(/\p{Diacritic}/gu, "")
-        .toLowerCase()
-        .replace(/\s+/g, " ");
-    }
-    const map = new Map<
-      string,
-      { display: string; captaciones: number; ventas: number; activos: number }
-    >();
-    inmuebles.forEach((i) => {
-      const raw = i.localidad || "Sin zona";
-      const key = normalizeKey(raw);
-      if (!map.has(key)) map.set(key, { display: raw, captaciones: 0, ventas: 0, activos: 0 });
-      const d = map.get(key)!;
-      if (i.fechaInicio) d.captaciones++;
-      if (i.estatus === "Vendido") d.ventas++;
-      if (i.estatus === "Activo") d.activos++;
-    });
-    return [...map.values()]
-      .filter((d) => d.captaciones > 0 || d.activos > 0)
-      .sort((a, b) => b.captaciones - a.captaciones)
-      .slice(0, 7);
-  }, [inmData]);
+  // ── Actividad por zona ── ya viene agrupada/normalizada/ordenada del server.
+  const departamentos = dashStats.departamentos;
 
-  // ── Cartera por tipo ──
-  const carteraBreakdown = useMemo(() => {
-    const activos = inmData.inmuebles.filter((i) => i.estatus === "Activo");
-    const map = new Map<string, { count: number; valor: number }>();
-    activos.forEach((i) => {
-      const tipo = i.tipo || "Otros";
-      const prev = map.get(tipo) ?? { count: 0, valor: 0 };
-      map.set(tipo, { count: prev.count + 1, valor: prev.valor + (i.precio ?? 0) });
-    });
-    const list = [...map.entries()]
-      .map(([tipo, d]) => ({ tipo, ...d }))
-      .sort((a, b) => b.valor - a.valor)
-      .slice(0, 7);
-    return { list, maxValor: list[0]?.valor ?? 1 };
-  }, [inmData]);
+  // ── Cartera por tipo ── ya viene agrupada/ordenada del server (top 7 por valor).
+  const carteraBreakdown = useMemo(
+    () => ({
+      list: dashStats.carteraBreakdown,
+      maxValor: dashStats.carteraBreakdown[0]?.valor ?? 1,
+    }),
+    [dashStats],
+  );
 
   // ── Analytics (stats + ops) ──
   const analytics = useMemo(() => {
@@ -436,7 +322,7 @@ function Dashboard() {
   return (
     <AppShell
       title="Dashboard"
-      subtitle={`${stats.activos.length} activos · ${cliTotal} clientes · ${visStats.proximas} visitas próximas`}
+      subtitle={`${stats.activos} activos · ${cliTotal} clientes · ${visStats.proximas} visitas próximas`}
     >
       {/* ── ROW 1: Hero ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
@@ -540,10 +426,10 @@ function Dashboard() {
             </div>
             <div className="flex-1">
               <div className="text-[2.75rem] font-display font-bold tabular-nums leading-none">
-                {stats.activos.length}
+                {stats.activos}
               </div>
               <div className="text-xs mt-1.5" style={{ opacity: 0.45 }}>
-                {stats.reservados.length} reservados · {moneyShort(stats.valorCartera)}
+                {stats.reservados} reservados · {moneyShort(stats.valorCartera)}
               </div>
             </div>
             <Link
@@ -706,7 +592,7 @@ function Dashboard() {
           </div>
           <div>
             <div className="text-2xl font-display font-bold tabular-nums leading-none">
-              {stats.reservados.length}
+              {stats.reservados}
             </div>
             <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">
               Reservados

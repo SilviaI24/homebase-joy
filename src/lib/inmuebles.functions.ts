@@ -1216,3 +1216,95 @@ export const geocodeInmuebles = createServerFn({ method: "POST" })
     }
     return { results };
   });
+
+// ── Dashboard (M-01-bis, parte pendiente) ──────────────────────────────────────
+// Antes el dashboard traía las 5.817 filas de properties (con
+// listAllInmueblesLite) para sumar/agrupar en el navegador. Los agregados
+// (conteos, serie de 12 meses, comisiones, pulso, zonas, cartera por tipo)
+// ahora los calcula la función SQL dashboard_inmuebles_stats() — réplica
+// fiel de la lógica anterior, verificada con execute_sql antes de conectarla.
+// "recientes" y "estancados" siguen siendo listas de filas reales (no
+// agregados), así que se piden aparte con .limit(), no con la función.
+
+export type DashboardSerieMes = { mes: string; Captaciones: number; Ventas: number };
+export type DashboardZona = { display: string; captaciones: number; ventas: number; activos: number };
+export type DashboardCarteraTipo = { tipo: string; count: number; valor: number };
+
+export type DashboardStats = {
+  activos: number;
+  reservados: number;
+  vendidos: number;
+  alquilados: number;
+  valorCartera: number;
+  prospectosWeb: number;
+  serie: DashboardSerieMes[];
+  comisionMes: number;
+  comisionAnual: number;
+  comisionPipeline: number;
+  pulso: {
+    captMes: number;
+    captPrev: number;
+    cierresMes: number;
+    cierresPrev: number;
+    reservasTotal: number;
+  };
+  departamentos: DashboardZona[];
+  carteraBreakdown: DashboardCarteraTipo[];
+  recientes: Inmueble[];
+  estancados: Array<{ i: Inmueble; dias: number }>;
+};
+
+export const getDashboardStats = createServerFn({ method: "GET" }).handler(
+  async (): Promise<DashboardStats> => {
+    await requirePermission("properties.read");
+    const supa = getSupa();
+
+    const [aggRes, recientesRes, estancadosRes] = await Promise.all([
+      supa.rpc("dashboard_inmuebles_stats"),
+      supa
+        .from("properties")
+        .select(
+          `id, ref, tipo, es_alquiler, calle, numero, barrio, localidad,
+           metros_construidos, habitaciones, banos, precio, precio_final,
+           estatus, publicacion, estado, imagenes, coordenadas, observaciones,
+           fecha_inicio, fecha_reserva, fecha_escritura, created_at,
+           agents(id, nombre, email)`,
+        )
+        .not("fecha_inicio", "is", null)
+        .order("fecha_inicio", { ascending: false })
+        .limit(6),
+      supa
+        .from("properties")
+        .select(
+          `id, ref, tipo, es_alquiler, calle, numero, barrio, localidad,
+           metros_construidos, habitaciones, banos, precio, precio_final,
+           estatus, publicacion, estado, imagenes, coordenadas, observaciones,
+           fecha_inicio, fecha_reserva, fecha_escritura, created_at,
+           agents(id, nombre, email)`,
+        )
+        .eq("estatus", "Activo")
+        .lt("fecha_inicio", new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10))
+        .order("fecha_inicio", { ascending: true })
+        .limit(5),
+    ]);
+
+    if (aggRes.error) throw new Error(`dashboard_inmuebles_stats: ${aggRes.error.message}`);
+    if (recientesRes.error) throw new Error("Error al cargar inmuebles recientes");
+    if (estancadosRes.error) throw new Error("Error al cargar inmuebles estancados");
+
+    const agg = aggRes.data as Omit<DashboardStats, "recientes" | "estancados">;
+    const recientes = ((recientesRes.data ?? []) as unknown as SupabasePropertyRow[]).map(mapBase);
+    const ahora = Date.now();
+    const estancados = ((estancadosRes.data ?? []) as unknown as SupabasePropertyRow[])
+      .map(mapBase)
+      .map((i) => ({
+        i,
+        dias: i.fechaInicio
+          ? Math.floor((ahora - new Date(i.fechaInicio).getTime()) / 86400000)
+          : 0,
+      }))
+      .sort((a, b) => b.dias - a.dias);
+
+    return { ...agg, recientes, estancados };
+  },
+);

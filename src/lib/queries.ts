@@ -7,6 +7,7 @@ import {
   listAgentes,
   listProspectos,
   listInmueblesPage,
+  getDashboardStats,
   type InmueblesPageParams,
   type SearchInmueblesParams,
 } from "@/lib/inmuebles.functions";
@@ -50,6 +51,16 @@ export const allInmueblesQuery = queryOptions({
 export const allInmueblesLiteQuery = queryOptions({
   queryKey: ["all-inmuebles-lite"],
   queryFn: () => listAllInmueblesLite(),
+  staleTime: 5 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
+});
+
+// Agregados del dashboard calculados en SQL (dashboard_inmuebles_stats) en
+// vez de traer las 5.817 filas de properties para sumar en el navegador —
+// ver M-01-bis. Sustituye a allInmueblesLiteQuery en src/routes/index.tsx.
+export const dashboardStatsQuery = queryOptions({
+  queryKey: ["dashboard-stats"],
+  queryFn: () => getDashboardStats(),
   staleTime: 5 * 60 * 1000,
   gcTime: 30 * 60 * 1000,
 });
