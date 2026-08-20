@@ -19,7 +19,7 @@ import { RouteError } from "@/components/RouteError";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
 import { Input } from "@/components/ui/input";
 
-import { visitasQuery, allInmueblesQuery, agentesQuery } from "@/lib/queries";
+import { visitasQuery, agentesQuery } from "@/lib/queries";
 import type { VisitaFull } from "@/lib/visitas.functions";
 import { updateVisitaEstado } from "@/lib/mutations.functions";
 import {
@@ -59,7 +59,6 @@ export const Route = createFileRoute("/visitas/")({
   }),
   loader: ({ context }) => {
     context.queryClient.ensureQueryData(visitasQuery).catch(() => {});
-    context.queryClient.ensureQueryData(allInmueblesQuery).catch(() => {});
     context.queryClient.ensureQueryData(agentesQuery).catch(() => {});
   },
   component: VisitasPage,
@@ -119,7 +118,6 @@ function fmtTime(s: string | null) {
 
 function VisitasPage() {
   const { data: vData } = useSuspenseQuery(visitasQuery);
-  const { data: inmData } = useSuspenseQuery(allInmueblesQuery);
   const { data: agData } = useSuspenseQuery(agentesQuery);
   const mailToNombre = useMemo(() => {
     const m = new Map<string, string>();
@@ -134,13 +132,22 @@ function VisitasPage() {
 
   const visitas = vData.visitas;
 
+  // La propia consulta de visitas ya trae calle/numero/barrio del inmueble
+  // vinculado (join en listVisitas) — ya no hace falta traer las 5.817 filas
+  // de properties solo para enriquecer estos 3 campos de display.
   const inmIndex = useMemo(() => {
     const m = new Map<string, { calle: string; numero: string; barrio: string }>();
-    [...inmData.inmuebles, ...inmData.alquileres].forEach((i) =>
-      m.set(i.id, { calle: i.calle, numero: i.numero, barrio: i.barrio }),
-    );
+    visitas.forEach((v) => {
+      const id = v.inmuebleIds[0];
+      if (!id || m.has(id)) return;
+      m.set(id, {
+        calle: v.inmuebleCalles[0] ?? "",
+        numero: v.inmuebleNumeros[0] ?? "",
+        barrio: v.inmuebleBarrios[0] ?? "",
+      });
+    });
     return m;
-  }, [inmData]);
+  }, [visitas]);
 
   // Estabilizamos `now` para que los useMemo no se recalculen en cada render.
   const [now] = useState(() => Date.now());
