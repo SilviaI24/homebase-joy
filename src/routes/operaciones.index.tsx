@@ -21,7 +21,7 @@ import {
   Calendar,
 } from "lucide-react";
 
-import { operacionesQuery, agentesQuery, allInmueblesQuery } from "@/lib/queries";
+import { operacionesQuery, agentesQuery, searchInmueblesQuery } from "@/lib/queries";
 import {
   createOperacion,
   closeOperacion,
@@ -46,7 +46,6 @@ export const Route = createFileRoute("/operaciones/")({
   loader: ({ context }) => {
     context.queryClient.ensureQueryData(operacionesQuery).catch(() => {});
     context.queryClient.ensureQueryData(agentesQuery).catch(() => {});
-    context.queryClient.ensureQueryData(allInmueblesQuery).catch(() => {});
   },
   component: OperacionesPage,
   pendingComponent: () => (
@@ -95,7 +94,6 @@ function fmtDate(s: string | null) {
 function OperacionesPage() {
   const { data } = useSuspenseQuery(operacionesQuery);
   const { data: agData } = useSuspenseQuery(agentesQuery);
-  const { data: inmData } = useSuspenseQuery(allInmueblesQuery);
   const qc = useQueryClient();
   const { canSeeFinanciero, canCreate, canClose } = data.permissions;
 
@@ -116,25 +114,20 @@ function OperacionesPage() {
   const [fProperty, setFProperty] = useState<{ id: string; label: string } | null>(null);
   const [fNotas, setFNotas] = useState("");
 
+  // Búsqueda server-side (antes cargaba las 5.817 filas de allInmueblesQuery
+  // al navegador y filtraba en memoria).
+  const propertyEsAlquiler = fTipo === "Venta" ? false : fTipo === "Alquiler" ? true : undefined;
+  const { data: propertySearchData } = useQuery({
+    ...searchInmueblesQuery({ q: fPropertyQ, limit: 8, esAlquiler: propertyEsAlquiler }),
+    enabled: fPropertyQ.trim().length >= 2,
+  });
   const propertyResults = useMemo(() => {
-    if (!fPropertyQ.trim() || fPropertyQ.length < 2) return [];
-    const q = fPropertyQ.toLowerCase();
-    const pool =
-      fTipo === "Venta"
-        ? (inmData?.inmuebles ?? [])
-        : fTipo === "Alquiler"
-          ? (inmData?.alquileres ?? [])
-          : [...(inmData?.inmuebles ?? []), ...(inmData?.alquileres ?? [])];
-    return pool
-      .filter(
-        (p) =>
-          p.calle.toLowerCase().includes(q) ||
-          p.ref.toLowerCase().includes(q) ||
-          p.barrio?.toLowerCase().includes(q),
-      )
-      .slice(0, 8)
-      .map((p) => ({ id: p.id, label: `${p.ref} — ${p.calle} ${p.numero ?? ""}`.trim() }));
-  }, [fPropertyQ, fTipo, inmData]);
+    if (!fPropertyQ.trim() || fPropertyQ.trim().length < 2) return [];
+    return (propertySearchData?.inmuebles ?? []).map((p) => ({
+      id: p.id,
+      label: `${p.ref} — ${p.calle} ${p.numero ?? ""}`.trim(),
+    }));
+  }, [fPropertyQ, propertySearchData]);
 
   const createFn = useServerFn(createOperacion);
   const closeFn = useServerFn(closeOperacion);

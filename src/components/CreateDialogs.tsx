@@ -40,7 +40,7 @@ import {
 } from "@/lib/mutations.functions";
 import { SEGMENTOS } from "@/lib/clientes.functions";
 import { CATEGORIAS, uploadPropertyAttachment } from "@/lib/inmuebles.functions";
-import { agentesQuery, allInmueblesQuery, clientesQueryOpts } from "@/lib/queries";
+import { agentesQuery, searchInmueblesQuery, clientesQueryOpts } from "@/lib/queries";
 
 function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (
@@ -1331,7 +1331,6 @@ export function NewVisitaDialog({
   const fn = useServerFn(createVisita);
   const [open, setOpen] = useState(false);
   const agentes = useQuery({ ...agentesQuery, enabled: open });
-  const inmuebles = useQuery({ ...allInmueblesQuery, enabled: open });
   const clientes = useQuery({ ...clientesQueryOpts, enabled: open });
   const [form, setForm] = useState<CreateVisitaPayload>({
     fecha: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
@@ -1354,16 +1353,16 @@ export function NewVisitaDialog({
     onError: (e: Error) => toast.error(e.message || "No se pudo crear"),
   });
 
-  const inmList = (
-    inmuebles.data ? [...inmuebles.data.inmuebles, ...inmuebles.data.alquileres] : []
-  )
-    .filter((i) =>
-      inmFilter
-        ? `${i.ref} ${i.calle} ${i.barrio}`.toLowerCase().includes(inmFilter.toLowerCase())
-        : true,
-    )
-    .slice(0, 80)
-    .map((i) => ({ id: i.id, label: `${i.ref || "—"} · ${i.calle} ${i.numero || ""}` }));
+  // Búsqueda server-side con límite — antes cargaba las 5.817 filas de
+  // allInmueblesQuery al navegador y filtraba/recortaba a 80 en memoria.
+  const inmuebles = useQuery({
+    ...searchInmueblesQuery({ q: inmFilter, limit: 80 }),
+    enabled: open,
+  });
+  const inmList = (inmuebles.data?.inmuebles ?? []).map((i) => ({
+    id: i.id,
+    label: `${i.ref || "—"} · ${i.calle} ${i.numero || ""}`,
+  }));
 
   const cliList = (clientes.data?.clientes ?? [])
     .filter((c) =>

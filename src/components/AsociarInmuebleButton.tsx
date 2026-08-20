@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Link2, Search, Loader2, Home, ShoppingCart, KeyRound } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { allInmueblesQuery } from "@/lib/queries";
+import { searchInmueblesQuery } from "@/lib/queries";
 import { asociarLeadAInmueble } from "@/lib/mutations.functions";
 
 const TIPO_OPTS = [
@@ -16,26 +16,15 @@ const TIPO_OPTS = [
 export function AsociarInmuebleButton({ contactId }: { contactId: string }) {
   const qc = useQueryClient();
   const fn = useServerFn(asociarLeadAInmueble);
-  const { data: all } = useQuery(allInmueblesQuery);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tipo, setTipo] = useState<string>("Propietario");
 
-  const inmuebles = useMemo(() => {
-    const pool = [...(all?.inmuebles ?? []), ...(all?.alquileres ?? [])];
-    const ql = q.trim().toLowerCase();
-    if (!ql) return pool.slice(0, 20);
-    return pool
-      .filter(
-        (i) =>
-          i.calle?.toLowerCase().includes(ql) ||
-          i.ref?.toLowerCase().includes(ql) ||
-          i.localidad?.toLowerCase().includes(ql) ||
-          i.barrio?.toLowerCase().includes(ql),
-      )
-      .slice(0, 20);
-  }, [all, q]);
+  // Búsqueda server-side con límite — antes cargaba las 5.817 filas de
+  // allInmueblesQuery al navegador y filtraba/recortaba a 20 en memoria.
+  const { data: searchData } = useQuery(searchInmueblesQuery({ q, limit: 20 }));
+  const inmuebles = useMemo(() => searchData?.inmuebles ?? [], [searchData]);
 
   const selected = useMemo(
     () => inmuebles.find((i) => i.id === selectedId) ?? null,
