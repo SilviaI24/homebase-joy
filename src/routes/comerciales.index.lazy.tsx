@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { type Inmueble } from "@/lib/inmuebles.functions";
-import { allInmueblesQuery, agentesQuery, visitasQuery } from "@/lib/queries";
+import { allInmueblesLiteQuery, agentesQuery, visitasQuery } from "@/lib/queries";
 import {
   createVisita,
   createCliente,
@@ -114,7 +114,7 @@ type ActividadEvt = {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 function ComercialesPage() {
-  const { data: all } = useSuspenseQuery(allInmueblesQuery);
+  const { data: all } = useSuspenseQuery(allInmueblesLiteQuery);
   const { data: ag } = useSuspenseQuery(agentesQuery);
   const { data: vs } = useSuspenseQuery(visitasQuery);
 

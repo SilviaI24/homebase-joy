@@ -19,7 +19,7 @@ import { AppShell } from "@/components/AppShell";
 import { RouteError } from "@/components/RouteError";
 import { isAlquiler, type Inmueble } from "@/lib/inmuebles.functions";
 import {
-  allInmueblesQuery,
+  allInmueblesLiteQuery,
   clientesQueryOpts,
   visitasQuery,
   leadsQueryOpts,
@@ -61,7 +61,7 @@ type VisRow = {
   inmuebleNumeros?: string[];
 };
 
-const inmueblesQuery = allInmueblesQuery;
+const inmueblesQuery = allInmueblesLiteQuery;
 const clientesQuery = clientesQueryOpts;
 
 export const Route = createFileRoute("/")({
