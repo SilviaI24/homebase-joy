@@ -1,10 +1,14 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
   listAllInmuebles,
+  listAllInmueblesLite,
+  listComerciablesInmuebles,
+  searchInmuebles,
   listAgentes,
   listProspectos,
   listInmueblesPage,
   type InmueblesPageParams,
+  type SearchInmueblesParams,
 } from "@/lib/inmuebles.functions";
 import {
   listClientes,
@@ -39,6 +43,35 @@ export const allInmueblesQuery = queryOptions({
   staleTime: 5 * 60 * 1000,
   gcTime: 30 * 60 * 1000,
 });
+
+// Misma cobertura que allInmueblesQuery (todas las filas) pero con columnas
+// recortadas al mínimo que consumen el dashboard y el hub de comerciales —
+// ver listAllInmueblesLite en inmuebles.functions.ts.
+export const allInmueblesLiteQuery = queryOptions({
+  queryKey: ["all-inmuebles-lite"],
+  queryFn: () => listAllInmueblesLite(),
+  staleTime: 5 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
+});
+
+// Solo inmuebles comercializables (Activo/Reservado) — filtro de estatus
+// aplicado en SQL. Usado por la bandeja operativa para detectar menciones.
+export const comerciablesInmueblesQuery = queryOptions({
+  queryKey: ["comerciables-inmuebles"],
+  queryFn: () => listComerciablesInmuebles(),
+  staleTime: 5 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
+});
+
+/** Búsqueda server-side de inmuebles por texto, con límite. */
+export function searchInmueblesQuery(params: Partial<SearchInmueblesParams>) {
+  return queryOptions({
+    queryKey: ["inmuebles-search", params],
+    queryFn: () => searchInmuebles({ data: params }),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
 
 export const clientesQueryOpts = queryOptions({
   queryKey: ["clientes"],

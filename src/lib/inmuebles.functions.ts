@@ -409,6 +409,79 @@ export const listAlquileres = createServerFn({ method: "GET" }).handler(async ()
   return { inmuebles: alquileres };
 });
 
+// listAllInmueblesLite: mismo universo completo que listAllInmuebles (todas las
+// filas, sin filtrar), pero solo trae las columnas que realmente consumen el
+// dashboard y el hub de comerciales (sin imagenes/documentos/changelog/
+// coordenadas/observaciones/habitaciones/banos/metros_construidos/descripcion).
+// No resuelve la paginación real (sigue siendo un full-scan de `properties`),
+// pero reduce mucho el peso de cada fila para los usos puramente agregados
+// — ver decisión documentada en el informe de M-01 (parte 2).
+export const listAllInmueblesLite = createServerFn({ method: "GET" }).handler(async () => {
+  await requirePermission("properties.read");
+  const supa = getSupa();
+  const PAGE = 1000;
+  const rows: SupabasePropertyRow[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supa
+      .from("properties")
+      .select(
+        `
+        id, ref, tipo, es_alquiler, calle, numero, barrio, localidad,
+        precio, precio_final, estatus, publicacion,
+        fecha_inicio, fecha_reserva, fecha_escritura, created_at,
+        agents(id, nombre, email)
+      `,
+      )
+      .not("estatus", "is", null)
+      .order("created_at", { ascending: false, nullsFirst: false })
+      .range(from, from + PAGE - 1);
+
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as unknown as SupabasePropertyRow[];
+    rows.push(...page);
+    if (page.length < PAGE) break;
+    from += PAGE;
+  }
+
+  const all = rows.map(mapBase);
+  return {
+    inmuebles: all.filter((i) => !i.esAlquiler),
+    alquileres: all.filter((i) => i.esAlquiler),
+  };
+});
+
+// listComerciablesInmuebles: igual que listAllInmuebles pero con el filtro de
+// estatus (Activo/Reservado) empujado a SQL en vez de aplicarse en el cliente.
+// Usado por la bandeja operativa para detectar inmuebles mencionados en
+// conversaciones — solo tiene sentido vincular inmuebles que hoy se pueden
+// comercializar, así que no hace falta traer los 5.817 registros históricos.
+export const listComerciablesInmuebles = createServerFn({ method: "GET" }).handler(async () => {
+  await requirePermission("properties.read");
+  const supa = getSupa();
+  const { data, error } = await supa
+    .from("properties")
+    .select(
+      `
+      id, ref, tipo, es_alquiler, calle, numero, barrio, localidad,
+      metros_construidos, habitaciones, banos, precio, precio_final,
+      estatus, publicacion, estado, imagenes, coordenadas, observaciones,
+      fecha_inicio, fecha_reserva, fecha_escritura, created_at,
+      agents(id, nombre, email)
+    `,
+    )
+    .in("estatus", ["Activo", "Reservado"])
+    .order("created_at", { ascending: false, nullsFirst: false });
+
+  if (error) throw new Error(error.message);
+  const all = ((data ?? []) as unknown as SupabasePropertyRow[]).map(mapBase);
+  return {
+    inmuebles: all.filter((i) => !i.esAlquiler),
+    alquileres: all.filter((i) => i.esAlquiler),
+  };
+});
+
 export const getInmueble = createServerFn({ method: "GET" })
   .validator((d: { id: string }) => {
     if (!d?.id || typeof d.id !== "string") throw new Error("id requerido");
@@ -920,6 +993,59 @@ export const deleteInmueble = createServerFn({ method: "POST" })
 function escapeLike(s: string): string {
   return s.replace(/%/g, "\\%").replace(/_/g, "\\_");
 }
+
+export type SearchInmueblesParams = {
+  q: string;
+  limit: number;
+  esAlquiler?: boolean;
+};
+
+// Búsqueda server-side por texto (ref/calle/barrio/localidad), con límite —
+// para los buscadores tipo autocompletar (AsociarInmuebleButton, selector de
+// inmueble en NewVisitaDialog, picker de propiedad en Operaciones). Antes cada
+// uno cargaba las 5.817 filas de listAllInmuebles al navegador y filtraba en
+// memoria mostrando solo los primeros 20. Aprovecha el índice pg_trgm
+// existente sobre properties.calle (20260819145303_add_missing_composite_indexes.sql).
+export const searchInmuebles = createServerFn({ method: "GET" })
+  .validator((d: Partial<SearchInmueblesParams>): SearchInmueblesParams => {
+    const q = typeof d?.q === "string" ? d.q.trim() : "";
+    const limit = Math.min(50, Math.max(1, Number(d?.limit) || 20));
+    const esAlquiler = typeof d?.esAlquiler === "boolean" ? d.esAlquiler : undefined;
+    return { q, limit, esAlquiler };
+  })
+  .handler(async ({ data }): Promise<{ inmuebles: Inmueble[] }> => {
+    await requirePermission("properties.read");
+    const supa = getSupa();
+
+    let query = supa
+      .from("properties")
+      .select(
+        `id, ref, tipo, es_alquiler, calle, numero, barrio, localidad,
+         metros_construidos, habitaciones, banos, precio, precio_final,
+         estatus, publicacion, estado, imagenes, coordenadas, observaciones,
+         fecha_inicio, fecha_reserva, fecha_escritura, created_at,
+         agents(id, nombre, email)`,
+      )
+      .not("estatus", "is", null)
+      .order("created_at", { ascending: false, nullsFirst: false })
+      .limit(data.limit);
+
+    if (data.esAlquiler !== undefined) {
+      query = query.eq("es_alquiler", data.esAlquiler);
+    }
+
+    if (data.q) {
+      const needle = escapeLike(data.q);
+      query = query.or(
+        `ref.ilike.%${needle}%,calle.ilike.%${needle}%,barrio.ilike.%${needle}%,localidad.ilike.%${needle}%`,
+      );
+    }
+
+    const { data: rows, error } = await query;
+    if (error) throw new Error("Error al buscar inmuebles");
+
+    return { inmuebles: ((rows ?? []) as unknown as SupabasePropertyRow[]).map(mapBase) };
+  });
 
 export type InmueblesPageParams = {
   page: number;

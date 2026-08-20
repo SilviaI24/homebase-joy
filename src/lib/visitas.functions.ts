@@ -12,6 +12,7 @@ export type VisitaFull = {
   inmuebleIds: string[];
   inmuebleCalles: string[];
   inmuebleNumeros: string[];
+  inmuebleBarrios: string[];
   clientesNombres: string[];
   clientesTelefonos: string[];
   agentesIds: string[];
@@ -37,7 +38,7 @@ export const listVisitas = createServerFn({ method: "GET" }).handler(async () =>
     .select(
       `
       id, fecha, estado, notas,
-      properties(id, calle, numero),
+      properties(id, calle, numero, barrio),
       contacts(id, nombre, telefono),
       agents(id, email)
     `,
@@ -57,6 +58,7 @@ export const listVisitas = createServerFn({ method: "GET" }).handler(async () =>
     inmuebleIds: r.properties ? [r.properties.id] : [],
     inmuebleCalles: r.properties ? [toTitleCase(r.properties.calle ?? "")] : [],
     inmuebleNumeros: r.properties ? [r.properties.numero ?? ""] : [],
+    inmuebleBarrios: r.properties ? [toTitleCase(r.properties.barrio ?? "")] : [],
     clientesNombres: r.contacts ? [toTitleCase(r.contacts.nombre ?? "")] : [],
     clientesTelefonos: r.contacts ? [r.contacts.telefono ?? ""] : [],
     agentesIds: r.agents ? [r.agents.id] : [],
