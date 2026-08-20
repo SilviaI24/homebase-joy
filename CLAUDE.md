@@ -12,10 +12,12 @@ CRM inmobiliario para gestión de propiedades, contactos, leads y operaciones.
 ## Supabase
 
 - **Project ID:** `fyrfkbcabmitbfuqeccq`
-- **Client anon:** `src/lib/supabase.client.ts` — usa `VITE_SUPABASE_ANON_KEY` (solo auth del usuario)
+- **Client anon:** `src/lib/supabase-browser.ts` — usa `VITE_SUPABASE_ANON_KEY` (solo auth del usuario)
 - **Server:** `src/lib/supabase.server.ts` → `getSupa()` — usa `SUPABASE_SERVICE_KEY`, nunca en cliente
 - **RLS:** todas las tablas tienen RLS con policy `service_role_all TO service_role`. La anon key NO lee datos.
-- **Auth:** email/password, único administrador inicial `ai@elsolgrupo.com`. Roles por departamento: pendiente Phase 2.
+- **Auth:** email/password, único administrador inicial `ai@elsolgrupo.com`. Roles: solo `ADMIN` y `OPERATIVO`
+  (sin distinción por departamento — decisión de David, 19 ago 2026; `FINANCIERO` existe en el catálogo pero
+  sin cuentas activas, su acceso vive en un command center aparte, repo distinto, aún sin diseñar).
 
 ## Convenciones de código
 
@@ -82,6 +84,19 @@ npx supabase db push --dry-run
 - Variables necesarias en `.env.local`: `SUPABASE_URL` y `SUPABASE_ANON_KEY` (sin prefijo VITE_)
 - **Nota:** usuarios con sesión antigua (localStorage) necesitan re-login una vez para que se genere la cookie
 
+## Métricas agregadas (promedios, medianas, comparativas de barrio…)
+
+Antes de escribir cualquier vista/función que agregue datos operativos para
+mostrarla a alguien, seguir la regla escrita en
+`elsol-client-hub/REGLA_CALIDAD_METRICAS_AGREGADAS_2026-08-20.md` (normalizar
+claves de agrupación en texto libre, no mezclar categorías/unidades
+incompatibles, exigir mínimo de muestra documentado con datos reales, no
+publicar lo que el dato de origen no sostiene todavía, retirar explícitamente
+lo que quede sustituido). Nace de arreglar `neighborhood_market_data` en
+elsol-client-hub — leer ese caso como ejemplo de referencia.
+
 ## Pendiente
 
-- Roles por departamento con RLS por `agente_id` (Phase 3)
+- Reemplazar el resto de usos de `listAllInmuebles` (dashboard, comerciales,
+  operaciones, visitas, bandeja, selectores de inmueble) por consultas
+  paginadas/agregadas — "M-01-bis", en curso.
