@@ -95,8 +95,23 @@ publicar lo que el dato de origen no sostiene todavía, retirar explícitamente
 lo que quede sustituido). Nace de arreglar `neighborhood_market_data` en
 elsol-client-hub — leer ese caso como ejemplo de referencia.
 
+## Migraciones compartidas entre repos (importante, aprendido el 20 ago 2026)
+
+`homebase-joy` y `elsol-client-hub` apuntan al **mismo proyecto Supabase**
+(`fyrfkbcabmitbfuqeccq`). El seguimiento de qué migración se aplicó vive en
+la base de datos compartida, no en cada repo — así que **cada vez que se
+aplica una migración desde un repo, hay que copiar ese mismo archivo al otro
+repo también**, o su `supabase db push` deja de funcionar (ver
+`esgi-dual-repo-architecture` en memoria para el detalle completo de por qué).
+No asumir que "esto es solo del CRM" o "esto es solo del Portal" exime de
+copiarlo — el historial de migraciones es del proyecto, no de la app.
+
 ## Pendiente
 
-- Reemplazar el resto de usos de `listAllInmuebles` (dashboard, comerciales,
-  operaciones, visitas, bandeja, selectores de inmueble) por consultas
-  paginadas/agregadas — "M-01-bis", en curso.
+- `listAllInmuebles` ya no lo usan Cartera, buscadores/autocompletar,
+  operaciones, visitas, bandeja ni el dashboard (M-01-bis, 20 ago 2026) —
+  cada uno migrado a la consulta paginada/agregada que le correspondía.
+  Sigue en `comerciales.index.lazy.tsx`: necesita filas completas agrupadas
+  por agente + un feed de actividad sobre todo el histórico, no un agregado
+  simple — rediseñarlo bien es su propia sesión, no una continuación directa
+  de lo anterior.
