@@ -10,7 +10,7 @@ import { RouteError } from "@/components/RouteError";
 import { SafeImage } from "@/components/SafeImage";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
 import { Pagination } from "@/components/pagination/Pagination";
-import { allInmueblesQuery, iaConversationsPageQuery } from "@/lib/queries";
+import { comerciablesInmueblesQuery, iaConversationsPageQuery } from "@/lib/queries";
 import {
   updateClienteSeguimiento,
   asociarLeadAInmueble,
@@ -352,7 +352,7 @@ export const Route = createFileRoute("/bandeja/")({
     context.queryClient.ensureQueryData(
       iaConversationsPageQuery({ page: 1, pageSize: PAGE_SIZE, tab: "Pendientes" }),
     ).catch(() => {});
-    context.queryClient.ensureQueryData(allInmueblesQuery).catch(() => {});
+    context.queryClient.ensureQueryData(comerciablesInmueblesQuery).catch(() => {});
   },
   component: BandejaPage,
   errorComponent: ({ error }) => (
@@ -409,7 +409,7 @@ function BandejaPage() {
     }),
   );
 
-  const { data: inmData } = useSuspenseQuery(allInmueblesQuery);
+  const { data: inmData } = useSuspenseQuery(comerciablesInmueblesQuery);
 
   const conversaciones = pageData?.clientes ?? [];
   const total = pageData?.total ?? 0;
