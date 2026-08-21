@@ -1,6 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
-  listAllInmuebles,
   listComerciablesInmuebles,
   listInmueblesActividadReciente,
   searchInmuebles,
@@ -34,15 +33,6 @@ export const agentesQuery = queryOptions({
   queryFn: () => listAgentes(),
   staleTime: 10 * 60 * 1000,
   gcTime: 60 * 60 * 1000,
-});
-
-// Cache compartida por todas las rutas que necesitan inmuebles/alquileres.
-// Una sola llamada a Airtable alimenta dashboard, inmuebles, alquileres y comerciales.
-export const allInmueblesQuery = queryOptions({
-  queryKey: ["all-inmuebles"],
-  queryFn: () => listAllInmuebles(),
-  staleTime: 5 * 60 * 1000,
-  gcTime: 30 * 60 * 1000,
 });
 
 // Agregados del dashboard calculados en SQL (dashboard_inmuebles_stats) en

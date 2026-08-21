@@ -360,57 +360,8 @@ export const listProspectos = createServerFn({ method: "GET" }).handler(async ()
   return { prospectos };
 });
 
-export const listAllInmuebles = createServerFn({ method: "GET" }).handler(async () => {
-  await requirePermission("properties.read");
-  const supa = getSupa();
-  const PAGE = 1000;
-  const rows: SupabasePropertyRow[] = [];
-  let from = 0;
-
-  while (true) {
-    const { data, error } = await supa
-      .from("properties")
-      .select(
-        `
-        id, ref, tipo, es_alquiler, calle, numero, barrio, localidad,
-        metros_construidos, habitaciones, banos, precio, precio_final,
-        estatus, publicacion, estado, imagenes, coordenadas, observaciones,
-        fecha_inicio, fecha_reserva, fecha_escritura, created_at,
-        agents(id, nombre, email)
-      `,
-      )
-      .not("estatus", "is", null)
-      .order("created_at", { ascending: false, nullsFirst: false })
-      .range(from, from + PAGE - 1);
-
-    if (error) throw new Error(error.message);
-    const page = (data ?? []) as unknown as SupabasePropertyRow[];
-    rows.push(...page);
-    if (page.length < PAGE) break;
-    from += PAGE;
-  }
-
-  const all = rows.map(mapBase);
-  return {
-    inmuebles: all.filter((i) => !i.esAlquiler),
-    alquileres: all.filter((i) => i.esAlquiler),
-  };
-});
-
-export const listInmuebles = createServerFn({ method: "GET" }).handler(async () => {
-  await requirePermission("properties.read");
-  const { inmuebles } = await listAllInmuebles();
-  return { inmuebles };
-});
-
-export const listAlquileres = createServerFn({ method: "GET" }).handler(async () => {
-  await requirePermission("properties.read");
-  const { alquileres } = await listAllInmuebles();
-  return { inmuebles: alquileres };
-});
-
-// listComerciablesInmuebles: igual que listAllInmuebles pero con el filtro de
-// estatus (Activo/Reservado) empujado a SQL en vez de aplicarse en el cliente.
+// listComerciablesInmuebles: filtro de estatus (Activo/Reservado) empujado a
+// SQL en vez de aplicarse en el cliente.
 // Usado por la bandeja operativa para detectar inmuebles mencionados en
 // conversaciones, y por el hub de Comerciales (directorio por agente + selector
 // de inmueble en "Nueva visita") — solo tiene sentido vincular/asignar inmuebles
