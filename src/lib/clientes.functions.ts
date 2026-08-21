@@ -1186,25 +1186,25 @@ export const actualizarCicloVida = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermission("contacts.update");
+    const { crm } = await requirePermission("contacts.update");
     const supa = getSupa();
 
-    // Al archivar (M-05), recordamos la etapa real para poder "sacarlo" de
-    // histórico sin adivinar dónde estaba — ver restaurarContactoDeHistorico.
-    const up: Record<string, unknown> = { ciclo_vida: data.cicloVida };
-    if (data.cicloVida === "Histórico") {
-      const { data: current } = await supa
-        .from("contacts")
-        .select("ciclo_vida")
-        .eq("id", data.contactId)
-        .maybeSingle();
-      if (current?.ciclo_vida && current.ciclo_vida !== "Histórico") {
-        up.ciclo_vida_anterior = current.ciclo_vida;
-      }
+    // H-05: el cambio va por RPC en lugar de un .update() directo para que el
+    // actor real quede en audit_log.usuario_id. El RPC fija app.actor_id como
+    // GUC local a su propia transacción y luego escribe, todo en la misma
+    // llamada HTTP — un SET LOCAL suelto desde aquí no sobreviviría al salto de
+    // petición (PostgREST abre una transacción por request). El RPC también se
+    // encarga de guardar ciclo_vida_anterior al archivar (M-05), que antes se
+    // resolvía con una lectura previa desde aquí.
+    const { error } = await supa.rpc("crm_actualizar_ciclo_vida", {
+      p_contact_id: data.contactId,
+      p_ciclo_vida: data.cicloVida,
+      p_actor_id: crm.userId,
+    });
+    if (error) {
+      console.error("crm_actualizar_ciclo_vida:", error.message);
+      throw new Error("No se pudo actualizar la etapa del contacto");
     }
-
-    const { error } = await supa.from("contacts").update(up).eq("id", data.contactId);
-    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
