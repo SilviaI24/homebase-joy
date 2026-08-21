@@ -3,6 +3,7 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { checkEnv } from "./lib/env-guard";
+import { applySecurityHeaders, isSecureRequest } from "./lib/security-headers";
 
 const _envCheck = checkEnv({
   APP_ENV: process.env.APP_ENV,
@@ -51,23 +52,32 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    // Toda salida pasa por applySecurityHeaders — también las de error, para que
+    // una página de fallo no se sirva sin cabeceras de seguridad (M-07).
+    const secure = isSecureRequest(request);
+    const withHeaders = (response: Response) => applySecurityHeaders(response, process.env, secure);
+
     if (!_envCheck.ok) {
-      return new Response("Service unavailable\n", {
-        status: 503,
-        headers: { "content-type": "text/plain; charset=utf-8" },
-      });
+      return withHeaders(
+        new Response("Service unavailable\n", {
+          status: 503,
+          headers: { "content-type": "text/plain; charset=utf-8" },
+        }),
+      );
     }
 
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return withHeaders(await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       console.error(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      return withHeaders(
+        new Response(renderErrorPage(), {
+          status: 500,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+      );
     }
   },
 };
