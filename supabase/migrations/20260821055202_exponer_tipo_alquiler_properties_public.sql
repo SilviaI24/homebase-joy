@@ -1,0 +1,18 @@
+-- Esta versión quedó registrada como aplicada mientras el archivo estaba
+-- vacío (0 bytes): se ejecutó `db push` desde otra sesión justo en el
+-- instante en que se estaba escribiendo su contenido. El CLI marca la
+-- versión como aplicada aunque el archivo esté vacío (no-op), y una vez
+-- marcada no se re-ejecuta aunque el archivo cambie después — así que el
+-- cambio real quedó sin aplicar por este cruce de tiempos, no por un fallo
+-- del cambio en sí.
+--
+-- Al escribir el contenido real se encontró además un fallo genuino en su
+-- propio preflight: comparaba pg_get_viewdef() contra un patrón con el
+-- prefijo "properties." que Postgres no incluye al renderizar la
+-- definición (la real es `concat(calle, ' ', numero, ...)`, sin prefijo).
+--
+-- El cambio real (exponer properties_public.es_alquiler), con esa
+-- corrección, se aplicó y verificó en
+-- 20260821055531_fix_exponer_tipo_alquiler_properties_public.sql. Este
+-- archivo se deja vacío a propósito, como registro honesto de lo ocurrido
+-- — no se reescribe una versión ya marcada como aplicada en producción.
