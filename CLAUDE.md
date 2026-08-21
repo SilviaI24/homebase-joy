@@ -115,3 +115,27 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   `listInmueblesActividadReciente`, para el feed de actividad). Código muerto
   detectado de paso, sin retirar todavía: `listAllInmuebles`, `allInmueblesQuery`,
   `listInmuebles`, `listAlquileres` — sin consumidores desde antes de esta sesión.
+- **Bugs de datos de origen corregidos el 21 ago 2026** (migraciones
+  `20260821064713_fix_metros_y_alquiler_mismarcado.sql` +
+  `20260821065045_fix_estatus_bloqueado_por_trigger.sql`, aplicadas y
+  verificadas contra producción): `metros_construidos` con separador de
+  miles perdido (235 filas puestas a NULL, salvo Garaje/Trastero donde
+  valores pequeños son legítimos) y 1.953 alquileres mensuales guardados
+  con `es_alquiler=false` (corregidos a `true`; los que tenían
+  `estatus='Vendido'` pasan a `'Alquilado'`). Precios <20€ (27 filas,
+  placeholders) se dejaron sin tocar a propósito. Ver
+  `REGLA_CALIDAD_METRICAS_AGREGADAS_2026-08-20.md` (elsol-client-hub) para
+  el criterio aplicado.
+- **CI (`.github/workflows/ci.yml`) creado el 21 ago 2026, commit local
+  `045a9ab` sin subir todavía:** el push falló porque el PAT embebido en el
+  remoto no tiene el scope `workflow` que GitHub exige para archivos bajo
+  `.github/workflows/`. Hay que subirlo a mano o añadir ese scope al token.
+- **Trigger a tener en cuenta al escribir migraciones futuras que tocan
+  `properties.estatus`:** `trg_crm_preserve_closed_property_state` impide
+  cambiar `estatus`/`precio_final`/`fecha_escritura`/`publicacion` una vez
+  que `estatus` está en `Vendido`/`Alquilado`, salvo que la sesión active
+  `SET LOCAL app.crm_property_final_override = 'on'` antes del `UPDATE` (y
+  ojo: `SET LOCAL` fuera de un `BEGIN` explícito degrada a `SET` de sesión
+  con un warning — Supabase CLI no envuelve cada migración en un `BEGIN`
+  visible, así que confirmar con una consulta de postflight, no solo con la
+  ausencia de errores).
