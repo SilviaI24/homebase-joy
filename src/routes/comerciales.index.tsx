@@ -1,7 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { RouteError } from "@/components/RouteError";
-import { allInmueblesLiteQuery, agentesQuery, visitasQuery } from "@/lib/queries";
+import {
+  comerciablesInmueblesQuery,
+  actividadInmueblesQuery,
+  agentesQuery,
+  visitasQuery,
+} from "@/lib/queries";
 
 export const Route = createFileRoute("/comerciales/")({
   head: () => ({
@@ -12,7 +17,8 @@ export const Route = createFileRoute("/comerciales/")({
   }),
   loader: ({ context }) =>
     Promise.all([
-      context.queryClient.ensureQueryData(allInmueblesLiteQuery),
+      context.queryClient.ensureQueryData(comerciablesInmueblesQuery),
+      context.queryClient.ensureQueryData(actividadInmueblesQuery),
       context.queryClient.ensureQueryData(agentesQuery),
       context.queryClient.ensureQueryData(visitasQuery),
     ]),

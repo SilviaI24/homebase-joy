@@ -1,8 +1,8 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
   listAllInmuebles,
-  listAllInmueblesLite,
   listComerciablesInmuebles,
+  listInmueblesActividadReciente,
   searchInmuebles,
   listAgentes,
   listProspectos,
@@ -45,19 +45,10 @@ export const allInmueblesQuery = queryOptions({
   gcTime: 30 * 60 * 1000,
 });
 
-// Misma cobertura que allInmueblesQuery (todas las filas) pero con columnas
-// recortadas al mínimo que consumen el dashboard y el hub de comerciales —
-// ver listAllInmueblesLite en inmuebles.functions.ts.
-export const allInmueblesLiteQuery = queryOptions({
-  queryKey: ["all-inmuebles-lite"],
-  queryFn: () => listAllInmueblesLite(),
-  staleTime: 5 * 60 * 1000,
-  gcTime: 30 * 60 * 1000,
-});
-
 // Agregados del dashboard calculados en SQL (dashboard_inmuebles_stats) en
 // vez de traer las 5.817 filas de properties para sumar en el navegador —
-// ver M-01-bis. Sustituye a allInmueblesLiteQuery en src/routes/index.tsx.
+// ver M-01-bis. Sustituye a la antigua allInmueblesLiteQuery (retirada) en
+// src/routes/index.tsx.
 export const dashboardStatsQuery = queryOptions({
   queryKey: ["dashboard-stats"],
   queryFn: () => getDashboardStats(),
@@ -66,12 +57,24 @@ export const dashboardStatsQuery = queryOptions({
 });
 
 // Solo inmuebles comercializables (Activo/Reservado) — filtro de estatus
-// aplicado en SQL. Usado por la bandeja operativa para detectar menciones.
+// aplicado en SQL. Usado por la bandeja operativa para detectar menciones, y
+// por el hub de Comerciales (directorio por agente + selector de "Nueva
+// visita") — ver comerciales.index.lazy.tsx.
 export const comerciablesInmueblesQuery = queryOptions({
   queryKey: ["comerciables-inmuebles"],
   queryFn: () => listComerciablesInmuebles(),
   staleTime: 5 * 60 * 1000,
   gcTime: 30 * 60 * 1000,
+});
+
+// Feed de "Actividad reciente" del hub de Comerciales: las ~40 filas más
+// recientes por fecha_inicio/fecha_reserva/fecha_escritura (no la tabla
+// completa) — ver listInmueblesActividadReciente en inmuebles.functions.ts.
+export const actividadInmueblesQuery = queryOptions({
+  queryKey: ["actividad-inmuebles"],
+  queryFn: () => listInmueblesActividadReciente(),
+  staleTime: 2 * 60 * 1000,
+  gcTime: 15 * 60 * 1000,
 });
 
 /** Búsqueda server-side de inmuebles por texto, con límite. */

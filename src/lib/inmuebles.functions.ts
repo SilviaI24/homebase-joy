@@ -409,54 +409,16 @@ export const listAlquileres = createServerFn({ method: "GET" }).handler(async ()
   return { inmuebles: alquileres };
 });
 
-// listAllInmueblesLite: mismo universo completo que listAllInmuebles (todas las
-// filas, sin filtrar), pero solo trae las columnas que realmente consumen el
-// dashboard y el hub de comerciales (sin imagenes/documentos/changelog/
-// coordenadas/observaciones/habitaciones/banos/metros_construidos/descripcion).
-// No resuelve la paginación real (sigue siendo un full-scan de `properties`),
-// pero reduce mucho el peso de cada fila para los usos puramente agregados
-// — ver decisión documentada en el informe de M-01 (parte 2).
-export const listAllInmueblesLite = createServerFn({ method: "GET" }).handler(async () => {
-  await requirePermission("properties.read");
-  const supa = getSupa();
-  const PAGE = 1000;
-  const rows: SupabasePropertyRow[] = [];
-  let from = 0;
-
-  while (true) {
-    const { data, error } = await supa
-      .from("properties")
-      .select(
-        `
-        id, ref, tipo, es_alquiler, calle, numero, barrio, localidad,
-        precio, precio_final, estatus, publicacion,
-        fecha_inicio, fecha_reserva, fecha_escritura, created_at,
-        agents(id, nombre, email)
-      `,
-      )
-      .not("estatus", "is", null)
-      .order("created_at", { ascending: false, nullsFirst: false })
-      .range(from, from + PAGE - 1);
-
-    if (error) throw new Error(error.message);
-    const page = (data ?? []) as unknown as SupabasePropertyRow[];
-    rows.push(...page);
-    if (page.length < PAGE) break;
-    from += PAGE;
-  }
-
-  const all = rows.map(mapBase);
-  return {
-    inmuebles: all.filter((i) => !i.esAlquiler),
-    alquileres: all.filter((i) => i.esAlquiler),
-  };
-});
-
 // listComerciablesInmuebles: igual que listAllInmuebles pero con el filtro de
 // estatus (Activo/Reservado) empujado a SQL en vez de aplicarse en el cliente.
 // Usado por la bandeja operativa para detectar inmuebles mencionados en
-// conversaciones — solo tiene sentido vincular inmuebles que hoy se pueden
-// comercializar, así que no hace falta traer los 5.817 registros históricos.
+// conversaciones, y por el hub de Comerciales (directorio por agente + selector
+// de inmueble en "Nueva visita") — solo tiene sentido vincular/asignar inmuebles
+// que hoy se pueden comercializar, así que no hace falta traer los 5.817
+// registros históricos. Verificado contra producción (21 ago 2026): del total
+// de la tabla, solo 97 filas están Activo/Reservado, y los conteos por agente
+// que antes calculaba el hub de Comerciales recorriendo TODA la tabla en el
+// navegador solo dependen de estas dos estatus — ver comerciales.index.lazy.tsx.
 export const listComerciablesInmuebles = createServerFn({ method: "GET" }).handler(async () => {
   await requirePermission("properties.read");
   const supa = getSupa();
@@ -481,6 +443,79 @@ export const listComerciablesInmuebles = createServerFn({ method: "GET" }).handl
     alquileres: all.filter((i) => i.esAlquiler),
   };
 });
+
+// listInmueblesActividadReciente: para el feed "Actividad reciente" del hub de
+// Comerciales, que antes recorría las 5.817 filas de listAllInmueblesLite
+// buscando fecha_inicio/fecha_reserva/fecha_escritura para construir el feed
+// de eventos (captación/reserva/cierre). En vez de la tabla completa, trae las
+// LIMIT filas más recientes por cada una de esas 3 fechas por separado (mismo
+// patrón que "recientes"/"estancados" en getDashboardStats: listas reales
+// pedidas con .order().limit(), no un agregado) y las deduplica por id.
+//
+// LIMIT=40 en vez de 30 (que es lo que finalmente muestra la pantalla) por
+// margen de seguridad: verificado contra producción con execute_sql (21 ago
+// 2026) que el top-30 real de eventos — mezclando las 3 fechas de las 5.819
+// filas de la tabla — está siempre contenido en la unión de los top-40 de
+// cada columna por separado (0 filas del top-30 real quedaron fuera). Esto se
+// cumple siempre que el límite por columna sea >= al límite final mostrado,
+// porque cualquier fila del top-N global por fecha máxima también está en el
+// top-N de su propia columna.
+const ACTIVIDAD_RECIENTE_LIMIT_POR_FECHA = 40;
+
+export const listInmueblesActividadReciente = createServerFn({ method: "GET" }).handler(
+  async () => {
+    await requirePermission("properties.read");
+    const supa = getSupa();
+    const cols = `
+      id, ref, tipo, es_alquiler, calle, numero, barrio, localidad,
+      precio, precio_final, estatus, publicacion,
+      fecha_inicio, fecha_reserva, fecha_escritura, created_at,
+      agents(id, nombre, email)
+    `;
+
+    const [captRes, reservaRes, cierreRes] = await Promise.all([
+      supa
+        .from("properties")
+        .select(cols)
+        .not("fecha_inicio", "is", null)
+        .order("fecha_inicio", { ascending: false })
+        .limit(ACTIVIDAD_RECIENTE_LIMIT_POR_FECHA),
+      supa
+        .from("properties")
+        .select(cols)
+        .not("fecha_reserva", "is", null)
+        .order("fecha_reserva", { ascending: false })
+        .limit(ACTIVIDAD_RECIENTE_LIMIT_POR_FECHA),
+      supa
+        .from("properties")
+        .select(cols)
+        .not("fecha_escritura", "is", null)
+        .order("fecha_escritura", { ascending: false })
+        .limit(ACTIVIDAD_RECIENTE_LIMIT_POR_FECHA),
+    ]);
+
+    if (captRes.error) throw new Error(captRes.error.message);
+    if (reservaRes.error) throw new Error(reservaRes.error.message);
+    if (cierreRes.error) throw new Error(cierreRes.error.message);
+
+    // Dedup por id: una misma propiedad puede aparecer en más de una de las
+    // 3 consultas (p. ej. captada y reservada recientemente a la vez).
+    const byId = new Map<string, SupabasePropertyRow>();
+    for (const row of [
+      ...((captRes.data ?? []) as unknown as SupabasePropertyRow[]),
+      ...((reservaRes.data ?? []) as unknown as SupabasePropertyRow[]),
+      ...((cierreRes.data ?? []) as unknown as SupabasePropertyRow[]),
+    ]) {
+      byId.set(row.id, row);
+    }
+
+    const all = Array.from(byId.values()).map(mapBase);
+    return {
+      inmuebles: all.filter((i) => !i.esAlquiler),
+      alquileres: all.filter((i) => i.esAlquiler),
+    };
+  },
+);
 
 export const getInmueble = createServerFn({ method: "GET" })
   .validator((d: { id: string }) => {

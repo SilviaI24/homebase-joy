@@ -1,11 +1,17 @@
 import { createLazyFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { type Inmueble } from "@/lib/inmuebles.functions";
-import { allInmueblesLiteQuery, agentesQuery, visitasQuery } from "@/lib/queries";
+import {
+  comerciablesInmueblesQuery,
+  actividadInmueblesQuery,
+  searchInmueblesQuery,
+  agentesQuery,
+  visitasQuery,
+} from "@/lib/queries";
 import {
   createVisita,
   createCliente,
@@ -114,11 +120,20 @@ type ActividadEvt = {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 function ComercialesPage() {
-  const { data: all } = useSuspenseQuery(allInmueblesLiteQuery);
+  // Solo inmuebles Activo/Reservado (97 filas en producción, no las 5.817 de
+  // la tabla): es lo único que consumen el directorio por agente (conteos +
+  // listado) y el selector de "Nueva visita" — ver listComerciablesInmuebles.
+  const { data: all } = useSuspenseQuery(comerciablesInmueblesQuery);
+  // Feed aparte para "Actividad reciente": necesita captaciones/reservas/
+  // cierres de CUALQUIER estatus (p. ej. una venta ya cerrada), así que no
+  // puede salir del mismo universo Activo/Reservado — ver
+  // listInmueblesActividadReciente.
+  const { data: actividadData } = useSuspenseQuery(actividadInmueblesQuery);
   const { data: ag } = useSuspenseQuery(agentesQuery);
   const { data: vs } = useSuspenseQuery(visitasQuery);
 
   const inmuebles = all.inmuebles;
+  const actividadInmuebles = actividadData.inmuebles;
   const visitas = vs.visitas as VisitaRow[];
   const agentes = ag.agentes;
 
@@ -227,10 +242,12 @@ function ComercialesPage() {
     return Array.from(byNombre.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
   }, [agentes, inmuebles, visitas, mailToNombre]);
 
-  // Actividad reciente
+  // Actividad reciente — fuente acotada (ver actividadInmueblesQuery), no el
+  // universo Activo/Reservado de arriba: un cierre reciente, por ejemplo,
+  // corresponde a un inmueble ya Vendido/Alquilado.
   const actividad = useMemo(() => {
     const evts: ActividadEvt[] = [];
-    inmuebles.forEach((i) => {
+    actividadInmuebles.forEach((i) => {
       if (i.fechaInicio)
         evts.push({
           key: `c-${i.id}`,
@@ -281,7 +298,7 @@ function ComercialesPage() {
     });
     evts.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
     return evts.slice(0, 30);
-  }, [inmuebles, visitas, mailToNombre]);
+  }, [actividadInmuebles, visitas, mailToNombre]);
 
   // Workspace del agente seleccionado
   const agenteCard =
@@ -305,22 +322,28 @@ function ComercialesPage() {
     return actividad.filter((e) => e.agentes.includes(selectedAgente));
   }, [actividad, selectedAgente]);
 
-  // Búsqueda global
+  // Búsqueda global — inmuebles vía searchInmuebles (server-side, cualquier
+  // estatus, mismo alcance de "solo venta" que tenía antes al leer de
+  // all.inmuebles) en vez de escanear las 5.817 filas en memoria; mismo
+  // patrón que AsociarInmuebleButton/NewVisitaDialog/Operaciones. Visitas
+  // sigue siendo el array ya cargado (acotado a 6 meses, ver listVisitas).
   const [searchQ, setSearchQ] = useState("");
+  const { data: searchInmData } = useQuery({
+    ...searchInmueblesQuery({ q: searchQ, limit: 5, esAlquiler: false }),
+    enabled: searchQ.trim().length >= 2,
+  });
   const searchResults = useMemo(() => {
     if (searchQ.trim().length < 2) return [];
     const needle = searchQ.toLowerCase();
     const results: Array<{ type: "inmueble" | "visita"; id: string; label: string; sub: string }> =
       [];
-    for (const i of inmuebles) {
-      const text = `${i.calle} ${i.numero ?? ""} ${i.localidad ?? ""} ${i.ref ?? ""}`.toLowerCase();
-      if (text.includes(needle))
-        results.push({
-          type: "inmueble",
-          id: i.id,
-          label: `${i.calle} ${i.numero ?? ""}`.trim(),
-          sub: `${i.localidad ?? ""} · ${i.estatus}`,
-        });
+    for (const i of searchInmData?.inmuebles ?? []) {
+      results.push({
+        type: "inmueble",
+        id: i.id,
+        label: `${i.calle} ${i.numero ?? ""}`.trim(),
+        sub: `${i.localidad ?? ""} · ${i.estatus}`,
+      });
       if (results.length >= 5) break;
     }
     for (const v of visitas) {
@@ -336,7 +359,7 @@ function ComercialesPage() {
       if (results.length >= 8) break;
     }
     return results;
-  }, [searchQ, inmuebles, visitas]);
+  }, [searchQ, searchInmData, visitas]);
 
   return (
     <AppShell title="Comerciales">
@@ -896,7 +919,10 @@ function NuevaCaptacionDialog({
     mutationFn: createFn,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["prospectos"] });
-      qc.invalidateQueries({ queryKey: ["all-inmuebles"] });
+      // Nota: ["all-inmuebles"] no es (ni era) la query real que alimenta esta
+      // pantalla — corregido a las dos que sí usa el hub de Comerciales.
+      qc.invalidateQueries({ queryKey: ["comerciables-inmuebles"] });
+      qc.invalidateQueries({ queryKey: ["actividad-inmuebles"] });
       setOpen(false);
       setForm({
         nombre: "",
