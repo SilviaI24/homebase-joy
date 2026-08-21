@@ -4,7 +4,9 @@ CRM inmobiliario para gestión de propiedades, contactos, leads y operaciones.
 
 ## Stack
 
-- **Frontend:** TanStack Start + TanStack Router + TanStack Query + Vite (target: Cloudflare Workers)
+- **Frontend:** TanStack Start + TanStack Router + TanStack Query + Vite. Despliegue real: **Vercel**
+  (`vercel.json`, `nitro({ preset: "vercel" })` en `vite.config.ts`) — Cloudflare Workers fue el plan
+  original pero no es lo que corre hoy; corregido aquí el 21 ago 2026 tras detectarlo con M-06.
 - **Backend:** Supabase (PostgreSQL + Storage + Edge Functions + Auth)
 - **IA:** SilvIA — agente de cualificación de leads vía WhatsApp/Email/Voz
 - **Automatización:** Make (team 1698831) + pg_cron
