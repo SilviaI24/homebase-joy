@@ -66,17 +66,20 @@ export const createSeguimiento = createServerFn({ method: "POST" })
     const { crm } = await requirePermission("seguimiento.create");
     const supa = getSupa();
 
-    const insert: Record<string, unknown> = {
-      contact_id: data.contactId,
-      tipo: data.tipo,
-      texto: data.texto.trim(),
-      fecha: new Date().toISOString(),
-    };
-    const agenteId = data.agenteId ?? crm.agentId;
-    if (agenteId) insert.agente_id = agenteId;
-
-    const { error } = await supa.from("seguimiento").insert(insert);
-    if (error) throw new Error(`createSeguimiento: ${error.message}`);
+    // H-05: vía RPC (no .insert() directo) para que el actor real quede en
+    // audit_log.usuario_id — ver crm_crear_seguimiento en la migración
+    // 20260821112057_h05_actor_operaciones_seguimiento.sql.
+    const { error } = await supa.rpc("crm_crear_seguimiento", {
+      p_contact_id: data.contactId,
+      p_tipo: data.tipo,
+      p_texto: data.texto.trim(),
+      p_agente_id: data.agenteId ?? crm.agentId ?? null,
+      p_actor_id: crm.userId,
+    });
+    if (error) {
+      console.error("crm_crear_seguimiento:", error.message);
+      throw new Error("No se pudo crear la nota de seguimiento");
+    }
 
     return { ok: true };
   });
