@@ -108,10 +108,10 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
-- `listAllInmuebles` ya no lo usan Cartera, buscadores/autocompletar,
-  operaciones, visitas, bandeja ni el dashboard (M-01-bis, 20 ago 2026) —
-  cada uno migrado a la consulta paginada/agregada que le correspondía.
-  Sigue en `comerciales.index.lazy.tsx`: necesita filas completas agrupadas
-  por agente + un feed de actividad sobre todo el histórico, no un agregado
-  simple — rediseñarlo bien es su propia sesión, no una continuación directa
-  de lo anterior.
+- M-01-bis completado el 21 ago 2026: `listAllInmuebles`/`allInmueblesLiteQuery`
+  ya no los usa nada (Cartera, buscadores/autocompletar, operaciones, visitas,
+  bandeja, dashboard y ahora también Comerciales — este último reutilizando
+  `listComerciablesInmuebles` para las tarjetas por agente y una función nueva,
+  `listInmueblesActividadReciente`, para el feed de actividad). Código muerto
+  detectado de paso, sin retirar todavía: `listAllInmuebles`, `allInmueblesQuery`,
+  `listInmuebles`, `listAlquileres` — sin consumidores desde antes de esta sesión.
