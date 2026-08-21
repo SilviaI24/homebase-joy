@@ -643,6 +643,8 @@ export function AppShell({
         className={`md:hidden fixed inset-y-0 left-0 z-50 w-64 flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-2xl transition-transform duration-300 ease-in-out ${
           drawerOpen ? "translate-x-0" : "-translate-x-full"
         }`}
+        aria-hidden={!drawerOpen}
+        inert={!drawerOpen}
       >
         {/* Close button */}
         <button

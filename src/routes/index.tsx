@@ -190,9 +190,16 @@ function Dashboard() {
       const d = new Date(x.fecha);
       return d >= now && d <= in7;
     }).length;
+    // Nota (revisión UX 21 ago 2026): "ventas" es el stock acumulado de
+    // propiedades Vendido/Alquilado (all-time), y v.length son las visitas de
+    // los últimos 6 meses (ver listVisitas en visitas.functions.ts) — no son
+    // la misma población ni el mismo periodo, así que este ratio puede superar
+    // el 100% y NO representa una tasa real de conversión visita→cierre.
+    // Se muestra igualmente como referencia relativa, pero sin llamarlo
+    // "Conversión" para no insinuar una relación causal que el dato no sostiene.
     const ventas = dashStats.vendidos + dashStats.alquilados;
-    const tasaCierre = v.length ? Math.round((ventas / v.length) * 100) : 0;
-    return { proximas, tasaCierre };
+    const cierresPorVisita = v.length ? Math.round((ventas / v.length) * 100) : 0;
+    return { proximas, cierresPorVisita };
   }, [visData, dashStats]);
 
   // ── Pulso del mes ── captMes/captPrev/cierresMes/cierresPrev/reservasTotal
@@ -369,9 +376,14 @@ function Dashboard() {
                   </span>
                 </>
               )}
-              <span className="text-muted-foreground">
-                Conversión{" "}
-                <strong className="text-foreground font-semibold">{visStats.tasaCierre}%</strong>
+              <span
+                className="text-muted-foreground"
+                title="Cierres (Vendidos + Alquilados, total acumulado) sobre visitas registradas en los últimos 6 meses. No es una tasa de conversión visita→cierre: son poblaciones y periodos distintos."
+              >
+                Cierres / visitas{" "}
+                <strong className="text-foreground font-semibold">
+                  {visStats.cierresPorVisita}%
+                </strong>
               </span>
               {stats.captDelta !== 0 && (
                 <span

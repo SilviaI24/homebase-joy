@@ -562,14 +562,19 @@ function DetailView({
     },
   });
 
-  const onSaveRef = useRef<() => void>(() => {});
-  const onSave = () => {
-    mutation.mutate({
+  // buildPayload(includeManual): estatus, precioFinal y fechaEscritura (UX-04)
+  // solo se incluyen cuando includeManual=true, es decir, en el guardado
+  // explícito ("Guardar ahora"). El autosave de 2s (autoSave más abajo) nunca
+  // los manda — updateInmueble trata cada campo como opcional (solo escribe
+  // lo que llega), así que omitirlos aquí simplemente los deja intactos en
+  // servidor hasta que el usuario confirme el cambio a mano. Evita, entre
+  // otras cosas, que un cambio de estatus a Vendido/Alquilado se dispare solo
+  // por el debounce y choque con trg_crm_preserve_closed_property_state.
+  const buildPayload = (includeManual: boolean): Parameters<typeof updateInmueble>[0]["data"] => {
+    const base: Parameters<typeof updateInmueble>[0]["data"] = {
       id,
-      estatus,
       publicacion,
       precio: precio === "" ? null : Number(precio),
-      precioFinal: precioFinal === "" ? null : Number(precioFinal),
       agentesIds,
       observaciones,
       descripcion,
@@ -595,21 +600,45 @@ function DetailView({
       fechaExclusiva: fechaExclusiva || null,
       fechaFinExclusiva: fechaFinExclusiva || null,
       fechaReserva: fechaReserva || null,
-      fechaEscritura: fechaEscritura || null,
       honorarios,
       tipoExclusiva,
       notaria,
       llaves,
       documentos,
-    });
+    };
+    if (!includeManual) return base;
+    return {
+      ...base,
+      estatus,
+      precioFinal: precioFinal === "" ? null : Number(precioFinal),
+      fechaEscritura: fechaEscritura || null,
+    };
+  };
+
+  const onSaveRef = useRef<() => void>(() => {});
+  const onSave = () => {
+    mutation.mutate(buildPayload(true));
   };
   onSaveRef.current = onSave;
 
-  const dirty =
+  const autoSaveRef = useRef<() => void>(() => {});
+  const autoSave = () => {
+    mutation.mutate(buildPayload(false));
+  };
+  autoSaveRef.current = autoSave;
+
+  // UX-04: estatus, precioFinal y fechaEscritura quedan fuera del autosave —
+  // solo se guardan con la acción explícita "Guardar ahora" (ver buildPayload
+  // más arriba). dirtyManual los aísla para que el efecto de abajo no los
+  // dispare por el debounce de 2s.
+  const dirtyManual =
     estatus !== inmueble.estatus ||
+    (precioFinal === "" ? null : Number(precioFinal)) !== inmueble.precioFinal ||
+    fechaEscritura !== (inmueble.fechaEscritura ?? "");
+
+  const dirtyAuto =
     publicacion !== inmueble.publicacion ||
     (precio === "" ? null : Number(precio)) !== inmueble.precio ||
-    (precioFinal === "" ? null : Number(precioFinal)) !== inmueble.precioFinal ||
     observaciones !== inmueble.observaciones ||
     descripcion !== inmueble.descripcion ||
     agentesIds.join(",") !== inmueble.agentesIds.join(",") ||
@@ -635,26 +664,27 @@ function DetailView({
     fechaExclusiva !== (inmueble.fechaExclusiva ?? "") ||
     fechaFinExclusiva !== (inmueble.fechaFinExclusiva ?? "") ||
     fechaReserva !== (inmueble.fechaReserva ?? "") ||
-    fechaEscritura !== (inmueble.fechaEscritura ?? "") ||
     honorarios !== inmueble.honorarios ||
     tipoExclusiva !== inmueble.tipoExclusiva ||
     notaria !== inmueble.notaria ||
     llaves !== inmueble.llaves ||
     JSON.stringify(documentos) !== JSON.stringify(inmueble.documentos ?? []);
 
+  const dirty = dirtyAuto || dirtyManual;
+
   useEffect(() => {
-    if (!dirty || !detailReady) {
+    if (!dirtyAuto || !detailReady) {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
       return;
     }
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(() => {
-      if (!isSavingRef.current) onSaveRef.current();
+      if (!isSavingRef.current) autoSaveRef.current();
     }, 2000);
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [dirty, detailReady]);
+  }, [dirtyAuto, detailReady]);
 
   const pageTitle = inmueble.calle
     ? `${inmueble.calle}${inmueble.numero ? " " + inmueble.numero : ""}`
@@ -1192,10 +1222,15 @@ function DetailView({
               <>
                 <span className="size-2 rounded-full bg-destructive" /> Error al guardar
               </>
-            ) : (
+            ) : dirtyAuto ? (
               <>
                 <span className="size-2 rounded-full bg-warning animate-pulse" /> Guardando en 2
                 s…
+              </>
+            ) : (
+              <>
+                <span className="size-2 rounded-full bg-warning" /> Cambios sin guardar — requiere
+                guardado manual
               </>
             )}
           </div>
@@ -2191,6 +2226,7 @@ function ImagenesReorder({
               <button
                 type="button"
                 onClick={() => onSetMain(img.url)}
+                aria-label={`Usar como foto principal (${idx + 1} de ${imagenes.length})`}
                 className={`block size-16 rounded-md overflow-hidden border-2 ${
                   active
                     ? "border-primary ring-2 ring-primary/30"

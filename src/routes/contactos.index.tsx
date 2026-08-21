@@ -948,6 +948,14 @@ function ClienteRow({ c, onClick }: { c: ClienteRow; onClick: () => void }) {
   return (
     <tr
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
       className="border-b border-border hover:bg-muted/40 transition-colors cursor-pointer group"
     >
       <td className="py-3 pl-4 pr-2">
