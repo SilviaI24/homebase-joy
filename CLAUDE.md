@@ -141,3 +141,61 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   con un warning — Supabase CLI no envuelve cada migración en un `BEGIN`
   visible, así que confirmar con una consulta de postflight, no solo con la
   ausencia de errores).
+- **H-05 (actor real en audit_log) — mecanismo implementado y probado el 21
+  ago 2026, un solo dominio convertido** (migración
+  `20260821110759_audit_actor_explicito_contacts.sql`): `registrar_audit()`
+  resuelve el actor como `app.actor_id` (GUC local que fija el RPC que
+  escribe) con `auth.uid()` como fallback. Como `getSupa()` habla con
+  Postgres vía PostgREST (una transacción por petición HTTP), un `SET LOCAL`
+  suelto desde la función de servidor no sobrevive al salto de request — el
+  actor tiene que viajar como parámetro dentro del mismo RPC que hace la
+  escritura (mismo patrón que ya usaba `cerrar_operacion_crm()`). Primer
+  dominio convertido: `actualizarCicloVida` → RPC `crm_actualizar_ciclo_vida`.
+  El resto de `*.functions.ts` sigue registrando `usuario_id=NULL` como
+  hasta ahora (sin regresión) — plan de extensión archivo por archivo
+  documentado por el agente que lo hizo, empezando por `operaciones.functions.ts`
+  (`cerrar_operacion_crm` ya recibe el actor, solo falta una línea) y
+  terminando por el bloque grande de `mutations.functions.ts` (31 escrituras,
+  merece su propia sesión con tests). Decisión ya tomada: las escrituras sin
+  actor humano (crons, recálculos automáticos) se dejan en NULL a propósito
+  — no se inventa un actor "sistema".
+- **M-03 (módulos grandes) — plan de división completo, sin ejecutar
+  todavía**: los 10 archivos más grandes (peor caso `inmuebles.$id.tsx`,
+  2.213 líneas) tienen un plan concreto de qué archivos nuevos crear y qué
+  responsabilidad va en cada uno. No se ejecutó ningún split real esta
+  sesión — es trabajo de refactor con riesgo de regresión, mejor abordarlo
+  con calma en una sesión propia.
+- **UX-01 a UX-07 — auditados contra el código actual el 21 ago 2026**:
+  ninguno resuelto al 100%, el mayor avance es UX-03 (paginación server-side
+  ya en Contactos/Bandeja/Cartera). De ahí se corrigieron 5 puntos concretos
+  el mismo día: teclado en fila clicable de Contactos, `aria-hidden`+`inert`
+  en el drawer móvil cerrado, `aria-label` en miniaturas de galería, la
+  métrica "Conversión" del dashboard renombrada a "Cierres/visitas" (mezclaba
+  poblaciones no comparables), y `estatus`/`precio_final`/`fecha_escritura`
+  sacados del autosave de 2s en la ficha de inmueble (solo se guardan con
+  "Guardar ahora"). Quedan abiertos: ruta `/seguimiento` construida pero
+  inalcanzable desde el menú, paleta/tipografía de marca sin adoptar, favicon
+  inexistente, contraste WCAG AA sin verificar.
+- **M-06 (observabilidad/Lovable) — limpieza cosmética hecha, decisiones de
+  producto pendientes**: `.lovable/` eliminado, nombre de `package.json`
+  corregido, doc de despliegue corregida (era Vercel, no Cloudflare
+  Workers). Sigue pendiente: elegir proveedor de error-tracking (la interfaz
+  en `error-reporting.ts` ya está preparada para conectarlo), definir
+  alertas críticas, y hay un worktree viejo con código Lovable real
+  (`.claude/worktrees/busy-sutherland-83f0c6`, rama ya fusionada, segura de
+  borrar) que el sistema me bloqueó borrar — pendiente de que David ejecute
+  `git worktree remove .claude/worktrees/busy-sutherland-83f0c6 && git branch -D claude/busy-sutherland-83f0c6`.
+- **M-07 (cabeceras de seguridad HTTP) — resuelto el 21 ago 2026**: CSP,
+  HSTS, X-Frame-Options, Permissions-Policy, Cross-Origin-Opener-Policy
+  aplicados en dos capas (`vercel.json` para `/assets/*` + `src/lib/security-headers.ts`
+  en el entry del servidor para las respuestas SSR). El CSP completo va en
+  modo `Report-Only` a propósito — TanStack Start hidrata con scripts
+  inline, necesita `'unsafe-inline'` hasta implementar nonces por petición;
+  promoverlo a enforce requiere antes verificarlo en un navegador real.
+- **H-06 (GET con escritura global) — ya estaba resuelto desde el 15 ago
+  2026** (commit `676d5a7`), antes incluso de que se cerrara la auditoría.
+  De paso se detectó que `contacts.meta_score` quedó huérfana (nadie la
+  escribe ni la lee) — marcada como obsoleta con un `COMMENT`
+  (`20260821073707_mark_meta_score_obsoleta.sql`); el `DROP COLUMN`
+  completo queda pendiente de decisión de David (borra datos y afecta tipos
+  generados de elsol-client-hub).
