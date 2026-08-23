@@ -141,24 +141,23 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   con un warning — Supabase CLI no envuelve cada migración en un `BEGIN`
   visible, así que confirmar con una consulta de postflight, no solo con la
   ausencia de errores).
-- **H-05 (actor real en audit_log) — mecanismo implementado y probado el 21
-  ago 2026, un solo dominio convertido** (migración
-  `20260821110759_audit_actor_explicito_contacts.sql`): `registrar_audit()`
-  resuelve el actor como `app.actor_id` (GUC local que fija el RPC que
-  escribe) con `auth.uid()` como fallback. Como `getSupa()` habla con
-  Postgres vía PostgREST (una transacción por petición HTTP), un `SET LOCAL`
-  suelto desde la función de servidor no sobrevive al salto de request — el
-  actor tiene que viajar como parámetro dentro del mismo RPC que hace la
-  escritura (mismo patrón que ya usaba `cerrar_operacion_crm()`). Primer
-  dominio convertido: `actualizarCicloVida` → RPC `crm_actualizar_ciclo_vida`.
-  El resto de `*.functions.ts` sigue registrando `usuario_id=NULL` como
-  hasta ahora (sin regresión) — plan de extensión archivo por archivo
-  documentado por el agente que lo hizo, empezando por `operaciones.functions.ts`
-  (`cerrar_operacion_crm` ya recibe el actor, solo falta una línea) y
-  terminando por el bloque grande de `mutations.functions.ts` (31 escrituras,
-  merece su propia sesión con tests). Decisión ya tomada: las escrituras sin
-  actor humano (crons, recálculos automáticos) se dejan en NULL a propósito
-  — no se inventa un actor "sistema".
+- **H-05 (actor real en audit_log) — completado en todos los dominios "simples"
+  el 23 ago 2026**: `registrar_audit()` resuelve el actor como `app.actor_id`
+  (GUC local que fija el RPC que escribe) con `auth.uid()` como fallback. Como
+  `getSupa()` habla con Postgres vía PostgREST (una transacción por petición
+  HTTP), un `SET LOCAL` suelto desde la función de servidor no sobrevive al
+  salto de request — el actor viaja como parámetro dentro del mismo RPC que
+  hace la escritura. Convertidos: `contacts.ciclo_vida`, `cerrar_operacion_crm`,
+  `createSeguimiento`, `deleteContacto`, `restaurarContactoDeHistorico`,
+  `gestionarRol` (+ `recalcularEtapa`, ahora en SQL, el helper de TS se retiró
+  sin consumidores), `addImagenToInmueble`, `deleteInmueble`. **Quedan sin
+  convertir, a propósito:** `updateInmueble` (diffing dinámico de campos +
+  changelog condicional + cascada de ciclo_vida sobre contactos — portarlo sin
+  riesgo de cambiar comportamiento merece su propia sesión) y el bloque grande
+  de `mutations.functions.ts` (31 escrituras, ídem). `geocodeInmuebles` no
+  tiene consumidores en el frontend — código muerto detectado, no tocado.
+  Decisión ya tomada: las escrituras sin actor humano (crons, recálculos
+  automáticos) se dejan en NULL a propósito — no se inventa un actor "sistema".
 - **M-03 (módulos grandes) — plan de división completo, sin ejecutar
   todavía**: los 10 archivos más grandes (peor caso `inmuebles.$id.tsx`,
   2.213 líneas) tienen un plan concreto de qué archivos nuevos crear y qué
@@ -173,18 +172,24 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   métrica "Conversión" del dashboard renombrada a "Cierres/visitas" (mezclaba
   poblaciones no comparables), y `estatus`/`precio_final`/`fecha_escritura`
   sacados del autosave de 2s en la ficha de inmueble (solo se guardan con
-  "Guardar ahora"). Quedan abiertos: ruta `/seguimiento` construida pero
-  inalcanzable desde el menú, paleta/tipografía de marca sin adoptar, favicon
-  inexistente, contraste WCAG AA sin verificar.
+  "Guardar ahora"). **23 ago 2026:** ruta `/seguimiento` ya añadida al menú
+  CRM (estaba construida pero inalcanzable); favicon añadido (monograma "ES"
+  ya usado en `AppShell`, sin inventar paleta de marca nueva); contraste WCAG
+  AA verificado por cálculo — todos los pares de texto/fondo reales pasan
+  (peor caso 4.61:1, mínimo exigido 4.5:1). Quedan abiertos: paleta/tipografía
+  de marca completa (necesita valores exactos de marca — naranja #E8820C y
+  tokens marfil/carbón mencionados en la auditoría, sin hex definido — no se
+  adivina), y el tamaño de letra de 9-11px en varias pantallas (legibilidad,
+  no contraste — no se toca sin revisar cada layout, riesgo de romper chips/
+  badges ajustados a propósito).
 - **M-06 (observabilidad/Lovable) — limpieza cosmética hecha, decisiones de
   producto pendientes**: `.lovable/` eliminado, nombre de `package.json`
   corregido, doc de despliegue corregida (era Vercel, no Cloudflare
-  Workers). Sigue pendiente: elegir proveedor de error-tracking (la interfaz
-  en `error-reporting.ts` ya está preparada para conectarlo), definir
-  alertas críticas, y hay un worktree viejo con código Lovable real
-  (`.claude/worktrees/busy-sutherland-83f0c6`, rama ya fusionada, segura de
-  borrar) que el sistema me bloqueó borrar — pendiente de que David ejecute
-  `git worktree remove .claude/worktrees/busy-sutherland-83f0c6 && git branch -D claude/busy-sutherland-83f0c6`.
+  Workers), worktree viejo de Lovable borrado (23 ago). Sigue pendiente,
+  decisión de David: elegir proveedor de error-tracking (la interfaz en
+  `error-reporting.ts` ya está preparada para conectarlo) y definir alertas
+  críticas — ninguna de las dos es un cambio de código, son decisiones de
+  producto/coste.
 - **M-07 (cabeceras de seguridad HTTP) — resuelto el 21 ago 2026**: CSP,
   HSTS, X-Frame-Options, Permissions-Policy, Cross-Origin-Opener-Policy
   aplicados en dos capas (`vercel.json` para `/assets/*` + `src/lib/security-headers.ts`
