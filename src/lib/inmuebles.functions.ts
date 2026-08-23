@@ -844,7 +844,7 @@ export const addImagenToInmueble = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermission("properties.update");
+    const { crm } = await requirePermission("properties.update");
     const supa = getSupa();
     const BUCKET = "property-images";
 
@@ -871,7 +871,13 @@ export const addImagenToInmueble = createServerFn({ method: "POST" })
       .single();
     const current: Array<{ url: string; filename: string; orden: number }> = prop?.imagenes ?? [];
     const next = [...current, { url: publicUrl, filename: data.filename, orden: current.length }];
-    await supa.from("properties").update({ imagenes: next }).eq("id", data.id);
+    // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
+    const { error: saveError } = await supa.rpc("crm_actualizar_imagenes_inmueble", {
+      p_property_id: data.id,
+      p_imagenes: next,
+      p_actor_id: crm.userId,
+    });
+    if (saveError) throw new Error(saveError.message);
 
     return { url: publicUrl };
   });
@@ -966,10 +972,13 @@ export const deleteInmueble = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermission("properties.delete_hard");
+    const { crm } = await requirePermission("properties.delete_hard");
     const supa = getSupa();
-    await supa.from("contact_roles").delete().eq("property_id", data.id);
-    const { error } = await supa.from("properties").delete().eq("id", data.id);
+    // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
+    const { error } = await supa.rpc("crm_eliminar_inmueble", {
+      p_property_id: data.id,
+      p_actor_id: crm.userId,
+    });
     if (error) throw new Error(error.message);
     return { ok: true };
   });

@@ -1166,11 +1166,13 @@ export const deleteContacto = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermission("contacts.delete_hard");
+    const { crm } = await requirePermission("contacts.delete_hard");
     const supa = getSupa();
-    await supa.from("contact_roles").delete().eq("contact_id", data.id);
-    await supa.from("contact_agents").delete().eq("contact_id", data.id);
-    const { error } = await supa.from("contacts").delete().eq("id", data.id);
+    // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
+    const { error } = await supa.rpc("crm_eliminar_contacto", {
+      p_contact_id: data.id,
+      p_actor_id: crm.userId,
+    });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -1216,21 +1218,13 @@ export const restaurarContactoDeHistorico = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermission("contacts.update");
+    const { crm } = await requirePermission("contacts.update");
     const supa = getSupa();
-    const { data: current, error: readError } = await supa
-      .from("contacts")
-      .select("ciclo_vida, ciclo_vida_anterior")
-      .eq("id", data.contactId)
-      .maybeSingle();
-    if (readError) throw new Error(readError.message);
-    if (!current || current.ciclo_vida !== "Histórico") {
-      throw new Error("El contacto no está en histórico");
-    }
-    const { error } = await supa
-      .from("contacts")
-      .update({ ciclo_vida: current.ciclo_vida_anterior ?? "Lead", ciclo_vida_anterior: null })
-      .eq("id", data.contactId);
+    // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
+    const { error } = await supa.rpc("crm_restaurar_contacto_historico", {
+      p_contact_id: data.contactId,
+      p_actor_id: crm.userId,
+    });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -1254,47 +1248,16 @@ export const gestionarRol = createServerFn({ method: "POST" })
     );
     if (data.tipo === null) await requirePermission("contact_roles.delete");
     const supa = getSupa();
-    let tipoRelacion = data.tipo;
-    if (tipoRelacion === "Propietario") {
-      const { data: property, error: propertyError } = await supa
-        .from("properties")
-        .select("es_alquiler")
-        .eq("id", data.propertyId)
-        .single();
-      if (propertyError) throw new Error(propertyError.message);
-      if (property.es_alquiler) tipoRelacion = "Arrendador";
-    }
-    const { data: existing, error: existingError } = await supa
-      .from("contact_roles")
-      .select("id")
-      .eq("contact_id", data.contactId)
-      .eq("property_id", data.propertyId)
-      .limit(1)
-      .maybeSingle();
-    if (existingError) throw new Error(existingError.message);
-
-    if (tipoRelacion === null) {
-      if (existing) {
-        const { error } = await supa.from("contact_roles").delete().eq("id", existing.id);
-        if (error) throw new Error(error.message);
-      }
-    } else if (existing) {
-      const { error } = await supa
-        .from("contact_roles")
-        .update({ tipo: tipoRelacion, agente_id: crm.agentId })
-        .eq("id", existing.id);
-      if (error) throw new Error(error.message);
-    } else {
-      const { error } = await supa.from("contact_roles").insert({
-        contact_id: data.contactId,
-        property_id: data.propertyId,
-        agente_id: crm.agentId,
-        tipo: tipoRelacion,
-        estado: "Prospecto",
-      });
-      if (error) throw new Error(error.message);
-    }
-    await recalcularEtapa(data.contactId, supa);
+    // H-05: vía RPC (crea/actualiza/borra el rol y recalcula ciclo_vida, todo
+    // en la misma transacción) para que el actor real quede en
+    // audit_log.usuario_id — antes eran 4 llamadas .from() sueltas.
+    const { error } = await supa.rpc("crm_gestionar_rol", {
+      p_contact_id: data.contactId,
+      p_property_id: data.propertyId,
+      p_tipo: data.tipo,
+      p_actor_id: crm.userId,
+    });
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
@@ -1383,50 +1346,11 @@ export const getContactoActividad = createServerFn({ method: "GET" })
   });
 
 // ── Etapa helpers ─────────────────────────────────────────────────────────────
-
-// Prioridad: Activo > Reservado > Prospecto > Histórico > Lead
-// Solo Descartado es intocable (estado final manual).
-export async function recalcularEtapa(
-  contactId: string,
-  supa: ReturnType<typeof getSupa>,
-): Promise<void> {
-  const { data: current, error: currentError } = await supa
-    .from("contacts")
-    .select("ciclo_vida")
-    .eq("id", contactId)
-    .single();
-  if (currentError) throw new Error(currentError.message);
-
-  if (current?.ciclo_vida === "Descartado") return;
-
-  const { data: roles, error: rolesError } = await supa
-    .from("contact_roles")
-    .select("tipo, properties(estatus)")
-    .eq("contact_id", contactId);
-  if (rolesError) throw new Error(rolesError.message);
-
-  // Supabase returns properties as an array from the join; access .estatus via unknown cast
-  const statuses = (roles ?? [])
-    .map((r) => (r.properties as unknown as { estatus: string } | null)?.estatus ?? null)
-    .filter((s): s is string => s !== null);
-
-  let ciclo_vida: string;
-  if (statuses.some((s) => s === "Activo" || s === "Reservado")) ciclo_vida = "Cliente";
-  else if (statuses.some((s) => s === "Prospección")) ciclo_vida = "Prospecto";
-  else if (statuses.some((s) => s === "Vendido" || s === "Alquilado")) ciclo_vida = "Histórico";
-  else if (
-    (roles ?? []).some((role) =>
-      ["Propietario", "Arrendador", "Comprador", "Inquilino"].includes(role.tipo),
-    )
-  )
-    ciclo_vida = "Cliente";
-  else ciclo_vida = "Lead";
-
-  if (ciclo_vida !== current?.ciclo_vida) {
-    const { error } = await supa.from("contacts").update({ ciclo_vida }).eq("id", contactId);
-    if (error) throw new Error(error.message);
-  }
-}
+// La regla de recálculo de ciclo_vida (Activo/Reservado > Prospección >
+// Vendido/Alquilado > algún rol de cliente > Lead; Descartado intocable) vive
+// ahora en SQL, dentro de crm_gestionar_rol (H-05) — su único llamador,
+// gestionarRol, pasó a usar ese RPC. El helper de TypeScript que hacía esto se
+// retiró aquí porque quedó sin consumidores.
 
 // ── Estadísticas ──────────────────────────────────────────────────────────────
 

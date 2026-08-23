@@ -25,6 +25,7 @@ import {
   HandCoins,
   UserCog,
   ShieldCheck,
+  NotebookPen,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -84,6 +85,12 @@ const navGroups: NavGroup[] = [
       { to: "/contactos", label: "Contactos", icon: Users, capability: "contacts.read" },
       { to: "/cartera", label: "Cartera", icon: Building2, capability: "properties.read" },
       { to: "/operaciones", label: "Operaciones", icon: HandCoins, capability: "operations.read" },
+      {
+        to: "/seguimiento",
+        label: "Seguimiento",
+        icon: NotebookPen,
+        capability: "seguimiento.read",
+      },
     ],
   },
   {
