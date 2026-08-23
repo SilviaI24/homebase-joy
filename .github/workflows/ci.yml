@@ -20,8 +20,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Audit de dependencias (falla solo en alta/crítica)
+        run: npm audit --audit-level=high
+
       - name: Type check
         run: npx tsc --noEmit
+
+      # No bloqueante a propósito: quedan 87 errores/18 avisos reales (86
+      # @typescript-eslint/no-explicit-any + 9 react-hooks/exhaustive-deps +
+      # 9 react-refresh/only-export-components + 1 prefer-const justificado
+      # con comentario) que necesitan revisión caso por caso, no un fix a
+      # ciegas — ver commit "style: aplicar autofix de ESLint/Prettier
+      # (H-07)". Promover a bloqueante cuando ese backlog esté limpio.
+      - name: Lint (informativo, no bloquea todavía)
+        run: npx eslint src tests
+        continue-on-error: true
 
       - name: Run tests
         run: npx vitest run
