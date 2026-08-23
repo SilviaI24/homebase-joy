@@ -1,10 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  useSuspenseQuery,
-  useQueryClient,
-  useMutation,
-  useQuery,
-} from "@tanstack/react-query";
+import { useSuspenseQuery, useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -270,7 +265,9 @@ function CaptacionTab() {
               key={c}
               onClick={() => setCanal(c)}
               className={`flex items-center gap-2 px-4 py-2.5 border-b-2 text-sm font-medium transition-colors cursor-pointer ${
-                active ? meta.tabActive : "border-transparent text-muted-foreground hover:text-foreground"
+                active
+                  ? meta.tabActive
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <Icon className="size-4" />
@@ -511,9 +508,7 @@ function InmuebleCard({ inm }: { inm: Inmueble }) {
       </div>
       <div className="p-3 flex-1 flex flex-col gap-1">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-mono text-muted-foreground">
-            #{cleanRef(inm.ref)}
-          </span>
+          <span className="text-[10px] font-mono text-muted-foreground">#{cleanRef(inm.ref)}</span>
           <EstatusInmuebleBadge estatus={inm.estatus} />
           {dias !== null && dias > 90 && (
             <span className="text-[10px] text-destructive/80 inline-flex items-center gap-0.5">
@@ -578,9 +573,7 @@ function VentaTab() {
           />
         </div>
         <NewInmuebleDialog />
-        <span className="text-xs text-muted-foreground ml-auto">
-          {total} inmuebles
-        </span>
+        <span className="text-xs text-muted-foreground ml-auto">{total} inmuebles</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {inmuebles.map((inm) => (
@@ -594,7 +587,13 @@ function VentaTab() {
         </div>
       )}
       <div className="mt-6">
-        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPage={goPage} isFetching={isFetching} />
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          onPage={goPage}
+          isFetching={isFetching}
+        />
       </div>
     </div>
   );
@@ -684,7 +683,13 @@ function AlquilerTab() {
         </div>
       )}
       <div className="mt-6">
-        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPage={goPage} isFetching={isFetching} />
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          onPage={goPage}
+          isFetching={isFetching}
+        />
       </div>
     </div>
   );
@@ -781,7 +786,13 @@ function HistoricoTab() {
         </table>
       </div>
       <div className="mt-4">
-        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPage={goPage} isFetching={isFetching} />
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          onPage={goPage}
+          isFetching={isFetching}
+        />
       </div>
     </div>
   );

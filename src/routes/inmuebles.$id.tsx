@@ -1224,8 +1224,7 @@ function DetailView({
               </>
             ) : dirtyAuto ? (
               <>
-                <span className="size-2 rounded-full bg-warning animate-pulse" /> Guardando en 2
-                s…
+                <span className="size-2 rounded-full bg-warning animate-pulse" /> Guardando en 2 s…
               </>
             ) : (
               <>

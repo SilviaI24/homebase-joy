@@ -1,10 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { TrendingUp, TrendingDown } from "lucide-react";
-import {
-  AreaChart,
-  Area,
-  ResponsiveContainer,
-} from "recharts";
+import { AreaChart, Area, ResponsiveContainer } from "recharts";
 
 export function KpiCard({
   icon: Icon,
@@ -50,9 +46,7 @@ export function KpiCard({
         {typeof delta === "number" && (
           <div
             className={`inline-flex items-center gap-0.5 text-[11px] font-semibold rounded-full px-1.5 py-0.5 ${
-              positive
-                ? "bg-success/10 text-success"
-                : "bg-destructive/10 text-destructive"
+              positive ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
             }`}
           >
             {positive ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
@@ -61,9 +55,7 @@ export function KpiCard({
           </div>
         )}
       </div>
-      {hint && (
-        <div className="mt-0.5 text-[11px] text-muted-foreground line-clamp-1">{hint}</div>
-      )}
+      {hint && <div className="mt-0.5 text-[11px] text-muted-foreground line-clamp-1">{hint}</div>}
       {sparkData && sparkData.length > 1 && (
         <div className="mt-2 -mx-1 h-8">
           <ResponsiveContainer width="100%" height="100%">

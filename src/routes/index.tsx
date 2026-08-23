@@ -1221,9 +1221,7 @@ function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
                   <div className="text-[11px] text-muted-foreground truncate">
                     {lead.telefono ?? "Sin tel."} · {lead.ciclo_vida}
                     {lead.diasSinContacto !== null && (
-                      <span
-                        className={`ml-1 ${lead.diasSinContacto < 7 ? "text-success" : ""}`}
-                      >
+                      <span className={`ml-1 ${lead.diasSinContacto < 7 ? "text-success" : ""}`}>
                         · {lead.diasSinContacto}d
                       </span>
                     )}

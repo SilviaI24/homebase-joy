@@ -23,8 +23,10 @@ function suggestionFor(dias: number): Suggestion {
 }
 
 const toneStyles: Record<Suggestion["tone"], string> = {
-  warning: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
-  danger: "border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-300",
+  warning:
+    "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
+  danger:
+    "border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-300",
   critical: "border-destructive/40 bg-destructive/10 text-destructive",
 };
 
@@ -52,7 +54,12 @@ export function RecordatoriosEstancados({ inmuebles, staleDays = 90 }: Props) {
   const estancados = useMemo(() => {
     return inmuebles
       .map((i) => ({ i, dias: daysSince(i.fechaInicio) }))
-      .filter((x) => x.dias !== null && x.dias > staleDays && (x.i.estatus === "Activo" || x.i.estatus === "Prospección"))
+      .filter(
+        (x) =>
+          x.dias !== null &&
+          x.dias > staleDays &&
+          (x.i.estatus === "Activo" || x.i.estatus === "Prospección"),
+      )
       .sort((a, b) => (b.dias as number) - (a.dias as number));
   }, [inmuebles, staleDays]);
 
@@ -61,7 +68,11 @@ export function RecordatoriosEstancados({ inmuebles, staleDays = 90 }: Props) {
   const handleSave = (inm: Inmueble) => {
     const trimmed = note.trim();
     if (!trimmed) return;
-    const fecha = new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const fecha = new Date().toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
     const linea = `[${fecha}] ${trimmed}`;
     const next = inm.observaciones ? `${inm.observaciones}\n${linea}` : linea;
     mutation.mutate({ data: { id: inm.id, observaciones: next } });
@@ -78,13 +89,18 @@ export function RecordatoriosEstancados({ inmuebles, staleDays = 90 }: Props) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold">
-            {estancados.length} inmueble{estancados.length === 1 ? "" : "s"} estancado{estancados.length === 1 ? "" : "s"}
+            {estancados.length} inmueble{estancados.length === 1 ? "" : "s"} estancado
+            {estancados.length === 1 ? "" : "s"}
           </div>
           <div className="text-xs text-muted-foreground">
             Sin movimiento desde hace más de {staleDays} días. Revisa las acciones sugeridas.
           </div>
         </div>
-        {open ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
+        {open ? (
+          <ChevronUp className="size-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="size-4 text-muted-foreground" />
+        )}
       </button>
 
       {open && (
@@ -94,7 +110,10 @@ export function RecordatoriosEstancados({ inmuebles, staleDays = 90 }: Props) {
             const isEditing = editing === i.id;
             const isOk = okFlash === i.id;
             return (
-              <div key={i.id} className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2">
+              <div
+                key={i.id}
+                className="rounded-lg border border-border bg-card p-3 flex flex-col gap-2"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <Link
                     to="/inmuebles/$id"
@@ -103,7 +122,9 @@ export function RecordatoriosEstancados({ inmuebles, staleDays = 90 }: Props) {
                   >
                     {i.calle || "Sin dirección"} {i.numero}
                   </Link>
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${toneStyles[sug.tone]}`}>
+                  <span
+                    className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${toneStyles[sug.tone]}`}
+                  >
                     {sug.label}
                   </span>
                 </div>
@@ -134,7 +155,10 @@ export function RecordatoriosEstancados({ inmuebles, staleDays = 90 }: Props) {
                         {mutation.isPending ? "Guardando…" : "Guardar"}
                       </button>
                       <button
-                        onClick={() => { setEditing(null); setNote(""); }}
+                        onClick={() => {
+                          setEditing(null);
+                          setNote("");
+                        }}
                         className="inline-flex items-center gap-1 h-7 px-2 rounded-md border border-input text-xs hover:bg-accent"
                       >
                         <X className="size-3" /> Cancelar
@@ -144,7 +168,10 @@ export function RecordatoriosEstancados({ inmuebles, staleDays = 90 }: Props) {
                 ) : (
                   <div className="flex items-center justify-between mt-1">
                     <button
-                      onClick={() => { setEditing(i.id); setNote(""); }}
+                      onClick={() => {
+                        setEditing(i.id);
+                        setNote("");
+                      }}
                       className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-input bg-background text-xs font-medium hover:bg-accent"
                     >
                       Registrar seguimiento

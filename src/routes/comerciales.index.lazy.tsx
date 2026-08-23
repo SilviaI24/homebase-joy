@@ -1249,15 +1249,11 @@ function AgenteCardHub({ card }: { card: AgenteHub }) {
 
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-md border border-border bg-card px-2 py-1.5 text-center">
-          <div className="text-sm font-semibold tabular-nums text-success">
-            {card.activos}
-          </div>
+          <div className="text-sm font-semibold tabular-nums text-success">{card.activos}</div>
           <div className="text-[10px] text-muted-foreground leading-none mt-0.5">Activos</div>
         </div>
         <div className="rounded-md border border-border bg-card px-2 py-1.5 text-center">
-          <div className="text-sm font-semibold tabular-nums text-warning">
-            {card.reservados}
-          </div>
+          <div className="text-sm font-semibold tabular-nums text-warning">{card.reservados}</div>
           <div className="text-[10px] text-muted-foreground leading-none mt-0.5">Reservados</div>
         </div>
       </div>
@@ -1395,15 +1391,11 @@ function AgenteWorkspace({
             <Building2 className="size-4 text-muted-foreground" /> Inmuebles
           </h3>
           <div className="flex gap-2 text-xs">
-            <span className="text-success font-medium">
-              {activos.length} activos
-            </span>
+            <span className="text-success font-medium">{activos.length} activos</span>
             {reservados.length > 0 && (
               <>
                 <span className="text-muted-foreground">·</span>
-                <span className="text-warning font-medium">
-                  {reservados.length} reserv.
-                </span>
+                <span className="text-warning font-medium">{reservados.length} reserv.</span>
               </>
             )}
           </div>

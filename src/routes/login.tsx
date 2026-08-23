@@ -8,11 +8,11 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const router = useRouter();
-  const [mode, setMode]         = useState<"login" | "forgot">("login");
-  const [email, setEmail]       = useState("");
+  const [mode, setMode] = useState<"login" | "forgot">("login");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError]       = useState<string | null>(null);
-  const [loading, setLoading]   = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
   const handleLogin = async (e: FormEvent) => {
@@ -30,7 +30,10 @@ function LoginPage() {
 
   const handleForgot = async (e: FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) { setError("Introduce tu email."); return; }
+    if (!email.trim()) {
+      setError("Introduce tu email.");
+      return;
+    }
     setError(null);
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
@@ -49,18 +52,21 @@ function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            El Sol Grupo CRM
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">El Sol Grupo CRM</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {mode === "login" ? "Accede con tu cuenta" : "Recuperar contraseña"}
           </p>
         </div>
 
         {mode === "login" ? (
-          <form onSubmit={handleLogin} className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm">
+          <form
+            onSubmit={handleLogin}
+            className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm"
+          >
             <div className="space-y-1">
-              <label htmlFor="email" className="block text-sm font-medium text-foreground">Email</label>
+              <label htmlFor="email" className="block text-sm font-medium text-foreground">
+                Email
+              </label>
               <input
                 id="email"
                 type="email"
@@ -75,10 +81,15 @@ function LoginPage() {
 
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <label htmlFor="password" className="block text-sm font-medium text-foreground">Contraseña</label>
+                <label htmlFor="password" className="block text-sm font-medium text-foreground">
+                  Contraseña
+                </label>
                 <button
                   type="button"
-                  onClick={() => { setMode("forgot"); setError(null); }}
+                  onClick={() => {
+                    setMode("forgot");
+                    setError(null);
+                  }}
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   ¿Olvidaste tu contraseña?
@@ -97,7 +108,9 @@ function LoginPage() {
             </div>
 
             {error && (
-              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+              <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </p>
             )}
 
             <button
@@ -116,11 +129,14 @@ function LoginPage() {
                 <p className="text-sm font-semibold">Email enviado</p>
                 <p className="text-sm text-muted-foreground">
                   Revisa tu bandeja de entrada en{" "}
-                  <span className="font-medium text-foreground">{email}</span> y sigue
-                  el enlace para crear una nueva contraseña.
+                  <span className="font-medium text-foreground">{email}</span> y sigue el enlace
+                  para crear una nueva contraseña.
                 </p>
                 <button
-                  onClick={() => { setMode("login"); setResetSent(false); }}
+                  onClick={() => {
+                    setMode("login");
+                    setResetSent(false);
+                  }}
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Volver al inicio de sesión
@@ -132,7 +148,12 @@ function LoginPage() {
                   Introduce tu email y te enviaremos un enlace para restablecer tu contraseña.
                 </p>
                 <div className="space-y-1">
-                  <label htmlFor="reset-email" className="block text-sm font-medium text-foreground">Email</label>
+                  <label
+                    htmlFor="reset-email"
+                    className="block text-sm font-medium text-foreground"
+                  >
+                    Email
+                  </label>
                   <input
                     id="reset-email"
                     type="email"
@@ -145,7 +166,9 @@ function LoginPage() {
                   />
                 </div>
                 {error && (
-                  <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+                  <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {error}
+                  </p>
                 )}
                 <button
                   type="submit"
@@ -156,7 +179,10 @@ function LoginPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setMode("login"); setError(null); }}
+                  onClick={() => {
+                    setMode("login");
+                    setError(null);
+                  }}
                   className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Cancelar

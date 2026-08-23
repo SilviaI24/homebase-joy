@@ -2,9 +2,7 @@ const PROD_REF = "fyrfkbcabmitbfuqeccq";
 const ALLOWED_APP_ENVS = ["local", "qa", "production"] as const;
 type AppEnv = (typeof ALLOWED_APP_ENVS)[number];
 
-export type EnvCheckResult =
-  | { ok: true }
-  | { ok: false; reason: string };
+export type EnvCheckResult = { ok: true } | { ok: false; reason: string };
 
 function extractRef(supabaseUrl: string): string | null {
   try {
@@ -35,7 +33,10 @@ export function checkEnv(env: {
     const refPriv = env.SUPABASE_URL ? extractRef(env.SUPABASE_URL) : null;
     const refPub = env.VITE_SUPABASE_URL ? extractRef(env.VITE_SUPABASE_URL) : null;
     if (refPriv && refPub && refPriv !== refPub) {
-      return { ok: false, reason: "SUPABASE_URL y VITE_SUPABASE_URL apuntan a proyectos distintos" };
+      return {
+        ok: false,
+        reason: "SUPABASE_URL y VITE_SUPABASE_URL apuntan a proyectos distintos",
+      };
     }
     return { ok: true };
   }
@@ -62,7 +63,10 @@ export function checkEnv(env: {
   const actualRef = refPriv;
 
   if (actualRef !== expected) {
-    return { ok: false, reason: "El project ref real no coincide con EXPECTED_SUPABASE_PROJECT_REF" };
+    return {
+      ok: false,
+      reason: "El project ref real no coincide con EXPECTED_SUPABASE_PROJECT_REF",
+    };
   }
 
   if (appEnv === "qa" && actualRef === PROD_REF) {
@@ -70,7 +74,10 @@ export function checkEnv(env: {
   }
 
   if (appEnv === "production" && actualRef !== PROD_REF) {
-    return { ok: false, reason: "Entorno production solo puede apuntar al proyecto de producción autorizado" };
+    return {
+      ok: false,
+      reason: "Entorno production solo puede apuntar al proyecto de producción autorizado",
+    };
   }
 
   return { ok: true };

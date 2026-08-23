@@ -349,9 +349,11 @@ export const Route = createFileRoute("/bandeja/")({
     ],
   }),
   loader: ({ context }) => {
-    context.queryClient.ensureQueryData(
-      iaConversationsPageQuery({ page: 1, pageSize: PAGE_SIZE, tab: "Pendientes" }),
-    ).catch(() => {});
+    context.queryClient
+      .ensureQueryData(
+        iaConversationsPageQuery({ page: 1, pageSize: PAGE_SIZE, tab: "Pendientes" }),
+      )
+      .catch(() => {});
     context.queryClient.ensureQueryData(comerciablesInmueblesQuery).catch(() => {});
   },
   component: BandejaPage,

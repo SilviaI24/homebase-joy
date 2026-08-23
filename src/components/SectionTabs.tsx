@@ -17,9 +17,7 @@ export function SectionTabs<T extends string = string>({
   className?: string;
 }) {
   return (
-    <div
-      className={`flex items-center gap-0 border-b border-border overflow-x-auto ${className}`}
-    >
+    <div className={`flex items-center gap-0 border-b border-border overflow-x-auto ${className}`}>
       {tabs.map((t) => (
         <button
           key={t.key}

@@ -1266,7 +1266,10 @@ export const buscarInmuebles = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     await requirePermission("properties.read");
     const supa = getSupa();
-    const q = data.q.trim().replace(/[,%()]/g, " ").replace(/\s+/g, " ");
+    const q = data.q
+      .trim()
+      .replace(/[,%()]/g, " ")
+      .replace(/\s+/g, " ");
     if (q.length < 2) return { results: [] as ReturnType<typeof mapPropertyRow>[] };
     const { data: rows } = await supa
       .from("properties")
@@ -1576,73 +1579,61 @@ export type ClienteRowSimple = {
 };
 
 export const listContactosPage = createServerFn({ method: "GET" })
-  .validator(
-    (d: { page?: number; pageSize?: number; q?: string; etapa?: string }) => {
-      const page = Math.max(1, Number(d?.page) || 1);
-      const pageSize = Math.min(200, Math.max(1, Number(d?.pageSize) || 50));
-      const etapa =
-        typeof d?.etapa === "string" && d.etapa.length ? d.etapa : "Histórico";
-      const q = typeof d?.q === "string" ? d.q.trim() : "";
-      return { page, pageSize, etapa, q };
-    },
-  )
-  .handler(
-    async ({ data }): Promise<{ clientes: ClienteRowSimple[]; total: number }> => {
-      await requirePermissions("contacts.read");
-      const supa = getSupa();
-      const from = (data.page - 1) * data.pageSize;
-      const to = from + data.pageSize - 1;
+  .validator((d: { page?: number; pageSize?: number; q?: string; etapa?: string }) => {
+    const page = Math.max(1, Number(d?.page) || 1);
+    const pageSize = Math.min(200, Math.max(1, Number(d?.pageSize) || 50));
+    const etapa = typeof d?.etapa === "string" && d.etapa.length ? d.etapa : "Histórico";
+    const q = typeof d?.q === "string" ? d.q.trim() : "";
+    return { page, pageSize, etapa, q };
+  })
+  .handler(async ({ data }): Promise<{ clientes: ClienteRowSimple[]; total: number }> => {
+    await requirePermissions("contacts.read");
+    const supa = getSupa();
+    const from = (data.page - 1) * data.pageSize;
+    const to = from + data.pageSize - 1;
 
-      let query = supa
-        .from("contacts")
-        .select(
-          `id, nombre, email, telefono, ciclo_vida, canal_origen, created_at,
+    let query = supa
+      .from("contacts")
+      .select(
+        `id, nombre, email, telefono, ciclo_vida, canal_origen, created_at,
            contact_roles(tipo, property_id),
            contact_agents(agent_id)`,
-          { count: "exact" },
-        )
-        .eq("ciclo_vida", data.etapa)
-        .order("created_at", { ascending: false });
+        { count: "exact" },
+      )
+      .eq("ciclo_vida", data.etapa)
+      .order("created_at", { ascending: false });
 
-      if (data.q) {
-        const needle = escapeLikeCliente(data.q);
-        query = query.or(
-          `nombre.ilike.%${needle}%,email.ilike.%${needle}%,telefono.ilike.%${needle}%`,
-        );
-      }
+    if (data.q) {
+      const needle = escapeLikeCliente(data.q);
+      query = query.or(
+        `nombre.ilike.%${needle}%,email.ilike.%${needle}%,telefono.ilike.%${needle}%`,
+      );
+    }
 
-      const { data: rows, error, count } = await query.range(from, to);
-      if (error) throw new Error("Error al cargar contactos");
+    const { data: rows, error, count } = await query.range(from, to);
+    if (error) throw new Error("Error al cargar contactos");
 
-      const clientes: ClienteRowSimple[] = (rows ?? []).map((r: any) => {
-        const roles: { tipo: string; property_id: string | null }[] =
-          r.contact_roles ?? [];
-        const agentAssignments: Array<{ agent_id: string }> = r.contact_agents ?? [];
-        const { segmento } = deriveSegmento(
-          roles.map((rl) => ({ ...rl, properties: null })),
-        );
-        const fechaMs = r.created_at ? new Date(r.created_at).getTime() : 0;
-        return {
-          id: r.id,
-          nombre: toTitleCase(s(r.nombre)),
-          email: s(r.email),
-          telefono: s(r.telefono),
-          canalOrigen: s(r.canal_origen),
-          fecha: r.created_at ? r.created_at.slice(0, 10) : null,
-          segmento,
-          etapa: (r.ciclo_vida ?? data.etapa) as Etapa,
-          diasDesdeAlta: fechaMs
-            ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000))
-            : null,
-          agentesIds: agentAssignments
-            .map((a) => a.agent_id)
-            .filter(Boolean),
-        };
-      });
+    const clientes: ClienteRowSimple[] = (rows ?? []).map((r: any) => {
+      const roles: { tipo: string; property_id: string | null }[] = r.contact_roles ?? [];
+      const agentAssignments: Array<{ agent_id: string }> = r.contact_agents ?? [];
+      const { segmento } = deriveSegmento(roles.map((rl) => ({ ...rl, properties: null })));
+      const fechaMs = r.created_at ? new Date(r.created_at).getTime() : 0;
+      return {
+        id: r.id,
+        nombre: toTitleCase(s(r.nombre)),
+        email: s(r.email),
+        telefono: s(r.telefono),
+        canalOrigen: s(r.canal_origen),
+        fecha: r.created_at ? r.created_at.slice(0, 10) : null,
+        segmento,
+        etapa: (r.ciclo_vida ?? data.etapa) as Etapa,
+        diasDesdeAlta: fechaMs ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000)) : null,
+        agentesIds: agentAssignments.map((a) => a.agent_id).filter(Boolean),
+      };
+    });
 
-      return { clientes, total: count ?? 0 };
-    },
-  );
+    return { clientes, total: count ?? 0 };
+  });
 
 // ── M-05: candidatos a duplicado y fusión (siempre con revisión humana) ───────
 

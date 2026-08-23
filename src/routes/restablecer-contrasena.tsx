@@ -19,7 +19,9 @@ function RestablecerContrasenaPage() {
   const settled = useRef(false);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY" && !settled.current) {
         settled.current = true;
         setState("ready");
@@ -137,7 +139,10 @@ function RestablecerContrasenaPage() {
             required
             minLength={8}
             value={newPass}
-            onChange={(e) => { setNewPass(e.target.value); setValidationError(null); }}
+            onChange={(e) => {
+              setNewPass(e.target.value);
+              setValidationError(null);
+            }}
             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             placeholder="••••••••"
           />
@@ -154,7 +159,10 @@ function RestablecerContrasenaPage() {
             required
             minLength={8}
             value={confirm}
-            onChange={(e) => { setConfirm(e.target.value); setValidationError(null); }}
+            onChange={(e) => {
+              setConfirm(e.target.value);
+              setValidationError(null);
+            }}
             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             placeholder="••••••••"
           />

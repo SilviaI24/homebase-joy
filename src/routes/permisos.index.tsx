@@ -147,7 +147,9 @@ function PermissionAdminPage() {
                   </span>
                   <select
                     value={selected.rolBase}
-                    disabled={userMutation.isPending || !ASSIGNABLE_ROLES.includes(selected.rolBase)}
+                    disabled={
+                      userMutation.isPending || !ASSIGNABLE_ROLES.includes(selected.rolBase)
+                    }
                     onChange={(event) =>
                       userMutation.mutate({
                         rolBase: event.target.value as RolBase,
@@ -182,8 +184,9 @@ function PermissionAdminPage() {
           </div>
 
           <div className="rounded-xl border border-border bg-card p-4 text-[11px] text-muted-foreground">
-            Lo que puede hacer <strong className="text-foreground">{ROLE_LABEL[selected.rolBase]}</strong>{" "}
-            — depende solo del rol, no hay excepciones por persona.
+            Lo que puede hacer{" "}
+            <strong className="text-foreground">{ROLE_LABEL[selected.rolBase]}</strong> — depende
+            solo del rol, no hay excepciones por persona.
           </div>
 
           {groupedCatalog.map(([domain, permissions]) => (

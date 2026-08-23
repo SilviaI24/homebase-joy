@@ -1,10 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  useSuspenseQuery,
-  useQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState, useRef } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
@@ -116,9 +111,7 @@ const TAB_CONFIG: Array<{ key: ContactosTab; label: string }> = [
 ];
 
 const searchSchema = z.object({
-  tab: z
-    .enum(["leads", "clientes", "historico", "descartado", "duplicados"])
-    .optional(),
+  tab: z.enum(["leads", "clientes", "historico", "descartado", "duplicados"]).optional(),
   page: z.number().min(1).optional(),
   q: z.string().optional(),
   seg: z.string().optional(),
@@ -133,14 +126,12 @@ export const Route = createFileRoute("/contactos/")({
       { title: "Contactos · El Sol Grupo CRM" },
       {
         name: "description",
-        content:
-          "Gestión unificada de leads, clientes, histórico y descartados.",
+        content: "Gestión unificada de leads, clientes, histórico y descartados.",
       },
     ],
   }),
   loader: ({ context, location }) => {
-    const tab =
-      (location.search as { tab?: string }).tab ?? "leads";
+    const tab = (location.search as { tab?: string }).tab ?? "leads";
     if (tab === "clientes") {
       return Promise.all([
         context.queryClient.ensureQueryData(
@@ -177,12 +168,8 @@ function ContactosPage() {
 
       {tab === "leads" && <LeadsTab />}
       {tab === "clientes" && <ClientesTab />}
-      {tab === "historico" && (
-        <SimpleContactsTab etapa="Histórico" />
-      )}
-      {tab === "descartado" && (
-        <SimpleContactsTab etapa="Descartado" />
-      )}
+      {tab === "historico" && <SimpleContactsTab etapa="Histórico" />}
+      {tab === "descartado" && <SimpleContactsTab etapa="Descartado" />}
       {tab === "duplicados" && <DuplicadosTab />}
     </AppShell>
   );
@@ -577,13 +564,7 @@ function KanbanView({
   );
 }
 
-function LeadCard({
-  cliente,
-  estado,
-}: {
-  cliente: Cliente;
-  estado: EstadoSeguimiento;
-}) {
+function LeadCard({ cliente, estado }: { cliente: Cliente; estado: EstadoSeguimiento }) {
   const meta = ESTADO_META[estado];
   const dias = diasDesde(cliente.fecha);
   const ultimaNota = extraerUltimaNota(cliente.observaciones);
@@ -649,9 +630,7 @@ function LeadCard({
             <span className="inline-flex items-center gap-1">
               <CalendarDays className="size-3" />
               {formatFechaLead(cliente.fecha)}
-              {dias !== null && (
-                <span className="text-muted-foreground/60">(hace {dias}d)</span>
-              )}
+              {dias !== null && <span className="text-muted-foreground/60">(hace {dias}d)</span>}
             </span>
           </div>
           {cliente.motivo && (
@@ -705,9 +684,7 @@ function LeadsTab() {
 
   const agentes = ag.agentes;
   const [savedAgenteId] = useState<string>(() =>
-    typeof window !== "undefined"
-      ? (localStorage.getItem("homebase.contactos.agente") ?? "")
-      : "",
+    typeof window !== "undefined" ? (localStorage.getItem("homebase.contactos.agente") ?? "") : "",
   );
   const agenteId =
     agenteParam ??
@@ -895,10 +872,7 @@ function LeadsTab() {
 // CLIENTES TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SEG_META: Record<
-  Segmento,
-  { label: string; icon: typeof Home; chip: string }
-> = {
+const SEG_META: Record<Segmento, { label: string; icon: typeof Home; chip: string }> = {
   Propietario: {
     label: "Propietarios",
     icon: Home,
@@ -966,7 +940,9 @@ function ClienteRow({ c, onClick }: { c: ClienteRow; onClick: () => void }) {
           <div className="min-w-0">
             <div className="text-sm font-medium truncate max-w-[200px]">{c.nombre || "—"}</div>
             {c.email && (
-              <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">{c.email}</div>
+              <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">
+                {c.email}
+              </div>
             )}
           </div>
         </div>
@@ -1277,7 +1253,11 @@ function ClienteDetallePanel({ id }: { id: string }) {
           type="button"
           disabled={archivarMutation.isPending}
           onClick={() => {
-            if (confirm(`¿Archivar a ${cliente.nombre || "este contacto"}? Podrás restaurarlo después desde la pestaña Histórico.`)) {
+            if (
+              confirm(
+                `¿Archivar a ${cliente.nombre || "este contacto"}? Podrás restaurarlo después desde la pestaña Histórico.`,
+              )
+            ) {
               archivarMutation.mutate();
             }
           }}
@@ -1455,8 +1435,9 @@ function eligeSupervivientePorDefecto(grupo: GrupoDuplicado): string {
   const conActividad = grupo.contactos.find((c) => c.tieneActividad);
   if (conActividad) return conActividad.id;
   // Sin actividad en ninguno: el más reciente suele tener los datos más al día.
-  return [...grupo.contactos].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0]
-    .id;
+  return [...grupo.contactos].sort((a, b) =>
+    (b.createdAt ?? "").localeCompare(a.createdAt ?? ""),
+  )[0].id;
 }
 
 function GrupoDuplicadoCard({ grupo }: { grupo: GrupoDuplicado }) {
@@ -1488,13 +1469,21 @@ function GrupoDuplicadoCard({ grupo }: { grupo: GrupoDuplicado }) {
           disabled={mutation.isPending}
           onClick={() => {
             const nombre = grupo.contactos.find((c) => c.id === survivorId)?.nombre;
-            if (confirm(`Fusionar los otros ${grupo.contactos.length - 1} en "${nombre}"? No se puede deshacer.`)) {
+            if (
+              confirm(
+                `Fusionar los otros ${grupo.contactos.length - 1} en "${nombre}"? No se puede deshacer.`,
+              )
+            ) {
               mutation.mutate();
             }
           }}
           className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline disabled:opacity-40"
         >
-          {mutation.isPending ? <Loader2 className="size-3 animate-spin" /> : <Users className="size-3" />}
+          {mutation.isPending ? (
+            <Loader2 className="size-3 animate-spin" />
+          ) : (
+            <Users className="size-3" />
+          )}
           Fusionar en el elegido
         </button>
       </div>
@@ -1514,7 +1503,9 @@ function GrupoDuplicadoCard({ grupo }: { grupo: GrupoDuplicado }) {
               className="accent-success"
             />
             <span className="font-medium truncate max-w-[160px]">{c.nombre}</span>
-            <span className="text-muted-foreground truncate max-w-[180px]">{c.email || "sin email"}</span>
+            <span className="text-muted-foreground truncate max-w-[180px]">
+              {c.email || "sin email"}
+            </span>
             <span className="text-muted-foreground/70">{c.cicloVida}</span>
             {c.tieneActividad && (
               <span className="rounded-full bg-info/10 text-info px-1.5 py-0.5 text-[9px] font-semibold">

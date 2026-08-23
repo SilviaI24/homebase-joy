@@ -32,9 +32,9 @@ export async function executePasswordUpdate(
 
 export function detectRecoverySession(
   auth: {
-    onAuthStateChange: (
-      callback: (event: string, session: unknown) => void,
-    ) => { data: { subscription: { unsubscribe: () => void } } };
+    onAuthStateChange: (callback: (event: string, session: unknown) => void) => {
+      data: { subscription: { unsubscribe: () => void } };
+    };
   },
   timeoutMs: number,
 ): Promise<boolean> {

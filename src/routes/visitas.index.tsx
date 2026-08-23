@@ -619,7 +619,6 @@ function EmptyChart() {
   );
 }
 
-
 function ChartCard({
   title,
   subtitle,

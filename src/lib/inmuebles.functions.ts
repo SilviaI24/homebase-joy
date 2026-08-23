@@ -1222,7 +1222,12 @@ export const geocodeInmuebles = createServerFn({ method: "POST" })
 // agregados), así que se piden aparte con .limit(), no con la función.
 
 export type DashboardSerieMes = { mes: string; Captaciones: number; Ventas: number };
-export type DashboardZona = { display: string; captaciones: number; ventas: number; activos: number };
+export type DashboardZona = {
+  display: string;
+  captaciones: number;
+  ventas: number;
+  activos: number;
+};
 export type DashboardCarteraTipo = { tipo: string; count: number; valor: number };
 
 export type DashboardStats = {

@@ -1,6 +1,12 @@
 import {
-  AreaChart, Area,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Legend,
 } from "recharts";
 
 const TOOLTIP_STYLE = {
@@ -19,7 +25,9 @@ export default function EvolucionChart({
 }) {
   return (
     <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5">
-      <h3 className="text-sm font-semibold tracking-tight mb-4">Captaciones y ventas · últimos 12 meses</h3>
+      <h3 className="text-sm font-semibold tracking-tight mb-4">
+        Captaciones y ventas · últimos 12 meses
+      </h3>
       <ResponsiveContainer width="100%" height={220}>
         <AreaChart data={seriesData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
           <defs>
@@ -37,8 +45,22 @@ export default function EvolucionChart({
           <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" allowDecimals={false} />
           <Tooltip contentStyle={TOOLTIP_STYLE} />
           <Legend wrapperStyle={{ fontSize: 12 }} />
-          <Area type="monotone" dataKey="Captaciones" stroke="var(--primary)" strokeWidth={2.5} fill="url(#gCapt)" activeDot={{ r: 5 }} />
-          <Area type="monotone" dataKey="Ventas" stroke="var(--gold)" strokeWidth={2.5} fill="url(#gVent)" activeDot={{ r: 5 }} />
+          <Area
+            type="monotone"
+            dataKey="Captaciones"
+            stroke="var(--primary)"
+            strokeWidth={2.5}
+            fill="url(#gCapt)"
+            activeDot={{ r: 5 }}
+          />
+          <Area
+            type="monotone"
+            dataKey="Ventas"
+            stroke="var(--gold)"
+            strokeWidth={2.5}
+            fill="url(#gVent)"
+            activeDot={{ r: 5 }}
+          />
         </AreaChart>
       </ResponsiveContainer>
     </div>

@@ -128,7 +128,9 @@ function estadoBadge(estado: string) {
   }
   const Icon = m.icon;
   return (
-    <span className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-medium ${m.color}`}>
+    <span
+      className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-medium ${m.color}`}
+    >
       <Icon className="size-2.5" /> {m.label}
     </span>
   );
@@ -270,9 +272,7 @@ function VisitasTab() {
         {agentes.length > 0 && (
           <select
             value={agenteFiltro}
-            onChange={(e) =>
-              navigate({ search: (prev) => ({ ...prev, agente: e.target.value }) })
-            }
+            onChange={(e) => navigate({ search: (prev) => ({ ...prev, agente: e.target.value }) })}
             className="h-9 px-2 rounded-md border border-input bg-background text-sm"
           >
             <option value="Todos">Todos los agentes</option>
@@ -431,12 +431,7 @@ function ActividadTab() {
         if (v.estado === "Programada") return false;
         if (agenteFiltro !== "Todos" && !v.agentesIds.includes(agenteFiltro)) return false;
         if (ql) {
-          const hay = [
-            ...v.clientesNombres,
-            ...v.inmuebleCalles,
-            v.actividad,
-            v.comentarios,
-          ]
+          const hay = [...v.clientesNombres, ...v.inmuebleCalles, v.actividad, v.comentarios]
             .join(" ")
             .toLowerCase();
           if (!hay.includes(ql)) return false;
@@ -457,9 +452,7 @@ function ActividadTab() {
         {agentes.length > 0 && (
           <select
             value={agenteFiltro}
-            onChange={(e) =>
-              navigate({ search: (prev) => ({ ...prev, agente: e.target.value }) })
-            }
+            onChange={(e) => navigate({ search: (prev) => ({ ...prev, agente: e.target.value }) })}
             className="h-9 px-2 rounded-md border border-input bg-background text-sm"
           >
             <option value="Todos">Todos los agentes</option>

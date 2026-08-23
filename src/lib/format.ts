@@ -10,9 +10,34 @@ export function cleanRef(ref: string): string {
 }
 
 const LOWER_WORDS = new Set([
-  "de", "del", "la", "las", "el", "los", "al", "y", "e", "o", "u", "a", "en",
-  "con", "por", "para", "sin", "sobre", "entre", "hasta", "desde", "bajo",
-  "según", "durante", "mediante", "excepto", "salvo", "hacia",
+  "de",
+  "del",
+  "la",
+  "las",
+  "el",
+  "los",
+  "al",
+  "y",
+  "e",
+  "o",
+  "u",
+  "a",
+  "en",
+  "con",
+  "por",
+  "para",
+  "sin",
+  "sobre",
+  "entre",
+  "hasta",
+  "desde",
+  "bajo",
+  "según",
+  "durante",
+  "mediante",
+  "excepto",
+  "salvo",
+  "hacia",
 ]);
 
 export function toTitleCase(str: string): string {
@@ -54,6 +79,8 @@ export function toSentenceCase(str: string): string {
     })
     .join("");
   // Capitaliza inicio de cada frase (después de . ! ? o salto de línea).
-  return normalized.replace(/(^|[.!?]\s+|\n+\s*)(\p{Ll})/gu, (_m, sep, ch) => sep + ch.toUpperCase());
+  return normalized.replace(
+    /(^|[.!?]\s+|\n+\s*)(\p{Ll})/gu,
+    (_m, sep, ch) => sep + ch.toUpperCase(),
+  );
 }
-

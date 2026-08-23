@@ -89,7 +89,9 @@ function inferDirectLookup(message: string): DirectLookup | null {
 
   const match = propertyMatch ?? contactMatch;
   const tool: DirectLookup["tool"] = propertyMatch ? "buscar_inmueble" : "buscar_lead";
-  let query = match ? message.slice((match.index ?? 0) + match[0].length) : emailOrPhone?.[0] ?? "";
+  let query = match
+    ? message.slice((match.index ?? 0) + match[0].length)
+    : (emailOrPhone?.[0] ?? "");
   query = query
     .replace(/^\s*(?:con|de|llamad[oa]|que se llama|por)?\s*/i, "")
     .replace(/^\s*(?:ref(?:erencia)?\.?|n[úu]mero)\s*/i, "")

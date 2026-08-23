@@ -22,7 +22,10 @@ export async function requireAuth() {
   if (!url || !anonKey) throw new Error("SUPABASE_URL y SUPABASE_ANON_KEY requeridos");
 
   const supabase = buildAuthClient(url, anonKey);
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
   if (!user || error) {
     throw Object.assign(new Error("No autorizado"), { statusCode: 401 });
   }
@@ -35,7 +38,10 @@ export async function requireAuthClient() {
   if (!url || !anonKey) throw new Error("SUPABASE_URL y SUPABASE_ANON_KEY requeridos");
 
   const supabase = buildAuthClient(url, anonKey);
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
   if (!user || error) {
     throw Object.assign(new Error("No autorizado"), { statusCode: 401 });
   }

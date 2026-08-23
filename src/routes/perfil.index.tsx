@@ -11,17 +11,14 @@ export const Route = createFileRoute("/perfil/")({
 
 function PerfilPage() {
   const { user } = useAuth();
-  const [current, setCurrent]         = useState("");
-  const [newPass, setNewPass]         = useState("");
-  const [confirm, setConfirm]         = useState("");
-  const [saving, setSaving]           = useState(false);
-  const [success, setSuccess]         = useState(false);
-  const [err, setErr]                 = useState<string | null>(null);
+  const [current, setCurrent] = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  const valid =
-    current.length >= 6 &&
-    newPass.length >= 8 &&
-    newPass === confirm;
+  const valid = current.length >= 6 && newPass.length >= 8 && newPass === confirm;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,27 +79,31 @@ function PerfilPage() {
               <input
                 type="password"
                 value={current}
-                onChange={e => setCurrent(e.target.value)}
+                onChange={(e) => setCurrent(e.target.value)}
                 autoComplete="current-password"
                 className="w-full h-9 px-3 text-[13px] rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] text-muted-foreground">Nueva contraseña (mín. 8 caracteres)</label>
+              <label className="text-[11px] text-muted-foreground">
+                Nueva contraseña (mín. 8 caracteres)
+              </label>
               <input
                 type="password"
                 value={newPass}
-                onChange={e => setNewPass(e.target.value)}
+                onChange={(e) => setNewPass(e.target.value)}
                 autoComplete="new-password"
                 className="w-full h-9 px-3 text-[13px] rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] text-muted-foreground">Confirmar nueva contraseña</label>
+              <label className="text-[11px] text-muted-foreground">
+                Confirmar nueva contraseña
+              </label>
               <input
                 type="password"
                 value={confirm}
-                onChange={e => setConfirm(e.target.value)}
+                onChange={(e) => setConfirm(e.target.value)}
                 autoComplete="new-password"
                 className="w-full h-9 px-3 text-[13px] rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
               />

@@ -21,7 +21,10 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 // Any origin not in this set fails CSRF validation (fail-closed).
 function buildAllowedOrigins(): Set<string> {
   const origins = new Set<string>();
-  for (const o of (process.env.CSRF_ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
+  for (const o of (process.env.CSRF_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)) {
     origins.add(o);
   }
   const vercelUrl = process.env.VERCEL_URL;
