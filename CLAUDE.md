@@ -110,6 +110,16 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **H-07 (ESLint) — autofix seguro aplicado el 23 ago 2026**: 253→87 errores
+  (166 eran solo formato Prettier, verificado que no cambió lógica). Quedan
+  87 errores/18 avisos que necesitan revisión caso por caso, no un fix a
+  ciegas: 86 `@typescript-eslint/no-explicit-any`, 9
+  `react-hooks/exhaustive-deps`, 9 `react-refresh/only-export-components`,
+  1 `prefer-const` en `password-reset.ts` que es deliberado (tiene comentario
+  explicando por qué). La cifra "2.316" de la auditoría del 14 ago ya no
+  aplica. CI ahora corre `npm audit --audit-level=high` (bloqueante, hoy pasa
+  con 1 vulnerabilidad baja ya aceptada) y `eslint` (informativo,
+  `continue-on-error`, hasta que se limpie el backlog de arriba).
 - M-01-bis completado el 21 ago 2026: `listAllInmuebles`/`allInmueblesLiteQuery`
   ya no los usa nada (Cartera, buscadores/autocompletar, operaciones, visitas,
   bandeja, dashboard y ahora también Comerciales — este último reutilizando
