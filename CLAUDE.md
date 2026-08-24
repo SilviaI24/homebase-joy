@@ -174,12 +174,19 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   tiene consumidores en el frontend — código muerto detectado, no tocado.
   Decisión ya tomada: las escrituras sin actor humano (crons, recálculos
   automáticos) se dejan en NULL a propósito — no se inventa un actor "sistema".
-- **M-03 (módulos grandes) — plan de división completo, sin ejecutar
-  todavía**: los 10 archivos más grandes (peor caso `inmuebles.$id.tsx`,
-  2.213 líneas) tienen un plan concreto de qué archivos nuevos crear y qué
-  responsabilidad va en cada uno. No se ejecutó ningún split real esta
-  sesión — es trabajo de refactor con riesgo de regresión, mejor abordarlo
-  con calma en una sesión propia.
+- **M-03 (módulos grandes) — primer avance real el 24 ago 2026**: extraídos
+  los helpers de formato puros (sin estado, sin JSX) de 4 de los archivos
+  más grandes a módulos propios: `dashboard-format.ts` (de `index.tsx`),
+  `inmueble-detail-format.ts` (de `inmuebles.$id.tsx`), `visitas-format.ts`
+  (de `visitas.index.tsx`), `bandeja-format.ts` (de `bandeja.index.tsx`).
+  Verificado tsc+tests+build tras cada extracción por separado. Hallazgo
+  sin corregir a propósito: `moneyShort` está triplicada (index.tsx,
+  comerciales.index.lazy.tsx, bandeja.index.tsx) con redondeos distintos
+  (2 vs 1 decimal, con/sin `null`) — no se unifica sin decidir cuál es la
+  correcta. **Queda pendiente el resto de M-03** (mover los componentes
+  React con estado — `Field`, `Spec`, paneles, diálogos — a sus propios
+  archivos): eso sí tiene riesgo real de cambiar comportamiento y merece
+  una sesión con más margen de prueba, no un fix rápido.
 - **UX-01 a UX-07 — auditados contra el código actual el 21 ago 2026**:
   ninguno resuelto al 100%, el mayor avance es UX-03 (paginación server-side
   ya en Contactos/Bandeja/Cartera). De ahí se corrigieron 5 puntos concretos
