@@ -16,6 +16,18 @@ export type SeguimientoRow = {
   agenteNombre: string | null;
 };
 
+type SeguimientoQueryRow = {
+  id: string;
+  tipo: string | null;
+  texto: string | null;
+  fecha: string | null;
+  created_at: string;
+  contact_id: string;
+  agente_id: string | null;
+  contacts: { nombre: string | null } | null;
+  agents: { id: string; nombre: string | null } | null;
+};
+
 export const listSeguimientos = createServerFn({ method: "GET" }).handler(async () => {
   await requirePermission("seguimiento.read");
   const supa = getSupa();
@@ -30,11 +42,16 @@ export const listSeguimientos = createServerFn({ method: "GET" }).handler(async 
 
   if (error) throw new Error(`listSeguimientos: ${error.message}`);
 
+  // Supabase-js sin tipos de Database generados infiere las relaciones
+  // contacts/agents como array por defecto; en runtime PostgREST devuelve un
+  // objeto único (FK many-to-one) — se corrige con el cast explícito.
+  const rows = (data ?? []) as unknown as SeguimientoQueryRow[];
+
   return {
-    seguimientos: (data ?? []).map(
-      (r: any): SeguimientoRow => ({
+    seguimientos: rows.map(
+      (r): SeguimientoRow => ({
         id: r.id,
-        tipo: r.tipo ?? "Nota",
+        tipo: (r.tipo ?? "Nota") as SeguimientoTipo,
         texto: r.texto ?? "",
         fecha: r.fecha ?? null,
         created_at: r.created_at,

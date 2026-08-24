@@ -26,6 +26,21 @@ function mapEstadoOut(estado: string): string {
   return ESTADOS_VISITA.includes(estado as (typeof ESTADOS_VISITA)[number]) ? estado : "Programada";
 }
 
+type VisitaQueryRow = {
+  id: string;
+  fecha: string | null;
+  estado: string | null;
+  notas: string | null;
+  properties: {
+    id: string;
+    calle: string | null;
+    numero: string | null;
+    barrio: string | null;
+  } | null;
+  contacts: { id: string; nombre: string | null; telefono: string | null } | null;
+  agents: { id: string; email: string | null } | null;
+};
+
 export const listVisitas = createServerFn({ method: "GET" }).handler(async () => {
   await requirePermission("visits.read");
   const supa = getSupa();
@@ -49,7 +64,11 @@ export const listVisitas = createServerFn({ method: "GET" }).handler(async () =>
 
   if (error) throw new Error(error.message);
 
-  const visitas: VisitaFull[] = (data ?? []).map((r: any) => ({
+  // Supabase-js sin tipos de Database generados infiere las relaciones como
+  // array por defecto; en runtime PostgREST devuelve un objeto único (FK
+  // many-to-one) — se corrige con el cast explícito.
+  const rows = (data ?? []) as unknown as VisitaQueryRow[];
+  const visitas: VisitaFull[] = rows.map((r) => ({
     id: r.id,
     fecha: r.fecha ?? null,
     estado: mapEstadoOut(r.estado ?? ""),

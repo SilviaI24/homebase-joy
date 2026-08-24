@@ -145,9 +145,42 @@ type PropertyRowShape = {
 
 type RoleRow = { tipo: string; property_id: string | null; properties: PropertyRowShape | null };
 
+type AgentRef = { id: string; nombre: string | null; email: string | null };
+type AgentAssignmentRow = { agent_id: string; agents: AgentRef | null };
+
+// Fila de contacts tal como la devuelve el select de listClientes/listLeads
+// (contact_roles/contact_agents son FK many-to-one desde la fila hija, pero
+// aquí SÍ son arrays reales: un contacto tiene muchos roles/asignaciones).
+type ContactQueryRow = {
+  id: string;
+  nombre: string | null;
+  email: string | null;
+  telefono: string | null;
+  dni: string | null;
+  profesion: string | null;
+  ciclo_vida: string | null;
+  duplicados: number | null;
+  motivo: string | null;
+  solicitud: string | null;
+  conversaciones: string | null;
+  observaciones: string | null;
+  feedback: string | null;
+  canal_origen: string | null;
+  seccion: string | null;
+  trabajado: string | null;
+  categoria: string[] | null;
+  contrato_trabajo: string | null;
+  mascota: string | null;
+  avalista: string | null;
+  attachments: Array<{ url: string; filename: string; type: string }> | null;
+  created_at: string | null;
+  contact_roles: RoleRow[] | null;
+  contact_agents: AgentAssignmentRow[] | null;
+};
+
 // Segmento = qué tipo de relación tiene el contacto con la agencia.
 // Se basa en los contact_roles, no en el ciclo_vida.
-function deriveSegmento(roles: RoleRow[]): { segmento: Segmento; motivo: string } {
+function deriveSegmento(roles: Array<{ tipo: string }>): { segmento: Segmento; motivo: string } {
   if (roles.some((r) => r.tipo === "Propietario" || r.tipo === "Arrendador")) {
     return { segmento: "Propietario", motivo: "Relación de propietario registrada" };
   }
@@ -245,7 +278,7 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
   await requirePermissions("contacts.read", "contact_roles.read", "properties.read");
   const supa = getSupa();
 
-  const allContacts: any[] = [];
+  const allContacts: ContactQueryRow[] = [];
   let from = 0;
   const PAGE = 1000;
   while (true) {
@@ -267,7 +300,11 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
     if (error) throw new Error(error.message);
-    allContacts.push(...(data ?? []));
+    // Supabase-js sin tipos de Database generados infiere las relaciones
+    // anidadas (properties dentro de contact_roles, agents dentro de
+    // contact_agents) como array por defecto; en runtime son FK many-to-one
+    // (objeto único) — se corrige con el cast explícito.
+    allContacts.push(...((data ?? []) as unknown as ContactQueryRow[]));
     if ((data ?? []).length < PAGE) break;
     from += PAGE;
   }
@@ -293,12 +330,12 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
   const CLOSED = new Set(["Vendido", "Alquilado"]);
   const INACTIVE = new Set(["Vendido", "Alquilado", "Baja"]);
 
-  const clientes: Cliente[] = allContacts.map((r: any) => {
+  const clientes: Cliente[] = allContacts.map((r) => {
     const roles: RoleRow[] = r.contact_roles ?? [];
     const linkedRoles = roles.filter((role): role is RoleRow & { properties: PropertyRowShape } =>
       Boolean(role.properties),
     );
-    const agentAssignments: Array<{ agent_id: string; agents: any }> = r.contact_agents ?? [];
+    const agentAssignments: AgentAssignmentRow[] = r.contact_agents ?? [];
 
     const { segmento, motivo: segmentoMotivo } = deriveSegmento(roles);
 
@@ -470,7 +507,7 @@ export const listLeads = createServerFn({ method: "GET" }).handler(async () => {
   await requirePermissions("contacts.read", "contact_roles.read", "properties.read");
   const supa = getSupa();
 
-  const allContacts: any[] = [];
+  const allContacts: ContactQueryRow[] = [];
   let from = 0;
   const PAGE = 1000;
   while (true) {
@@ -492,7 +529,8 @@ export const listLeads = createServerFn({ method: "GET" }).handler(async () => {
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
     if (error) throw new Error(error.message);
-    allContacts.push(...(data ?? []));
+    // Ver comentario equivalente en listClientes: cast por el mismo motivo.
+    allContacts.push(...((data ?? []) as unknown as ContactQueryRow[]));
     if ((data ?? []).length < PAGE) break;
     from += PAGE;
   }
@@ -500,12 +538,12 @@ export const listLeads = createServerFn({ method: "GET" }).handler(async () => {
   const CLOSED = new Set(["Vendido", "Alquilado"]);
   const INACTIVE = new Set(["Vendido", "Alquilado", "Baja"]);
 
-  const clientes: Cliente[] = allContacts.map((r: any) => {
+  const clientes: Cliente[] = allContacts.map((r) => {
     const roles: RoleRow[] = r.contact_roles ?? [];
     const linkedRoles = roles.filter((role): role is RoleRow & { properties: PropertyRowShape } =>
       Boolean(role.properties),
     );
-    const agentAssignments: Array<{ agent_id: string; agents: any }> = r.contact_agents ?? [];
+    const agentAssignments: AgentAssignmentRow[] = r.contact_agents ?? [];
 
     const { segmento, motivo: segmentoMotivo } = deriveSegmento(roles);
     const etapa = "Lead" as Etapa;
@@ -590,10 +628,27 @@ export const listLeads = createServerFn({ method: "GET" }).handler(async () => {
 // Bandeja de IA: conserva las conversaciones de los agentes de WhatsApp y voz
 // aunque el contacto deje de ser Lead. `contacts.canal_origen` es la fuente
 // canónica; el texto solo se usa como compatibilidad con registros antiguos.
+type ConversacionIaQueryRow = {
+  id: string;
+  nombre: string | null;
+  email: string | null;
+  telefono: string | null;
+  ciclo_vida: string | null;
+  canal_origen: string | null;
+  created_at: string | null;
+  motivo: string | null;
+  solicitud: string | null;
+  conversaciones: string | null;
+  seccion: string | null;
+  categoria: string[] | null;
+  trabajado: string | null;
+  contact_agents: Array<{ agent_id: string | null }> | null;
+};
+
 export const listConversacionesIa = createServerFn({ method: "GET" }).handler(async () => {
   await requirePermission("contacts.read");
   const supa = getSupa();
-  const allContacts: any[] = [];
+  const allContacts: ConversacionIaQueryRow[] = [];
   const PAGE = 1000;
 
   for (let from = 0; ; from += PAGE) {
@@ -608,7 +663,7 @@ export const listConversacionesIa = createServerFn({ method: "GET" }).handler(as
       .range(from, from + PAGE - 1);
 
     if (error) throw new Error(`listConversacionesIa: ${error.message}`);
-    const page = data ?? [];
+    const page = (data ?? []) as unknown as ConversacionIaQueryRow[];
     allContacts.push(...page);
     if (page.length < PAGE) break;
   }
@@ -640,8 +695,8 @@ export const listConversacionesIa = createServerFn({ method: "GET" }).handler(as
       trabajado: toTitleCase(s(row.trabajado)),
       etapa: (row.ciclo_vida ?? "Lead") as Etapa,
       agentesIds: (row.contact_agents ?? [])
-        .map((assignment: { agent_id?: string }) => assignment.agent_id)
-        .filter((id: string | undefined): id is string => Boolean(id)),
+        .map((assignment) => assignment.agent_id)
+        .filter((id): id is string => Boolean(id)),
       matches: [],
     }));
 
@@ -681,9 +736,14 @@ async function computeSegmentoCounts(
     .select("id, contact_roles(tipo)")
     .eq("ciclo_vida", "Cliente");
 
+  const rows = (data ?? []) as unknown as Array<{
+    id: string;
+    contact_roles: Array<{ tipo: string }> | null;
+  }>;
+
   const counts = { Propietario: 0, Comprador: 0, Inquilino: 0, total: 0 };
-  for (const c of data ?? []) {
-    const roles = ((c as any).contact_roles ?? []) as Array<{ tipo: string }>;
+  for (const c of rows) {
+    const roles = c.contact_roles ?? [];
     const { segmento } = deriveSegmento(roles as RoleRow[]);
     if (segmento === "Propietario") counts.Propietario++;
     else if (segmento === "Comprador") counts.Comprador++;
@@ -755,9 +815,30 @@ export const listClientesPage = createServerFn({ method: "GET" })
       const INACTIVE = new Set(["Vendido", "Alquilado", "Baja"]);
       const CLOSED = new Set(["Vendido", "Alquilado"]);
 
-      const clientes: ClienteRow[] = (rows ?? []).map((r: any) => {
-        const roles: RoleRow[] = r.contact_roles ?? [];
-        const agentAssignments: Array<{ agent_id: string }> = r.contact_agents ?? [];
+      // Supabase-js sin tipos de Database generados infiere las relaciones
+      // anidadas como array por defecto; en runtime son FK many-to-one
+      // (objeto único) — se corrige con el cast explícito. `properties` aquí
+      // solo trae (id, estatus), no el PropertyRowShape completo.
+      type ClientesPageQueryRow = {
+        id: string;
+        nombre: string | null;
+        email: string | null;
+        telefono: string | null;
+        ciclo_vida: string | null;
+        canal_origen: string | null;
+        created_at: string | null;
+        contact_roles: Array<{
+          tipo: string;
+          property_id: string | null;
+          properties: { id: string; estatus: string } | null;
+        }> | null;
+        contact_agents: Array<{ agent_id: string | null }> | null;
+      };
+      const clientRows = (rows ?? []) as unknown as ClientesPageQueryRow[];
+
+      const clientes: ClienteRow[] = clientRows.map((r) => {
+        const roles = r.contact_roles ?? [];
+        const agentAssignments = r.contact_agents ?? [];
         const { segmento } = deriveSegmento(roles);
 
         const linkedProps = roles.filter((rl) => rl.properties);
@@ -789,7 +870,9 @@ export const listClientesPage = createServerFn({ method: "GET" })
           diasDesdeAlta: fechaMs
             ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000))
             : null,
-          agentesIds: agentAssignments.map((a) => a.agent_id).filter(Boolean),
+          agentesIds: agentAssignments
+            .map((a) => a.agent_id)
+            .filter((id): id is string => Boolean(id)),
           hasSilvia,
         };
       });
@@ -859,16 +942,17 @@ export const getClienteById = createServerFn({ method: "GET" })
     const CLOSED = new Set(["Vendido", "Alquilado"]);
     const INACTIVE = new Set(["Vendido", "Alquilado", "Baja"]);
 
-    // Re-use the same mapping logic as listClientes (single contact)
-    const roles: RoleRow[] = (r as any).contact_roles ?? [];
+    // Re-use the same mapping logic as listClientes (single contact). Mismo
+    // select que listClientes -> mismo tipo de fila (ver ContactQueryRow).
+    const row = r as unknown as ContactQueryRow;
+    const roles: RoleRow[] = row.contact_roles ?? [];
     const linkedRoles = roles.filter((role): role is RoleRow & { properties: PropertyRowShape } =>
       Boolean(role.properties),
     );
-    const agentAssignments: Array<{ agent_id: string; agents: any }> =
-      (r as any).contact_agents ?? [];
+    const agentAssignments: AgentAssignmentRow[] = row.contact_agents ?? [];
 
     const { segmento, motivo: segmentoMotivo } = deriveSegmento(roles);
-    const etapa = ((r as any).ciclo_vida ?? "Lead") as Etapa;
+    const etapa = (row.ciclo_vida ?? "Lead") as Etapa;
 
     const propRoles = linkedRoles.filter(
       (rl) => rl.tipo === "Propietario" || rl.tipo === "Arrendador",
@@ -896,7 +980,7 @@ export const getClienteById = createServerFn({ method: "GET" })
     const agentesIds = agentAssignments.map((a) => a.agent_id).filter(Boolean);
     const agentesMails = agentAssignments.map((a) => a.agents?.email ?? "").filter(Boolean);
 
-    const txtRaw = `${(r as any).solicitud ?? ""} ${(r as any).motivo ?? ""} ${(r as any).observaciones ?? ""} ${(r as any).feedback ?? ""} ${(r as any).conversaciones ?? ""}`;
+    const txtRaw = `${row.solicitud ?? ""} ${row.motivo ?? ""} ${row.observaciones ?? ""} ${row.feedback ?? ""} ${row.conversaciones ?? ""}`;
     const txt = txtRaw.toLowerCase();
     const wantsAlquiler = segmento === "Inquilino" || /alquil/i.test(txtRaw);
     const wantsVenta =
@@ -919,7 +1003,7 @@ export const getClienteById = createServerFn({ method: "GET" })
     if (puedeMatch) {
       const pool = wantsAlquiler ? activosAlquiler : wantsVenta ? activosVenta : [];
       const linkedSet = new Set(inmueblesVinculados.map((i) => i.id));
-      const cats = (((r as any).categoria as string[]) ?? []).map((c: string) => c.toLowerCase());
+      const cats = (row.categoria ?? []).map((c) => c.toLowerCase());
       matches = pool
         .filter((i) => !linkedSet.has(i.id))
         .map<ClienteMatch | null>((i) => {
@@ -963,33 +1047,32 @@ export const getClienteById = createServerFn({ method: "GET" })
         .slice(0, 6);
     }
 
-    const fechaMs = (r as any).created_at ? new Date((r as any).created_at).getTime() : 0;
+    const fechaMs = row.created_at ? new Date(row.created_at).getTime() : 0;
     const propiedadIds = propRoles.map((rl) => rl.property_id!).filter(Boolean);
     const compradorIds = cmpRoles.map((rl) => rl.property_id!).filter(Boolean);
     const alquilerIds = inqRoles.map((rl) => rl.property_id!).filter(Boolean);
-    const atts =
-      ((r as any).attachments as Array<{ url: string; filename: string; type: string }>) ?? [];
+    const atts = row.attachments ?? [];
 
     const cliente: Cliente = {
-      id: (r as any).id,
-      nombre: toTitleCase(s((r as any).nombre)),
-      email: s((r as any).email),
-      telefono: s((r as any).telefono),
-      canalOrigen: s((r as any).canal_origen),
-      dni: s((r as any).dni),
-      fecha: (r as any).created_at ? (r as any).created_at.slice(0, 10) : null,
-      motivo: toSentenceCase(s((r as any).motivo)),
-      observaciones: toSentenceCase(s((r as any).observaciones)),
-      solicitud: toSentenceCase(s((r as any).solicitud)),
-      seccion: toTitleCase(s((r as any).seccion)),
-      conversaciones: toSentenceCase(s((r as any).conversaciones)),
-      feedback: toSentenceCase(s((r as any).feedback)),
-      profesion: toTitleCase(s((r as any).profesion)),
-      contratoTrabajo: toTitleCase(s((r as any).contrato_trabajo)),
-      mascota: toTitleCase(s((r as any).mascota)),
-      avalista: toTitleCase(s((r as any).avalista)),
-      categoria: Array.isArray((r as any).categoria) ? (r as any).categoria : [],
-      trabajado: toTitleCase(s((r as any).trabajado)),
+      id: row.id,
+      nombre: toTitleCase(s(row.nombre)),
+      email: s(row.email),
+      telefono: s(row.telefono),
+      canalOrigen: s(row.canal_origen),
+      dni: s(row.dni),
+      fecha: row.created_at ? row.created_at.slice(0, 10) : null,
+      motivo: toSentenceCase(s(row.motivo)),
+      observaciones: toSentenceCase(s(row.observaciones)),
+      solicitud: toSentenceCase(s(row.solicitud)),
+      seccion: toTitleCase(s(row.seccion)),
+      conversaciones: toSentenceCase(s(row.conversaciones)),
+      feedback: toSentenceCase(s(row.feedback)),
+      profesion: toTitleCase(s(row.profesion)),
+      contratoTrabajo: toTitleCase(s(row.contrato_trabajo)),
+      mascota: toTitleCase(s(row.mascota)),
+      avalista: toTitleCase(s(row.avalista)),
+      categoria: Array.isArray(row.categoria) ? row.categoria : [],
+      trabajado: toTitleCase(s(row.trabajado)),
       propiedadIds,
       propiedadRefs: propietariosLinked.map((p) => p.ref),
       propiedadCalles: toTitleCaseArr(propietariosLinked.map((p) => p.calle)),
@@ -1007,7 +1090,7 @@ export const getClienteById = createServerFn({ method: "GET" })
       inmueblesHistorico,
       matches,
       diasDesdeAlta: fechaMs ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000)) : null,
-      duplicados: Number((r as any).duplicados) || 1,
+      duplicados: Number(row.duplicados) || 1,
       preferencias: {
         presupuesto: { min: presupuestoMin, max: presupuestoMax },
         habitaciones: habitacionesPref,
@@ -1100,8 +1183,11 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
       const { data: rows, error, count } = await query.range(from, to);
       if (error) throw new Error("Error al cargar conversaciones");
 
+      // Mismo select que listConversacionesIa -> mismo tipo de fila.
+      const typedRows = (rows ?? []) as unknown as ConversacionIaQueryRow[];
+
       // Post-fetch: filter out legacy records that mention Idealista
-      const validRows = (rows ?? []).filter((row: any) => {
+      const validRows = typedRows.filter((row) => {
         const origen = (row.canal_origen ?? "").toLowerCase();
         const esPrimary =
           origen === "silvia-whatsapp" || origen === "silvia-voz" || origen === "silvia-email";
@@ -1111,7 +1197,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         return !/idealista/i.test(texto);
       });
 
-      const clientes: ConversacionIa[] = validRows.map((row: any) => ({
+      const clientes: ConversacionIa[] = validRows.map((row) => ({
         id: row.id,
         nombre: toTitleCase(s(row.nombre)),
         email: s(row.email),
@@ -1126,8 +1212,8 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         trabajado: toTitleCase(s(row.trabajado)),
         etapa: (row.ciclo_vida ?? "Lead") as Etapa,
         agentesIds: (row.contact_agents ?? [])
-          .map((a: { agent_id?: string }) => a.agent_id)
-          .filter((id: string | undefined): id is string => Boolean(id)),
+          .map((a) => a.agent_id)
+          .filter((id): id is string => Boolean(id)),
         matches: [],
       }));
 
@@ -1512,14 +1598,28 @@ export const getLeadInsightsFn = createServerFn({ method: "GET" }).handler(async
       ultimaSeg.set(s.contact_id, new Date(s.fecha).getTime());
     }
   }
-  const conVisita = new Set((visitsRes.data ?? []).map((v: any) => v.contact_id).filter(Boolean));
+  const visitRows = (visitsRes.data ?? []) as Array<{ contact_id: string | null }>;
+  const conVisita = new Set(visitRows.map((v) => v.contact_id).filter(Boolean));
 
-  const scored: LeadInsight[] = contacts.map((c: any) => {
+  type LeadInsightQueryRow = {
+    id: string;
+    nombre: string | null;
+    telefono: string | null;
+    email: string | null;
+    solicitud: string | null;
+    motivo: string | null;
+    ciclo_vida: string | null;
+    canal_origen: string | null;
+    contact_agents: Array<{ agent_id: string | null }> | null;
+  };
+  const contactRows = contacts as unknown as LeadInsightQueryRow[];
+
+  const scored: LeadInsight[] = contactRows.map((c) => {
     let s = 0;
     if (c.telefono) s += 0.1;
     if (c.email) s += 0.08;
     if (c.solicitud || c.motivo) s += 0.12;
-    if ((c.contact_agents as any[])?.length > 0) s += 0.1;
+    if ((c.contact_agents?.length ?? 0) > 0) s += 0.1;
 
     const canal = (c.canal_origen ?? "").toLowerCase();
     if (/referi|directo|captaci/.test(canal)) s += 0.1;
@@ -1543,7 +1643,7 @@ export const getLeadInsightsFn = createServerFn({ method: "GET" }).handler(async
       ciclo_vida: c.ciclo_vida as string,
       score: Math.min(1, Math.round(s * 100) / 100),
       diasSinContacto,
-      tieneAgente: (c.contact_agents as any[])?.length > 0,
+      tieneAgente: (c.contact_agents?.length ?? 0) > 0,
     };
   });
 
@@ -1613,10 +1713,23 @@ export const listContactosPage = createServerFn({ method: "GET" })
     const { data: rows, error, count } = await query.range(from, to);
     if (error) throw new Error("Error al cargar contactos");
 
-    const clientes: ClienteRowSimple[] = (rows ?? []).map((r: any) => {
-      const roles: { tipo: string; property_id: string | null }[] = r.contact_roles ?? [];
-      const agentAssignments: Array<{ agent_id: string }> = r.contact_agents ?? [];
-      const { segmento } = deriveSegmento(roles.map((rl) => ({ ...rl, properties: null })));
+    type ContactosPageQueryRow = {
+      id: string;
+      nombre: string | null;
+      email: string | null;
+      telefono: string | null;
+      ciclo_vida: string | null;
+      canal_origen: string | null;
+      created_at: string | null;
+      contact_roles: Array<{ tipo: string; property_id: string | null }> | null;
+      contact_agents: Array<{ agent_id: string | null }> | null;
+    };
+    const contactRows = (rows ?? []) as unknown as ContactosPageQueryRow[];
+
+    const clientes: ClienteRowSimple[] = contactRows.map((r) => {
+      const roles = r.contact_roles ?? [];
+      const agentAssignments = r.contact_agents ?? [];
+      const { segmento } = deriveSegmento(roles);
       const fechaMs = r.created_at ? new Date(r.created_at).getTime() : 0;
       return {
         id: r.id,
@@ -1628,7 +1741,9 @@ export const listContactosPage = createServerFn({ method: "GET" })
         segmento,
         etapa: (r.ciclo_vida ?? data.etapa) as Etapa,
         diasDesdeAlta: fechaMs ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000)) : null,
-        agentesIds: agentAssignments.map((a) => a.agent_id).filter(Boolean),
+        agentesIds: agentAssignments
+          .map((a) => a.agent_id)
+          .filter((id): id is string => Boolean(id)),
       };
     });
 

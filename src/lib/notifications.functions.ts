@@ -78,15 +78,24 @@ export const getNotifications = createServerFn({ method: "GET" }).handler(
 
     const notifs: Notif[] = [];
 
+    // Supabase-js sin tipos de Database generados infiere las relaciones
+    // (properties/contacts) como array por defecto; en runtime PostgREST
+    // devuelve un objeto único (FK many-to-one) — se corrige con el cast
+    // explícito en cada bloque.
+
     // ── Visitas hoy (urgente) ─────────────────────────────────────────────────
-    for (const v of visitasRes.data ?? []) {
-      const prop = (v as any).properties;
-      const contact = (v as any).contacts;
-      const calle = prop ? toTitleCase(prop.calle ?? "") : "Inmueble";
-      const cliente = contact ? toTitleCase(contact.nombre ?? "") : "Cliente";
-      const estado = (v as any).estado === "Confirmada" ? "Confirmada" : "Pendiente";
+    const visitasRows = (visitasRes.data ?? []) as unknown as Array<{
+      id: string;
+      estado: string | null;
+      properties: { calle: string | null; ref: string | null } | null;
+      contacts: { nombre: string | null } | null;
+    }>;
+    for (const v of visitasRows) {
+      const calle = v.properties ? toTitleCase(v.properties.calle ?? "") : "Inmueble";
+      const cliente = v.contacts ? toTitleCase(v.contacts.nombre ?? "") : "Cliente";
+      const estado = v.estado === "Confirmada" ? "Confirmada" : "Pendiente";
       notifs.push({
-        id: `visita-${(v as any).id}`,
+        id: `visita-${v.id}`,
         tipo: "visita_hoy",
         prioridad: "urgente",
         titulo: `Visita hoy — ${calle}`,
@@ -96,13 +105,20 @@ export const getNotifications = createServerFn({ method: "GET" }).handler(
     }
 
     // ── Propiedades estancadas (atención) ────────────────────────────────────
-    for (const p of estancadasRes.data ?? []) {
-      const ref = cleanRef((p as any).ref ?? "");
-      const calle = toTitleCase((p as any).calle ?? "");
-      const inicio = (p as any).fecha_inicio ?? (p as any).created_at?.slice(0, 10);
+    const estancadasRows = (estancadasRes.data ?? []) as Array<{
+      id: string;
+      ref: string | null;
+      calle: string | null;
+      fecha_inicio: string | null;
+      created_at: string;
+    }>;
+    for (const p of estancadasRows) {
+      const ref = cleanRef(p.ref ?? "");
+      const calle = toTitleCase(p.calle ?? "");
+      const inicio = p.fecha_inicio ?? p.created_at?.slice(0, 10);
       const dias = inicio ? Math.floor((Date.now() - new Date(inicio).getTime()) / 86_400_000) : 0;
       notifs.push({
-        id: `estancada-${(p as any).id}`,
+        id: `estancada-${p.id}`,
         tipo: "propiedad_estancada",
         prioridad: "atencion",
         titulo: `${ref} — ${calle}`,
@@ -112,13 +128,19 @@ export const getNotifications = createServerFn({ method: "GET" }).handler(
     }
 
     // ── Reservas largas (atención) ───────────────────────────────────────────
-    for (const p of reservasRes.data ?? []) {
-      const ref = cleanRef((p as any).ref ?? "");
-      const calle = toTitleCase((p as any).calle ?? "");
-      const desde = (p as any).fecha_reserva;
+    const reservasRows = (reservasRes.data ?? []) as Array<{
+      id: string;
+      ref: string | null;
+      calle: string | null;
+      fecha_reserva: string | null;
+    }>;
+    for (const p of reservasRows) {
+      const ref = cleanRef(p.ref ?? "");
+      const calle = toTitleCase(p.calle ?? "");
+      const desde = p.fecha_reserva;
       const dias = desde ? Math.floor((Date.now() - new Date(desde).getTime()) / 86_400_000) : 0;
       notifs.push({
-        id: `reserva-${(p as any).id}`,
+        id: `reserva-${p.id}`,
         tipo: "reserva_larga",
         prioridad: "atencion",
         titulo: `${ref} — Reservado ${dias}d`,
@@ -128,11 +150,17 @@ export const getNotifications = createServerFn({ method: "GET" }).handler(
     }
 
     // ── Nuevos leads/prospectos (info) ────────────────────────────────────────
-    for (const c of leadsRes.data ?? []) {
-      const nombre = toTitleCase((c as any).nombre ?? "Contacto");
-      const canal = (c as any).canal_origen ?? "Desconocido";
+    const leadsRows = (leadsRes.data ?? []) as Array<{
+      id: string;
+      nombre: string | null;
+      canal_origen: string | null;
+      created_at: string;
+    }>;
+    for (const c of leadsRows) {
+      const nombre = toTitleCase(c.nombre ?? "Contacto");
+      const canal = c.canal_origen ?? "Desconocido";
       notifs.push({
-        id: `lead-${(c as any).id}`,
+        id: `lead-${c.id}`,
         tipo: "lead_nuevo",
         prioridad: "info",
         titulo: nombre,

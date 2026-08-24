@@ -44,6 +44,34 @@ export type OperacionRow = {
   created_at: string;
 };
 
+type OperacionQueryRow = {
+  id: string;
+  tipo: string | null;
+  estado: string | null;
+  precio_operacion: number | null;
+  comision_pct: number | null;
+  comision_total: number | null;
+  fecha_apertura: string | null;
+  fecha_cierre: string | null;
+  notas: string | null;
+  created_at: string;
+  property_id: string | null;
+  properties: {
+    ref: string | null;
+    barrio: string | null;
+    calle: string | null;
+    numero: string | null;
+    estatus: string | null;
+    es_alquiler: boolean | null;
+  } | null;
+  agente_id: string | null;
+  agents: { id: string; nombre: string | null } | null;
+  vendedor_id: string | null;
+  vendedor: { id: string; nombre: string | null } | null;
+  comprador_id: string | null;
+  comprador: { id: string; nombre: string | null } | null;
+};
+
 type OperationCloseReadiness = Pick<
   OperacionRow,
   | "tipo"
@@ -131,13 +159,18 @@ export const listOperaciones = createServerFn({ method: "GET" }).handler(async (
 
   if (error) throw new Error(`listOperaciones: ${error.message}`);
 
+  // Supabase-js sin tipos de Database generados infiere las relaciones como
+  // array por defecto; en runtime PostgREST devuelve un objeto único (FK
+  // many-to-one) — se corrige con el cast explícito.
+  const rows = (data ?? []) as unknown as OperacionQueryRow[];
+
   return {
     permissions: { canSeeFinanciero, canCreate, canClose },
-    operaciones: (data ?? []).map(
-      (r: any): OperacionRow => ({
+    operaciones: rows.map(
+      (r): OperacionRow => ({
         id: r.id,
-        tipo: r.tipo ?? "Venta",
-        estado: r.estado ?? "Abierta",
+        tipo: (r.tipo ?? "Venta") as OperacionTipo,
+        estado: (r.estado ?? "Abierta") as OperacionEstado,
         // Datos financieros: solo visibles con operations.read_financiero
         precioOperacion: canSeeFinanciero ? (r.precio_operacion ?? null) : null,
         comisionPct: canSeeFinanciero ? (r.comision_pct ?? null) : null,

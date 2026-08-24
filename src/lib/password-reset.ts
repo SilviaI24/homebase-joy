@@ -42,6 +42,7 @@ export function detectRecoverySession(
     let settled = false;
     // Declared with let so settle() can reference it before assignment completes
     // (guards against synchronous callback invocation in tests via optional chaining)
+    // eslint-disable-next-line prefer-const -- ver comentario de arriba
     let sub: ReturnType<typeof auth.onAuthStateChange> | undefined;
 
     const settle = (value: boolean) => {

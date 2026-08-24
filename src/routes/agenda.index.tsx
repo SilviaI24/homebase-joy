@@ -164,7 +164,10 @@ function VisitasTab() {
   const [mesActual, setMesActual] = useState(mes);
 
   const agentes = agData.agentes ?? [];
-  const visitas = data.visitas ?? [];
+  // Memoizado: `?? []` crea un array nuevo cada render si data.visitas es
+  // undefined, lo que invalidaría el useMemo de visitasFiltradas de abajo
+  // aunque los datos reales no hayan cambiado.
+  const visitas = useMemo(() => data.visitas ?? [], [data.visitas]);
 
   function navMes(dir: -1 | 1) {
     const [y, m] = mesActual.split("-").map(Number);

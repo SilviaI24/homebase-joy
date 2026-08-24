@@ -270,11 +270,11 @@ function Dashboard() {
     }));
 
     const ops = opsData.operaciones;
-    const opsCerradas = ops.filter((o: any) => o.estado === "Cerrada");
-    const totalComision = opsCerradas.reduce((s: number, o: any) => s + (o.comisionTotal ?? 0), 0);
+    const opsCerradas = ops.filter((o) => o.estado === "Cerrada");
+    const totalComision = opsCerradas.reduce((s, o) => s + (o.comisionTotal ?? 0), 0);
     const pipelineValorOps = ops
-      .filter((o: any) => o.estado === "Abierta" || o.estado === "En negociación")
-      .reduce((s: number, o: any) => s + (o.precioOperacion ?? 0), 0);
+      .filter((o) => o.estado === "Abierta" || o.estado === "En negociación")
+      .reduce((s, o) => s + (o.precioOperacion ?? 0), 0);
 
     return {
       pipeline,
@@ -908,7 +908,7 @@ function Dashboard() {
 
         {/* Actividad por agente — solo financiero/admin */}
         {myRole.isFinanciero &&
-          statsData.agentes.filter((a: any) => a.leads + a.clientes > 0).length > 0 && (
+          statsData.agentes.filter((a) => a.leads + a.clientes > 0).length > 0 && (
             <div className="rounded-2xl border border-border bg-card p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Banknote className="size-4 text-gold" />
@@ -916,8 +916,8 @@ function Dashboard() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {statsData.agentes
-                  .filter((a: any) => a.leads + a.clientes > 0)
-                  .map((a: any) => (
+                  .filter((a) => a.leads + a.clientes > 0)
+                  .map((a) => (
                     <div
                       key={a.nombre}
                       className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border"

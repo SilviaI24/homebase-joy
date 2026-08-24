@@ -467,6 +467,13 @@ function DetailView({
   const isSavingRef = useRef(false);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Claves derivadas para el array de dependencias del useEffect de abajo —
+  // extraídas a variables porque el linter no puede verificar de forma
+  // estática una expresión compleja escrita directamente en ese array.
+  const agentesIdsKey = inmueble.agentesIds.join(",");
+  const imagenesAttachmentsKey = inmueble.imagenesAttachments.map((a) => a.id).join(",");
+  const documentosKey = JSON.stringify(inmueble.documentos);
+
   // When fresh data arrives, re-sync the form fields that only exist in detail.
   useEffect(() => {
     if (isSavingRef.current) return;
@@ -507,10 +514,10 @@ function DetailView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     detailReady,
-    inmueble.agentesIds.join(","),
+    agentesIdsKey,
     inmueble.observaciones,
     inmueble.descripcion,
-    inmueble.imagenesAttachments.map((a) => a.id).join(","),
+    imagenesAttachmentsKey,
     inmueble.habitaciones,
     inmueble.banos,
     inmueble.superficie,
@@ -537,12 +544,11 @@ function DetailView({
     inmueble.tipoExclusiva,
     inmueble.notaria,
     inmueble.llaves,
-    JSON.stringify(inmueble.documentos),
+    documentosKey,
   ]);
 
-  const initialOrderKey = inmueble.imagenesAttachments.map((a) => a.id).join(",");
   const currentOrderKey = imagenesOrder.map((a) => a.id).join(",");
-  const imagesDirty = initialOrderKey !== currentOrderKey;
+  const imagesDirty = imagenesAttachmentsKey !== currentOrderKey;
 
   const mutation = useMutation({
     mutationFn,
@@ -1778,7 +1784,10 @@ function estadoVisitaColor(estado: string) {
 
 function VisitasPanel({ id }: { id: string }) {
   const visitasQ = useQuery(visitasQuery(id));
-  const visitas = visitasQ.data?.visitas ?? [];
+  // Memoizado: `?? []` crea un array nuevo cada render si no hay datos aún,
+  // lo que invalidaría el useMemo de `stats` de más abajo aunque los datos
+  // reales no hayan cambiado.
+  const visitas = useMemo(() => visitasQ.data?.visitas ?? [], [visitasQ.data?.visitas]);
   const now = Date.now();
   const futuras = visitas.filter((v) => v.fecha && new Date(v.fecha).getTime() >= now);
   const pasadas = visitas.filter((v) => !v.fecha || new Date(v.fecha).getTime() < now);

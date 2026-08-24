@@ -413,7 +413,10 @@ function BandejaPage() {
 
   const { data: inmData } = useSuspenseQuery(comerciablesInmueblesQuery);
 
-  const conversaciones = pageData?.clientes ?? [];
+  // Memoizado: `?? []` crea un array nuevo cada render si pageData?.clientes
+  // es undefined, lo que invalidaría el useMemo de más abajo que depende de
+  // `conversaciones` aunque los datos reales no hayan cambiado.
+  const conversaciones = useMemo(() => pageData?.clientes ?? [], [pageData?.clientes]);
   const total = pageData?.total ?? 0;
   const tabCounts = pageData?.tabCounts ?? {
     Pendientes: 0,

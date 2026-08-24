@@ -297,6 +297,32 @@ export type ProspectoUnificado = {
   } | null;
 };
 
+type ProspectoQueryRow = {
+  id: string;
+  nombre: string | null;
+  telefono: string | null;
+  email: string | null;
+  canal_origen: string | null;
+  created_at: string | null;
+  motivo: string | null;
+  contact_roles: Array<{
+    tipo: string;
+    properties: {
+      id: string;
+      ref: string | null;
+      calle: string | null;
+      numero: string | null;
+      barrio: string | null;
+      localidad: string | null;
+      tipo: string | null;
+      metros_construidos: number | null;
+      habitaciones: number | null;
+      precio: number | null;
+      publicacion: string | null;
+    } | null;
+  }> | null;
+};
+
 function canalGroup(origen: string | null): ProspectoCanal {
   if (!origen) return "Directo";
   if (origen === "Valorador-Web" || origen === "SilvIA-Valorador") return "Web";
@@ -324,9 +350,11 @@ export const listProspectos = createServerFn({ method: "GET" }).handler(async ()
 
   if (error) throw new Error(error.message);
 
-  const prospectos: ProspectoUnificado[] = (data ?? []).map((c: any) => {
+  const prospectos: ProspectoUnificado[] = (
+    (data as unknown as ProspectoQueryRow[] | null) ?? []
+  ).map((c) => {
     const propRole = (c.contact_roles ?? []).find(
-      (r: any) => r.tipo === "Propietario" || r.tipo === "Arrendador",
+      (r) => r.tipo === "Propietario" || r.tipo === "Arrendador",
     );
     const prop = propRole?.properties ?? null;
 
@@ -492,7 +520,10 @@ export const getInmueble = createServerFn({ method: "GET" })
       .eq("property_id", data.id)
       .eq("tipo", "Propietario");
 
-    const propietarios = (roles ?? []).map((r: any) => r.contacts).filter(Boolean) as Array<{
+    const roleRows = (roles ?? []) as unknown as Array<{
+      contacts: { id: string; nombre: string; telefono: string; email: string } | null;
+    }>;
+    const propietarios = roleRows.map((r) => r.contacts).filter(Boolean) as Array<{
       id: string;
       nombre: string;
       telefono: string;
@@ -536,7 +567,19 @@ export const listVisitasByInmueble = createServerFn({ method: "GET" })
 
     if (error) throw new Error(error.message);
 
-    const visitas: Visita[] = (rows ?? []).map((r: any) => ({
+    // Supabase-js sin tipos de Database generados infiere las relaciones
+    // como array por defecto; en runtime PostgREST devuelve un objeto único
+    // (FK many-to-one) — se corrige con el cast explícito.
+    const visitRows = (rows ?? []) as unknown as Array<{
+      id: string;
+      fecha: string | null;
+      estado: string | null;
+      notas: string | null;
+      contacts: { nombre: string | null; telefono: string | null } | null;
+      agents: { email: string | null } | null;
+    }>;
+
+    const visitas: Visita[] = visitRows.map((r) => ({
       id: r.id,
       fecha: r.fecha ?? null,
       estado: mapEstadoVisitaOut(r.estado ?? ""),
@@ -704,7 +747,17 @@ export const updateInmueble = createServerFn({ method: "POST" })
             field: string;
             old: string | null;
             new: string | null;
-          }> = (cur as any).changelog ?? [];
+          }> =
+            (
+              cur as {
+                changelog?: Array<{
+                  ts: string;
+                  field: string;
+                  old: string | null;
+                  new: string | null;
+                }>;
+              }
+            ).changelog ?? [];
           const ts = new Date().toISOString();
           const entries: typeof existing = [];
           if (data.estatus !== undefined && data.estatus !== cur.estatus)
@@ -752,8 +805,8 @@ export const updateInmueble = createServerFn({ method: "POST" })
 
     if (Object.keys(up).length === 0) return { ok: true, id: data.id };
 
-    const ESTATUS_FINAL = ["Vendido", "Alquilado", "Baja"] as const;
-    if (data.estatus && ESTATUS_FINAL.includes(data.estatus as any)) {
+    const ESTATUS_FINAL: readonly string[] = ["Vendido", "Alquilado", "Baja"];
+    if (data.estatus && ESTATUS_FINAL.includes(data.estatus)) {
       await requirePermission("properties.status_final");
     }
     if (data.publicacion !== undefined) {
@@ -770,7 +823,9 @@ export const updateInmueble = createServerFn({ method: "POST" })
         .select("contact_id")
         .eq("property_id", data.id);
 
-      const contactIds = [...new Set((linkedRoles ?? []).map((r: any) => r.contact_id as string))];
+      const contactIds = [
+        ...new Set(((linkedRoles ?? []) as Array<{ contact_id: string }>).map((r) => r.contact_id)),
+      ];
 
       if (contactIds.length > 0) {
         // Batch fetch all contacts and all their roles in two queries instead of 2×N
@@ -787,14 +842,24 @@ export const updateInmueble = createServerFn({ method: "POST" })
           string,
           Array<{ tipo: string; properties: { estatus: string } | null }>
         >();
-        for (const role of (allContactRoles ?? []) as any[]) {
+        // Supabase-js sin tipos de Database generados infiere `properties`
+        // como array por defecto; en runtime es un objeto único (FK
+        // many-to-one) — se corrige con el cast explícito.
+        const contactRoleRows = (allContactRoles ?? []) as unknown as Array<{
+          contact_id: string;
+          tipo: string;
+          properties: { estatus: string } | null;
+        }>;
+        for (const role of contactRoleRows) {
           if (!rolesByContact.has(role.contact_id)) rolesByContact.set(role.contact_id, []);
           rolesByContact.get(role.contact_id)!.push(role);
         }
 
+        const contactRows = (contacts ?? []) as Array<{ id: string; ciclo_vida: string | null }>;
+
         // Compute new ciclo_vida for each contact and batch update
         await Promise.all(
-          (contacts ?? []).map(async (contact: any) => {
+          contactRows.map(async (contact) => {
             if (contact.ciclo_vida === "Descartado") return;
 
             const roles = rolesByContact.get(contact.id) ?? [];

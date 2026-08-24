@@ -58,7 +58,10 @@ function PermissionAdminPage() {
       groups.set(permission.dominio, current);
     }
     return [...groups.entries()];
-  }, [data.catalog]);
+    // El genérico `typeof data.catalog` del Map es un tipo, no una referencia
+    // en tiempo de ejecución, pero el linter no lo distingue y pide `data`
+    // completo en vez de `data.catalog`.
+  }, [data]);
 
   const refresh = async () => {
     await qc.invalidateQueries({ queryKey: ["permission-admin"] });

@@ -195,7 +195,13 @@ function CaptacionTab() {
   const activarFn = useServerFn(activarProspecto);
   const crearFn = useServerFn(createProspectoManual);
 
-  const prospectos: ProspectoUnificado[] = pData.prospectos ?? [];
+  // Memoizado: `?? []` crea un array nuevo cada render si pData.prospectos es
+  // undefined, lo que invalidaría los dos useMemo de más abajo que dependen
+  // de `prospectos` aunque los datos reales no hayan cambiado.
+  const prospectos: ProspectoUnificado[] = useMemo(
+    () => pData.prospectos ?? [],
+    [pData.prospectos],
+  );
   const agentes = agData.agentes ?? [];
 
   const byCanal = useMemo(() => {
