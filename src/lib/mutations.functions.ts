@@ -70,80 +70,41 @@ export const createCliente = createServerFn({ method: "POST" })
       : await requirePermission("contacts.create");
     const supa = getSupa();
 
-    const row: Record<string, unknown> = {
-      nombre: toTitleCase(data.nombre.trim()),
-      ciclo_vida: cicloVida,
-    };
-    const email = strOpt(data.email);
-    if (email) row.email = email;
-    const tel = strOpt(data.telefono);
-    if (tel) row.telefono = tel;
-    const dni = strOpt(data.dni);
-    if (dni) row.dni = dni;
-    const mot = strOpt(data.motivo);
-    if (mot) row.motivo = toSentenceCase(mot);
-    const sol = strOpt(data.solicitud);
-    if (sol) row.solicitud = toSentenceCase(sol);
-    const obs = strOpt(data.observaciones);
-    if (obs) row.observaciones = toSentenceCase(obs);
-    const cat = arrOpt(data.categoria);
-    if (cat) row.categoria = cat;
-    const prof = strOpt(data.profesion);
-    if (prof) row.profesion = toTitleCase(prof);
-    const ct = strOpt(data.contratoTrabajo);
-    if (ct) row.contrato_trabajo = toTitleCase(ct);
-    const masc = strOpt(data.mascota);
-    if (masc) row.mascota = toTitleCase(masc);
-    const av = strOpt(data.avalista);
-    if (av) row.avalista = toTitleCase(av);
-    if (data.fecha) row.created_at = data.fecha;
-
-    const { data: inserted, error } = await supa
-      .from("contacts")
-      .insert([row])
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
-    const contactId = inserted.id;
-
-    const rollbackContact = async () => {
-      const { error: rollbackError } = await supa.from("contacts").delete().eq("id", contactId);
-      if (rollbackError) {
-        console.error("No se pudo revertir el contacto incompleto", rollbackError.message);
-      }
-    };
-
     // Si el formulario no especifica agentes, asigna el contacto a quien lo crea.
     // Así un lead nunca desaparece de la bandeja personal por quedar huérfano.
     const requestedAgents = arrOpt(data.agentesIds);
     const agentIds = requestedAgents?.length ? requestedAgents : crm.agentId ? [crm.agentId] : [];
-    if (agentIds.length) {
-      const { error: assignmentError } = await supa.from("contact_agents").upsert(
-        agentIds.map((aid) => ({ contact_id: contactId, agent_id: aid })),
-        { onConflict: "contact_id,agent_id", ignoreDuplicates: true },
-      );
-      if (assignmentError) {
-        await rollbackContact();
-        throw new Error(`No se pudo asignar el contacto: ${assignmentError.message}`);
-      }
-    }
 
-    if (creaRelacion) {
-      const { error: roleError } = await supa.from("contact_roles").insert([
-        {
-          contact_id: contactId,
-          agente_id: agentIds[0] ?? null,
-          tipo,
-          estado: "Prospecto",
-        },
-      ]);
-      if (roleError) {
-        await rollbackContact();
-        throw new Error(`No se pudo clasificar el contacto: ${roleError.message}`);
-      }
-    }
+    // H-05: vía RPC (todo en una transacción -- ya no hace falta el rollback
+    // manual que había antes) para que el actor real quede en
+    // audit_log.usuario_id.
+    const { data: contactId, error } = await supa.rpc("crm_crear_cliente", {
+      p_nombre: toTitleCase(data.nombre.trim()),
+      p_ciclo_vida: cicloVida,
+      p_email: strOpt(data.email) ?? null,
+      p_telefono: strOpt(data.telefono) ?? null,
+      p_dni: strOpt(data.dni) ?? null,
+      p_motivo: strOpt(data.motivo) ? toSentenceCase(strOpt(data.motivo)!) : null,
+      p_solicitud: strOpt(data.solicitud) ? toSentenceCase(strOpt(data.solicitud)!) : null,
+      p_observaciones: strOpt(data.observaciones)
+        ? toSentenceCase(strOpt(data.observaciones)!)
+        : null,
+      p_categoria: arrOpt(data.categoria) ?? null,
+      p_profesion: strOpt(data.profesion) ? toTitleCase(strOpt(data.profesion)!) : null,
+      p_contrato_trabajo: strOpt(data.contratoTrabajo)
+        ? toTitleCase(strOpt(data.contratoTrabajo)!)
+        : null,
+      p_mascota: strOpt(data.mascota) ? toTitleCase(strOpt(data.mascota)!) : null,
+      p_avalista: strOpt(data.avalista) ? toTitleCase(strOpt(data.avalista)!) : null,
+      p_created_at: data.fecha ?? null,
+      p_agente_ids: agentIds.length ? agentIds : null,
+      p_crea_relacion: creaRelacion,
+      p_tipo_relacion: creaRelacion ? tipo : null,
+      p_actor_id: crm.userId,
+    });
+    if (error) throw new Error(error.message);
 
-    return { id: contactId };
+    return { id: contactId as string };
   });
 
 // ── INMUEBLE ─────────────────────────────────────────────────────────────────
@@ -344,27 +305,28 @@ export const createVisita = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermission("visits.create");
+    const { crm } = await requirePermission("visits.create");
     const supa = getSupa();
     const estadoRaw = strOpt(data.estado) ?? "Programada";
     if (!Object.prototype.hasOwnProperty.call(ESTADO_IN_MAP, estadoRaw)) {
       throw new Error("Estado de visita inválido");
     }
-    const row: Record<string, unknown> = {
-      fecha: data.fecha,
-      estado: ESTADO_IN_MAP[estadoRaw] ?? "Programada",
-      property_id: data.inmueblesIds[0],
-    };
     const com = strOpt(data.comentarios);
-    if (com) row.notas = toSentenceCase(com);
     const cli = arrOpt(data.clientesIds);
-    if (cli?.length) row.contact_id = cli[0];
     const ag = arrOpt(data.agentesIds);
-    if (ag?.length) row.agente_id = ag[0];
 
-    const { data: inserted, error } = await supa.from("visits").insert([row]).select("id").single();
+    // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
+    const { data: visitaId, error } = await supa.rpc("crm_crear_visita", {
+      p_fecha: data.fecha,
+      p_estado: ESTADO_IN_MAP[estadoRaw] ?? "Programada",
+      p_notas: com ? toSentenceCase(com) : null,
+      p_property_id: data.inmueblesIds[0],
+      p_contact_id: cli?.length ? cli[0] : null,
+      p_agente_id: ag?.length ? ag[0] : null,
+      p_actor_id: crm.userId,
+    });
     if (error) throw new Error(error.message);
-    return { id: inserted.id };
+    return { id: visitaId as string };
   });
 
 // ── UPDATE VISITA ESTADO ───────────────────────────────────────────────────────
@@ -385,13 +347,15 @@ export const updateVisitaEstado = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermission("visits.update");
+    const { crm } = await requirePermission("visits.update");
     const supa = getSupa();
     const dbEstado = ESTADO_IN_MAP_UPDATE[data.estado] ?? data.estado;
-    const { error } = await supa
-      .from("visits")
-      .update({ estado: dbEstado })
-      .eq("id", data.visitaId);
+    // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
+    const { error } = await supa.rpc("crm_actualizar_visita_estado", {
+      p_visita_id: data.visitaId,
+      p_estado: dbEstado,
+      p_actor_id: crm.userId,
+    });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -410,16 +374,16 @@ export const assignClienteAgentes = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermission("contacts.update");
+    const { crm } = await requirePermission("contacts.update");
     const supa = getSupa();
-    // Delete all current assignments, then insert new ones
-    await supa.from("contact_agents").delete().eq("contact_id", data.clienteId);
-    if (data.agentesIds.length > 0) {
-      const { error } = await supa
-        .from("contact_agents")
-        .insert(data.agentesIds.map((aid) => ({ contact_id: data.clienteId, agent_id: aid })));
-      if (error) throw new Error(error.message);
-    }
+    // H-05: vía RPC (borra + inserta en la misma transacción) para que el
+    // actor real quede en audit_log.usuario_id.
+    const { error } = await supa.rpc("crm_asignar_agentes_cliente", {
+      p_contact_id: data.clienteId,
+      p_agente_ids: data.agentesIds.length ? data.agentesIds : null,
+      p_actor_id: crm.userId,
+    });
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
@@ -463,91 +427,32 @@ export const createProspectoManual = createServerFn({ method: "POST" })
     const supa = getSupa();
     const requestedAgents = arrOpt(data.agentesIds);
     const agentIds = requestedAgents?.length ? requestedAgents : crm.agentId ? [crm.agentId] : [];
-
-    // 1. Crear contacto propietario con ciclo_vida=Prospecto, canal=Directo
-    const contactRow: Record<string, unknown> = {
-      nombre: toTitleCase(data.nombre.trim()),
-      ciclo_vida: "Prospecto",
-      canal_origen: "Manual",
-    };
-    if (strOpt(data.telefono)) contactRow.telefono = data.telefono!.trim();
-    if (strOpt(data.email)) contactRow.email = data.email!.trim().toLowerCase();
-
-    const { data: contact, error: cErr } = await supa
-      .from("contacts")
-      .insert([contactRow])
-      .select("id")
-      .single();
-    if (cErr) throw new Error(cErr.message);
-
-    // Sin transacción entre contacts/properties/contact_agents/contact_roles
-    // (H-02): si un paso posterior falla, deshacemos lo ya creado en vez de
-    // dejar un contacto o inmueble huérfano — mismo patrón que createCliente,
-    // createInmueble y la Edge Function valorador (C-05).
-    const rollback = async (propertyId?: string) => {
-      if (propertyId) {
-        await supa.from("contact_roles").delete().eq("property_id", propertyId);
-        await supa.from("properties").delete().eq("id", propertyId);
-      }
-      await supa.from("contact_agents").delete().eq("contact_id", contact.id);
-      await supa.from("contacts").delete().eq("id", contact.id);
-    };
-
-    // 2. Crear inmueble en estado Prospección
     const isAlq = /^\s*alquiler/i.test(data.tipo);
-    const propRow: Record<string, unknown> = {
-      calle: toTitleCase(data.calle.trim()),
-      tipo: data.tipo.trim(),
-      estatus: "Prospección",
-      publicacion: "PROSPECTO",
-      es_alquiler: isAlq,
-      categoria: isAlq ? "Alquiler" : "Venta",
-    };
-    if (strOpt(data.numero)) propRow.numero = data.numero;
-    if (strOpt(data.localidad)) propRow.localidad = toTitleCase(data.localidad!);
-    const precio = numOpt(data.precio);
-    if (precio !== undefined) propRow.precio = precio;
-    const sup = numOpt(data.superficie);
-    if (sup !== undefined) propRow.metros_construidos = sup;
-    const hab = numOpt(data.habitaciones);
-    if (hab !== undefined) propRow.habitaciones = hab;
-    if (agentIds.length) propRow.agente_id = agentIds[0];
 
-    const { data: property, error: pErr } = await supa
-      .from("properties")
-      .insert([propRow])
-      .select("id")
-      .single();
-    if (pErr) {
-      await rollback();
-      throw new Error(pErr.message);
-    }
+    // H-05: vía RPC (contacto + inmueble + agentes + rol, todo en una
+    // transacción) para que el actor real quede en audit_log.usuario_id. Ya
+    // no hace falta el rollback manual (H-02) que había antes -- si
+    // cualquier paso falla, la transacción entera se revierte sola.
+    const { data: rows, error } = await supa.rpc("crm_crear_prospecto_manual", {
+      p_nombre: toTitleCase(data.nombre.trim()),
+      p_telefono: strOpt(data.telefono)?.trim() ?? null,
+      p_email: strOpt(data.email)?.trim().toLowerCase() ?? null,
+      p_tipo: data.tipo.trim(),
+      p_calle: toTitleCase(data.calle.trim()),
+      p_numero: strOpt(data.numero) ?? null,
+      p_localidad: strOpt(data.localidad) ? toTitleCase(data.localidad!) : null,
+      p_precio: numOpt(data.precio) ?? null,
+      p_superficie: numOpt(data.superficie) ?? null,
+      p_habitaciones: numOpt(data.habitaciones) ?? null,
+      p_es_alquiler: isAlq,
+      p_categoria: isAlq ? "Alquiler" : "Venta",
+      p_agente_ids: agentIds.length ? agentIds : null,
+      p_actor_id: crm.userId,
+    });
+    if (error) throw new Error(error.message);
+    const row = (rows as unknown as Array<{ contact_id: string; property_id: string }>)[0];
 
-    if (agentIds.length) {
-      const { error: assignmentError } = await supa
-        .from("contact_agents")
-        .insert(agentIds.map((agentId) => ({ contact_id: contact.id, agent_id: agentId })));
-      if (assignmentError) {
-        await rollback(property.id);
-        throw new Error(assignmentError.message);
-      }
-    }
-
-    // 3. Vincular propietario ↔ inmueble
-    const { error: rErr } = await supa.from("contact_roles").insert([
-      {
-        contact_id: contact.id,
-        property_id: property.id,
-        agente_id: agentIds[0] ?? null,
-        tipo: "Propietario",
-      },
-    ]);
-    if (rErr) {
-      await rollback(property.id);
-      throw new Error(rErr.message);
-    }
-
-    return { contactId: contact.id, propertyId: property.id };
+    return { contactId: row.contact_id, propertyId: row.property_id };
   });
 
 export const activarProspecto = createServerFn({ method: "POST" })
@@ -556,7 +461,7 @@ export const activarProspecto = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermissions(
+    const { crm } = await requirePermissions(
       "contacts.update",
       "contact_roles.read",
       "properties.update",
@@ -564,51 +469,16 @@ export const activarProspecto = createServerFn({ method: "POST" })
     );
     const supa = getSupa();
 
-    if (data.propertyId) {
-      const { data: relation, error: relationError } = await supa
-        .from("contact_roles")
-        .select("id")
-        .eq("contact_id", data.contactId)
-        .eq("property_id", data.propertyId)
-        .limit(1)
-        .maybeSingle();
-      if (relationError) throw new Error(relationError.message);
-      if (!relation) throw new Error("El inmueble no está vinculado a este prospecto");
-
-      const { data: previous, error: previousError } = await supa
-        .from("properties")
-        .select("estatus, publicacion")
-        .eq("id", data.propertyId)
-        .single();
-      if (previousError) throw new Error(previousError.message);
-
-      const { error: pErr } = await supa
-        .from("properties")
-        .update({ estatus: "Activo", publicacion: "SUBIR" })
-        .eq("id", data.propertyId);
-      if (pErr) throw new Error(pErr.message);
-
-      const { error: cErr } = await supa
-        .from("contacts")
-        .update({ ciclo_vida: "Cliente" })
-        .eq("id", data.contactId);
-      if (cErr) {
-        const { error: rollbackError } = await supa
-          .from("properties")
-          .update({ estatus: previous.estatus, publicacion: previous.publicacion })
-          .eq("id", data.propertyId);
-        if (rollbackError) {
-          console.error("No se pudo revertir la activación del inmueble", rollbackError.message);
-        }
-        throw new Error(cErr.message);
-      }
-    } else {
-      const { error: cErr } = await supa
-        .from("contacts")
-        .update({ ciclo_vida: "Cliente" })
-        .eq("id", data.contactId);
-      if (cErr) throw new Error(cErr.message);
-    }
+    // H-05: vía RPC para que el actor real quede en audit_log.usuario_id. Ya
+    // no hace falta el rollback manual (H-02) que había antes -- al ser una
+    // sola transacción, si el UPDATE de contacts falla el de properties se
+    // revierte solo.
+    const { error } = await supa.rpc("crm_activar_prospecto", {
+      p_contact_id: data.contactId,
+      p_property_id: data.propertyId ?? null,
+      p_actor_id: crm.userId,
+    });
+    if (error) throw new Error(error.message);
 
     return { ok: true };
   });
@@ -642,72 +512,30 @@ export const updateClienteSeguimiento = createServerFn({ method: "POST" })
       await requirePermission("seguimiento.create");
     }
     const supa = getSupa();
-    const up: Record<string, unknown> = {};
 
-    if (data.estado) up.trabajado = data.estado;
-
-    // Update ciclo_vida when tipo changes
+    // trabajado/ciclo_vida se resuelven aquí igual que antes (mapeos de
+    // texto puros, sin acceso a datos) -- el RPC hace la comprobación de
+    // "comercial asignado", la escritura y la nota de seguimiento, todo en
+    // una transacción, con el actor real fijado antes de escribir (H-05).
+    let trabajado = strOpt(data.estado) ?? null;
+    let cicloVida: string | null = null;
     if (data.tipo) {
-      // Verificar asignación a comercial antes de cualificar un lead
-      if (["Comprador", "Inquilino"].includes(data.tipo)) {
-        const { data: asignacion } = await supa
-          .from("contact_agents")
-          .select("agent_id")
-          .eq("contact_id", data.clienteId)
-          .limit(1)
-          .maybeSingle();
-        if (!asignacion) {
-          throw new Error("Este lead debe tener un comercial asignado antes de ser cualificado.");
-        }
-      }
-
-      up.ciclo_vida = tipoCicloVida(data.tipo);
-      if (data.tipo.toLowerCase().includes("anular")) up.trabajado = "Descartado";
-      // If converting to a role type that needs a contact_role, create one if none exists
-      if (roleTypes.includes(data.tipo)) {
-        const { data: existing } = await supa
-          .from("contact_roles")
-          .select("id")
-          .eq("contact_id", data.clienteId)
-          .eq("tipo", data.tipo)
-          .limit(1);
-        if (!existing?.length) {
-          const { error: roleError } = await supa.from("contact_roles").insert([
-            {
-              contact_id: data.clienteId,
-              agente_id: crm.agentId,
-              tipo: data.tipo,
-              estado: "Prospecto",
-            },
-          ]);
-          if (roleError) throw new Error(`No se pudo clasificar el contacto: ${roleError.message}`);
-        }
-      }
+      cicloVida = tipoCicloVida(data.tipo);
+      if (data.tipo.toLowerCase().includes("anular")) trabajado = "Descartado";
     }
-
+    const tipoRol = data.tipo && roleTypes.includes(data.tipo) ? data.tipo : null;
     const nota = strOpt(data.nota);
 
-    if (Object.keys(up).length > 0) {
-      const { error } = await supa.from("contacts").update(up).eq("id", data.clienteId);
-      if (error) throw new Error(error.message);
-    }
-
-    // La ficha mantiene el resumen para compatibilidad, pero el historial
-    // operativo canónico es seguimiento: una nota nunca debe quedar aislada.
-    if (nota) {
-      const { error: seguimientoError } = await supa.from("seguimiento").insert({
-        contact_id: data.clienteId,
-        agente_id: crm.agentId,
-        tipo: "Nota",
-        texto: toSentenceCase(nota),
-        fecha: new Date().toISOString(),
-      });
-      if (seguimientoError) {
-        throw new Error(
-          `La nota se guardó en la ficha, pero no en el historial: ${seguimientoError.message}`,
-        );
-      }
-    }
+    const { error } = await supa.rpc("crm_actualizar_seguimiento_cliente", {
+      p_contact_id: data.clienteId,
+      p_trabajado: trabajado,
+      p_ciclo_vida: cicloVida,
+      p_tipo_rol: tipoRol,
+      p_nota: nota ? toSentenceCase(nota) : null,
+      p_agente_id: crm.agentId,
+      p_actor_id: crm.userId,
+    });
+    if (error) throw new Error(error.message);
 
     return { ok: true };
   });
@@ -729,44 +557,16 @@ export const asociarLeadAInmueble = createServerFn({ method: "POST" })
       "properties.read",
     );
     const supa = getSupa();
-    const { data: property, error: propertyError } = await supa
-      .from("properties")
-      .select("es_alquiler")
-      .eq("id", data.propertyId)
-      .single();
-    if (propertyError) throw new Error(propertyError.message);
-    const tipoRelacion =
-      data.tipo === "Propietario" && property.es_alquiler ? "Arrendador" : data.tipo;
-
-    const { data: existing, error: existingError } = await supa
-      .from("contact_roles")
-      .select("id")
-      .eq("contact_id", data.contactId)
-      .eq("property_id", data.propertyId)
-      .eq("tipo", tipoRelacion)
-      .limit(1)
-      .maybeSingle();
-    if (existingError) throw new Error(existingError.message);
-
-    if (!existing) {
-      const { error } = await supa.from("contact_roles").insert({
-        contact_id: data.contactId,
-        property_id: data.propertyId,
-        agente_id: crm.agentId,
-        tipo: tipoRelacion,
-        estado: "Prospecto",
-      });
-      if (error) throw new Error(error.message);
-    }
-    // Sync ciclo_vida so the contact becomes a real client
-    const ciclo = ["Propietario", "Comprador", "Inquilino"].includes(data.tipo)
-      ? "Cliente"
-      : "Prospecto";
-    const { error: contactError } = await supa
-      .from("contacts")
-      .update({ ciclo_vida: ciclo })
-      .eq("id", data.contactId);
-    if (contactError) throw new Error(contactError.message);
+    // H-05: vía RPC (resuelve es_alquiler/tipoRelacion, inserta el rol si no
+    // existe, y actualiza ciclo_vida, todo en una transacción) para que el
+    // actor real quede en audit_log.usuario_id.
+    const { error } = await supa.rpc("crm_asociar_lead_inmueble", {
+      p_contact_id: data.contactId,
+      p_property_id: data.propertyId,
+      p_tipo: data.tipo,
+      p_actor_id: crm.userId,
+    });
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
