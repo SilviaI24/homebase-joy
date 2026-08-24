@@ -677,7 +677,7 @@ export const updateInmueble = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermission("properties.update");
+    const { crm } = await requirePermission("properties.update");
     if (data.estatus) {
       await requirePermissions("contacts.read", "contacts.update", "contact_roles.read");
     }
@@ -731,59 +731,14 @@ export const updateInmueble = createServerFn({ method: "POST" })
       up.agente_id = data.agentesIds[0] ?? null;
     }
 
-    // Changelog: record changes to estatus, precio, observaciones
-    const needsLog =
-      data.estatus !== undefined || data.precio !== undefined || data.observaciones !== undefined;
-    if (needsLog) {
-      try {
-        const { data: cur } = await supa
-          .from("properties")
-          .select("estatus,precio,observaciones,changelog")
-          .eq("id", data.id)
-          .single();
-        if (cur) {
-          const existing: Array<{
-            ts: string;
-            field: string;
-            old: string | null;
-            new: string | null;
-          }> =
-            (
-              cur as {
-                changelog?: Array<{
-                  ts: string;
-                  field: string;
-                  old: string | null;
-                  new: string | null;
-                }>;
-              }
-            ).changelog ?? [];
-          const ts = new Date().toISOString();
-          const entries: typeof existing = [];
-          if (data.estatus !== undefined && data.estatus !== cur.estatus)
-            entries.push({ ts, field: "Estatus", old: cur.estatus ?? null, new: data.estatus });
-          if (data.precio !== undefined && data.precio !== cur.precio)
-            entries.push({
-              ts,
-              field: "Precio",
-              old: cur.precio != null ? String(cur.precio) : null,
-              new: data.precio != null ? String(data.precio) : null,
-            });
-          if (data.observaciones !== undefined && data.observaciones !== (cur.observaciones ?? ""))
-            entries.push({
-              ts,
-              field: "Observaciones",
-              old: cur.observaciones ?? null,
-              new: data.observaciones || null,
-            });
-          if (entries.length > 0) {
-            up.changelog = [...existing, ...entries];
-          }
-        }
-      } catch {
-        // changelog column may not exist yet — skip silently
-      }
-    }
+    // Nota H-05 (24 ago 2026): aquí vivía un bloque de "changelog" que
+    // intentaba registrar cambios de estatus/precio/observaciones en una
+    // columna properties.changelog -- esa columna no existe en el esquema
+    // real (verificado contra information_schema), así que ese bloque era
+    // código muerto en la práctica desde siempre (el try/catch nunca
+    // disparaba: supabase-js no lanza excepción por columna inexistente,
+    // solo devuelve data:null, y el `if (cur)` de más abajo nunca era
+    // cierto). No se replica en el RPC.
 
     // Image reorder: imagenesAttachmentIds are URLs in desired order
     if (data.imagenesAttachmentIds !== undefined) {
@@ -813,84 +768,19 @@ export const updateInmueble = createServerFn({ method: "POST" })
       await requirePermission("properties.publish");
     }
 
-    const { error } = await supa.from("properties").update(up).eq("id", data.id);
+    // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
+    // `up` ya usa las claves snake_case reales de la tabla -- jsonb_populate_record
+    // sobre la fila existente conserva cualquier columna cuya clave no esté
+    // en `up`, dando exactamente la semántica de "solo escribir lo que
+    // llegó" que tenía el .update(up) directo. La cascada de ciclo_vida
+    // sobre los contactos vinculados (antes eran varias llamadas desde
+    // aquí) también vive ahora en el RPC, en la misma transacción.
+    const { error } = await supa.rpc("crm_actualizar_inmueble", {
+      p_property_id: data.id,
+      p_patch: up,
+      p_actor_id: crm.userId,
+    });
     if (error) throw new Error(error.message);
-
-    // Cuando cambia el estatus de un inmueble, recalcular ciclo_vida de sus contactos.
-    if (data.estatus) {
-      const { data: linkedRoles } = await supa
-        .from("contact_roles")
-        .select("contact_id")
-        .eq("property_id", data.id);
-
-      const contactIds = [
-        ...new Set(((linkedRoles ?? []) as Array<{ contact_id: string }>).map((r) => r.contact_id)),
-      ];
-
-      if (contactIds.length > 0) {
-        // Batch fetch all contacts and all their roles in two queries instead of 2×N
-        const [{ data: contacts }, { data: allContactRoles }] = await Promise.all([
-          supa.from("contacts").select("id, ciclo_vida").in("id", contactIds),
-          supa
-            .from("contact_roles")
-            .select("contact_id, tipo, properties(estatus)")
-            .in("contact_id", contactIds),
-        ]);
-
-        // Group roles by contact_id in memory
-        const rolesByContact = new Map<
-          string,
-          Array<{ tipo: string; properties: { estatus: string } | null }>
-        >();
-        // Supabase-js sin tipos de Database generados infiere `properties`
-        // como array por defecto; en runtime es un objeto único (FK
-        // many-to-one) — se corrige con el cast explícito.
-        const contactRoleRows = (allContactRoles ?? []) as unknown as Array<{
-          contact_id: string;
-          tipo: string;
-          properties: { estatus: string } | null;
-        }>;
-        for (const role of contactRoleRows) {
-          if (!rolesByContact.has(role.contact_id)) rolesByContact.set(role.contact_id, []);
-          rolesByContact.get(role.contact_id)!.push(role);
-        }
-
-        const contactRows = (contacts ?? []) as Array<{ id: string; ciclo_vida: string | null }>;
-
-        // Compute new ciclo_vida for each contact and batch update
-        await Promise.all(
-          contactRows.map(async (contact) => {
-            if (contact.ciclo_vida === "Descartado") return;
-
-            const roles = rolesByContact.get(contact.id) ?? [];
-            const statuses = roles
-              .map((r) => r.properties?.estatus as string | undefined)
-              .filter(Boolean) as string[];
-
-            let newCiclo: string;
-            if (statuses.some((s) => s === "Activo" || s === "Reservado")) newCiclo = "Cliente";
-            else if (statuses.some((s) => s === "Prospección")) newCiclo = "Prospecto";
-            else if (statuses.some((s) => s === "Vendido" || s === "Alquilado"))
-              newCiclo = "Histórico";
-            else if (
-              roles.some((role) =>
-                ["Propietario", "Arrendador", "Comprador", "Inquilino"].includes(role.tipo),
-              )
-            )
-              newCiclo = "Cliente";
-            else newCiclo = "Lead";
-
-            if (newCiclo !== contact.ciclo_vida) {
-              const { error: lifecycleError } = await supa
-                .from("contacts")
-                .update({ ciclo_vida: newCiclo })
-                .eq("id", contact.id);
-              if (lifecycleError) throw new Error(lifecycleError.message);
-            }
-          }),
-        );
-      }
-    }
 
     return { ok: true, id: data.id };
   });

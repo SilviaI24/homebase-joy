@@ -244,40 +244,19 @@ export const createInmueble = createServerFn({ method: "POST" })
       }));
     }
 
-    const { data: inserted, error } = await supa
-      .from("properties")
-      .insert([row])
-      .select("id")
-      .single();
+    // H-05: vía RPC (inmueble + rol de propietario + ciclo_vida, todo en una
+    // transacción) para que el actor real quede en audit_log.usuario_id. Ya
+    // no hace falta el rollback manual (H-02) que había antes -- si
+    // cualquier paso falla, la transacción entera se revierte sola.
+    const { data: propertyId, error } = await supa.rpc("crm_crear_inmueble", {
+      p_row: row,
+      p_owner_ids: ownerIds.length ? ownerIds : null,
+      p_es_alquiler: isAlq,
+      p_actor_id: crm.userId,
+    });
     if (error) throw new Error(error.message);
 
-    if (ownerIds.length) {
-      const { error: rolesError } = await supa.from("contact_roles").insert(
-        ownerIds.map((contactId) => ({
-          contact_id: contactId,
-          property_id: inserted.id,
-          agente_id: agentIds[0] ?? null,
-          tipo: isAlq ? "Arrendador" : "Propietario",
-          estado: "Activo",
-        })),
-      );
-      if (rolesError) {
-        await supa.from("properties").delete().eq("id", inserted.id);
-        throw new Error(`No se pudo vincular el propietario: ${rolesError.message}`);
-      }
-
-      const { error: ownersError } = await supa
-        .from("contacts")
-        .update({ ciclo_vida: "Cliente" })
-        .in("id", ownerIds);
-      if (ownersError) {
-        await supa.from("contact_roles").delete().eq("property_id", inserted.id);
-        await supa.from("properties").delete().eq("id", inserted.id);
-        throw new Error(`No se pudo actualizar el propietario: ${ownersError.message}`);
-      }
-    }
-
-    return { id: inserted.id };
+    return { id: propertyId as string };
   });
 
 // ── VISITA ────────────────────────────────────────────────────────────────────
