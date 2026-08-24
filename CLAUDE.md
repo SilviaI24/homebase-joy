@@ -157,23 +157,33 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   con un warning — Supabase CLI no envuelve cada migración en un `BEGIN`
   visible, así que confirmar con una consulta de postflight, no solo con la
   ausencia de errores).
-- **H-05 (actor real en audit_log) — completado en todos los dominios "simples"
-  el 23 ago 2026**: `registrar_audit()` resuelve el actor como `app.actor_id`
-  (GUC local que fija el RPC que escribe) con `auth.uid()` como fallback. Como
-  `getSupa()` habla con Postgres vía PostgREST (una transacción por petición
-  HTTP), un `SET LOCAL` suelto desde la función de servidor no sobrevive al
-  salto de request — el actor viaja como parámetro dentro del mismo RPC que
-  hace la escritura. Convertidos: `contacts.ciclo_vida`, `cerrar_operacion_crm`,
-  `createSeguimiento`, `deleteContacto`, `restaurarContactoDeHistorico`,
-  `gestionarRol` (+ `recalcularEtapa`, ahora en SQL, el helper de TS se retiró
-  sin consumidores), `addImagenToInmueble`, `deleteInmueble`. **Quedan sin
-  convertir, a propósito:** `updateInmueble` (diffing dinámico de campos +
-  changelog condicional + cascada de ciclo_vida sobre contactos — portarlo sin
-  riesgo de cambiar comportamiento merece su propia sesión) y el bloque grande
-  de `mutations.functions.ts` (31 escrituras, ídem). `geocodeInmuebles` no
-  tiene consumidores en el frontend — código muerto detectado, no tocado.
-  Decisión ya tomada: las escrituras sin actor humano (crons, recálculos
-  automáticos) se dejan en NULL a propósito — no se inventa un actor "sistema".
+- **H-05 (actor real en audit_log) — completado en 16 de 17 flujos de
+  escritura el 24 ago 2026**: `registrar_audit()` resuelve el actor como
+  `app.actor_id` (GUC local que fija el RPC que escribe) con `auth.uid()`
+  como fallback. Como `getSupa()` habla con Postgres vía PostgREST (una
+  transacción por petición HTTP), un `SET LOCAL` suelto desde la función de
+  servidor no sobrevive al salto de request — el actor viaja como parámetro
+  dentro del mismo RPC que hace la escritura. Convertidos: `contacts.ciclo_vida`,
+  `cerrar_operacion_crm`, `createSeguimiento`, `deleteContacto`,
+  `restaurarContactoDeHistorico`, `gestionarRol` (+ `recalcularEtapa`, ahora
+  en SQL), `addImagenToInmueble`, `deleteInmueble`, y los 8 flujos de
+  `mutations.functions.ts` (`createCliente`, `createVisita`,
+  `updateVisitaEstado`, `assignClienteAgentes`, `createProspectoManual`,
+  `activarProspecto`, `updateClienteSeguimiento`, `asociarLeadAInmueble`).
+  Beneficio colateral en estos últimos 8: al mover cada flujo a un solo RPC,
+  las escrituras que antes eran varias llamadas HTTP con rollback manual en
+  TypeScript (H-02) pasaron a ser atómicas de verdad — se retiró ese código
+  de compensación. Verificado en producción contra datos reales (creados y
+  borrados después de cada prueba), incluidos los guards de error. **Quedan
+  sin convertir, a propósito, los 2 casos con campos dinámicos de alto
+  riesgo:** `updateInmueble` (diffing dinámico de campos + changelog
+  condicional + cascada de ciclo_vida) y `createInmueble` en
+  `mutations.functions.ts` (~30 columnas opcionales, arrays JSONB de
+  imágenes/documentos) — ambos candidatos a una sesión de "CRUD de
+  inmuebles" propia. `geocodeInmuebles` no tiene consumidores en el
+  frontend — código muerto detectado, no tocado. Decisión ya tomada: las
+  escrituras sin actor humano (crons, recálculos automáticos) se dejan en
+  NULL a propósito — no se inventa un actor "sistema".
 - **M-03 (módulos grandes) — primer avance real el 24 ago 2026**: extraídos
   los helpers de formato puros (sin estado, sin JSX) de 4 de los archivos
   más grandes a módulos propios: `dashboard-format.ts` (de `index.tsx`),
