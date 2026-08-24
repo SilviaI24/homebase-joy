@@ -18,6 +18,7 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { RouteError } from "@/components/RouteError";
 import { type Inmueble } from "@/lib/inmuebles.functions";
+import { moneyShort, moneyFull, fmtDate, calcDelta, fmtMes } from "@/lib/dashboard-format";
 import {
   dashboardStatsQuery,
   clientesQueryOpts,
@@ -88,31 +89,6 @@ export const Route = createFileRoute("/")({
   ),
 });
 
-function moneyShort(v: number): string {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M €`;
-  if (v >= 1_000) return `${Math.round(v / 1_000)}k €`;
-  return `${v} €`;
-}
-function moneyFull(v: number): string {
-  return new Intl.NumberFormat("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(v);
-}
-function fmtDate(s: string | null): string {
-  if (!s) return "—";
-  try {
-    return new Date(s).toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
-  } catch {
-    return s;
-  }
-}
-function calcDelta(cur: number, prev: number): number | null {
-  if (prev === 0) return cur > 0 ? 100 : null;
-  return Math.round(((cur - prev) / prev) * 100);
-}
-
 const ANALYTICS_PALETTE = [
   "#c9a94a",
   "#60a5fa",
@@ -123,14 +99,6 @@ const ANALYTICS_PALETTE = [
   "#38bdf8",
   "#4ade80",
 ];
-
-function fmtMes(mes: string) {
-  const [y, m] = mes.split("-");
-  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("es-ES", {
-    month: "short",
-    year: "2-digit",
-  });
-}
 
 function Dashboard() {
   const { data: dashStats } = useSuspenseQuery(dashboardStatsQuery);
