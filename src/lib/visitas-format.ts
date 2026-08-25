@@ -3,6 +3,15 @@
 
 import type { VisitaFull } from "@/lib/visitas.functions";
 
+// Estados canónicos de ESGI. La UI no inventa estados que la base no puede
+// conservar al recargar. Compartido entre visitas.index.tsx y los paneles
+// extraídos (ChartsPanel, ListaDiariaPanel) — de ahí vive aquí y no en la ruta.
+export const ESTADO_COLORS: Record<string, string> = {
+  Programada: "var(--gold)",
+  Realizada: "var(--chart-1)",
+  Cancelada: "var(--destructive)",
+};
+
 export function fmtDate(s: string | null, opts?: Intl.DateTimeFormatOptions): string {
   if (!s) return "—";
   try {
