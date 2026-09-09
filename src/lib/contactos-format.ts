@@ -103,15 +103,6 @@ export function inferEstado(c: Cliente): EstadoSeguimiento {
   return "Pendiente";
 }
 
-export function formatFechaLead(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es-ES", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
 export function extraerUltimaNota(obs: string): { fecha: string; texto: string } | null {
   if (!obs || !obs.trim()) return null;
   const lines = obs.split("\n");

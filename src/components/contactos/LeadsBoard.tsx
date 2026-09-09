@@ -28,7 +28,7 @@ import {
   diasDesde,
   extraerUltimaNota,
   filterLeadsFn,
-  formatFechaLead,
+  formatFechaCorta,
 } from "@/lib/contactos-format";
 
 export function KanbanCard({
@@ -339,7 +339,7 @@ export function LeadCard({ cliente, estado }: { cliente: Cliente; estado: Estado
             )}
             <span className="inline-flex items-center gap-1">
               <CalendarDays className="size-3" />
-              {formatFechaLead(cliente.fecha)}
+              {formatFechaCorta(cliente.fecha)}
               {dias !== null && <span className="text-muted-foreground/60">(hace {dias}d)</span>}
             </span>
           </div>

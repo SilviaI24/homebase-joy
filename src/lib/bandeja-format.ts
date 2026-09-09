@@ -32,7 +32,7 @@ export function moneyShort(v: number | null): string {
 // ── Detección de inmuebles mencionados en texto libre de conversación ─────────
 
 // Normaliza texto: minúsculas, sin acentos/diacríticos, sin signos.
-export function normalize(s: string): string {
+function normalize(s: string): string {
   return (s || "")
     .toLowerCase()
     .normalize("NFD")
@@ -42,7 +42,7 @@ export function normalize(s: string): string {
     .trim();
 }
 
-export function escapeReg(s: string) {
+function escapeReg(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 

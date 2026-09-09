@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSupa } from "./supabase.server";
 import { requirePermission, requirePermissions } from "@/lib/crm-auth.server";
+import { ETAPAS } from "@/lib/clientes.functions";
 
 // ── Delete ────────────────────────────────────────────────────────────────────
 
@@ -26,13 +27,20 @@ export const deleteContacto = createServerFn({ method: "POST" })
 export const actualizarCicloVida = createServerFn({ method: "POST" })
   .validator((d: { contactId: string; cicloVida: string }) => {
     if (!d?.contactId || !d?.cicloVida) throw new Error("contactId y cicloVida requeridos");
-    if (!["Lead", "Prospecto", "Cliente", "Histórico", "Descartado"].includes(d.cicloVida)) {
+    if (!(ETAPAS as readonly string[]).includes(d.cicloVida)) {
       throw new Error("Etapa de contacto inválida");
     }
     return d;
   })
   .handler(async ({ data }) => {
     const { crm } = await requirePermission("contacts.update");
+    // Archivar (mover a Histórico) es la única transición de ciclo_vida con
+    // un permiso propio en el catálogo (contacts.archive) — hasta esta
+    // auditoría no se comprobaba, así que desactivarlo en la pantalla de
+    // permisos no bloqueaba nada.
+    if (data.cicloVida === "Histórico") {
+      await requirePermission("contacts.archive");
+    }
     const supa = getSupa();
 
     // H-05: el cambio va por RPC en lugar de un .update() directo para que el
