@@ -200,12 +200,49 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
     (sin closures compartidos con `DetailView`), lo que hizo la extracción
     mecánica y verificable: tsc sin imports faltantes ni sobrantes, 79/79
     tests, build limpio. Quedó en **1.187 líneas (-47%)**.
-  - **Queda pendiente**: los otros 9 archivos grandes (`clientes.functions.ts`,
-    `contactos.index.tsx`, `CreateDialogs.tsx`, `comerciales.index.lazy.tsx`,
-    `visitas.index.tsx`, `index.tsx`, `bandeja.index.tsx`, `mutations.functions.ts`,
-    `operaciones.index.tsx`) sin tocar, y dentro de `inmuebles.$id.tsx` el
-    propio `DetailView` (~850 líneas, el formulario principal con ~30 campos
-    de estado) — ese es el candidato de mayor riesgo real, se dejó intacto.
+  - **Los 9 archivos grandes restantes — completados el 9 sep 2026**:
+    `comerciales.index.lazy.tsx` y `visitas.index.tsx` ya estaban divididos
+    de una sesión previa (en `src/components/comerciales/` y
+    `src/components/visitas/`). El resto, esta sesión:
+    - `clientes.functions.ts` (1.817→1.399, -23%): se terminó una extracción
+      que había quedado a medias (4 archivos nuevos creados pero sin
+      conectar) — `clientes-ciclo-vida.functions.ts`,
+      `clientes-conversaciones.functions.ts`, `clientes-duplicados.functions.ts`,
+      `clientes-format.ts`.
+    - `contactos.index.tsx` (1.556→617, -60%): `contactos-format.ts` +
+      `src/components/contactos/` (`LeadsBoard`, `ClientesPanel`,
+      `DuplicadosPanel`).
+    - `CreateDialogs.tsx` (1.488→7, queda como barrel — lo importan 7
+      archivos): `inmueble-schema.ts` + `src/components/create-dialogs/`
+      (`shared`, `NewClienteDialog`, `NewInmuebleDialog`, `NewVisitaDialog`).
+    - `index.tsx`/Dashboard (1.260→918, -27%): `src/components/dashboard/DashboardPanels.tsx`
+      (8 paneles de presentación pura). El propio `Dashboard` (con sus
+      `useMemo` sobre las queries) se dejó intacto — no hay frontera de
+      extracción adicional sin acoplarse a los datos de la página.
+    - `bandeja.index.tsx` (1.117→392, -65%): lógica de detección de
+      inmuebles mencionados movida a `bandeja-format.ts`;
+      `src/components/bandeja/` (`MencionadoCard`, `AsistenteSilviaPanel`,
+      `ConversationCard`). Durante la extracción se detectaron y corrigieron
+      2 fallos propios antes de commitear (un regex de acentos corrompido al
+      copiarlo y una llamada a `formatFecha` sustituida por error) —
+      verificados con tsc antes de que llegaran a la rama.
+    - `mutations.functions.ts` (618→28, queda como barrel — lo importan 15
+      archivos): dividido por dominio en `mutations-shared.ts` +
+      `mutations-cliente/inmueble/visita/prospecto/seguimiento.functions.ts`.
+      Hallazgo sin corregir a propósito: `ESTADO_IN_MAP` (en `createVisita`)
+      y `ESTADO_IN_MAP_UPDATE` (en `updateVisitaEstado`) son literalmente
+      idénticos — duplicación preexistente, documentada con comentario en
+      vez de unificada sin que nadie lo pida.
+    - `operaciones.index.tsx` (749→468, -38%): `operaciones-format.ts` +
+      `src/components/operaciones/OperacionesPanels.tsx` (`ContactPicker`,
+      `OperacionRow`).
+
+    Todo verificado en cada paso: tsc limpio, eslint sin avisos, 79/79
+    tests, build OK. **Único pendiente real de M-03**: el propio
+    `DetailView` dentro de `inmuebles.$id.tsx` (~850 líneas, formulario
+    principal con ~30 campos de estado) — sigue siendo el candidato de
+    mayor riesgo, se deja intacto a propósito (sin frontera de extracción
+    limpia sin tocar closures compartidos).
 - **UX-01 a UX-07 — auditados contra el código actual el 21 ago 2026**:
   ninguno resuelto al 100%, el mayor avance es UX-03 (paginación server-side
   ya en Contactos/Bandeja/Cartera). De ahí se corrigieron 5 puntos concretos
