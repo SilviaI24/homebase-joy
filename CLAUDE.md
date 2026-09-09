@@ -24,7 +24,12 @@ CRM inmobiliario para gestión de propiedades, contactos, leads y operaciones.
 ## Convenciones de código
 
 - Toda mutación de DB va en `createServerFn` con `getSupa()` — nunca en componentes con la anon key
-- Nombres de archivos de server functions: `src/lib/<dominio>.functions.ts`
+- Nombres de archivos de server functions: `src/lib/<dominio>.functions.ts`. Si un
+  dominio crece demasiado (M-03), se divide en `src/lib/<dominio>-<subdominio>.functions.ts`
+  (p. ej. `mutations-cliente.functions.ts`, `clientes-ciclo-vida.functions.ts`) — el
+  archivo `<dominio>.functions.ts` original queda como barrel si tiene muchos
+  consumidores (`export { x } from "./dominio-subdominio.functions"`), o se recorta
+  directamente si sus pocos consumidores se pueden actualizar sin riesgo.
 - `ciclo_vida` CHECK: `('Lead', 'Prospecto', 'Cliente', 'Histórico', 'Descartado')` — nunca escribir `'Activo'` ni `'Reservado'`
 - `properties.estatus` CHECK: `('Activo', 'Reservado', 'Vendido', 'Alquilado', 'Baja', 'Prospección')`
 - `properties.publicacion` CHECK: `('', 'PROSPECTO', 'SUBIR', 'PUBLICADO')`
