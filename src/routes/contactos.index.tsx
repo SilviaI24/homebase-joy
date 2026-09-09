@@ -86,16 +86,20 @@ import {
   type Segmento,
   type Etapa,
   ETAPAS,
-  deleteContacto,
-  actualizarCicloVida,
-  restaurarContactoDeHistorico,
-  listContactosDuplicados,
-  fusionarContactosDuplicados,
-  type GrupoDuplicado,
-  gestionarRol,
   buscarInmuebles,
   getContactoActividad,
 } from "@/lib/clientes.functions";
+import {
+  deleteContacto,
+  actualizarCicloVida,
+  restaurarContactoDeHistorico,
+  gestionarRol,
+} from "@/lib/clientes-ciclo-vida.functions";
+import {
+  listContactosDuplicados,
+  fusionarContactosDuplicados,
+  type GrupoDuplicado,
+} from "@/lib/clientes-duplicados.functions";
 import { updateClienteSeguimiento, type EstadoSeguimiento } from "@/lib/mutations.functions";
 
 const PAGE_SIZE = 50;

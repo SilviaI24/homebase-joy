@@ -13,14 +13,16 @@ import {
 import {
   listClientes,
   listLeads,
-  listConversacionesIa,
   getLeadInsightsFn,
   listClientesPage,
   getClientesStats,
   getClienteById,
-  listConversacionesIaPage,
   listContactosPage,
 } from "@/lib/clientes.functions";
+import {
+  listConversacionesIa,
+  listConversacionesIaPage,
+} from "@/lib/clientes-conversaciones.functions";
 import { listVisitas } from "@/lib/visitas.functions";
 import { getNotifications } from "@/lib/notifications.functions";
 import { listSeguimientos } from "@/lib/seguimiento.functions";
