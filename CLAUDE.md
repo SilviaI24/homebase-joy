@@ -255,10 +255,17 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   CRM (estaba construida pero inalcanzable); favicon añadido (monograma "ES"
   ya usado en `AppShell`, sin inventar paleta de marca nueva); contraste WCAG
   AA verificado por cálculo — todos los pares de texto/fondo reales pasan
-  (peor caso 4.61:1, mínimo exigido 4.5:1). Quedan abiertos: paleta/tipografía
-  de marca completa (necesita valores exactos de marca — naranja #E8820C y
-  tokens marfil/carbón mencionados en la auditoría, sin hex definido — no se
-  adivina), y el tamaño de letra de 9-11px en varias pantallas (legibilidad,
+  (peor caso 4.61:1, mínimo exigido 4.5:1). **9 sep 2026:** paleta de marca
+  completada — se derivaron `--marfil` (`oklch(0.95 0.017 75)` / `#F5EDE2`)
+  y `--carbon` (`oklch(0.20 0.012 60)` / `#1A1511`) de los tokens ya en uso
+  y se propusieron en un artifact con contrastes WCAG calculados antes de
+  aplicarlos (aprobado por David). Hallazgo de paso: `--gold`
+  (`oklch(0.65 0.18 52)` / `#E06700`) ya ES en la práctica el naranja de
+  marca `#E8820C` de la auditoría — diferencia de contraste de solo
+  1.25:1, no se toca. Los 2 tokens nuevos son aditivos, sin consumidor
+  todavía — dónde aplicarlos en la UI queda pendiente como decisión aparte.
+  Sigue abierto: tipografía de marca (más allá de Space Grotesk/DM Sans ya
+  en uso) y el tamaño de letra de 9-11px en varias pantallas (legibilidad,
   no contraste — no se toca sin revisar cada layout, riesgo de romper chips/
   badges ajustados a propósito).
 - **M-06 (observabilidad/Lovable) — limpieza cosmética hecha, decisiones de
@@ -280,6 +287,8 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   2026** (commit `676d5a7`), antes incluso de que se cerrara la auditoría.
   De paso se detectó que `contacts.meta_score` quedó huérfana (nadie la
   escribe ni la lee) — marcada como obsoleta con un `COMMENT`
-  (`20260821073707_mark_meta_score_obsoleta.sql`); el `DROP COLUMN`
-  completo queda pendiente de decisión de David (borra datos y afecta tipos
-  generados de elsol-client-hub).
+  (`20260821073707_mark_meta_score_obsoleta.sql`) y, el 9 sep 2026, borrada
+  del todo con decisión de David (`20260909115916_drop_meta_score_column.sql`,
+  aplicada y verificada en producción; tipos TypeScript de elsol-client-hub
+  regenerados — la regeneración también puso al día ~15 funciones RPC de
+  H-05 que llevaban semanas sin reflejarse ahí, drift preexistente).
