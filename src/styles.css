@@ -54,6 +54,8 @@
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
   --color-cream: var(--cream);
+  --color-marfil: var(--marfil);
+  --color-carbon: var(--carbon);
   --color-alert: var(--alert);
   --color-alert-foreground: var(--alert-foreground);
   --color-brand-green: var(--brand-green);
@@ -97,6 +99,15 @@
   --gold: oklch(0.65 0.18 52);
   --gold-foreground: oklch(0.14 0.025 165);
   --cream: oklch(0.97 0.008 80);
+
+  /* Marfil / carbón — paleta de marca (propuesta UX-01..07, 9 sep 2026).
+     Valores fijos, iguales en claro y oscuro: son color de marca, no
+     superficie adaptativa (a diferencia de --background/--cream, que sí
+     cambian entre temas). Aditivos: todavía sin consumidores en ningún
+     componente -- dónde aplicarlos en la UI es una decisión aparte. */
+  --marfil: oklch(0.95 0.017 75);
+  --carbon: oklch(0.20 0.012 60);
+
   --alert: oklch(0.58 0.19 10);
   --alert-foreground: oklch(0.99 0 0);
   --chart-1: oklch(0.40 0.11 165);
@@ -158,6 +169,11 @@
   --gold: oklch(0.68 0.18 52);
   --gold-foreground: oklch(0.11 0.018 165);
   --cream: oklch(0.97 0.008 80);
+
+  /* Marfil / carbón — mismos valores que en :root, ver nota ahí. */
+  --marfil: oklch(0.95 0.017 75);
+  --carbon: oklch(0.20 0.012 60);
+
   --alert: oklch(0.65 0.21 10);
   --alert-foreground: oklch(0.99 0 0);
   --chart-1: oklch(0.60 0.14 165);
