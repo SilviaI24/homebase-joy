@@ -909,7 +909,7 @@ export const getPropertyDocumentUrl = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermission("properties.read");
+    await requirePermissions("properties.read", "documents.read");
     const path = extractPropertyDocsPath(data.value);
     if (!path) return { url: data.value };
 
@@ -1004,7 +1004,9 @@ export type InmueblesPageParams = {
   q: string;
   categoria: string;
   agente: string;
-  esAlquiler: boolean;
+  // Universo a filtrar (false = venta, true = alquiler). Sin definir = ambos
+  // (usado por HistoricoTab, que mezcla ventas y alquileres cerrados).
+  esAlquiler?: boolean;
 };
 
 export type InmueblesPageResult = {
@@ -1027,7 +1029,7 @@ export const listInmueblesPage = createServerFn({ method: "GET" })
     const q = typeof d?.q === "string" ? d.q.trim() : "";
     const categoria = typeof d?.categoria === "string" ? d.categoria : "Todas";
     const agente = typeof d?.agente === "string" ? d.agente : "Todos";
-    const esAlquiler = d?.esAlquiler === true;
+    const esAlquiler = typeof d?.esAlquiler === "boolean" ? d.esAlquiler : undefined;
     return { page, pageSize, statuses, q, categoria, agente, esAlquiler };
   })
   .handler(async ({ data }): Promise<InmueblesPageResult> => {
@@ -1046,9 +1048,12 @@ export const listInmueblesPage = createServerFn({ method: "GET" })
          agents(id, nombre, email)`,
         { count: "exact" },
       )
-      .eq("es_alquiler", data.esAlquiler)
       .not("estatus", "is", null)
       .order("created_at", { ascending: false, nullsFirst: false });
+
+    if (data.esAlquiler !== undefined) {
+      query = query.eq("es_alquiler", data.esAlquiler);
+    }
 
     if (data.statuses.length > 0) {
       query = query.in("estatus", data.statuses);
@@ -1077,12 +1082,23 @@ export const listInmueblesPage = createServerFn({ method: "GET" })
       query = query.or(orClauses);
     }
 
-    // Server-side agent filter
+    // Server-side agent filter. `.eq("agents.nombre", ...)` sobre una
+    // relación embebida no filtra las filas padre en PostgREST (haría falta
+    // "agents!inner(...)" en el select, que a su vez rompería el caso "Sin
+    // asignar" al forzar un inner join). Se resuelve el nombre a su id y se
+    // filtra por la propia columna agente_id de properties, igual que ya
+    // hace el caso "Sin asignar".
     if (data.agente === "Sin asignar") {
       query = query.is("agente_id", null);
     } else if (data.agente !== "Todos") {
-      // Filter by agent name via join — effectively an INNER join condition
-      query = query.eq("agents.nombre", data.agente);
+      const { data: agenteRow } = await supa
+        .from("agents")
+        .select("id")
+        .eq("nombre", data.agente)
+        .maybeSingle();
+      // Sin match: UUID inexistente para que la query devuelva 0 filas en
+      // vez de omitir el filtro y devolver todo el listado.
+      query = query.eq("agente_id", agenteRow?.id ?? "00000000-0000-0000-0000-000000000000");
     }
 
     const { data: rows, error, count } = await query.range(from, to);

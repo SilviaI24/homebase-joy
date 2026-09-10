@@ -553,6 +553,7 @@ function VentaTab() {
       statuses: ["Activo", "Reservado"],
       q,
       categoria,
+      esAlquiler: false,
     }),
   );
 

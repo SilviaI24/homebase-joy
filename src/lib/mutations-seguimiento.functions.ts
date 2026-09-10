@@ -16,10 +16,33 @@ export type SeguimientoPayload = {
   tipo?: string;
 };
 
+// Mismo vocabulario que reconoce tipoCicloVida() en mutations-shared.ts —
+// aquí se usa para RECHAZAR un `tipo` desconocido en vez de dejar que
+// tipoCicloVida() lo mapee en silencio a "Lead" por defecto (eso degradaba
+// un Cliente a Lead ante cualquier valor mal escrito).
+const TIPO_PATRONES_VALIDOS = ["anular", "prospecc"];
+const TIPO_EXACTOS_VALIDOS = [
+  "propietario",
+  "comprador",
+  "inquilino",
+  "interesado alquiler",
+  "interesado propiedades",
+];
+function esTipoSeguimientoValido(tipo: string): boolean {
+  const t = tipo.toLowerCase();
+  return TIPO_PATRONES_VALIDOS.some((p) => t.includes(p)) || TIPO_EXACTOS_VALIDOS.includes(t);
+}
+
 export const updateClienteSeguimiento = createServerFn({ method: "POST" })
   .validator((d: SeguimientoPayload) => {
     if (!d?.clienteId) throw new Error("Cliente requerido");
     if (!d.estado && !d.nota && !d.tipo) throw new Error("Nada que actualizar");
+    if (d.estado && !ESTADOS_SEGUIMIENTO.includes(d.estado)) {
+      throw new Error(`Estado de seguimiento inválido: "${d.estado}"`);
+    }
+    if (d.tipo && !esTipoSeguimientoValido(d.tipo)) {
+      throw new Error(`Tipo de seguimiento no reconocido: "${d.tipo}"`);
+    }
     return d;
   })
   .handler(async ({ data }) => {
@@ -95,33 +118,72 @@ export const checkDuplicates = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     await requirePermission("contacts.read");
     const supa = getSupa();
-    const conditions: string[] = [];
-    if (data.email?.trim()) conditions.push(`email.eq.${data.email.trim().toLowerCase()}`);
-    if (data.telefono?.trim()) conditions.push(`telefono.eq.${data.telefono.trim()}`);
-    if (!conditions.length) return { duplicates: [] };
-    const { data: rows } = await supa
-      .from("contacts")
-      .select("id, nombre, email, telefono, ciclo_vida")
-      .or(conditions.join(","))
-      .limit(3);
-    return { duplicates: rows ?? [] };
+    const email = data.email?.trim().toLowerCase();
+    const telefono = data.telefono?.trim();
+    if (!email && !telefono) return { duplicates: [] };
+
+    // Dos .eq() en vez de un .or() con el texto del cliente interpolado a
+    // mano: el .or() dejaba inyectar condiciones arbitrarias (p. ej. un
+    // email "x,dni.not.is.null") y además rompía con teléfonos que llevan
+    // coma o paréntesis. .eq() pasa el valor como parámetro, sin ese riesgo.
+    type DuplicadoRow = {
+      id: string;
+      nombre: string;
+      email: string | null;
+      telefono: string | null;
+      ciclo_vida: string;
+    };
+    const cols = "id, nombre, email, telefono, ciclo_vida";
+    const byId = new Map<string, DuplicadoRow>();
+    if (email) {
+      const { data: rows } = await supa
+        .from("contacts")
+        .select(cols)
+        .eq("email", email)
+        .limit(3)
+        .returns<DuplicadoRow[]>();
+      for (const row of rows ?? []) byId.set(row.id, row);
+    }
+    if (telefono) {
+      const { data: rows } = await supa
+        .from("contacts")
+        .select(cols)
+        .eq("telefono", telefono)
+        .limit(3)
+        .returns<DuplicadoRow[]>();
+      for (const row of rows ?? []) byId.set(row.id, row);
+    }
+    return { duplicates: Array.from(byId.values()).slice(0, 3) };
   });
 
 export const sendWhatsAppReply = createServerFn({ method: "POST" })
-  .validator((d: { phone: string; message: string }) => {
-    if (!d?.phone?.trim()) throw new Error("Teléfono requerido");
+  .validator((d: { contactId: string; message: string }) => {
+    if (!d?.contactId?.trim()) throw new Error("Contacto requerido");
     if (!d?.message?.trim()) throw new Error("Mensaje requerido");
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermission("whatsapp.send");
+    const { crm } = await requirePermission("whatsapp.send");
     const phoneNumberId = process.env.WABA_PHONE_NUMBER_ID;
     const token = process.env.WABA_ACCESS_TOKEN;
     if (!phoneNumberId || !token)
       throw new Error("Integración WhatsApp no disponible en este entorno");
 
+    const supa = getSupa();
+    // El teléfono se resuelve aquí, en el servidor, a partir del contacto —
+    // ya no se acepta libre desde el cliente. Antes se podía enviar desde la
+    // línea oficial de WABA a cualquier número sin vincularlo a un contacto
+    // real ni dejar rastro (auditoría 9 sep 2026).
+    const { data: contacto, error: contactoError } = await supa
+      .from("contacts")
+      .select("telefono")
+      .eq("id", data.contactId)
+      .maybeSingle();
+    if (contactoError) throw new Error(contactoError.message);
+    if (!contacto?.telefono) throw new Error("El contacto no tiene teléfono registrado");
+
     // Normalize to E.164 without +: strip non-digits, then ensure country code
-    let to = data.phone.replace(/\D/g, "");
+    let to = contacto.telefono.replace(/\D/g, "");
     // If it's a 9-digit Spanish number without country code, prepend 34
     if (to.length === 9 && (to.startsWith("6") || to.startsWith("7") || to.startsWith("9"))) {
       to = "34" + to;
@@ -153,6 +215,20 @@ export const sendWhatsAppReply = createServerFn({ method: "POST" })
       const msg = body?.error?.message ?? `Error HTTP ${res.status}`;
       const code = body?.error?.code ?? "";
       throw new Error(code ? `[${code}] ${msg}` : msg);
+    }
+
+    // Deja rastro del envío — mismo RPC que createSeguimiento (H-05: actor
+    // real en audit_log). Un fallo aquí no debe deshacer un WhatsApp que ya
+    // salió de verdad, así que se registra en un solo log en vez de lanzar.
+    const { error: logError } = await supa.rpc("crm_crear_seguimiento", {
+      p_contact_id: data.contactId,
+      p_tipo: "WhatsApp",
+      p_texto: data.message,
+      p_agente_id: crm.agentId ?? null,
+      p_actor_id: crm.userId,
+    });
+    if (logError) {
+      console.error("crm_crear_seguimiento (whatsapp):", logError.message);
     }
 
     return { ok: true, messageId: body.messages?.[0]?.id };

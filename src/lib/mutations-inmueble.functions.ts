@@ -74,6 +74,14 @@ export const createInmueble = createServerFn({ method: "POST" })
     if (data.publicacion) {
       await requirePermission("properties.publish");
     }
+    // Mismo guard que updateInmueble (inmuebles.functions.ts): dar de alta
+    // un inmueble ya en estatus final no debería requerir menos permiso que
+    // cerrarlo — si no, alguien con solo properties.create podía crear un
+    // inmueble ya "Vendido" y quedaba bloqueado ahí por el trigger de cierre.
+    const ESTATUS_FINAL: readonly string[] = ["Vendido", "Alquilado", "Baja"];
+    if (data.estatus && ESTATUS_FINAL.includes(data.estatus)) {
+      await requirePermission("properties.status_final");
+    }
     const supa = getSupa();
     const isAlq = /^\s*alquiler/i.test(data.tipo);
 

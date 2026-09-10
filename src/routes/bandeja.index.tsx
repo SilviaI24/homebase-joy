@@ -114,12 +114,14 @@ function BandejaPage() {
   const [replySending, setReplySending] = useState<string | null>(null);
   const sendWaFn = useServerFn(sendWhatsAppReply);
 
-  async function sendReply(clienteId: string, phone: string) {
+  async function sendReply(clienteId: string) {
     const msg = replyTexts[clienteId]?.trim();
     if (!msg || replySending) return;
     setReplySending(clienteId);
     try {
-      await sendWaFn({ data: { phone, message: msg } });
+      // El teléfono ya no viaja desde el cliente: el servidor lo resuelve
+      // desde el propio contacto (auditoría 9 sep 2026).
+      await sendWaFn({ data: { contactId: clienteId, message: msg } });
       toast.success("Mensaje enviado por WhatsApp");
       setReplyTexts((p) => ({ ...p, [clienteId]: "" }));
       setReplyOpen((p) => {
@@ -369,7 +371,7 @@ function BandejaPage() {
                 onRoute={(tipo) => route(c.id, tipo)}
                 onToggleReply={() => toggleReply(c.id)}
                 onReplyTextChange={(v) => setReplyTexts((p) => ({ ...p, [c.id]: v }))}
-                onSendReply={() => sendReply(c.id, c.telefono)}
+                onSendReply={() => sendReply(c.id)}
                 onVinculado={() => {
                   queryClient.invalidateQueries({ queryKey: ["ia-conversations-page"] });
                   queryClient.invalidateQueries({ queryKey: ["leads"] });

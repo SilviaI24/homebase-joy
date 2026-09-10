@@ -2,13 +2,23 @@ import { requireAuthClient } from "@/lib/auth.server";
 import { getSupa } from "@/lib/supabase.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+// 9 sep 2026: retiradas 7 capacidades que nunca comprobaba ningún
+// requirePermission() porque la funcionalidad que gobernarían no existe en
+// la app (exportar contactos, borrar documento/visita, SilvIA ejecutando
+// acciones, envío de email, pantalla de configuración, log de auditoría) —
+// la pantalla de administración de permisos las mostraba como si bloquearan
+// algo, sin efecto real. Decisión: si no hay una función real detrás, se
+// retira del catálogo en vez de fingir que controla algo (ver migración
+// 20260909120210_retirar_permisos_sin_uso_real). `contacts.archive` sí tenía
+// una función real (archivar = mover a Histórico) sin este check — se
+// implementó en vez de retirarla, ver actualizarCicloVida en
+// clientes-ciclo-vida.functions.ts.
 export const CRM_CAPABILITIES = [
   "contacts.read",
   "contacts.create",
   "contacts.update",
   "contacts.archive",
   "contacts.delete_hard",
-  "contacts.export",
   "contact_roles.read",
   "contact_roles.create",
   "contact_roles.update",
@@ -19,12 +29,15 @@ export const CRM_CAPABILITIES = [
   "properties.status_final",
   "properties.publish",
   "properties.delete_hard",
+  // documents.read separa "ver la ficha del inmueble" (properties.read) de
+  // "ver su documentación legal" (contratos, DNI, escrituras) — antes
+  // properties.read solo, que tienen todos los perfiles operativos, bastaba
+  // para abrir cualquier documento privado (auditoría 9 sep 2026).
+  "documents.read",
   "documents.upload",
-  "documents.delete",
   "visits.read",
   "visits.create",
   "visits.update",
-  "visits.delete",
   "seguimiento.read",
   "seguimiento.create",
   "operations.read",
@@ -32,13 +45,9 @@ export const CRM_CAPABILITIES = [
   "operations.create",
   "operations.close",
   "silvia.use",
-  "silvia.execute_actions",
   "whatsapp.send",
-  "email.send",
   "users.manage",
   "permissions.manage",
-  "config.manage",
-  "audit.read",
 ] as const;
 
 export type CrmCapability = (typeof CRM_CAPABILITIES)[number];
