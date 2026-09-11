@@ -82,6 +82,13 @@ npx supabase db push --dry-run
   solo se devuelve `true`/`false`. Rotación futura: actualizar `cron_secret` en
   Vault sin cambiar código ni variables de entorno.
 
+- **web-lead:** Edge Function que recibe los formularios de contacto de fichas
+  de inmueble (venta/alquiler) de la web pública. Hasta el 11 sep 2026 no
+  tenía copia local en ningún repo — ahora versionada en
+  `supabase/functions/web-lead/` (deploy con `--no-verify-jwt`, la web la
+  llama sin JWT de Supabase). Ver README de la función para el bug que esto
+  causó y el detalle del payload.
+
 ## Autenticación server-side (implementado)
 
 - `@supabase/ssr` instalado
@@ -115,6 +122,30 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Aviso de la agencia de la web, 11 sep 2026 — dos fallos, uno resuelto,
+  uno pendiente de David:**
+  1. **web-lead daba 500 en todo envío desde el 19 ago 2026 — resuelto.**
+     La migración `20260819155547_normalize_legacy_lead_role_types.sql`
+     retiró `lead_compra`/`lead_alquiler` del CHECK de `contact_roles.tipo`
+     tras verificar que "ningún código actual" los usaba — verificación que
+     no pudo ver `web-lead` porque no tenía copia local en ningún repo (ver
+     `supabase/functions/web-lead/`, creada esa misma sesión). Corregido
+     mapeando `es_alquiler ? "Inquilino" : "Comprador"` y desplegado.
+  2. **Lecturas/escrituras de la web fallando desde el domingo 6 sep 15:31 —
+     sin resolver, fuera del alcance de este repo.** La agencia lo atribuye a
+     un cambio de permisos sobre la clave de servicio que usa la web; lo
+     workaroundearon cambiando a otra clave `service_role` sin restricciones.
+     Verificado que RLS/GRANTs de `service_role` en Postgres están bien (todas
+     las tablas relevantes tienen `service_role_all`/GRANT completo) — no hay
+     ninguna migración ni commit con esa fecha que lo explique. La hipótesis
+     más probable es un cambio de alcance en el sistema nuevo de claves de
+     Supabase (`sb_secret_...`, distinto del `service_role` JWT clásico), que
+     se edita desde el Dashboard (Project Settings → API Keys) y no deja
+     rastro en migraciones ni git. David eligió revisar y restaurar los
+     permisos de la clave original en vez de generar una nueva — pendiente de
+     hacerlo en el Dashboard. Los leads de valorador perdidos durante la
+     ventana del fallo (Excel de la agencia) los gestiona David manualmente,
+     no por importación.
 - **H-07 (ESLint) — completado del todo el 24 ago 2026**: 253→0 errores.
   Fase 1 (23 ago): autofix seguro de formato (166 de los 253, sin cambio de
   lógica). Fase 2 (24 ago): tipados los 86 `@typescript-eslint/no-explicit-any`
