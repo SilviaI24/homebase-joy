@@ -285,7 +285,7 @@ export function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
               <Link
                 to="/clientes"
                 search={{ id: lead.id }}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-carbon/5 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 hover:bg-carbon/10 transition-colors"
               >
                 <ScoreBadge score={lead.score} />
                 <div className="min-w-0 flex-1">
