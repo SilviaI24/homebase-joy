@@ -21,27 +21,13 @@ export async function requireAuthClient() {
   const anonKey = process.env.SUPABASE_ANON_KEY;
   if (!url || !anonKey) throw new Error("SUPABASE_URL y SUPABASE_ANON_KEY requeridos");
 
-  let cookieNames: string[] = [];
-  try {
-    cookieNames = Object.keys(getCookies());
-  } catch {
-    // diagnóstico temporal 12 sep 2026
-  }
-
   const supabase = buildAuthClient(url, anonKey);
   const {
     data: { user },
     error,
   } = await supabase.auth.getUser();
   if (!user || error) {
-    // DIAGNÓSTICO TEMPORAL 12 sep 2026 — quitar en cuanto se identifique la
-    // causa de "No autorizado" en producción con cookie presente.
-    throw Object.assign(
-      new Error(
-        `No autorizado [diag: cookies=${JSON.stringify(cookieNames)} err=${error ? JSON.stringify({ message: error.message, status: error.status, code: (error as { code?: string }).code }) : "null"}]`,
-      ),
-      { statusCode: 401 },
-    );
+    throw Object.assign(new Error("No autorizado"), { statusCode: 401 });
   }
   return { user, supabase };
 }
