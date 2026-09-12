@@ -235,34 +235,23 @@ export const createOperacion = createServerFn({ method: "POST" })
     }
     const supa = getSupa();
 
-    const precio = data.precioOperacion ?? null;
-    const pct = data.comisionPct ?? null;
-    const total = precio !== null && pct !== null ? Math.round(precio * pct) / 100 : null;
-
-    const row: Record<string, unknown> = {
-      tipo: data.tipo,
-      estado: "Abierta",
-      fecha_apertura: new Date().toISOString(),
-    };
-    if (precio !== null) row.precio_operacion = precio;
-    if (pct !== null) row.comision_pct = pct;
-    if (total !== null) row.comision_total = total;
-    if (data.propertyId) row.property_id = data.propertyId;
-    const agenteId = data.agenteId ?? crm.agentId;
-    if (!agenteId) throw new Error("La operación necesita un agente responsable");
-    row.agente_id = agenteId;
-    if (data.vendedorId) row.vendedor_id = data.vendedorId;
-    if (data.compradorId) row.comprador_id = data.compradorId;
-    if (data.notas?.trim()) row.notas = data.notas.trim();
-
-    const { data: inserted, error } = await supa
-      .from("operations")
-      .insert([row])
-      .select("id")
-      .single();
+    // H-05: crm_crear_operacion valida el actor y escribe en una sola
+    // transacción (registrar_audit() lo lee vía app.actor_id) — antes era un
+    // .insert() directo sin actor real en audit_log.
+    const { data: newId, error } = await supa.rpc("crm_crear_operacion", {
+      p_tipo: data.tipo,
+      p_precio_operacion: data.precioOperacion ?? null,
+      p_comision_pct: data.comisionPct ?? null,
+      p_property_id: data.propertyId ?? null,
+      p_agente_id: data.agenteId ?? null,
+      p_vendedor_id: data.vendedorId ?? null,
+      p_comprador_id: data.compradorId ?? null,
+      p_notas: data.notas ?? null,
+      p_actor_id: crm.userId,
+    });
 
     if (error) throw new Error(`createOperacion: ${error.message}`);
-    return { id: inserted.id };
+    return { id: newId as string };
   });
 
 export type UpdateOperacionEstadoPayload = {
@@ -282,35 +271,18 @@ export const updateOperacionEstado = createServerFn({ method: "POST" })
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermission("operations.create");
+    const { crm } = await requirePermission("operations.create");
     const supa = getSupa();
-    const { data: current, error: currentError } = await supa
-      .from("operations")
-      .select("estado")
-      .eq("id", data.id)
-      .single();
 
-    if (currentError) {
-      throw new Error(`updateOperacionEstado: ${currentError.message}`);
-    }
-
-    // assertRegularOperacionTransition ya rechaza SIEMPRE current === "Cerrada"
-    // (línea 17-19 de esta misma función), así que el requirePermission que
-    // vivía aquí para ese caso nunca llegaba a tener efecto — se quitó
-    // (auditoría 12 sep 2026): pedía un permiso para un camino que la propia
-    // siguiente línea ya bloqueaba siempre, dando una falsa sensación de
-    // control.
-    assertRegularOperacionTransition(current.estado as OperacionEstado, data.estado);
-
-    if (current.estado === data.estado) return { ok: true };
-
-    // fecha_cierre ya no se toca aquí: se quitó el `= null` incondicional que
-    // borraba el historial de cierre ante cualquier cambio de estado, incluso
-    // uno que no tenía nada que ver con cerrar/reabrir (auditoría 12 sep
-    // 2026). Solo cerrar_operacion_crm debe escribir ese campo.
-    const update: Record<string, unknown> = { estado: data.estado };
-
-    const { error } = await supa.from("operations").update(update).eq("id", data.id);
+    // H-05: crm_actualizar_estado_operacion valida el actor y hace ella misma
+    // las mismas comprobaciones que antes vivían aquí en TypeScript
+    // (assertRegularOperacionTransition, el atajo "mismo estado, no-op") —
+    // ver la migración h05_completar_operaciones para el detalle exacto.
+    const { error } = await supa.rpc("crm_actualizar_estado_operacion", {
+      p_operacion_id: data.id,
+      p_estado: data.estado,
+      p_actor_id: crm.userId,
+    });
 
     if (error) throw new Error(`updateOperacionEstado: ${error.message}`);
     return { ok: true };
