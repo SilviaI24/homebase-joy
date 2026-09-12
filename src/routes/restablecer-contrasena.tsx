@@ -28,12 +28,23 @@ function RestablecerContrasenaPage() {
       }
     });
 
+    // 12 sep 2026: el intercambio PKCE del enlace de recuperación puede
+    // tardar bastante más que un intento normal de login (33s en un caso
+    // real en producción, seguramente por arranque en frío de la función
+    // serverless) — 4s bastaba para el caso feliz pero declaraba "enlace
+    // expirado" sobre un enlace que en realidad sí iba a funcionar unos
+    // segundos después. Se amplía el margen y, si el evento no llega a
+    // tiempo, se comprueba getSession() antes de rendirse: supabase-js ya
+    // pudo haber terminado el intercambio sin que este listener alcanzara
+    // a ver el evento PASSWORD_RECOVERY (viene una sola vez, al vuelo).
     const timer = setTimeout(() => {
-      if (!settled.current) {
+      if (settled.current) return;
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (settled.current) return;
         settled.current = true;
-        setState("no-session");
-      }
-    }, 4000);
+        setState(session ? "ready" : "no-session");
+      });
+    }, 15000);
 
     return () => {
       subscription.unsubscribe();
