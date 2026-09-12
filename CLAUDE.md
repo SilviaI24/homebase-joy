@@ -266,12 +266,18 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
       plazo es una función SQL de agregación (como ya existe
       `dashboard_inmuebles_stats()`), no paginar en TypeScript — más trabajo
       del que entra en esta fase.
-    - H-05 sigue incompleto en `createOperacion`/`updateOperacionEstado`
-      (siguen con `.insert()`/`.update()` directos, no RPC con actor) pese a
-      que la entrada de H-05 más abajo lo da por completado al 100% — el
-      100% real es "todo excepto estos dos". Convertirlos requiere
-      replicar en PL/pgSQL la lógica de construcción de fila dinámica de
-      `createOperacion`; se deja para una fase aparte por su tamaño.
+    - **H-05 completado del todo el 12 sep 2026** (antes quedaban fuera
+      `createOperacion`/`updateOperacionEstado`, con `.insert()`/`.update()`
+      directos sin actor real): migración `h05_completar_operaciones` —
+      `crm_crear_operacion` (misma fórmula de `comision_total` que el TS
+      original, agente por defecto el de la propia sesión si no se indica
+      uno) y `crm_actualizar_estado_operacion` (repite en SQL
+      `assertRegularOperacionTransition` y el atajo de no escribir nada si
+      el estado no cambia — esa función de TS se queda con sus tests, solo
+      que el handler ya no la llama directamente). Verificado en
+      producción con datos reales: actor correcto en `audit_log`,
+      "Cerrada" rechazado, repetir el mismo estado no duplica fila de
+      audit.
 
 - **Aviso de la agencia de la web, 11 sep 2026 — dos fallos, uno resuelto,
   uno pendiente de David:**
