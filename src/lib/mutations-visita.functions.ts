@@ -42,19 +42,31 @@ export const createVisita = createServerFn({ method: "POST" })
     const com = strOpt(data.comentarios);
     const cli = arrOpt(data.clientesIds);
     const ag = arrOpt(data.agentesIds);
+    const notas = com ? toSentenceCase(com) : null;
+    const contactId = cli?.length ? cli[0] : null;
+    const agenteId = ag?.length ? ag[0] : null;
 
-    // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
-    const { data: visitaId, error } = await supa.rpc("crm_crear_visita", {
-      p_fecha: data.fecha,
-      p_estado: ESTADO_IN_MAP[estadoRaw] ?? "Programada",
-      p_notas: com ? toSentenceCase(com) : null,
-      p_property_id: data.inmueblesIds[0],
-      p_contact_id: cli?.length ? cli[0] : null,
-      p_agente_id: ag?.length ? ag[0] : null,
-      p_actor_id: crm.userId,
-    });
-    if (error) throw new Error(error.message);
-    return { id: visitaId as string };
+    // El diálogo permite seleccionar varios inmuebles a la vez ("Seleccionados:
+    // N"), pero cada fila de `visits` es un inmueble por visita — antes solo
+    // se guardaba data.inmueblesIds[0] y el resto se descartaba en silencio
+    // (auditoría 12 sep 2026). Se crea una visita por inmueble seleccionado,
+    // con el mismo cliente/agente/fecha/notas en todas.
+    const ids: string[] = [];
+    for (const propertyId of data.inmueblesIds) {
+      // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
+      const { data: visitaId, error } = await supa.rpc("crm_crear_visita", {
+        p_fecha: data.fecha,
+        p_estado: ESTADO_IN_MAP[estadoRaw] ?? "Programada",
+        p_notas: notas,
+        p_property_id: propertyId,
+        p_contact_id: contactId,
+        p_agente_id: agenteId,
+        p_actor_id: crm.userId,
+      });
+      if (error) throw new Error(error.message);
+      ids.push(visitaId as string);
+    }
+    return { id: ids[0], ids };
   });
 
 const ESTADO_IN_MAP_UPDATE: Record<string, string> = {

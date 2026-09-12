@@ -12,18 +12,6 @@ export const ESTADO_COLORS: Record<string, string> = {
   Cancelada: "var(--destructive)",
 };
 
-export function fmtDate(s: string | null, opts?: Intl.DateTimeFormatOptions): string {
-  if (!s) return "—";
-  try {
-    return new Date(s).toLocaleDateString(
-      "es-ES",
-      opts ?? { day: "2-digit", month: "short", year: "numeric" },
-    );
-  } catch {
-    return s;
-  }
-}
-
 export function fmtTime(s: string | null): string {
   if (!s) return "";
   try {

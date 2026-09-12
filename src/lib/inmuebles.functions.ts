@@ -66,7 +66,6 @@ export type InmuebleDetalle = Inmueble & {
   fechaFinExclusiva: string | null;
   fechaReserva: string | null;
   fechaEscritura: string | null;
-  changelog: Array<{ ts: string; field: string; old: string | null; new: string | null }>;
 };
 
 export type Agente = { id: string; nombre: string; mail: string };
@@ -151,7 +150,6 @@ type SupabasePropertyRow = {
   estado: string | null;
   imagenes: Array<{ url: string; filename: string; orden: number }> | null;
   documentos: Array<{ url: string; filename: string; type: string }> | null;
-  changelog: Array<{ ts: string; field: string; old: string | null; new: string | null }> | null;
   coordenadas: { lat: number; lng: number } | null;
   fecha_inicio: string | null;
   fecha_reserva: string | null;
@@ -260,12 +258,6 @@ function mapDetalle(
     fechaFinExclusiva: row.fecha_fin_exclusiva ?? null,
     fechaReserva: row.fecha_reserva ?? null,
     fechaEscritura: row.fecha_escritura ?? null,
-    changelog: (row.changelog ?? []) as Array<{
-      ts: string;
-      field: string;
-      old: string | null;
-      new: string | null;
-    }>,
   };
 }
 
@@ -513,12 +505,16 @@ export const getInmueble = createServerFn({ method: "GET" })
 
     if (error) throw new Error(error.message);
 
-    // Fetch Propietario contacts linked to this property via contact_roles
+    // Contactos "dueños" del inmueble vía contact_roles: Propietario (venta) y
+    // Arrendador (alquiler) se tratan como equivalentes en el resto del código
+    // (deriveSegmento, listProspectos, listClientesPage) — antes este filtro
+    // solo pedía "Propietario", así que la ficha de un inmueble en alquiler
+    // (rol "Arrendador") nunca mostraba a su dueño (auditoría 12 sep 2026).
     const { data: roles } = await supa
       .from("contact_roles")
       .select("contacts(id, nombre, telefono, email)")
       .eq("property_id", data.id)
-      .eq("tipo", "Propietario");
+      .in("tipo", ["Propietario", "Arrendador"]);
 
     const roleRows = (roles ?? []) as unknown as Array<{
       contacts: { id: string; nombre: string; telefono: string; email: string } | null;
@@ -602,24 +598,6 @@ function mapEstadoVisitaOut(estado: string): string {
   };
   return MAP[estado] ?? estado;
 }
-
-export const getInmueblesByIds = createServerFn({ method: "POST" })
-  .validator((d: { ids: string[] }) => {
-    if (!Array.isArray(d.ids)) throw new Error("ids requerido");
-    return d;
-  })
-  .handler(async ({ data }) => {
-    await requirePermission("properties.read");
-    if (data.ids.length === 0) return { inmuebles: [] as Inmueble[] };
-    const supa = getSupa();
-    const { data: rows, error } = await supa
-      .from("properties")
-      .select("*, agents(id, nombre, email)")
-      .in("id", data.ids);
-    if (error) throw new Error(error.message);
-    const inmuebles = (rows ?? []).map((r) => mapBase(r as SupabasePropertyRow));
-    return { inmuebles };
-  });
 
 export type UpdateInmueblePayload = {
   id: string;
@@ -819,17 +797,14 @@ export const addImagenToInmueble = createServerFn({ method: "POST" })
       data: { publicUrl },
     } = supa.storage.from(BUCKET).getPublicUrl(storagePath);
 
-    const { data: prop } = await supa
-      .from("properties")
-      .select("imagenes")
-      .eq("id", data.id)
-      .single();
-    const current: Array<{ url: string; filename: string; orden: number }> = prop?.imagenes ?? [];
-    const next = [...current, { url: publicUrl, filename: data.filename, orden: current.length }];
-    // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
-    const { error: saveError } = await supa.rpc("crm_actualizar_imagenes_inmueble", {
+    // El append va dentro del propio UPDATE (crm_agregar_imagen_inmueble),
+    // no como leer-modificar-reescribir aquí: dos subidas concurrentes ya
+    // no pueden pisarse la una a la otra (auditoría 12 sep 2026). También
+    // fija el actor real para audit_log.usuario_id (H-05).
+    const { error: saveError } = await supa.rpc("crm_agregar_imagen_inmueble", {
       p_property_id: data.id,
-      p_imagenes: next,
+      p_url: publicUrl,
+      p_filename: data.filename,
       p_actor_id: crm.userId,
     });
     if (saveError) throw new Error(saveError.message);
@@ -1012,7 +987,6 @@ export type InmueblesPageParams = {
 export type InmueblesPageResult = {
   inmuebles: Inmueble[];
   total: number;
-  sectionTotals: { venta: number; prospectos: number; historico: number };
 };
 
 // Paginated fetch for la Cartera de Inmuebles. `esAlquiler` selecciona el universo
@@ -1104,83 +1078,15 @@ export const listInmueblesPage = createServerFn({ method: "GET" })
     const { data: rows, error, count } = await query.range(from, to);
     if (error) throw new Error("Error al cargar inmuebles");
 
-    // Section counts (lightweight, unfiltered, for tab badges)
-    const [ventaRes, prospRes, histRes] = await Promise.all([
-      supa
-        .from("properties")
-        .select("id", { count: "exact", head: true })
-        .eq("es_alquiler", false)
-        .in("estatus", ["Activo", "Reservado"]),
-      supa
-        .from("properties")
-        .select("id", { count: "exact", head: true })
-        .eq("es_alquiler", false)
-        .eq("estatus", "Prospección"),
-      supa
-        .from("properties")
-        .select("id", { count: "exact", head: true })
-        .eq("es_alquiler", false)
-        .in("estatus", ["Vendido", "Baja"]),
-    ]);
-
+    // sectionTotals (venta/prospectos/histórico) se retiró el 12 sep 2026:
+    // eran 3 COUNT(*) exactos por cada carga/página/filtro de Cartera y
+    // ningún tab/badge los leía (código muerto detectado en auditoría),
+    // además mal calculados (ignoraban esAlquiler y "histórico" no incluía
+    // "Alquilado").
     return {
       inmuebles: ((rows ?? []) as unknown as SupabasePropertyRow[]).map(mapBase),
       total: count ?? 0,
-      sectionTotals: {
-        venta: ventaRes.count ?? 0,
-        prospectos: prospRes.count ?? 0,
-        historico: histRes.count ?? 0,
-      },
     };
-  });
-
-export const geocodeInmuebles = createServerFn({ method: "POST" })
-  .validator(
-    (d: {
-      items: Array<{
-        id: string;
-        calle: string;
-        numero: string;
-        barrio: string;
-        localidad: string;
-      }>;
-    }) => {
-      if (!Array.isArray(d?.items)) throw new Error("items requerido");
-      return d;
-    },
-  )
-  .handler(async ({ data }) => {
-    await requirePermission("properties.update");
-    const supa = getSupa();
-    const results: Array<{ id: string; lat: number; lng: number } | { id: string; error: string }> =
-      [];
-    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-    for (const item of data.items) {
-      const parts = [item.calle, item.numero, item.barrio, item.localidad, "España"].filter(
-        Boolean,
-      );
-      const q = encodeURIComponent(parts.join(", "));
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=es`,
-          { headers: { "User-Agent": "ElSolGrupoCRM/1.0" } },
-        );
-        const json = (await res.json()) as Array<{ lat: string; lon: string }>;
-        if (json.length > 0) {
-          const lat = parseFloat(json[0].lat);
-          const lng = parseFloat(json[0].lon);
-          await supa.from("properties").update({ coordenadas: { lat, lng } }).eq("id", item.id);
-          results.push({ id: item.id, lat, lng });
-        } else {
-          results.push({ id: item.id, error: "no_result" });
-        }
-      } catch (e) {
-        results.push({ id: item.id, error: "fetch_error" });
-      }
-      await sleep(1100); // Nominatim: max 1 req/sec
-    }
-    return { results };
   });
 
 // ── Dashboard (M-01-bis, parte pendiente) ──────────────────────────────────────

@@ -16,22 +16,6 @@ function buildAuthClient(url: string, anonKey: string) {
   });
 }
 
-export async function requireAuth() {
-  const url = process.env.SUPABASE_URL;
-  const anonKey = process.env.SUPABASE_ANON_KEY;
-  if (!url || !anonKey) throw new Error("SUPABASE_URL y SUPABASE_ANON_KEY requeridos");
-
-  const supabase = buildAuthClient(url, anonKey);
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  if (!user || error) {
-    throw Object.assign(new Error("No autorizado"), { statusCode: 401 });
-  }
-  return user;
-}
-
 export async function requireAuthClient() {
   const url = process.env.SUPABASE_URL;
   const anonKey = process.env.SUPABASE_ANON_KEY;

@@ -93,8 +93,12 @@ npx supabase db push --dry-run
 
 - `@supabase/ssr` instalado
 - `src/lib/supabase.client.ts` usa `createBrowserClient` → sesión guardada en cookies (necesario para el servidor)
-- `src/lib/auth.server.ts` exporta `requireAuth()` — lee la cookie de sesión, verifica con Supabase, lanza 401 si no hay sesión válida
-- Todos los 33 handlers en `createServerFn` llaman `await requireAuth()` como primera línea
+- `src/lib/auth.server.ts` exporta `requireAuthClient()` — lee la cookie de sesión, verifica con
+  Supabase, lanza 401 si no hay sesión válida, y devuelve también el cliente Supabase autenticado
+  (corregido 12 sep 2026: existía un `requireAuth()` casi idéntico, sin ese cliente, que quedó
+  huérfano — nada lo llamaba, `crm-auth.server.ts` usa `requireAuthClient()` desde siempre; se retiró)
+- Todos los handlers en `createServerFn` llaman `requirePermission()`/`requirePermissions()`
+  (`crm-auth.server.ts`), que internamente exige sesión vía `requireAuthClient()` antes de evaluar el permiso
 - Variables necesarias en `.env.local`: `SUPABASE_URL` y `SUPABASE_ANON_KEY` (sin prefijo VITE_)
 - **Nota:** usuarios con sesión antigua (localStorage) necesitan re-login una vez para que se genere la cookie
 
@@ -121,6 +125,61 @@ No asumir que "esto es solo del CRM" o "esto es solo del Portal" exime de
 copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
+
+- **Auditoría estructural, Fase 1 (limpieza + bugs de datos) — 12 sep 2026:**
+  - **Código muerto retirado** (confirmado sin consumidores por grep, no por
+    inspección): `listConversacionesIa`/`iaConversationsQuery` (además la
+    consulta más cara del repo — barrido completo de `contacts` sin filtro
+    SQL), `buscarInmuebles`, `getContactoActividad`, `getInmueblesByIds`,
+    `sectionTotals` (mal calculada y sin consumidor — 3 `COUNT(*)` exactos
+    desperdiciados en cada carga de Cartera), el campo `changelog` de
+    principio a fin (columna que no existe en el esquema, siempre `[]`),
+    `src/lib/airtable.server.ts` completo, `requireAuth()` (duplicado
+    huérfano de `requireAuthClient()`), `src/lib/config.server.ts`
+    (boilerplate de plantilla, nunca conectado), `geocodeInmuebles`
+    (código muerto ya señalado dos veces antes sin retirar), y 3
+    componentes de UI sin importador (`EmptyState`/`ErrorState`,
+    `RecordatoriosEstancados`, `ui/alert-dialog` de shadcn). Verificado con
+    `npx knip` además de grep manual.
+  - **Bugs de datos corregidos:**
+    - `createVisita` guardaba solo el primer inmueble/cliente/agente de una
+      selección múltiple — ahora crea una visita por inmueble seleccionado.
+    - Ficha de inmueble en alquiler no mostraba propietario (el filtro solo
+      pedía rol "Propietario", no "Arrendador").
+    - `listLeads` no pedía `imagenes` en el select (sí lo hace `listClientes`)
+      — los inmuebles vinculados a un Lead nunca tenían miniatura.
+    - `addImagenToInmueble` hacía un read-modify-write en TypeScript (dos
+      subidas concurrentes podían pisarse). Nueva función SQL
+      `crm_agregar_imagen_inmueble` hace el append dentro del propio
+      `UPDATE` (atómico por fila vía MVCC).
+    - `computeSegmentoCounts` (KPIs de Propietario/Comprador/Inquilino en
+      Contactos) no paginaba — paginado igual que `listClientes` para no
+      subcontar en cuanto los "Cliente" superen el tope de filas de
+      PostgREST.
+    - `updateOperacionEstado`: quitado un `requirePermission("operations.close")`
+      que nunca tenía efecto real (la línea siguiente ya bloqueaba siempre
+      ese caso) y el `fecha_cierre = null` incondicional que borraba el
+      historial de cierre ante cualquier cambio de estado, no solo al cerrar.
+  - **Sin tocar, con criterio explícito documentado en el propio código o
+    aquí:**
+    - `gestionarRol` (`clientes-ciclo-vida.functions.ts`): permiso-gateado,
+      convertido a H-05 el 24 ago, pero sin ningún consumidor en la UI hoy.
+      No se retira porque no está claro si es una función a la espera de
+      su UI o ya superada por `asociarLeadAInmueble` — pendiente de
+      decisión.
+    - `getStatsData`/`getLeadInsightsFn`: usan límites explícitos generosos
+      (5.000/2.000/3.000 filas) en vez de paginar — no producen datos
+      incorrectos hoy (4.149 contactos totales), pero dejarán de ser
+      ciertos en cuanto el volumen los supere. La forma correcta a medio
+      plazo es una función SQL de agregación (como ya existe
+      `dashboard_inmuebles_stats()`), no paginar en TypeScript — más trabajo
+      del que entra en esta fase.
+    - H-05 sigue incompleto en `createOperacion`/`updateOperacionEstado`
+      (siguen con `.insert()`/`.update()` directos, no RPC con actor) pese a
+      que la entrada de H-05 más abajo lo da por completado al 100% — el
+      100% real es "todo excepto estos dos". Convertirlos requiere
+      replicar en PL/pgSQL la lógica de construcción de fila dinámica de
+      `createOperacion`; se deja para una fase aparte por su tamaño.
 
 - **Aviso de la agencia de la web, 11 sep 2026 — dos fallos, uno resuelto,
   uno pendiente de David:**

@@ -294,16 +294,21 @@ export const updateOperacionEstado = createServerFn({ method: "POST" })
       throw new Error(`updateOperacionEstado: ${currentError.message}`);
     }
 
-    if (current.estado === "Cerrada") {
-      await requirePermission("operations.close");
-    }
-
+    // assertRegularOperacionTransition ya rechaza SIEMPRE current === "Cerrada"
+    // (línea 17-19 de esta misma función), así que el requirePermission que
+    // vivía aquí para ese caso nunca llegaba a tener efecto — se quitó
+    // (auditoría 12 sep 2026): pedía un permiso para un camino que la propia
+    // siguiente línea ya bloqueaba siempre, dando una falsa sensación de
+    // control.
     assertRegularOperacionTransition(current.estado as OperacionEstado, data.estado);
 
     if (current.estado === data.estado) return { ok: true };
 
+    // fecha_cierre ya no se toca aquí: se quitó el `= null` incondicional que
+    // borraba el historial de cierre ante cualquier cambio de estado, incluso
+    // uno que no tenía nada que ver con cerrar/reabrir (auditoría 12 sep
+    // 2026). Solo cerrar_operacion_crm debe escribir ese campo.
     const update: Record<string, unknown> = { estado: data.estado };
-    update.fecha_cierre = null;
 
     const { error } = await supa.from("operations").update(update).eq("id", data.id);
 

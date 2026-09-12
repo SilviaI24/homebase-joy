@@ -44,64 +44,6 @@ type ConversacionIaQueryRow = {
   contact_agents: Array<{ agent_id: string | null }> | null;
 };
 
-export const listConversacionesIa = createServerFn({ method: "GET" }).handler(async () => {
-  await requirePermission("contacts.read");
-  const supa = getSupa();
-  const allContacts: ConversacionIaQueryRow[] = [];
-  const PAGE = 1000;
-
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supa
-      .from("contacts")
-      .select(
-        `id, nombre, email, telefono, ciclo_vida, canal_origen, created_at,
-         motivo, solicitud, conversaciones, seccion, categoria, trabajado,
-         contact_agents(agent_id)`,
-      )
-      .order("created_at", { ascending: false })
-      .range(from, from + PAGE - 1);
-
-    if (error) throw new Error(`listConversacionesIa: ${error.message}`);
-    const page = (data ?? []) as unknown as ConversacionIaQueryRow[];
-    allContacts.push(...page);
-    if (page.length < PAGE) break;
-  }
-
-  const clientes: ConversacionIa[] = allContacts
-    .filter((row) => {
-      const origen = s(row.canal_origen).toLowerCase();
-      const esAgenteConversacional = origen === "silvia-whatsapp" || origen === "silvia-voz";
-      const textoLegado = `${s(row.motivo)} ${s(row.solicitud)} ${s(row.conversaciones)}`;
-      const esLegadoSinOrigen =
-        !origen &&
-        s(row.conversaciones).trim().length > 0 &&
-        !/idealista/i.test(textoLegado) &&
-        /whats|llamad|tel[eé]fono|call|\bvoz\b/i.test(textoLegado);
-      return esAgenteConversacional || esLegadoSinOrigen;
-    })
-    .map((row) => ({
-      id: row.id,
-      nombre: toTitleCase(s(row.nombre)),
-      email: s(row.email),
-      telefono: s(row.telefono),
-      canalOrigen: s(row.canal_origen),
-      fecha: row.created_at ? row.created_at.slice(0, 10) : null,
-      motivo: toSentenceCase(s(row.motivo)),
-      solicitud: toSentenceCase(s(row.solicitud)),
-      seccion: toTitleCase(s(row.seccion)),
-      conversaciones: toSentenceCase(s(row.conversaciones)),
-      categoria: Array.isArray(row.categoria) ? row.categoria : [],
-      trabajado: toTitleCase(s(row.trabajado)),
-      etapa: (row.ciclo_vida ?? "Lead") as Etapa,
-      agentesIds: (row.contact_agents ?? [])
-        .map((assignment) => assignment.agent_id)
-        .filter((id): id is string => Boolean(id)),
-      matches: [],
-    }));
-
-  return { clientes };
-});
-
 // Paginated SilvIA bandeja — contacts with canal_origen SilvIA-WhatsApp / SilvIA-Voz
 // plus legacy records without canal_origen that contain conversation text.
 // Tab filter maps to contacts.trabajado field; canal filter refines by channel.

@@ -19,10 +19,7 @@ import {
   getClienteById,
   listContactosPage,
 } from "@/lib/clientes.functions";
-import {
-  listConversacionesIa,
-  listConversacionesIaPage,
-} from "@/lib/clientes-conversaciones.functions";
+import { listConversacionesIaPage } from "@/lib/clientes-conversaciones.functions";
 import { listVisitas } from "@/lib/visitas.functions";
 import { getNotifications } from "@/lib/notifications.functions";
 import { listSeguimientos } from "@/lib/seguimiento.functions";
@@ -91,13 +88,6 @@ export const leadsQueryOpts = queryOptions({
   queryFn: () => listLeads(),
   staleTime: 5 * 60 * 1000,
   gcTime: 30 * 60 * 1000,
-});
-
-export const iaConversationsQuery = queryOptions({
-  queryKey: ["ia-conversations"],
-  queryFn: () => listConversacionesIa(),
-  staleTime: 2 * 60 * 1000,
-  gcTime: 15 * 60 * 1000,
 });
 
 export const visitasQuery = queryOptions({

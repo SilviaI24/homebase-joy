@@ -79,7 +79,6 @@ function seedFromList(base: Inmueble): InmuebleDetalle {
     notaria: "",
     observaciones: "",
     llaves: "",
-    changelog: [],
     fechaInicio: null,
     fechaExclusiva: null,
     fechaFinExclusiva: null,
@@ -1050,29 +1049,6 @@ function DetailView({
                   </div>
                 )}
               </div>
-
-              {/* Changelog automático */}
-              {detailReady && inmueble.changelog.length > 0 && (
-                <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                  <h3 className="font-display text-base font-semibold mb-4 flex items-center gap-2">
-                    <Hash className="size-4 text-primary" /> Cambios registrados
-                  </h3>
-                  <ol className="space-y-3">
-                    {[...inmueble.changelog].reverse().map((c, i) => (
-                      <li key={i} className="flex items-start gap-3 text-sm">
-                        <span className="shrink-0 mt-0.5 text-[10px] text-muted-foreground whitespace-nowrap">
-                          {formatDate(c.ts)}
-                        </span>
-                        <span className="font-medium text-foreground/70 shrink-0">{c.field}:</span>
-                        <span className="text-muted-foreground line-through shrink-0">
-                          {c.old || "—"}
-                        </span>
-                        <span className="text-foreground/80">→ {c.new || "—"}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              )}
             </>
           )}
 

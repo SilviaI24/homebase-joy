@@ -497,7 +497,7 @@ export const listLeads = createServerFn({ method: "GET" }).handler(async () => {
         avalista, attachments, created_at,
         contact_roles(tipo, property_id,
           properties(id, ref, calle, numero, barrio, localidad, tipo, es_alquiler,
-            estatus, precio, precio_final, habitaciones, metros_construidos)),
+            estatus, precio, precio_final, imagenes, habitaciones, metros_construidos)),
         contact_agents(agent_id, agents(id, nombre, email))
       `,
       )
@@ -625,15 +625,23 @@ export type ClienteRow = {
 async function computeSegmentoCounts(
   supa: ReturnType<typeof getSupa>,
 ): Promise<{ Propietario: number; Comprador: number; Inquilino: number; total: number }> {
-  const { data } = await supa
-    .from("contacts")
-    .select("id, contact_roles(tipo)")
-    .eq("ciclo_vida", "Cliente");
-
-  const rows = (data ?? []) as unknown as Array<{
-    id: string;
-    contact_roles: Array<{ tipo: string }> | null;
-  }>;
+  // Paginado igual que listClientes: sin esto, en cuanto los "Cliente" pasen
+  // del tope de filas de PostgREST (1.000 por defecto), los KPI de
+  // Propietario/Comprador/Inquilino/total se quedan cortos sin ningún error
+  // visible (auditoría 12 sep 2026).
+  type Row = { id: string; contact_roles: Array<{ tipo: string }> | null };
+  const rows: Row[] = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await supa
+      .from("contacts")
+      .select("id, contact_roles(tipo)")
+      .eq("ciclo_vida", "Cliente")
+      .range(from, from + PAGE - 1);
+    const page = (data ?? []) as unknown as Row[];
+    rows.push(...page);
+    if (page.length < PAGE) break;
+  }
 
   const counts = { Propietario: 0, Comprador: 0, Inquilino: 0, total: 0 };
   for (const c of rows) {
@@ -993,93 +1001,6 @@ export const getClienteById = createServerFn({ method: "GET" })
     };
 
     return { cliente };
-  });
-
-export const buscarInmuebles = createServerFn({ method: "GET" })
-  .validator((d: { q: string }) => ({ q: d?.q ?? "" }))
-  .handler(async ({ data }) => {
-    await requirePermission("properties.read");
-    const supa = getSupa();
-    const q = data.q
-      .trim()
-      .replace(/[,%()]/g, " ")
-      .replace(/\s+/g, " ");
-    if (q.length < 2) return { results: [] as ReturnType<typeof mapPropertyRow>[] };
-    const { data: rows } = await supa
-      .from("properties")
-      .select(
-        "id, ref, calle, numero, barrio, localidad, tipo, es_alquiler, estatus, precio, precio_final, imagenes, habitaciones, metros_construidos",
-      )
-      .or(`ref.ilike.%${q}%,calle.ilike.%${q}%`)
-      .limit(10);
-    return { results: (rows ?? []).map(mapPropertyRow) };
-  });
-
-// ── Actividad reciente ────────────────────────────────────────────────────────
-
-export const getContactoActividad = createServerFn({ method: "GET" })
-  .validator((d: { contactId: string }) => d)
-  .handler(async ({ data }) => {
-    await requirePermissions("contacts.read", "seguimiento.read", "visits.read");
-    const supa = getSupa();
-    const [seg, vis] = await Promise.all([
-      supa
-        .from("seguimiento")
-        .select("id, tipo, texto, fecha, agente_id, agents(nombre)")
-        .eq("contact_id", data.contactId)
-        .order("fecha", { ascending: false })
-        .limit(20),
-      supa
-        .from("visits")
-        .select("id, fecha, estado, notas, property_id, properties(calle, numero)")
-        .eq("contact_id", data.contactId)
-        .order("fecha", { ascending: false })
-        .limit(10),
-    ]);
-    type SeguimientoRow = {
-      id: string;
-      tipo: string;
-      texto: string | null;
-      fecha: string;
-      agente_id: string | null;
-      agents: { nombre: string }[] | null;
-    };
-    type VisitaRow = {
-      id: string;
-      fecha: string;
-      estado: string;
-      notas: string | null;
-      property_id: string | null;
-      properties: { calle: string; numero: string }[] | null;
-    };
-    const eventos = [
-      ...(seg.data ?? []).map((s: SeguimientoRow) => ({
-        id: s.id,
-        tipo: "seguimiento" as const,
-        subtipo: s.tipo,
-        texto: s.texto ?? "",
-        fecha: s.fecha,
-        extra: Array.isArray(s.agents)
-          ? (s.agents[0]?.nombre ?? "")
-          : ((s.agents as { nombre: string } | null)?.nombre ?? ""),
-      })),
-      ...(vis.data ?? []).map((v: VisitaRow) => {
-        const prop = Array.isArray(v.properties)
-          ? v.properties[0]
-          : (v.properties as { calle: string; numero: string } | null);
-        return {
-          id: v.id,
-          tipo: "visita" as const,
-          subtipo: v.estado,
-          texto: v.notas ?? "",
-          fecha: v.fecha,
-          extra: prop ? `${prop.calle} ${prop.numero ?? ""}`.trim() : "",
-        };
-      }),
-    ]
-      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
-      .slice(0, 25);
-    return { eventos };
   });
 
 // ── Etapa helpers ─────────────────────────────────────────────────────────────
