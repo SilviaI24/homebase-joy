@@ -52,6 +52,24 @@ describe("executePasswordUpdate", () => {
     }
     expect(mockAuth.signOut).not.toHaveBeenCalled();
   });
+
+  it('T09: traduce el error de contraseña filtrada/débil de Supabase en vez del genérico de "enlace expirado"', async () => {
+    const mockAuth = {
+      updateUser: vi.fn().mockResolvedValue({
+        error: new Error(
+          "Password is known to be weak and easy to guess, please choose a different one.",
+        ),
+      }),
+      signOut: vi.fn(),
+    };
+    const r = await executePasswordUpdate("password123", mockAuth);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).not.toMatch(/enlace.*expirad/i);
+      expect(r.reason).toMatch(/filtraci|adivinar/i);
+    }
+    expect(mockAuth.signOut).not.toHaveBeenCalled();
+  });
 });
 
 describe("detectRecoverySession", () => {
