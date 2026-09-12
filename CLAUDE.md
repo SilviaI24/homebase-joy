@@ -126,6 +126,22 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Auditoría estructural — mismatch total/tabCounts en bandeja IA, 12 sep
+  2026 (último pendiente del informe original, ya resuelto):**
+  `listConversacionesIaPage` descartaba en JS, después de traer la página,
+  los registros legado (sin `canal_origen`) que mencionan "Idealista" — pero
+  `count` y los 4 `baseCount()` de los badges de pestaña se calculaban en
+  SQL sin ese descarte, así que anunciaban más filas de las que realmente se
+  veían. Movido el criterio a `silviaOrFilter` (SQL): el legado ahora
+  también exige `motivo`/`solicitud`/`conversaciones` sin "idealista", con
+  `or(campo.is.null, campo.not.ilike...)` en motivo/solicitud porque pueden
+  ser NULL (`NULL NOT ILIKE 'x'` da NULL, no `true` — sin ese envoltorio se
+  habrían descartado filas cuyo único texto vive en otro campo). Verificado
+  en vivo contra producción antes de aplicar: 3.641 filas con el criterio
+  correcto vs. 4.134 con el bug — 493 de diferencia real, no un caso de
+  borde teórico. El filtro post-fetch en JS quedó redundante y se retiró.
+  Verificado: tsc limpio, eslint limpio, 79/79 tests, build OK.
+
 - **Auditoría estructural — motor de matching desduplicado, 12 sep 2026:**
   El bloque de mapeo contacto→Cliente (roles → inmuebles vinculados,
   preferencias de texto libre, motor de matching completo con pool/score)

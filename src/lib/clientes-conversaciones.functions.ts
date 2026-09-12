@@ -75,10 +75,20 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
       const from = (data.page - 1) * data.pageSize;
       const to = from + data.pageSize - 1;
 
-      // Main SilvIA canal filter (OR: primary + legacy)
+      // Main SilvIA canal filter (OR: primary + legacy). El legado (sin
+      // canal_origen) además excluye menciones a "Idealista" — antes ese
+      // descarte se hacía en JS después de traer la página (líneas más
+      // abajo), así que el total/tabCounts (calculados aquí, en SQL) no
+      // coincidían con las filas realmente mostradas tras el filtro
+      // post-fetch (auditoría 12 sep 2026). Se mueve el criterio a SQL para
+      // que cuente exactamente lo mismo que se pagina. `or(campo.is.null,
+      // campo.not.ilike...)` en motivo/solicitud (pueden ser NULL) evita que
+      // NULL NOT ILIKE '%x%' (que da NULL, no true) descarte filas cuyo
+      // único texto está en otro campo.
       const silviaOrPrimary =
         "canal_origen.ilike.silvia-whatsapp,canal_origen.ilike.silvia-voz,canal_origen.ilike.silvia-email";
-      const silviaOrLegacy = "and(canal_origen.is.null,conversaciones.not.is.null)";
+      const silviaOrLegacy =
+        "and(canal_origen.is.null,conversaciones.not.is.null,conversaciones.not.ilike.%idealista%,or(motivo.is.null,motivo.not.ilike.%idealista%),or(solicitud.is.null,solicitud.not.ilike.%idealista%))";
       const silviaOrFilter = `${silviaOrPrimary},${silviaOrLegacy}`;
 
       let query = supa
@@ -144,21 +154,12 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
       );
       if (error) throw new Error("Error al cargar conversaciones");
 
-      // Mismo select que listConversacionesIa -> mismo tipo de fila.
+      // Mismo select que listConversacionesIa -> mismo tipo de fila. El
+      // descarte de legado "Idealista" ya va en silviaOrFilter (SQL), no
+      // hace falta filtrar otra vez aquí en JS.
       const typedRows = (rows ?? []) as unknown as ConversacionIaQueryRow[];
 
-      // Post-fetch: filter out legacy records that mention Idealista
-      const validRows = typedRows.filter((row) => {
-        const origen = (row.canal_origen ?? "").toLowerCase();
-        const esPrimary =
-          origen === "silvia-whatsapp" || origen === "silvia-voz" || origen === "silvia-email";
-        if (esPrimary) return true;
-        // Legacy: reject if idealista mention in text
-        const texto = `${row.motivo ?? ""} ${row.solicitud ?? ""} ${row.conversaciones ?? ""}`;
-        return !/idealista/i.test(texto);
-      });
-
-      const clientes: ConversacionIa[] = validRows.map((row) => ({
+      const clientes: ConversacionIa[] = typedRows.map((row) => ({
         id: row.id,
         nombre: toTitleCase(s(row.nombre)),
         email: s(row.email),
