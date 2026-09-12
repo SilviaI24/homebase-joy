@@ -838,89 +838,14 @@ export const getStatsData = createServerFn({ method: "GET" }).handler(async () =
   await requirePermissions("contacts.read", "visits.read");
   const supa = getSupa();
 
-  const [contactsRes, visitsRes, agentesRes, caRes] = await Promise.all([
-    supa
-      .from("contacts")
-      .select("ciclo_vida, canal_origen, created_at")
-      .order("created_at", { ascending: false })
-      .limit(5000),
-    supa.from("visits").select("fecha, estado").not("fecha", "is", null).limit(2000),
-    supa.from("agents").select("id, nombre").eq("activo", true),
-    supa.from("contact_agents").select("agent_id, contacts(ciclo_vida)").limit(5000),
-  ]);
-
-  const contacts = contactsRes.data ?? [];
-  const visits = visitsRes.data ?? [];
-  const agentes = agentesRes.data ?? [];
-  const caRows = caRes.data ?? [];
-
-  // Pipeline funnel
-  const pipeline: Record<string, number> = {
-    Lead: 0,
-    Prospecto: 0,
-    Cliente: 0,
-    Histórico: 0,
-    Descartado: 0,
-  };
-  for (const c of contacts) {
-    const k = c.ciclo_vida ?? "Lead";
-    pipeline[k] = (pipeline[k] ?? 0) + 1;
-  }
-
-  // Canal captación
-  const canales: Record<string, number> = {};
-  for (const c of contacts) {
-    const k = c.canal_origen ?? "Sin canal";
-    canales[k] = (canales[k] ?? 0) + 1;
-  }
-
-  // Leads por mes (últimos 12)
-  const now = new Date();
-  const meses12: string[] = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    meses12.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-  }
-  const leadsPorMes = meses12.map((mes) => ({
-    mes,
-    total: contacts.filter((c) => (c.created_at ?? "").startsWith(mes)).length,
-  }));
-
-  // Visitas por mes (últimos 12)
-  const visitasPorMes = meses12.map((mes) => {
-    const del_mes = visits.filter((v) => (v.fecha ?? "").startsWith(mes));
-    return {
-      mes,
-      realizadas: del_mes.filter((v) => v.estado === "Realizada").length,
-      canceladas: del_mes.filter((v) => v.estado === "Cancelada").length,
-    };
-  });
-
-  // Leads/clientes por agente
-  const agenteMap: Record<string, { leads: number; clientes: number }> = {};
-  for (const a of agentes) agenteMap[a.id] = { leads: 0, clientes: 0 };
-  for (const row of caRows) {
-    const entry = agenteMap[row.agent_id];
-    if (!entry) continue;
-    const cv = (row.contacts as unknown as { ciclo_vida: string } | null)?.ciclo_vida ?? "Lead";
-    if (cv === "Cliente" || cv === "Prospecto") entry.clientes++;
-    else entry.leads++;
-  }
-  const agentesStats = agentes
-    .map((a) => ({
-      nombre: a.nombre,
-      leads: agenteMap[a.id]?.leads ?? 0,
-      clientes: agenteMap[a.id]?.clientes ?? 0,
-    }))
-    .sort((a, b) => b.clientes + b.leads - (a.clientes + a.leads));
-
-  return {
-    pipeline,
-    canales,
-    leadsPorMes,
-    visitasPorMes,
-    agentes: agentesStats,
-  } satisfies StatsData;
+  // Antes: 4 consultas traídas con LIMIT 5000/2000 y agregadas en TypeScript
+  // — correcto mientras el volumen no superara esos topes, pero de forma
+  // silenciosa dejaría de estarlo (mismo patrón que dashboard_inmuebles_stats()
+  // ya resolvió para inmuebles). dashboard_contactos_stats() agrega en SQL
+  // sobre la tabla completa, sin límite.
+  const { data, error } = await supa.rpc("dashboard_contactos_stats");
+  if (error) throw new Error(`getStatsData: ${error.message}`);
+  return data as StatsData;
 });
 
 // ── Lead Insights (Meta scoring rule-based) ───────────────────────────────────
