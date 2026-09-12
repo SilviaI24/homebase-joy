@@ -376,8 +376,11 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   bandeja, dashboard y ahora también Comerciales — este último reutilizando
   `listComerciablesInmuebles` para las tarjetas por agente y una función nueva,
   `listInmueblesActividadReciente`, para el feed de actividad). Código muerto
-  detectado de paso, sin retirar todavía: `listAllInmuebles`, `allInmueblesQuery`,
-  `listInmuebles`, `listAlquileres` — sin consumidores desde antes de esta sesión.
+  detectado de paso, sin retirar todavía en ese momento: `listAllInmuebles`,
+  `allInmueblesQuery`, `listInmuebles`, `listAlquileres` — sin consumidores
+  desde antes de esta sesión. **Nota 12 sep 2026:** confirmado por grep que
+  las 4 funciones ya no existen en el código — se retiraron en algún punto
+  posterior sin actualizar esta entrada; esta nota quedaba obsoleta.
 - **Bugs de datos de origen corregidos el 21 ago 2026** (migraciones
   `20260821064713_fix_metros_y_alquiler_mismarcado.sql` +
   `20260821065045_fix_estatus_bloqueado_por_trigger.sql`, aplicadas y
@@ -520,8 +523,17 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   aplicarlos (aprobado por David). Hallazgo de paso: `--gold`
   (`oklch(0.65 0.18 52)` / `#E06700`) ya ES en la práctica el naranja de
   marca `#E8820C` de la auditoría — diferencia de contraste de solo
-  1.25:1, no se toca. Los 2 tokens nuevos son aditivos, sin consumidor
-  todavía — dónde aplicarlos en la UI queda pendiente como decisión aparte.
+  1.25:1, no se toca. **12 sep 2026:** primer consumidor de la paleta —
+  se propusieron 3 mocks reales en un artifact (sidebar en carbón / panel
+  de Dashboard en marfil / cabecera con el par completo) antes de tocar
+  código; David eligió el panel. `LeadsCalientesPanel` (`DashboardPanels.tsx`)
+  pasa a `bg-marfil`/`border-carbon`, el único de los 3 paneles de insights
+  — a propósito, para que el énfasis no se diluya siendo el estilo por
+  defecto de los tres. Contraste verificado por cálculo antes de aplicar:
+  texto principal 17.1:1, texto secundario 4.7:1 sobre marfil, ambos pasan
+  AA. El icono dorado (2.96:1) y el badge "Sin asignar" (2.39:1) quedan bajo
+  el mínimo no-textual, pero ya lo estaban sobre `--card` antes de este
+  cambio (3.43:1 y 2.75:1) — deuda preexistente, no introducida aquí.
   Sigue abierto: tipografía de marca (más allá de Space Grotesk/DM Sans ya
   en uso) y el tamaño de letra de 9-11px en varias pantallas (legibilidad,
   no contraste — no se toca sin revisar cada layout, riesgo de romper chips/
