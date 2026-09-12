@@ -47,6 +47,13 @@ export default defineConfig(({ command }) => ({
       "lucide-react",
       "sonner",
     ],
+    // src/lib/auth.server.ts importa getCookies de aquí — este paquete es
+    // solo-servidor y su entry point usa módulos virtuales
+    // (#tanstack-router-entry, tanstack-start-manifest:v) que solo el
+    // propio Vite sabe resolver en tiempo de dev, no esbuild. Sin este
+    // exclude, el escaneo de optimizeDeps intenta pre-empaquetarlo con
+    // esbuild y `vite dev` no arranca (12 sep 2026).
+    exclude: ["@tanstack/start-server-core"],
   },
   server: {
     warmup: {
