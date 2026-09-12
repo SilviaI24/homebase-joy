@@ -393,11 +393,24 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
       `OperacionRow`).
 
     Todo verificado en cada paso: tsc limpio, eslint sin avisos, 79/79
-    tests, build OK. **Único pendiente real de M-03**: el propio
-    `DetailView` dentro de `inmuebles.$id.tsx` (~850 líneas, formulario
-    principal con ~30 campos de estado) — sigue siendo el candidato de
-    mayor riesgo, se deja intacto a propósito (sin frontera de extracción
-    limpia sin tocar closures compartidos).
+    tests, build OK.
+  - **M-03 completado del todo — `DetailView` dividido (12 sep 2026):**
+    el propio formulario principal de `inmuebles.$id.tsx` (~827 líneas,
+    ~30 campos de estado) era el único pendiente real, dejado intacto en
+    la ronda anterior por falta de una frontera de extracción clara. Al
+    releerlo: el estado en sí (los ~30 `useState` + 2 `useEffect` + la
+    mutación + `buildPayload`/`dirty`) tiene que seguir viviendo en
+    `DetailView`, pero casi todos los bloques de JSX que lo consumen sí
+    reciben todo por props explícitas, igual que los paneles ya
+    extraídos antes. Divididos a `src/components/inmueble-detail/`:
+    `HeroImagePanel`, `DescripcionPanel`, `CaracteristicasPanel` (con
+    `EditSpecField`/`OrientacionDetailSelect`, antes inline),
+    `HistorialPanel`, `PropietarioPanel`, `SaveBar`. Resultado:
+    `inmuebles.$id.tsx` 1.163→662 líneas (-43%), `DetailView` en sí
+    ~827→~483 líneas (-42%). De paso, código muerto retirado: un import
+    de `NewVisitaDialog` sin usar en este archivo desde la división
+    anterior. Verificado igual que el resto: tsc limpio, 79/79 tests,
+    eslint sin errores, build OK.
 - **UX-01 a UX-07 — auditados contra el código actual el 21 ago 2026**:
   ninguno resuelto al 100%, el mayor avance es UX-03 (paginación server-side
   ya en Contactos/Bandeja/Cartera). De ahí se corrigieron 5 puntos concretos
