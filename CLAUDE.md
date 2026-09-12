@@ -126,6 +126,22 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Auditoría estructural — motor de matching desduplicado, 12 sep 2026:**
+  El bloque de mapeo contacto→Cliente (roles → inmuebles vinculados,
+  preferencias de texto libre, motor de matching completo con pool/score)
+  estaba copiado casi carácter a carácter en `listClientes`, `listLeads` y
+  `getClienteById` (~400 líneas triplicadas) — causa directa de que
+  `listLeads` se hubiera olvidado de pedir `imagenes` en su select mientras
+  las otras dos copias ya lo tenían (bug ya corregido en la Fase 1). Unificado
+  en `buildCliente(row, matchCtx?)` (`clientes.functions.ts`): `matchCtx` es
+  opcional — `listLeads` no lo pasa (Leads no calculan matching, igual que
+  antes: `matches: []`, preferencias vacías), `listClientes`/`getClienteById`
+  sí. También se hoistearon `CLOSED_ESTATUS`/`INACTIVE_ESTATUS` (redeclaradas
+  4 veces con el mismo contenido) a constantes de módulo. Archivo:
+  1.346→1.136 líneas (-16%). Verificado: tsc limpio, eslint limpio, 79/79
+  tests, build de producción OK — comportamiento idéntico por diseño (mismo
+  bug si lo hay, en un solo sitio en vez de tres).
+
 - **Auditoría estructural, Fase 3 (rendimiento) — 12 sep 2026, parcial:**
   - **4 roundtrips evitables fusionados con `Promise.all`** (antes: esperar
     la primera consulta para lanzar la segunda que no dependía de ella):

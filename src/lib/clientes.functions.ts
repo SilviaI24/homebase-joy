@@ -248,6 +248,201 @@ function parsePresupuesto(
   };
 }
 
+// ── Contact → Cliente mapper (compartido) ───────────────────────────────────
+// Antes este bloque (roles → inmuebles vinculados, preferencias de texto
+// libre, motor de matching) estaba copiado casi carácter a carácter en
+// listClientes, listLeads y getClienteById — ~400 líneas triplicadas, causa
+// directa de que listLeads se hubiera olvidado de pedir `imagenes` en su
+// select mientras las otras dos copias ya lo tenían (auditoría 12 sep 2026;
+// ese bug ya se corrigió en la Fase 1, esto es la limpieza de la causa raíz).
+// `matchCtx` es opcional: listLeads no calcula matching para Leads, así que
+// se omite el análisis de texto libre y quedan matches=[] / preferencias
+// vacías — igual que hacía su copia antes de unificar.
+
+const CLOSED_ESTATUS = new Set(["Vendido", "Alquilado"]);
+const INACTIVE_ESTATUS = new Set(["Vendido", "Alquilado", "Baja"]);
+
+type MatchContext = {
+  activosVenta: MiniInmueble[];
+  activosAlquiler: MiniInmueble[];
+  zonasConocidas: Set<string>;
+};
+
+function buildCliente(r: ContactQueryRow, matchCtx?: MatchContext): Cliente {
+  const roles: RoleRow[] = r.contact_roles ?? [];
+  const linkedRoles = roles.filter((role): role is RoleRow & { properties: PropertyRowShape } =>
+    Boolean(role.properties),
+  );
+  const agentAssignments: AgentAssignmentRow[] = r.contact_agents ?? [];
+
+  const { segmento, motivo: segmentoMotivo } = deriveSegmento(roles);
+  const etapa = (r.ciclo_vida ?? "Lead") as Etapa;
+
+  const propRoles = linkedRoles.filter(
+    (rl) => rl.tipo === "Propietario" || rl.tipo === "Arrendador",
+  );
+  const cmpRoles = linkedRoles.filter((rl) => rl.tipo === "Comprador");
+  const inqRoles = linkedRoles.filter((rl) => rl.tipo === "Inquilino");
+
+  const propietariosLinked = propRoles.map((rl) => ({
+    ...mapPropertyRow(rl.properties),
+    rolTipo: rl.tipo as string,
+  }));
+  const compradoresLinked = cmpRoles.map((rl) => ({
+    ...mapPropertyRow(rl.properties),
+    rolTipo: rl.tipo as string,
+  }));
+  const inquilinosLinked = inqRoles.map((rl) => ({
+    ...mapPropertyRow(rl.properties),
+    rolTipo: rl.tipo as string,
+  }));
+
+  const inmueblesVinculados = [...propietariosLinked, ...compradoresLinked, ...inquilinosLinked];
+  // Activos = propiedades en gestión abierta (no cerradas ni de baja)
+  const inmueblesActivos = inmueblesVinculados.filter((i) => !INACTIVE_ESTATUS.has(i.estatus));
+  // Histórico = operaciones cerradas
+  const inmueblesHistorico = inmueblesVinculados.filter((i) => CLOSED_ESTATUS.has(i.estatus));
+
+  const agentesIds = agentAssignments.map((a) => a.agent_id).filter(Boolean);
+  const agentesMails = agentAssignments.map((a) => a.agents?.email ?? "").filter(Boolean);
+
+  let matches: ClienteMatch[] = [];
+  let presupuestoMin: number | null = null;
+  let presupuestoMax: number | null = null;
+  let habitacionesPref: number | null = null;
+  let zonasPref: string[] = [];
+
+  if (matchCtx) {
+    // Preferencias desde texto libre
+    const txtRaw = `${r.solicitud ?? ""} ${r.motivo ?? ""} ${r.observaciones ?? ""} ${r.feedback ?? ""} ${r.conversaciones ?? ""}`;
+    const txt = txtRaw.toLowerCase();
+    const wantsAlquiler = segmento === "Inquilino" || /alquil/i.test(txtRaw);
+    const wantsVenta =
+      segmento === "Comprador" || /\b(compra|venta|comprar|adquirir)\b/i.test(txtRaw);
+
+    const habMatch = txt.match(/(\d+)\s*(?:hab|dorm|habitaci|dormitor)/);
+    habitacionesPref = habMatch ? parseInt(habMatch[1], 10) : null;
+
+    const budget = parsePresupuesto(txt, wantsAlquiler);
+    presupuestoMin = budget.min;
+    presupuestoMax = budget.max;
+    zonasPref = Array.from(matchCtx.zonasConocidas).filter((z) => txt.includes(z));
+
+    // Matching solo para leads activos sin inmueble ya cerrado
+    const esCerrado = etapa === "Histórico";
+    const puedeMatch =
+      !esCerrado &&
+      segmento !== "Propietario" &&
+      segmento !== "Lead" &&
+      presupuestoMax != null &&
+      inmueblesActivos.length === 0;
+
+    if (puedeMatch) {
+      const pool = wantsAlquiler
+        ? matchCtx.activosAlquiler
+        : wantsVenta
+          ? matchCtx.activosVenta
+          : [];
+      const linkedSet = new Set(inmueblesVinculados.map((i) => i.id));
+      const cats = (r.categoria ?? []).map((c) => c.toLowerCase());
+      matches = pool
+        .filter((i) => !linkedSet.has(i.id))
+        .map<ClienteMatch | null>((i) => {
+          const razones: string[] = [];
+          let score = 0;
+          razones.push(i.esAlquiler ? "Alquiler" : "Venta");
+          score += 1;
+          if (cats.length > 0) {
+            if (!cats.includes(i.categoria.toLowerCase())) return null;
+            razones.push(`Categoría: ${i.categoria}`);
+            score += 3;
+          }
+          const barrioL = i.barrio.toLowerCase();
+          const localL = i.localidad.toLowerCase();
+          if (zonasPref.length > 0) {
+            if (!zonasPref.some((z) => barrioL === z || localL === z)) return null;
+            razones.push(`Zona: ${i.barrio || i.localidad}`);
+            score += 4;
+          }
+          const precio = i.precioFinal ?? i.precio;
+          if (presupuestoMax != null) {
+            if (precio == null) return null;
+            const techo = presupuestoMax * 1.1;
+            const suelo = (presupuestoMin ?? presupuestoMax) * 0.9;
+            if (precio > techo || precio < suelo) return null;
+            razones.push(`Precio: ${precio.toLocaleString("es-ES")} €`);
+            score += 4;
+          }
+          if (habitacionesPref != null && i.habitaciones != null) {
+            const diff = Math.abs(i.habitaciones - habitacionesPref);
+            if (diff === 0) {
+              razones.push(`${i.habitaciones} hab.`);
+              score += 3;
+            } else if (diff === 1) score += 1;
+            else score -= 2;
+          }
+          return { inmueble: i, razones, score };
+        })
+        .filter((m): m is ClienteMatch => m !== null && m.score >= 4)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 6);
+    }
+  }
+
+  const fechaMs = r.created_at ? new Date(r.created_at).getTime() : 0;
+  const diasDesdeAlta = fechaMs ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000)) : null;
+
+  const propiedadIds = propRoles.map((rl) => rl.property_id!).filter(Boolean);
+  const compradorIds = cmpRoles.map((rl) => rl.property_id!).filter(Boolean);
+  const alquilerIds = inqRoles.map((rl) => rl.property_id!).filter(Boolean);
+  const atts = r.attachments ?? [];
+
+  return {
+    id: r.id,
+    nombre: toTitleCase(s(r.nombre)),
+    email: s(r.email),
+    telefono: s(r.telefono),
+    canalOrigen: s(r.canal_origen),
+    dni: s(r.dni),
+    fecha: r.created_at ? r.created_at.slice(0, 10) : null,
+    motivo: toSentenceCase(s(r.motivo)),
+    observaciones: toSentenceCase(s(r.observaciones)),
+    solicitud: toSentenceCase(s(r.solicitud)),
+    seccion: toTitleCase(s(r.seccion)),
+    conversaciones: toSentenceCase(s(r.conversaciones)),
+    feedback: toSentenceCase(s(r.feedback)),
+    profesion: toTitleCase(s(r.profesion)),
+    contratoTrabajo: toTitleCase(s(r.contrato_trabajo)),
+    mascota: toTitleCase(s(r.mascota)),
+    avalista: toTitleCase(s(r.avalista)),
+    categoria: Array.isArray(r.categoria) ? r.categoria : [],
+    trabajado: toTitleCase(s(r.trabajado)),
+    propiedadIds,
+    propiedadRefs: propietariosLinked.map((p) => p.ref),
+    propiedadCalles: toTitleCaseArr(propietariosLinked.map((p) => p.calle)),
+    inmuebleCompradorIds: compradorIds,
+    propiedadAlquilerIds: alquilerIds,
+    inmueblesIds: [...propiedadIds, ...compradorIds, ...alquilerIds],
+    agentesIds,
+    agentesMails,
+    attachments: atts,
+    segmento,
+    segmentoMotivo,
+    etapa,
+    inmueblesVinculados,
+    inmueblesActivos,
+    inmueblesHistorico,
+    matches,
+    diasDesdeAlta,
+    duplicados: Number(r.duplicados) || 1,
+    preferencias: {
+      presupuesto: { min: presupuestoMin, max: presupuestoMax },
+      habitaciones: habitacionesPref,
+      zonas: zonasPref,
+    },
+  };
+}
+
 // ── Main query ────────────────────────────────────────────────────────────────
 
 export const listClientes = createServerFn({ method: "GET" }).handler(async () => {
@@ -303,176 +498,8 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
     if (i.localidad) zonasConocidas.add(i.localidad.toLowerCase());
   }
 
-  const CLOSED = new Set(["Vendido", "Alquilado"]);
-  const INACTIVE = new Set(["Vendido", "Alquilado", "Baja"]);
-
-  const clientes: Cliente[] = allContacts.map((r) => {
-    const roles: RoleRow[] = r.contact_roles ?? [];
-    const linkedRoles = roles.filter((role): role is RoleRow & { properties: PropertyRowShape } =>
-      Boolean(role.properties),
-    );
-    const agentAssignments: AgentAssignmentRow[] = r.contact_agents ?? [];
-
-    const { segmento, motivo: segmentoMotivo } = deriveSegmento(roles);
-
-    // Etapa viene directamente del campo ciclo_vida en BD
-    const etapa = (r.ciclo_vida ?? "Lead") as Etapa;
-
-    // Propiedades por rol
-    const propRoles = linkedRoles.filter(
-      (rl) => rl.tipo === "Propietario" || rl.tipo === "Arrendador",
-    );
-    const cmpRoles = linkedRoles.filter((rl) => rl.tipo === "Comprador");
-    const inqRoles = linkedRoles.filter((rl) => rl.tipo === "Inquilino");
-
-    const propietariosLinked = propRoles.map((rl) => ({
-      ...mapPropertyRow(rl.properties),
-      rolTipo: rl.tipo as string,
-    }));
-    const compradoresLinked = cmpRoles.map((rl) => ({
-      ...mapPropertyRow(rl.properties),
-      rolTipo: rl.tipo as string,
-    }));
-    const inquilinosLinked = inqRoles.map((rl) => ({
-      ...mapPropertyRow(rl.properties),
-      rolTipo: rl.tipo as string,
-    }));
-
-    const inmueblesVinculados = [...propietariosLinked, ...compradoresLinked, ...inquilinosLinked];
-
-    // Activos = propiedades en gestión abierta (no cerradas ni de baja)
-    const inmueblesActivos = inmueblesVinculados.filter((i) => !INACTIVE.has(i.estatus));
-    // Histórico = operaciones cerradas
-    const inmueblesHistorico = inmueblesVinculados.filter((i) => CLOSED.has(i.estatus));
-
-    const agentesIds = agentAssignments.map((a) => a.agent_id).filter(Boolean);
-    const agentesMails = agentAssignments.map((a) => a.agents?.email ?? "").filter(Boolean);
-
-    // Preferencias desde texto libre
-    const txtRaw = `${r.solicitud ?? ""} ${r.motivo ?? ""} ${r.observaciones ?? ""} ${r.feedback ?? ""} ${r.conversaciones ?? ""}`;
-    const txt = txtRaw.toLowerCase();
-    const wantsAlquiler = segmento === "Inquilino" || /alquil/i.test(txtRaw);
-    const wantsVenta =
-      segmento === "Comprador" || /\b(compra|venta|comprar|adquirir)\b/i.test(txtRaw);
-
-    const habMatch = txt.match(/(\d+)\s*(?:hab|dorm|habitaci|dormitor)/);
-    const habitacionesPref = habMatch ? parseInt(habMatch[1], 10) : null;
-
-    const { min: presupuestoMin, max: presupuestoMax } = parsePresupuesto(txt, wantsAlquiler);
-    const zonasPref = Array.from(zonasConocidas).filter((z) => txt.includes(z));
-
-    // Matching solo para leads activos sin inmueble ya cerrado
-    let matches: ClienteMatch[] = [];
-    const esCerrado = etapa === "Histórico";
-    const puedeMatch =
-      !esCerrado &&
-      segmento !== "Propietario" &&
-      segmento !== "Lead" &&
-      presupuestoMax != null &&
-      inmueblesActivos.length === 0;
-
-    if (puedeMatch) {
-      const pool = wantsAlquiler ? activosAlquiler : wantsVenta ? activosVenta : [];
-      const linkedSet = new Set(inmueblesVinculados.map((i) => i.id));
-      const cats = ((r.categoria as string[]) ?? []).map((c: string) => c.toLowerCase());
-      matches = pool
-        .filter((i) => !linkedSet.has(i.id))
-        .map<ClienteMatch | null>((i) => {
-          const razones: string[] = [];
-          let score = 0;
-          razones.push(i.esAlquiler ? "Alquiler" : "Venta");
-          score += 1;
-          if (cats.length > 0) {
-            if (!cats.includes(i.categoria.toLowerCase())) return null;
-            razones.push(`Categoría: ${i.categoria}`);
-            score += 3;
-          }
-          const barrioL = i.barrio.toLowerCase();
-          const localL = i.localidad.toLowerCase();
-          if (zonasPref.length > 0) {
-            if (!zonasPref.some((z) => barrioL === z || localL === z)) return null;
-            razones.push(`Zona: ${i.barrio || i.localidad}`);
-            score += 4;
-          }
-          const precio = i.precioFinal ?? i.precio;
-          if (presupuestoMax != null) {
-            if (precio == null) return null;
-            const techo = presupuestoMax * 1.1;
-            const suelo = (presupuestoMin ?? presupuestoMax) * 0.9;
-            if (precio > techo || precio < suelo) return null;
-            razones.push(`Precio: ${precio.toLocaleString("es-ES")} €`);
-            score += 4;
-          }
-          if (habitacionesPref != null && i.habitaciones != null) {
-            const diff = Math.abs(i.habitaciones - habitacionesPref);
-            if (diff === 0) {
-              razones.push(`${i.habitaciones} hab.`);
-              score += 3;
-            } else if (diff === 1) score += 1;
-            else score -= 2;
-          }
-          return { inmueble: i, razones, score };
-        })
-        .filter((m): m is ClienteMatch => m !== null && m.score >= 4)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 6);
-    }
-
-    const fechaMs = r.created_at ? new Date(r.created_at).getTime() : 0;
-    const diasDesdeAlta = fechaMs
-      ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000))
-      : null;
-
-    const propiedadIds = propRoles.map((rl) => rl.property_id!).filter(Boolean);
-    const compradorIds = cmpRoles.map((rl) => rl.property_id!).filter(Boolean);
-    const alquilerIds = inqRoles.map((rl) => rl.property_id!).filter(Boolean);
-    const atts = (r.attachments as Array<{ url: string; filename: string; type: string }>) ?? [];
-
-    return {
-      id: r.id,
-      nombre: toTitleCase(s(r.nombre)),
-      email: s(r.email),
-      telefono: s(r.telefono),
-      canalOrigen: s(r.canal_origen),
-      dni: s(r.dni),
-      fecha: r.created_at ? r.created_at.slice(0, 10) : null,
-      motivo: toSentenceCase(s(r.motivo)),
-      observaciones: toSentenceCase(s(r.observaciones)),
-      solicitud: toSentenceCase(s(r.solicitud)),
-      seccion: toTitleCase(s(r.seccion)),
-      conversaciones: toSentenceCase(s(r.conversaciones)),
-      feedback: toSentenceCase(s(r.feedback)),
-      profesion: toTitleCase(s(r.profesion)),
-      contratoTrabajo: toTitleCase(s(r.contrato_trabajo)),
-      mascota: toTitleCase(s(r.mascota)),
-      avalista: toTitleCase(s(r.avalista)),
-      categoria: Array.isArray(r.categoria) ? r.categoria : [],
-      trabajado: toTitleCase(s(r.trabajado)),
-      propiedadIds,
-      propiedadRefs: propietariosLinked.map((p) => p.ref),
-      propiedadCalles: toTitleCaseArr(propietariosLinked.map((p) => p.calle)),
-      inmuebleCompradorIds: compradorIds,
-      propiedadAlquilerIds: alquilerIds,
-      inmueblesIds: [...propiedadIds, ...compradorIds, ...alquilerIds],
-      agentesIds,
-      agentesMails,
-      attachments: atts,
-      segmento,
-      segmentoMotivo,
-      etapa,
-      inmueblesVinculados,
-      inmueblesActivos,
-      inmueblesHistorico,
-      matches,
-      diasDesdeAlta,
-      duplicados: Number(r.duplicados) || 1,
-      preferencias: {
-        presupuesto: { min: presupuestoMin, max: presupuestoMax },
-        habitaciones: habitacionesPref,
-        zonas: zonasPref,
-      },
-    };
-  });
+  const matchCtx: MatchContext = { activosVenta, activosAlquiler, zonasConocidas };
+  const clientes: Cliente[] = allContacts.map((r) => buildCliente(r, matchCtx));
 
   return { clientes };
 });
@@ -511,92 +538,9 @@ export const listLeads = createServerFn({ method: "GET" }).handler(async () => {
     from += PAGE;
   }
 
-  const CLOSED = new Set(["Vendido", "Alquilado"]);
-  const INACTIVE = new Set(["Vendido", "Alquilado", "Baja"]);
-
-  const clientes: Cliente[] = allContacts.map((r) => {
-    const roles: RoleRow[] = r.contact_roles ?? [];
-    const linkedRoles = roles.filter((role): role is RoleRow & { properties: PropertyRowShape } =>
-      Boolean(role.properties),
-    );
-    const agentAssignments: AgentAssignmentRow[] = r.contact_agents ?? [];
-
-    const { segmento, motivo: segmentoMotivo } = deriveSegmento(roles);
-    const etapa = "Lead" as Etapa;
-
-    const propRoles = linkedRoles.filter(
-      (rl) => rl.tipo === "Propietario" || rl.tipo === "Arrendador",
-    );
-    const cmpRoles = linkedRoles.filter((rl) => rl.tipo === "Comprador");
-    const inqRoles = linkedRoles.filter((rl) => rl.tipo === "Inquilino");
-
-    const propietariosLinked = propRoles.map((rl) => ({
-      ...mapPropertyRow(rl.properties),
-      rolTipo: rl.tipo as string,
-    }));
-    const compradoresLinked = cmpRoles.map((rl) => ({
-      ...mapPropertyRow(rl.properties),
-      rolTipo: rl.tipo as string,
-    }));
-    const inquilinosLinked = inqRoles.map((rl) => ({
-      ...mapPropertyRow(rl.properties),
-      rolTipo: rl.tipo as string,
-    }));
-
-    const inmueblesVinculados = [...propietariosLinked, ...compradoresLinked, ...inquilinosLinked];
-    const inmueblesActivos = inmueblesVinculados.filter((i) => !INACTIVE.has(i.estatus));
-    const inmueblesHistorico = inmueblesVinculados.filter((i) => CLOSED.has(i.estatus));
-
-    const agentesIds = agentAssignments.map((a) => a.agent_id).filter(Boolean);
-    const agentesMails = agentAssignments.map((a) => a.agents?.email ?? "").filter(Boolean);
-
-    const propiedadIds = propRoles.map((rl) => rl.property_id!).filter(Boolean);
-    const compradorIds = cmpRoles.map((rl) => rl.property_id!).filter(Boolean);
-    const alquilerIds = inqRoles.map((rl) => rl.property_id!).filter(Boolean);
-    const atts = (r.attachments as Array<{ url: string; filename: string; type: string }>) ?? [];
-    const fechaMs = r.created_at ? new Date(r.created_at).getTime() : 0;
-
-    return {
-      id: r.id,
-      nombre: toTitleCase(s(r.nombre)),
-      email: s(r.email),
-      telefono: s(r.telefono),
-      canalOrigen: s(r.canal_origen),
-      dni: s(r.dni),
-      fecha: r.created_at ? r.created_at.slice(0, 10) : null,
-      motivo: toSentenceCase(s(r.motivo)),
-      observaciones: toSentenceCase(s(r.observaciones)),
-      solicitud: toSentenceCase(s(r.solicitud)),
-      seccion: toTitleCase(s(r.seccion)),
-      conversaciones: toSentenceCase(s(r.conversaciones)),
-      feedback: toSentenceCase(s(r.feedback)),
-      profesion: toTitleCase(s(r.profesion)),
-      contratoTrabajo: toTitleCase(s(r.contrato_trabajo)),
-      mascota: toTitleCase(s(r.mascota)),
-      avalista: toTitleCase(s(r.avalista)),
-      categoria: Array.isArray(r.categoria) ? r.categoria : [],
-      trabajado: toTitleCase(s(r.trabajado)),
-      propiedadIds,
-      propiedadRefs: propietariosLinked.map((p) => p.ref),
-      propiedadCalles: toTitleCaseArr(propietariosLinked.map((p) => p.calle)),
-      inmuebleCompradorIds: compradorIds,
-      propiedadAlquilerIds: alquilerIds,
-      inmueblesIds: [...propiedadIds, ...compradorIds, ...alquilerIds],
-      agentesIds,
-      agentesMails,
-      attachments: atts,
-      segmento,
-      segmentoMotivo,
-      etapa,
-      inmueblesVinculados,
-      inmueblesActivos,
-      inmueblesHistorico,
-      matches: [],
-      diasDesdeAlta: fechaMs ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000)) : null,
-      duplicados: Number(r.duplicados) || 1,
-      preferencias: { presupuesto: { min: null, max: null }, habitaciones: null, zonas: [] },
-    };
-  });
+  // Sin matchCtx: los Leads no calculan matching (matches=[] / preferencias
+  // vacías), igual que antes de unificar con listClientes/getClienteById.
+  const clientes: Cliente[] = allContacts.map((r) => buildCliente(r));
 
   return { clientes };
 });
@@ -714,9 +658,6 @@ export const listClientesPage = createServerFn({ method: "GET" })
       const { data: rows, error, count } = await query.range(from, to);
       if (error) throw new Error("Error al cargar contactos");
 
-      const INACTIVE = new Set(["Vendido", "Alquilado", "Baja"]);
-      const CLOSED = new Set(["Vendido", "Alquilado"]);
-
       // Supabase-js sin tipos de Database generados infiere las relaciones
       // anidadas como array por defecto; en runtime son FK many-to-one
       // (objeto único) — se corrige con el cast explícito. `properties` aquí
@@ -747,11 +688,12 @@ export const listClientesPage = createServerFn({ method: "GET" })
         const inmueblesActivosCount = linkedProps.filter(
           (rl) =>
             rl.properties &&
-            !INACTIVE.has((rl.properties as unknown as { estatus: string }).estatus),
+            !INACTIVE_ESTATUS.has((rl.properties as unknown as { estatus: string }).estatus),
         ).length;
         const inmueblesHistoricoCount = linkedProps.filter(
           (rl) =>
-            rl.properties && CLOSED.has((rl.properties as unknown as { estatus: string }).estatus),
+            rl.properties &&
+            CLOSED_ESTATUS.has((rl.properties as unknown as { estatus: string }).estatus),
         ).length;
 
         const fechaMs = r.created_at ? new Date(r.created_at).getTime() : 0;
@@ -858,173 +800,19 @@ export const getClienteById = createServerFn({ method: "GET" })
     if (error) throw new Error("Error al cargar contacto");
 
     const allProps = (activePropRows ?? []).map(mapPropertyRow);
-    const activosVenta = allProps.filter((i) => !i.esAlquiler);
-    const activosAlquiler = allProps.filter((i) => i.esAlquiler);
-
     const zonasConocidas = new Set<string>();
     for (const i of allProps) {
       if (i.barrio) zonasConocidas.add(i.barrio.toLowerCase());
       if (i.localidad) zonasConocidas.add(i.localidad.toLowerCase());
     }
-
-    const CLOSED = new Set(["Vendido", "Alquilado"]);
-    const INACTIVE = new Set(["Vendido", "Alquilado", "Baja"]);
-
-    // Re-use the same mapping logic as listClientes (single contact). Mismo
-    // select que listClientes -> mismo tipo de fila (ver ContactQueryRow).
-    const row = r as unknown as ContactQueryRow;
-    const roles: RoleRow[] = row.contact_roles ?? [];
-    const linkedRoles = roles.filter((role): role is RoleRow & { properties: PropertyRowShape } =>
-      Boolean(role.properties),
-    );
-    const agentAssignments: AgentAssignmentRow[] = row.contact_agents ?? [];
-
-    const { segmento, motivo: segmentoMotivo } = deriveSegmento(roles);
-    const etapa = (row.ciclo_vida ?? "Lead") as Etapa;
-
-    const propRoles = linkedRoles.filter(
-      (rl) => rl.tipo === "Propietario" || rl.tipo === "Arrendador",
-    );
-    const cmpRoles = linkedRoles.filter((rl) => rl.tipo === "Comprador");
-    const inqRoles = linkedRoles.filter((rl) => rl.tipo === "Inquilino");
-
-    const propietariosLinked = propRoles.map((rl) => ({
-      ...mapPropertyRow(rl.properties),
-      rolTipo: rl.tipo as string,
-    }));
-    const compradoresLinked = cmpRoles.map((rl) => ({
-      ...mapPropertyRow(rl.properties),
-      rolTipo: rl.tipo as string,
-    }));
-    const inquilinosLinked = inqRoles.map((rl) => ({
-      ...mapPropertyRow(rl.properties),
-      rolTipo: rl.tipo as string,
-    }));
-
-    const inmueblesVinculados = [...propietariosLinked, ...compradoresLinked, ...inquilinosLinked];
-    const inmueblesActivos = inmueblesVinculados.filter((i) => !INACTIVE.has(i.estatus));
-    const inmueblesHistorico = inmueblesVinculados.filter((i) => CLOSED.has(i.estatus));
-
-    const agentesIds = agentAssignments.map((a) => a.agent_id).filter(Boolean);
-    const agentesMails = agentAssignments.map((a) => a.agents?.email ?? "").filter(Boolean);
-
-    const txtRaw = `${row.solicitud ?? ""} ${row.motivo ?? ""} ${row.observaciones ?? ""} ${row.feedback ?? ""} ${row.conversaciones ?? ""}`;
-    const txt = txtRaw.toLowerCase();
-    const wantsAlquiler = segmento === "Inquilino" || /alquil/i.test(txtRaw);
-    const wantsVenta =
-      segmento === "Comprador" || /\b(compra|venta|comprar|adquirir)\b/i.test(txtRaw);
-
-    const habMatch = txt.match(/(\d+)\s*(?:hab|dorm|habitaci|dormitor)/);
-    const habitacionesPref = habMatch ? parseInt(habMatch[1], 10) : null;
-    const { min: presupuestoMin, max: presupuestoMax } = parsePresupuesto(txt, wantsAlquiler);
-    const zonasPref = Array.from(zonasConocidas).filter((z) => txt.includes(z));
-
-    let matches: ClienteMatch[] = [];
-    const esCerrado = etapa === "Histórico";
-    const puedeMatch =
-      !esCerrado &&
-      segmento !== "Propietario" &&
-      segmento !== "Lead" &&
-      presupuestoMax != null &&
-      inmueblesActivos.length === 0;
-
-    if (puedeMatch) {
-      const pool = wantsAlquiler ? activosAlquiler : wantsVenta ? activosVenta : [];
-      const linkedSet = new Set(inmueblesVinculados.map((i) => i.id));
-      const cats = (row.categoria ?? []).map((c) => c.toLowerCase());
-      matches = pool
-        .filter((i) => !linkedSet.has(i.id))
-        .map<ClienteMatch | null>((i) => {
-          const razones: string[] = [];
-          let score = 0;
-          razones.push(i.esAlquiler ? "Alquiler" : "Venta");
-          score += 1;
-          if (cats.length > 0) {
-            if (!cats.includes(i.categoria.toLowerCase())) return null;
-            razones.push(`Categoría: ${i.categoria}`);
-            score += 3;
-          }
-          const barrioL = i.barrio.toLowerCase();
-          const localL = i.localidad.toLowerCase();
-          if (zonasPref.length > 0) {
-            if (!zonasPref.some((z) => barrioL === z || localL === z)) return null;
-            razones.push(`Zona: ${i.barrio || i.localidad}`);
-            score += 4;
-          }
-          const precio = i.precioFinal ?? i.precio;
-          if (presupuestoMax != null) {
-            if (precio == null) return null;
-            const techo = presupuestoMax * 1.1;
-            const suelo = (presupuestoMin ?? presupuestoMax) * 0.9;
-            if (precio > techo || precio < suelo) return null;
-            razones.push(`Precio: ${precio.toLocaleString("es-ES")} €`);
-            score += 4;
-          }
-          if (habitacionesPref != null && i.habitaciones != null) {
-            const diff = Math.abs(i.habitaciones - habitacionesPref);
-            if (diff === 0) {
-              razones.push(`${i.habitaciones} hab.`);
-              score += 3;
-            } else if (diff === 1) score += 1;
-            else score -= 2;
-          }
-          return { inmueble: i, razones, score };
-        })
-        .filter((m): m is ClienteMatch => m !== null && m.score >= 4)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 6);
-    }
-
-    const fechaMs = row.created_at ? new Date(row.created_at).getTime() : 0;
-    const propiedadIds = propRoles.map((rl) => rl.property_id!).filter(Boolean);
-    const compradorIds = cmpRoles.map((rl) => rl.property_id!).filter(Boolean);
-    const alquilerIds = inqRoles.map((rl) => rl.property_id!).filter(Boolean);
-    const atts = row.attachments ?? [];
-
-    const cliente: Cliente = {
-      id: row.id,
-      nombre: toTitleCase(s(row.nombre)),
-      email: s(row.email),
-      telefono: s(row.telefono),
-      canalOrigen: s(row.canal_origen),
-      dni: s(row.dni),
-      fecha: row.created_at ? row.created_at.slice(0, 10) : null,
-      motivo: toSentenceCase(s(row.motivo)),
-      observaciones: toSentenceCase(s(row.observaciones)),
-      solicitud: toSentenceCase(s(row.solicitud)),
-      seccion: toTitleCase(s(row.seccion)),
-      conversaciones: toSentenceCase(s(row.conversaciones)),
-      feedback: toSentenceCase(s(row.feedback)),
-      profesion: toTitleCase(s(row.profesion)),
-      contratoTrabajo: toTitleCase(s(row.contrato_trabajo)),
-      mascota: toTitleCase(s(row.mascota)),
-      avalista: toTitleCase(s(row.avalista)),
-      categoria: Array.isArray(row.categoria) ? row.categoria : [],
-      trabajado: toTitleCase(s(row.trabajado)),
-      propiedadIds,
-      propiedadRefs: propietariosLinked.map((p) => p.ref),
-      propiedadCalles: toTitleCaseArr(propietariosLinked.map((p) => p.calle)),
-      inmuebleCompradorIds: compradorIds,
-      propiedadAlquilerIds: alquilerIds,
-      inmueblesIds: [...propiedadIds, ...compradorIds, ...alquilerIds],
-      agentesIds,
-      agentesMails,
-      attachments: atts,
-      segmento,
-      segmentoMotivo,
-      etapa,
-      inmueblesVinculados,
-      inmueblesActivos,
-      inmueblesHistorico,
-      matches,
-      diasDesdeAlta: fechaMs ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000)) : null,
-      duplicados: Number(row.duplicados) || 1,
-      preferencias: {
-        presupuesto: { min: presupuestoMin, max: presupuestoMax },
-        habitaciones: habitacionesPref,
-        zonas: zonasPref,
-      },
+    const matchCtx: MatchContext = {
+      activosVenta: allProps.filter((i) => !i.esAlquiler),
+      activosAlquiler: allProps.filter((i) => i.esAlquiler),
+      zonasConocidas,
     };
+
+    // Mismo select que listClientes -> mismo tipo de fila (ver ContactQueryRow).
+    const cliente = buildCliente(r as unknown as ContactQueryRow, matchCtx);
 
     return { cliente };
   });
