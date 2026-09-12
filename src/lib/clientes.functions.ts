@@ -506,18 +506,43 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
 
 // ── Leads query (only ciclo_vida='Lead', no matching) ─────────────────────────
 
-export const listLeads = createServerFn({ method: "GET" }).handler(async () => {
-  await requirePermissions("contacts.read", "contact_roles.read", "properties.read");
-  const supa = getSupa();
+// El Kanban de Leads de Contactos es por comercial: se abre siempre con un
+// agenteId concreto (el elegido, el guardado en localStorage, o el primero
+// de la lista). Antes esta función traía TODOS los Leads de la empresa —
+// 2.808 filas hoy, con joins completos — para que el Kanban se quedara,
+// tras filtrar en el navegador, con como mucho un puñado por agente (9 en
+// el peor caso actual; el 99.6% de los Leads no tiene ningún agente
+// asignado). Filtrar por agente aquí, en SQL, evita traer y procesar todo
+// lo que se iba a descartar (auditoría 12 sep 2026).
+export const listLeads = createServerFn({ method: "GET" })
+  .validator((d: { agenteId?: string }) => ({
+    agenteId: typeof d?.agenteId === "string" ? d.agenteId : "",
+  }))
+  .handler(async ({ data }): Promise<{ clientes: Cliente[] }> => {
+    await requirePermissions("contacts.read", "contact_roles.read", "properties.read");
+    if (!data.agenteId) return { clientes: [] };
+    const supa = getSupa();
 
-  const allContacts: ContactQueryRow[] = [];
-  let from = 0;
-  const PAGE = 1000;
-  while (true) {
-    const { data, error } = await supa
-      .from("contacts")
-      .select(
-        `
+    // Resolver primero qué contactos tiene asignados este agente. No se usa
+    // contact_agents!inner en la query principal porque eso recortaría el
+    // array embebido a solo la fila que hace match — AsignarLeadButton
+    // necesita ver TODOS los agentes ya asignados a cada lead, no solo este.
+    const { data: assigned, error: assignedError } = await supa
+      .from("contact_agents")
+      .select("contact_id")
+      .eq("agent_id", data.agenteId);
+    if (assignedError) throw new Error(assignedError.message);
+    const contactIds = (assigned ?? []).map((r) => r.contact_id);
+    if (contactIds.length === 0) return { clientes: [] };
+
+    const allContacts: ContactQueryRow[] = [];
+    let from = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data: rows, error } = await supa
+        .from("contacts")
+        .select(
+          `
         id, nombre, email, telefono, dni, profesion, ciclo_vida, duplicados,
         motivo, solicitud, conversaciones, observaciones, feedback, canal_origen,
         seccion, trabajado, categoria, contrato_trabajo, mascota,
@@ -527,23 +552,24 @@ export const listLeads = createServerFn({ method: "GET" }).handler(async () => {
             estatus, precio, precio_final, imagenes, habitaciones, metros_construidos)),
         contact_agents(agent_id, agents(id, nombre, email))
       `,
-      )
-      .eq("ciclo_vida", "Lead")
-      .order("created_at", { ascending: false })
-      .range(from, from + PAGE - 1);
-    if (error) throw new Error(error.message);
-    // Ver comentario equivalente en listClientes: cast por el mismo motivo.
-    allContacts.push(...((data ?? []) as unknown as ContactQueryRow[]));
-    if ((data ?? []).length < PAGE) break;
-    from += PAGE;
-  }
+        )
+        .eq("ciclo_vida", "Lead")
+        .in("id", contactIds)
+        .order("created_at", { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(error.message);
+      // Ver comentario equivalente en listClientes: cast por el mismo motivo.
+      allContacts.push(...((rows ?? []) as unknown as ContactQueryRow[]));
+      if ((rows ?? []).length < PAGE) break;
+      from += PAGE;
+    }
 
-  // Sin matchCtx: los Leads no calculan matching (matches=[] / preferencias
-  // vacías), igual que antes de unificar con listClientes/getClienteById.
-  const clientes: Cliente[] = allContacts.map((r) => buildCliente(r));
+    // Sin matchCtx: los Leads no calculan matching (matches=[] / preferencias
+    // vacías), igual que antes de unificar con listClientes/getClienteById.
+    const clientes: Cliente[] = allContacts.map((r) => buildCliente(r));
 
-  return { clientes };
-});
+    return { clientes };
+  });
 
 // ── Pagination helpers ────────────────────────────────────────────────────────
 

@@ -126,6 +126,30 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Kanban de Leads de Contactos filtrado por agente en servidor, 12 sep
+  2026 (la decisión de UX que había quedado pendiente de la auditoría):**
+  Datos reales antes de tocar nada: 2.808 Leads en total, pero solo 11
+  tienen algún agente asignado (9/1/1 entre 3 agentes) — el 99.6% no tiene
+  agente. El Kanban de un comercial traía los 2.808 completos (joins +
+  motor de matching) para quedarse, tras filtrar en el navegador, con como
+  mucho 9. No hacía falta paginar el tablero (con 9 de máximo, un Kanban no
+  necesita página 2) — hacía falta mover el filtro de agente a SQL.
+  `listLeads` ahora exige `agenteId` (vacío = lista vacía sin consultar) y
+  resuelve primero los `contact_id` asignados a ese agente
+  (`contact_agents`) antes de traer los contactos — sin `!inner` en la
+  query principal, porque eso habría recortado el array de agentes
+  embebido a solo el que hace match y `AsignarLeadButton` necesita ver
+  TODOS los agentes ya asignados a cada lead. `leadsQueryOpts` pasó de
+  constante a función `leadsQueryOpts(agenteId)`; el loader de
+  `/contactos` ya no la prefetchea (agenteId depende de localStorage, no
+  disponible en el loader) — se pide dentro de `LeadsTab` una vez resuelto
+  el comercial. Alcance decidido por David: sin añadir "Sin asignar" al
+  selector de agente (los 2.797 Leads sin agente quedan fuera de esta
+  pasada, es una decisión de producto aparte).
+  Verificado contra producción antes de aplicar (solo lectura): la consulta
+  nueva devuelve exactamente 9 filas para el agente con más Leads. tsc
+  limpio, eslint limpio, 79/79 tests, build OK.
+
 - **Auditoría estructural — mismatch total/tabCounts en bandeja IA, 12 sep
   2026 (último pendiente del informe original, ya resuelto):**
   `listConversacionesIaPage` descartaba en JS, después de traer la página,

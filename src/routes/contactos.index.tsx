@@ -77,10 +77,10 @@ export const Route = createFileRoute("/contactos/")({
         context.queryClient.ensureQueryData(clientesStatsQuery),
       ]);
     }
-    return Promise.all([
-      context.queryClient.ensureQueryData(leadsQueryOpts),
-      context.queryClient.ensureQueryData(agentesQuery),
-    ]);
+    // leadsQueryOpts ya no se prefetchea aquí: necesita agenteId, que
+    // depende de localStorage (no disponible en el loader) — se resuelve y
+    // se pide dentro de LeadsTab, una vez se conoce el comercial elegido.
+    return context.queryClient.ensureQueryData(agentesQuery);
   },
   component: ContactosPage,
   errorComponent: ({ error }) => (
@@ -118,7 +118,6 @@ function ContactosPage() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function LeadsTab() {
-  const { data } = useSuspenseQuery(leadsQueryOpts);
   const { data: ag } = useSuspenseQuery(agentesQuery);
   const navigate = useNavigate({ from: "/contactos/" });
   const { agente: agenteParam } = Route.useSearch();
@@ -138,11 +137,14 @@ function LeadsTab() {
     "";
   const agenteSel = agentes.find((a) => a.id === agenteId);
 
+  // El servidor ya filtra por agenteId (auditoría 12 sep 2026 — antes se
+  // traían los ~2.800 Leads de toda la empresa para quedarse, tras filtrar
+  // aquí, con los de un solo comercial), así que ya no hace falta repetir
+  // ese filtro en el navegador.
+  const { data } = useSuspenseQuery(leadsQueryOpts(agenteId));
   const misLeads = useMemo(() => {
-    return data.clientes
-      .filter((c) => c.agentesIds.includes(agenteId) && c.etapa === "Lead")
-      .map((c) => ({ cliente: c, estado: inferEstado(c) }));
-  }, [data.clientes, agenteId]);
+    return data.clientes.map((c) => ({ cliente: c, estado: inferEstado(c) }));
+  }, [data.clientes]);
 
   const counts = useMemo(() => {
     const m: Record<EstadoSeguimiento | "Todos", number> = {

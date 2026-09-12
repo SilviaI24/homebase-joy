@@ -96,12 +96,17 @@ export const clientesQueryOpts = queryOptions({
   gcTime: 30 * 60 * 1000,
 });
 
-export const leadsQueryOpts = queryOptions({
-  queryKey: ["leads"],
-  queryFn: () => listLeads(),
-  staleTime: 5 * 60 * 1000,
-  gcTime: 30 * 60 * 1000,
-});
+// Kanban de Leads de Contactos: por comercial, no la empresa entera (ver
+// comentario en listLeads). agenteId vacío devuelve una lista vacía sin
+// consultar la base de datos.
+export function leadsQueryOpts(agenteId: string) {
+  return queryOptions({
+    queryKey: ["leads", agenteId],
+    queryFn: () => listLeads({ data: { agenteId } }),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+}
 
 export const dashboardContactCountsQuery = queryOptions({
   queryKey: ["dashboard-contact-counts"],
