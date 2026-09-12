@@ -259,13 +259,21 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
       No se retira porque no está claro si es una función a la espera de
       su UI o ya superada por `asociarLeadAInmueble` — pendiente de
       decisión.
-    - `getStatsData`/`getLeadInsightsFn`: usan límites explícitos generosos
-      (5.000/2.000/3.000 filas) en vez de paginar — no producen datos
-      incorrectos hoy (4.149 contactos totales), pero dejarán de ser
-      ciertos en cuanto el volumen los supere. La forma correcta a medio
-      plazo es una función SQL de agregación (como ya existe
-      `dashboard_inmuebles_stats()`), no paginar en TypeScript — más trabajo
-      del que entra en esta fase.
+    - **`getStatsData` resuelto el 12 sep 2026** (migración
+      `dashboard_contactos_stats_function`): pasó de 4 consultas con
+      `LIMIT 5.000`/`2.000` agregadas en TypeScript a una sola función SQL
+      (`dashboard_contactos_stats()`, mismo estilo que
+      `dashboard_inmuebles_stats()`) que agrega sobre las tablas completas.
+      Verificado contra producción con consultas independientes: la suma
+      del pipeline (4.151) y de canales coincide exactamente con
+      `COUNT(*)` real de `contacts`, y la suma de `agentes` (22) coincide
+      con `contact_agents` de agentes activos.
+    - **`getLeadInsightsFn` sigue igual, sin tocar**: usa un límite
+      explícito de 3.000 filas — no produce datos incorrectos hoy, pero
+      dejará de ser cierto en cuanto el volumen lo supere. Es un cálculo
+      más heurístico (score, última interacción, próximas visitas) que el
+      pipeline de `getStatsData` — llevarlo a SQL es más trabajo y se deja
+      para una pasada aparte.
     - **H-05 completado del todo el 12 sep 2026** (antes quedaban fuera
       `createOperacion`/`updateOperacionEstado`, con `.insert()`/`.update()`
       directos sin actor real): migración `h05_completar_operaciones` —
