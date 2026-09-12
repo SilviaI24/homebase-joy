@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSupa } from "./supabase.server";
-import { toTitleCase, toTitleCaseArr, toSentenceCase } from "./format";
+import { toTitleCase, toTitleCaseArr, toSentenceCase, escapeSearchTerm } from "./format";
 import { hasPermission, requirePermission, requirePermissions } from "@/lib/crm-auth.server";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -915,10 +915,6 @@ export const deleteInmueble = createServerFn({ method: "POST" })
 
 // ── Pagination helpers ────────────────────────────────────────────────────────
 
-function escapeLike(s: string): string {
-  return s.replace(/%/g, "\\%").replace(/_/g, "\\_");
-}
-
 export type SearchInmueblesParams = {
   q: string;
   limit: number;
@@ -960,7 +956,7 @@ export const searchInmuebles = createServerFn({ method: "GET" })
     }
 
     if (data.q) {
-      const needle = escapeLike(data.q);
+      const needle = escapeSearchTerm(data.q);
       query = query.or(
         `ref.ilike.%${needle}%,calle.ilike.%${needle}%,barrio.ilike.%${needle}%,localidad.ilike.%${needle}%`,
       );
@@ -1034,7 +1030,7 @@ export const listInmueblesPage = createServerFn({ method: "GET" })
     }
 
     if (data.q) {
-      const needle = escapeLike(data.q);
+      const needle = escapeSearchTerm(data.q);
       query = query.or(
         `ref.ilike.%${needle}%,calle.ilike.%${needle}%,barrio.ilike.%${needle}%,localidad.ilike.%${needle}%,tipo.ilike.%${needle}%`,
       );
@@ -1051,7 +1047,7 @@ export const listInmueblesPage = createServerFn({ method: "GET" })
     };
     if (data.categoria !== "Todas" && data.categoria !== "Otros" && catPatterns[data.categoria]) {
       const orClauses = catPatterns[data.categoria]
-        .map((p) => `tipo.ilike.%${escapeLike(p)}%`)
+        .map((p) => `tipo.ilike.%${escapeSearchTerm(p)}%`)
         .join(",");
       query = query.or(orClauses);
     }

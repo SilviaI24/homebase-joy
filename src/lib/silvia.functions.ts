@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import OpenAI from "openai";
-import { cleanRef } from "./format";
+import { cleanRef, escapeSearchTerm } from "./format";
 import { requirePermissions } from "./crm-auth.server";
 import { getSupa } from "./supabase.server";
 
@@ -73,11 +73,9 @@ let crmContextCache: CrmContextCache | null = null;
 function safeSearchTerm(value: unknown): string {
   if (typeof value !== "string") return "";
 
-  return value
-    .trim()
-    .slice(0, 120)
-    .replace(/[,%()]/g, " ")
-    .replace(/\s+/g, " ");
+  // Trunca antes de escapar (no al revés: el escapado de %/_ añade
+  // backslashes que no deben contar para el límite de longitud del mensaje).
+  return escapeSearchTerm(value.slice(0, 120));
 }
 
 function inferDirectLookup(message: string): DirectLookup | null {

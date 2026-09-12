@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSupa } from "./supabase.server";
 import { getCategoria, isAlquiler, type Categoria } from "./inmuebles.functions";
-import { toTitleCase, toTitleCaseArr, toSentenceCase } from "./format";
+import { toTitleCase, toTitleCaseArr, toSentenceCase, escapeSearchTerm } from "./format";
 import { requirePermission, requirePermissions } from "@/lib/crm-auth.server";
-import { s, escapeLikeCliente } from "./clientes-format";
+import { s } from "./clientes-format";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -705,7 +705,7 @@ export const listClientesPage = createServerFn({ method: "GET" })
         .order("created_at", { ascending: false });
 
       if (data.q) {
-        const needle = escapeLikeCliente(data.q);
+        const needle = escapeSearchTerm(data.q);
         query = query.or(
           `nombre.ilike.%${needle}%,email.ilike.%${needle}%,telefono.ilike.%${needle}%`,
         );
@@ -1273,7 +1273,7 @@ export const listContactosPage = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false });
 
     if (data.q) {
-      const needle = escapeLikeCliente(data.q);
+      const needle = escapeSearchTerm(data.q);
       query = query.or(
         `nombre.ilike.%${needle}%,email.ilike.%${needle}%,telefono.ilike.%${needle}%`,
       );

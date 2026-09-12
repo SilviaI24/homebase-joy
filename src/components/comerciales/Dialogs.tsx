@@ -109,10 +109,14 @@ export function NuevaVisitaDialog({
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                  <label
+                    htmlFor="nva-visita-fecha"
+                    className="text-xs font-medium text-muted-foreground block mb-1"
+                  >
                     Fecha
                   </label>
                   <input
+                    id="nva-visita-fecha"
                     type="date"
                     value={fecha}
                     onChange={(e) => setFecha(e.target.value)}
@@ -121,10 +125,14 @@ export function NuevaVisitaDialog({
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                  <label
+                    htmlFor="nva-visita-hora"
+                    className="text-xs font-medium text-muted-foreground block mb-1"
+                  >
                     Hora
                   </label>
                   <input
+                    id="nva-visita-hora"
                     type="time"
                     value={hora}
                     onChange={(e) => setHora(e.target.value)}
@@ -135,7 +143,10 @@ export function NuevaVisitaDialog({
               </div>
 
               <div ref={inmuebleRef} className="relative">
-                <label className="text-xs font-medium text-muted-foreground block mb-1">
+                <label
+                  htmlFor={selectedInm ? undefined : "nva-visita-inmueble"}
+                  className="text-xs font-medium text-muted-foreground block mb-1"
+                >
                   Inmueble *
                 </label>
                 {selectedInm ? (
@@ -159,6 +170,7 @@ export function NuevaVisitaDialog({
                     <div className="relative">
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                       <input
+                        id="nva-visita-inmueble"
                         value={inmuebleQ}
                         onChange={(e) => {
                           setInmuebleQ(e.target.value);
@@ -194,10 +206,14 @@ export function NuevaVisitaDialog({
               </div>
 
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">
+                <label
+                  htmlFor="nva-visita-agente"
+                  className="text-xs font-medium text-muted-foreground block mb-1"
+                >
                   Agente
                 </label>
                 <select
+                  id="nva-visita-agente"
                   value={agenteId}
                   onChange={(e) => setAgenteId(e.target.value)}
                   className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
@@ -292,10 +308,14 @@ export function NuevoClienteDialog({
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">
+                <label
+                  htmlFor="nvo-cliente-nombre"
+                  className="text-xs font-medium text-muted-foreground block mb-1"
+                >
                   Nombre *
                 </label>
                 <input
+                  id="nvo-cliente-nombre"
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
                   placeholder="Nombre completo"
@@ -305,10 +325,14 @@ export function NuevoClienteDialog({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                  <label
+                    htmlFor="nvo-cliente-telefono"
+                    className="text-xs font-medium text-muted-foreground block mb-1"
+                  >
                     Teléfono
                   </label>
                   <input
+                    id="nvo-cliente-telefono"
                     value={telefono}
                     onChange={(e) => setTelefono(e.target.value)}
                     placeholder="600 000 000"
@@ -316,10 +340,14 @@ export function NuevoClienteDialog({
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1">
+                  <label
+                    htmlFor="nvo-cliente-email"
+                    className="text-xs font-medium text-muted-foreground block mb-1"
+                  >
                     Email
                   </label>
                   <input
+                    id="nvo-cliente-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -329,8 +357,14 @@ export function NuevoClienteDialog({
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Tipo</label>
+                <label
+                  htmlFor="nvo-cliente-tipo"
+                  className="text-xs font-medium text-muted-foreground block mb-1"
+                >
+                  Tipo
+                </label>
                 <select
+                  id="nvo-cliente-tipo"
                   value={tipo}
                   onChange={(e) => setTipo(e.target.value)}
                   className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
@@ -343,10 +377,14 @@ export function NuevoClienteDialog({
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">
+                <label
+                  htmlFor="nvo-cliente-agente"
+                  className="text-xs font-medium text-muted-foreground block mb-1"
+                >
                   Agente
                 </label>
                 <select
+                  id="nvo-cliente-agente"
                   value={agenteId}
                   onChange={(e) => setAgenteId(e.target.value)}
                   className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
@@ -489,6 +527,7 @@ export function NuevaCaptacionDialog({
                     value={form.nombre}
                     onChange={set("nombre")}
                     placeholder="Nombre *"
+                    aria-label="Nombre del propietario"
                     required
                     className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
                   />
@@ -497,6 +536,7 @@ export function NuevaCaptacionDialog({
                       value={form.telefono}
                       onChange={set("telefono")}
                       placeholder="Teléfono"
+                      aria-label="Teléfono del propietario"
                       className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
                     />
                     <input
@@ -504,6 +544,7 @@ export function NuevaCaptacionDialog({
                       value={form.email}
                       onChange={set("email")}
                       placeholder="Email"
+                      aria-label="Email del propietario"
                       className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
                     />
                   </div>
@@ -517,6 +558,7 @@ export function NuevaCaptacionDialog({
                   <select
                     value={form.tipo}
                     onChange={set("tipo")}
+                    aria-label="Tipo de inmueble"
                     className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
                   >
                     {TIPOS_INMUEBLE.map((t) => (
@@ -529,6 +571,7 @@ export function NuevaCaptacionDialog({
                         value={form.calle}
                         onChange={set("calle")}
                         placeholder="Calle *"
+                        aria-label="Calle"
                         required
                         className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
                       />
@@ -537,6 +580,7 @@ export function NuevaCaptacionDialog({
                       value={form.numero}
                       onChange={set("numero")}
                       placeholder="Nº"
+                      aria-label="Número"
                       className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
                     />
                   </div>
@@ -544,6 +588,7 @@ export function NuevaCaptacionDialog({
                     value={form.localidad}
                     onChange={set("localidad")}
                     placeholder="Localidad"
+                    aria-label="Localidad"
                     className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
                   />
                   <div className="grid grid-cols-3 gap-2">
@@ -551,6 +596,7 @@ export function NuevaCaptacionDialog({
                       value={form.precio}
                       onChange={set("precio")}
                       placeholder="Precio"
+                      aria-label="Precio"
                       type="number"
                       min="0"
                       className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
@@ -559,6 +605,7 @@ export function NuevaCaptacionDialog({
                       value={form.superficie}
                       onChange={set("superficie")}
                       placeholder="m²"
+                      aria-label="Superficie en metros cuadrados"
                       type="number"
                       min="0"
                       className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
@@ -567,6 +614,7 @@ export function NuevaCaptacionDialog({
                       value={form.habitaciones}
                       onChange={set("habitaciones")}
                       placeholder="Hab."
+                      aria-label="Habitaciones"
                       type="number"
                       min="0"
                       className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
@@ -575,6 +623,7 @@ export function NuevaCaptacionDialog({
                   <select
                     value={form.agenteId}
                     onChange={set("agenteId")}
+                    aria-label="Agente responsable"
                     className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-foreground/30"
                   >
                     <option value="">Agente responsable</option>

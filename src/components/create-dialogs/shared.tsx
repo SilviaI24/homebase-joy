@@ -1,6 +1,6 @@
 // Primitivos de formulario compartidos entre los 3 diálogos "Nuevo…".
 // M-03: extraído de src/components/CreateDialogs.tsx.
-import { useState, type ReactNode } from "react";
+import { useState, useId, isValidElement, cloneElement, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -16,10 +16,31 @@ export function Field({
   children: ReactNode;
   hint?: string;
 }) {
+  // Ningún <Label> del proyecto usaba htmlFor/id — visualmente pegados al
+  // input, pero un lector de pantalla no anunciaba el nombre del campo al
+  // enfocarlo (auditoría 12 sep 2026, el hallazgo de accesibilidad de mayor
+  // impacto: afecta a los 3 flujos de alta principales). Cuando el hijo es
+  // un único control real (Input/Textarea/select), se le inyecta un id
+  // generado y el Label apunta a él con htmlFor. Cuando no lo es (p. ej. un
+  // grupo de checkboxes envuelto en un div), se deja como etiqueta visual
+  // sin asociar — no hay un único control al que apuntar.
+  const generatedId = useId();
+  const canAssociate = isValidElement(children) && typeof children.props === "object";
+  const inputId =
+    canAssociate && children.props && typeof (children.props as { id?: string }).id === "string"
+      ? (children.props as { id: string }).id
+      : generatedId;
+  const control = canAssociate ? cloneElement(children, { id: inputId } as object) : children;
+
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-foreground/80">{label}</Label>
-      {children}
+      <Label
+        htmlFor={canAssociate ? inputId : undefined}
+        className="text-xs font-medium text-foreground/80"
+      >
+        {label}
+      </Label>
+      {control}
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   );

@@ -8,7 +8,3 @@ export function s(v: unknown): string {
   if (Array.isArray(v)) return v.filter(Boolean).join(", ");
   return String(v);
 }
-
-export function escapeLikeCliente(str: string): string {
-  return str.replace(/%/g, "\\%").replace(/_/g, "\\_");
-}

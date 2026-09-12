@@ -126,6 +126,33 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Auditoría estructural, Fase 2 (búsqueda + accesibilidad) — 12 sep 2026:**
+  - **Búsqueda unificada:** existían dos funciones de escape incompletas
+    (`escapeLike` en inmuebles.functions.ts, `escapeLikeCliente` en
+    clientes-format.ts) que solo escapaban `%`/`_` (comodines de LIKE) pero
+    no `,`/`(`/`)` — caracteres estructurales del parser de filtros `.or()`
+    de PostgREST. Buscar "Mayor, 3" o "López (hijo)" devolvía un error 400
+    en vez de resultados, en 5 puntos de búsqueda distintos (Contactos,
+    Cartera, bandeja de conversaciones IA). Unificadas en
+    `escapeSearchTerm()` (`src/lib/format.ts`), que hace ambas cosas.
+    `searchContactos` (seguimiento.functions.ts) no escapaba nada en
+    absoluto — corregido también. `safeSearchTerm` de SilvIA
+    (silvia.functions.ts), que ya cubría el problema de comas/paréntesis,
+    ahora reutiliza la misma función para que solo haya un criterio.
+  - **Accesibilidad — `htmlFor`/`id` en formularios:** ningún `<label>` del
+    proyecto vinculaba su input (confirmado por grep, cero `htmlFor` en
+    todo `src/`) — un lector de pantalla no anunciaba el nombre del campo
+    al enfocarlo. Corregido en el componente compartido `Field`
+    (`src/components/create-dialogs/shared.tsx`, usado por los 3 diálogos
+    de alta — Cliente/Inmueble/Visita, ~23 usos): genera un `id` con
+    `useId()` y lo inyecta en el input hijo vía `cloneElement` solo cuando
+    hay un único control real (no en el grupo de chips de categorías, que
+    queda como etiqueta visual). También corregido a mano en
+    `src/components/comerciales/Dialogs.tsx` (3 diálogos duplicados que no
+    usan `Field`): `NuevaVisitaDialog`/`NuevoClienteDialog` con
+    `htmlFor`/`id` explícitos, y `NuevaCaptacionDialog` — que no tenía
+    ningún `<label>`, solo `placeholder` — con `aria-label` en cada campo.
+
 - **Auditoría estructural, Fase 1 (limpieza + bugs de datos) — 12 sep 2026:**
   - **Código muerto retirado** (confirmado sin consumidores por grep, no por
     inspección): `listConversacionesIa`/`iaConversationsQuery` (además la

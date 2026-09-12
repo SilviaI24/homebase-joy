@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSupa } from "./supabase.server";
-import { toTitleCase, toSentenceCase } from "./format";
+import { toTitleCase, toSentenceCase, escapeSearchTerm } from "./format";
 import { requirePermission } from "@/lib/crm-auth.server";
-import { s, escapeLikeCliente } from "./clientes-format";
+import { s } from "./clientes-format";
 import type { Cliente, Etapa } from "./clientes.functions";
 
 export type ConversacionIa = Pick<
@@ -117,7 +117,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
 
       // Apply search filter
       if (data.q) {
-        const needle = escapeLikeCliente(data.q);
+        const needle = escapeSearchTerm(data.q);
         query = query.or(
           `nombre.ilike.%${needle}%,telefono.ilike.%${needle}%,email.ilike.%${needle}%,motivo.ilike.%${needle}%,conversaciones.ilike.%${needle}%`,
         );

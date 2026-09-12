@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSupa } from "./supabase.server";
 import { requirePermission } from "@/lib/crm-auth.server";
+import { escapeSearchTerm } from "./format";
 
 export type SeguimientoTipo = "Llamada" | "WhatsApp" | "Email" | "Visita" | "Nota" | "SilvIA";
 
@@ -109,10 +110,14 @@ export const searchContactos = createServerFn({ method: "GET" })
     await requirePermission("contacts.read");
     if (!data.q || data.q.trim().length < 2) return { contacts: [] };
     const supa = getSupa();
+    // Sin escapar antes (auditoría 12 sep 2026): un "%" o "_" literal en el
+    // término de búsqueda actuaba como comodín de LIKE y devolvía contactos
+    // arbitrarios en vez de los que de verdad coinciden.
+    const needle = escapeSearchTerm(data.q);
     const { data: rows, error } = await supa
       .from("contacts")
       .select("id, nombre")
-      .ilike("nombre", `%${data.q.trim()}%`)
+      .ilike("nombre", `%${needle}%`)
       .limit(8);
     if (error) throw new Error(error.message);
     return { contacts: (rows ?? []) as { id: string; nombre: string }[] };

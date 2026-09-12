@@ -1,4 +1,33 @@
 /**
+ * Sanea un término de búsqueda antes de interpolarlo en un patrón `ilike`
+ * dentro de un filtro `.or()` de PostgREST.
+ *
+ * Dos problemas distintos, corregidos juntos (auditoría, 12 sep 2026):
+ * - `,` y `(` `)` son caracteres estructurales del parser de filtros de
+ *   PostgREST (separan condiciones / agrupan) — si el término de búsqueda
+ *   los trae tal cual, rompen el filtro entero con un 400, no solo el
+ *   resultado. No basta con escaparlos con `\`: ese escapado es semántica
+ *   de LIKE en SQL, una capa por debajo de donde PostgREST los interpreta
+ *   como delimitadores. Se sustituyen por un espacio, igual que ya hacía
+ *   `safeSearchTerm` en silvia.functions.ts.
+ * - `%` y `_` sí son semántica de LIKE en SQL (comodines) y ahí sí basta con
+ *   escaparlos con `\` para que se busquen como caracteres literales.
+ *
+ * Antes existían dos versiones incompletas de esto (`escapeLike` en
+ * inmuebles.functions.ts, `escapeLikeCliente` en clientes-format.ts) que
+ * solo cubrían el segundo punto — de ahí que buscar "Mayor, 3" o "López
+ * (hijo)" devolviera un error en vez de resultados.
+ */
+export function escapeSearchTerm(str: string): string {
+  return str
+    .trim()
+    .replace(/[,()]/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_");
+}
+
+/**
  * Convierte un texto a formato de título en español:
  * - primera letra de cada palabra en mayúscula
  * - palabras menores (artículos, preposiciones, conjunciones) en minúscula
