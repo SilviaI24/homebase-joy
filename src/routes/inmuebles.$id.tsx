@@ -7,22 +7,23 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { SectionTabs } from "@/components/SectionTabs";
 import { RouteError } from "@/components/RouteError";
-import { NewVisitaDialog } from "@/components/CreateDialogs";
 
-import { SafeImage } from "@/components/SafeImage";
-import { SkeletonLine } from "@/components/inmueble-detail/SkeletonLine";
 import { DocumentosPanel } from "@/components/inmueble-detail/DocumentosPanel";
 import { ManagementPanel } from "@/components/inmueble-detail/ManagementPanel";
 import {
   TiempoMercadoPanel,
   VisitasPanel,
 } from "@/components/inmueble-detail/MercadoYVisitasPanel";
-import { PhotoUpload, ImagenesReorder } from "@/components/inmueble-detail/PhotoComponents";
-import { formatEuro, formatDate, statusTint } from "@/lib/inmueble-detail-format";
+import { HeroImagePanel } from "@/components/inmueble-detail/HeroImagePanel";
+import { DescripcionPanel } from "@/components/inmueble-detail/DescripcionPanel";
+import { CaracteristicasPanel } from "@/components/inmueble-detail/CaracteristicasPanel";
+import { HistorialPanel } from "@/components/inmueble-detail/HistorialPanel";
+import { PropietarioPanel } from "@/components/inmueble-detail/PropietarioPanel";
+import { SaveBar } from "@/components/inmueble-detail/SaveBar";
 import {
   getInmueble,
   updateInmueble,
@@ -30,23 +31,7 @@ import {
   type Inmueble,
   type InmuebleDetalle,
 } from "@/lib/inmuebles.functions";
-import {
-  ArrowLeft,
-  Calendar,
-  MapPin,
-  Phone,
-  Mail,
-  Save,
-  Loader2,
-  User,
-  BedDouble,
-  Bath,
-  Ruler,
-  Hash,
-  Check,
-  Hourglass,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Loader2, Hourglass } from "lucide-react";
 import type { Documento } from "@/lib/inmuebles.functions";
 import { cleanRef } from "@/lib/format";
 
@@ -138,149 +123,6 @@ function BackLink() {
     >
       <ArrowLeft className="size-4" /> Volver al listado
     </Link>
-  );
-}
-
-function Field({
-  label,
-  value,
-  hideEmpty = false,
-}: {
-  label: string;
-  value: React.ReactNode;
-  hideEmpty?: boolean;
-}) {
-  const isEmpty = value == null || value === "" || (typeof value === "number" && value === 0);
-  if (hideEmpty && isEmpty) return null;
-  return (
-    <div className="py-2 border-b border-border/40 last:border-0">
-      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground">
-        {label}
-      </div>
-      <div className="text-sm mt-1 font-medium text-foreground">
-        {isEmpty ? <span className="text-muted-foreground/60 font-normal">—</span> : value}
-      </div>
-    </div>
-  );
-}
-
-function Spec({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="rounded-md border border-border bg-background px-3 py-2.5">
-      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground">
-        {label}
-      </div>
-      <div className="text-sm font-semibold text-foreground mt-1 truncate">{value}</div>
-    </div>
-  );
-}
-
-const ORIENTACION_OPTS = [
-  "Norte",
-  "Sur",
-  "Este",
-  "Oeste",
-  "Noreste",
-  "Noroeste",
-  "Sureste",
-  "Suroeste",
-];
-
-function OrientacionDetailSelect({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const [custom, setCustom] = useState(() => value !== "" && !ORIENTACION_OPTS.includes(value));
-  if (custom) {
-    return (
-      <div className="flex gap-1">
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="flex-1 w-full h-8 px-2 rounded border border-input bg-background text-sm"
-          placeholder="Escribe orientación…"
-        />
-        <button
-          type="button"
-          onClick={() => {
-            setCustom(false);
-            onChange("");
-          }}
-          className="h-8 px-2 rounded border border-input bg-background text-sm text-muted-foreground hover:bg-accent"
-        >
-          ✕
-        </button>
-      </div>
-    );
-  }
-  return (
-    <select
-      value={ORIENTACION_OPTS.includes(value) ? value : ""}
-      onChange={(e) => {
-        if (e.target.value === "__custom__") {
-          setCustom(true);
-          onChange("");
-        } else onChange(e.target.value);
-      }}
-      className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
-    >
-      <option value="">—</option>
-      {ORIENTACION_OPTS.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-      <option value="__custom__">+ Personalizado…</option>
-    </select>
-  );
-}
-
-function EditSpecField({
-  label,
-  value,
-  onChange,
-  type = "text",
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: "text" | "select" | "orientacion";
-  options?: string[];
-}) {
-  return (
-    <div>
-      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
-        {label}
-      </div>
-      {type === "select" && options ? (
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
-        >
-          <option value="">—</option>
-          {options.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-      ) : type === "orientacion" ? (
-        <OrientacionDetailSelect value={value} onChange={onChange} />
-      ) : (
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
-        />
-      )}
-    </div>
   );
 }
 
@@ -662,104 +504,15 @@ function DetailView({
         {/* Columna principal */}
         <div className="lg:col-span-2 space-y-6">
           {/* Hero: imagen con overlay */}
-          <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-            <div className="relative aspect-[4/3] bg-muted">
-              <SafeImage
-                src={mainImg}
-                fallbackSrcs={imagenesOrder.filter((i) => i.url !== mainImg).map((i) => i.url)}
-                alt={inmueble.calle || "Inmueble"}
-              />
-              {/* Top chips */}
-              <div className="absolute inset-x-0 top-0 p-4 flex items-start justify-between pointer-events-none">
-                <span
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold shadow-sm ${statusTint(
-                    inmueble.estatus,
-                  )}`}
-                >
-                  <span className="size-1.5 rounded-full bg-current opacity-80" />
-                  {inmueble.estatus || "—"}
-                </span>
-                {inmueble.ref && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold bg-background text-foreground border border-border/60 px-2 py-1 rounded-full shadow-sm">
-                    <Hash className="size-3" />
-                    {cleanRef(inmueble.ref)}
-                  </span>
-                )}
-              </div>
-              {/* Bottom overlay */}
-              <div className="absolute inset-x-0 bottom-0 px-6 pt-20 pb-5 bg-gradient-to-t from-black/85 via-black/55 to-transparent text-white">
-                <div className="flex flex-wrap items-end justify-between gap-4">
-                  <div className="min-w-0">
-                    <h2 className="font-display text-2xl sm:text-3xl font-semibold leading-tight tracking-tight">
-                      {inmueble.calle || "Sin dirección"}{" "}
-                      {inmueble.numero && (
-                        <span className="text-white/80 font-normal">{inmueble.numero}</span>
-                      )}
-                    </h2>
-                    <div className="text-sm text-white/85 flex items-center gap-1.5 mt-1">
-                      <MapPin className="size-3.5" />
-                      {[inmueble.barrio, inmueble.localidad].filter(Boolean).join(", ") || "—"}
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-display text-3xl sm:text-4xl font-bold leading-none tracking-tight tabular-nums">
-                      {formatEuro(inmueble.precio)}
-                    </div>
-                    {inmueble.precioFinal ? (
-                      <div className="text-[11px] text-white/75 mt-1">
-                        Cerrado en {formatEuro(inmueble.precioFinal)}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-                {(inmueble.habitaciones ||
-                  inmueble.banos ||
-                  inmueble.superficie ||
-                  inmueble.tipo) && (
-                  <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/90">
-                    {inmueble.tipo && (
-                      <span className="inline-flex items-center gap-1.5 font-medium">
-                        {inmueble.tipo}
-                      </span>
-                    )}
-                    {inmueble.habitaciones && (
-                      <span className="inline-flex items-center gap-1.5">
-                        <BedDouble className="size-4" /> {inmueble.habitaciones} hab.
-                      </span>
-                    )}
-                    {inmueble.banos && (
-                      <span className="inline-flex items-center gap-1.5">
-                        <Bath className="size-4" /> {inmueble.banos} baños
-                      </span>
-                    )}
-                    {inmueble.superficie && (
-                      <span className="inline-flex items-center gap-1.5">
-                        <Ruler className="size-4" /> {inmueble.superficie} m²
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            {detailReady && imagenesOrder.length > 1 && (
-              <ImagenesReorder
-                imagenes={imagenesOrder}
-                mainImg={mainImg}
-                onSetMain={setMainImg}
-                onReorder={setImagenesOrder}
-              />
-            )}
-            {detailReady && (
-              <PhotoUpload
-                propertyId={id}
-                onUploaded={(url) => {
-                  const newItem = { id: url, url };
-                  setImagenesOrder((prev) => [...prev, newItem]);
-                  if (!mainImg) setMainImg(url);
-                }}
-              />
-            )}
-          </div>
+          <HeroImagePanel
+            inmueble={inmueble}
+            detailReady={detailReady}
+            id={id}
+            mainImg={mainImg}
+            setMainImg={setMainImg}
+            imagenesOrder={imagenesOrder}
+            setImagenesOrder={setImagenesOrder}
+          />
 
           <SectionTabs
             tabs={[
@@ -775,32 +528,12 @@ function DetailView({
 
           {/* Tab: Detalles */}
           {tab === "detalles" && (
-            <>
-              {/* Descripción (editable) */}
-              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-display text-base font-semibold">Descripción</h3>
-                  {descripcion !== inmueble.descripcion && (
-                    <span className="text-[11px] text-warning">Sin guardar</span>
-                  )}
-                </div>
-                {detailReady ? (
-                  <textarea
-                    value={descripcion}
-                    onChange={(e) => setDescripcion(e.target.value)}
-                    rows={6}
-                    placeholder="Añade una descripción del inmueble…"
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y"
-                  />
-                ) : (
-                  <div className="space-y-2">
-                    <SkeletonLine className="w-full" />
-                    <SkeletonLine className="w-11/12" />
-                    <SkeletonLine className="w-3/4" />
-                  </div>
-                )}
-              </div>
-            </>
+            <DescripcionPanel
+              descripcion={descripcion}
+              setDescripcion={setDescripcion}
+              original={inmueble.descripcion}
+              detailReady={detailReady}
+            />
           )}
 
           {/* Tab: Documentos */}
@@ -814,123 +547,44 @@ function DetailView({
 
           {/* Tab: Detalles — Características */}
           {tab === "detalles" && (
-            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-              <h3 className="font-display text-base font-semibold mb-4">Características</h3>
-              {!detailReady ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="rounded-md border border-border bg-background px-3 py-2.5 space-y-1"
-                    >
-                      <SkeletonLine className="w-1/2" />
-                      <SkeletonLine className="w-3/4" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Tipo — read-only */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
-                        Tipo
-                      </div>
-                      <div className="h-8 px-2 flex items-center rounded border border-input bg-muted text-sm text-muted-foreground">
-                        {inmueble.tipo || "—"}
-                      </div>
-                    </div>
-                    <EditSpecField
-                      label="Habitaciones"
-                      value={habitaciones}
-                      onChange={setHabitaciones}
-                    />
-                    <EditSpecField label="Baños" value={banos} onChange={setBanos} />
-                    <EditSpecField
-                      label="Superficie (m²)"
-                      value={superficie}
-                      onChange={setSuperficie}
-                    />
-                    <EditSpecField label="Planta" value={planta} onChange={setPlanta} />
-                    <EditSpecField
-                      label="Estado"
-                      value={estado}
-                      onChange={setEstado}
-                      type="select"
-                      options={[
-                        "Nuevo",
-                        "A reformar",
-                        "Reformado",
-                        "Buen estado",
-                        "Para entrar",
-                        "Obra nueva",
-                      ]}
-                    />
-                    <EditSpecField
-                      label="Año construcción"
-                      value={anoConstruccion}
-                      onChange={setAnoConstruccion}
-                    />
-                    <EditSpecField
-                      label="Cert. energética"
-                      value={certificacionEnergetica}
-                      onChange={setCertificacionEnergetica}
-                    />
-                    <EditSpecField
-                      label="Calefacción"
-                      value={calefaccion}
-                      onChange={setCalefaccion}
-                    />
-                    <EditSpecField
-                      label="Orientación"
-                      value={orientacion}
-                      onChange={setOrientacion}
-                      type="orientacion"
-                    />
-                    <EditSpecField
-                      label="Garaje"
-                      value={garaje}
-                      onChange={setGaraje}
-                      type="select"
-                      options={["Sí", "No", "Opcional"]}
-                    />
-                    <EditSpecField
-                      label="Trastero"
-                      value={trastero}
-                      onChange={setTrastero}
-                      type="select"
-                      options={["Sí", "No"]}
-                    />
-                    <EditSpecField
-                      label="Ascensor"
-                      value={ascensor}
-                      onChange={setAscensor}
-                      type="select"
-                      options={["Sí", "No"]}
-                    />
-                    <EditSpecField
-                      label="Armarios"
-                      value={armariosEmpotrados}
-                      onChange={setArmariosEmpotrados}
-                      type="select"
-                      options={["Sí", "No"]}
-                    />
-                    <EditSpecField label="Terraza" value={terraza} onChange={setTerraza} />
-                    <EditSpecField label="Balcón" value={balcon} onChange={setBalcon} />
-                    <EditSpecField
-                      label="Gastos com."
-                      value={gastosComunidad}
-                      onChange={setGastosComunidad}
-                    />
-                    <EditSpecField
-                      label="Ref. catastral"
-                      value={referenciaCatastral}
-                      onChange={setReferenciaCatastral}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
+            <CaracteristicasPanel
+              detailReady={detailReady}
+              tipo={inmueble.tipo}
+              habitaciones={habitaciones}
+              setHabitaciones={setHabitaciones}
+              banos={banos}
+              setBanos={setBanos}
+              superficie={superficie}
+              setSuperficie={setSuperficie}
+              planta={planta}
+              setPlanta={setPlanta}
+              estado={estado}
+              setEstado={setEstado}
+              anoConstruccion={anoConstruccion}
+              setAnoConstruccion={setAnoConstruccion}
+              certificacionEnergetica={certificacionEnergetica}
+              setCertificacionEnergetica={setCertificacionEnergetica}
+              calefaccion={calefaccion}
+              setCalefaccion={setCalefaccion}
+              orientacion={orientacion}
+              setOrientacion={setOrientacion}
+              garaje={garaje}
+              setGaraje={setGaraje}
+              trastero={trastero}
+              setTrastero={setTrastero}
+              ascensor={ascensor}
+              setAscensor={setAscensor}
+              armariosEmpotrados={armariosEmpotrados}
+              setArmariosEmpotrados={setArmariosEmpotrados}
+              terraza={terraza}
+              setTerraza={setTerraza}
+              balcon={balcon}
+              setBalcon={setBalcon}
+              gastosComunidad={gastosComunidad}
+              setGastosComunidad={setGastosComunidad}
+              referenciaCatastral={referenciaCatastral}
+              setReferenciaCatastral={setReferenciaCatastral}
+            />
           )}
 
           {/* Tab: Historial */}
@@ -938,117 +592,27 @@ function DetailView({
             <>
               <TiempoMercadoPanel inmueble={inmueble} detailReady={detailReady} />
 
-              <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <h3 className="font-display text-base font-semibold mb-4 flex items-center gap-2">
-                  <Calendar className="size-4 text-primary" /> Historial
-                </h3>
-                {detailReady ? (
-                  <>
-                    <ol className="relative ml-3 space-y-5 before:absolute before:left-0 before:top-1 before:bottom-1 before:w-px before:bg-border">
-                      {[
-                        { label: "Captación / inicio", value: fechaInicio, set: setFechaInicio },
-                        {
-                          label: "Autorización exclusiva",
-                          value: fechaExclusiva,
-                          set: setFechaExclusiva,
-                        },
-                        {
-                          label: "Fin de exclusividad",
-                          value: fechaFinExclusiva,
-                          set: setFechaFinExclusiva,
-                        },
-                        { label: "Reserva", value: fechaReserva, set: setFechaReserva },
-                        { label: "Escritura", value: fechaEscritura, set: setFechaEscritura },
-                      ].map((ev) => {
-                        const done = !!ev.value;
-                        return (
-                          <li key={ev.label} className="relative pl-6">
-                            <span
-                              className={`absolute -left-[7px] top-0.5 inline-flex items-center justify-center size-4 rounded-full ring-2 ring-card ${
-                                done
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-muted border border-border"
-                              }`}
-                            >
-                              {done && <Check className="size-2.5" />}
-                            </span>
-                            <div
-                              className={`text-sm font-medium ${done ? "text-foreground" : "text-muted-foreground"}`}
-                            >
-                              {ev.label}
-                            </div>
-                            <div className="mt-1 flex items-center gap-2">
-                              <input
-                                type="date"
-                                value={ev.value ? ev.value.slice(0, 10) : ""}
-                                onChange={(e) => ev.set(e.target.value)}
-                                className="h-7 px-2 rounded border border-input bg-background text-xs"
-                              />
-                              {ev.value && (
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDate(ev.value)}
-                                </span>
-                              )}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                    <div className="grid grid-cols-2 gap-x-6 mt-5 pt-4 border-t border-border">
-                      <div className="py-2">
-                        <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
-                          Notaría
-                        </div>
-                        <input
-                          type="text"
-                          value={notaria}
-                          onChange={(e) => setNotaria(e.target.value)}
-                          className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
-                        />
-                      </div>
-                      <div className="py-2">
-                        <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
-                          Honorarios
-                        </div>
-                        <input
-                          type="text"
-                          value={honorarios}
-                          onChange={(e) => setHonorarios(e.target.value)}
-                          className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
-                        />
-                      </div>
-                      <div className="py-2">
-                        <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
-                          Tipo exclusiva
-                        </div>
-                        <input
-                          type="text"
-                          value={tipoExclusiva}
-                          onChange={(e) => setTipoExclusiva(e.target.value)}
-                          className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
-                        />
-                      </div>
-                      <div className="py-2">
-                        <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
-                          Llaves
-                        </div>
-                        <input
-                          type="text"
-                          value={llaves}
-                          onChange={(e) => setLlaves(e.target.value)}
-                          className="w-full h-8 px-2 rounded border border-input bg-background text-sm"
-                        />
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="space-y-2">
-                    <SkeletonLine className="w-1/2" />
-                    <SkeletonLine className="w-2/3" />
-                    <SkeletonLine className="w-1/3" />
-                  </div>
-                )}
-              </div>
+              <HistorialPanel
+                detailReady={detailReady}
+                fechaInicio={fechaInicio}
+                setFechaInicio={setFechaInicio}
+                fechaExclusiva={fechaExclusiva}
+                setFechaExclusiva={setFechaExclusiva}
+                fechaFinExclusiva={fechaFinExclusiva}
+                setFechaFinExclusiva={setFechaFinExclusiva}
+                fechaReserva={fechaReserva}
+                setFechaReserva={setFechaReserva}
+                fechaEscritura={fechaEscritura}
+                setFechaEscritura={setFechaEscritura}
+                notaria={notaria}
+                setNotaria={setNotaria}
+                honorarios={honorarios}
+                setHonorarios={setHonorarios}
+                tipoExclusiva={tipoExclusiva}
+                setTipoExclusiva={setTipoExclusiva}
+                llaves={llaves}
+                setLlaves={setLlaves}
+              />
             </>
           )}
 
@@ -1079,85 +643,19 @@ function DetailView({
           />
 
           {/* Propietario */}
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-            <h3 className="font-display text-base font-semibold mb-4">Propietario</h3>
-            <Field label="Nombre" value={inmueble.propietario} />
-            <Field
-              label="Teléfono"
-              value={
-                inmueble.telefonoPropietario ? (
-                  <a
-                    href={`tel:${inmueble.telefonoPropietario}`}
-                    className="inline-flex items-center gap-1 text-primary hover:underline"
-                  >
-                    <Phone className="size-3.5" />
-                    {inmueble.telefonoPropietario}
-                  </a>
-                ) : (
-                  ""
-                )
-              }
-            />
-            {detailReady && (
-              <Field
-                label="Email"
-                value={
-                  inmueble.emailPropietario ? (
-                    <a
-                      href={`mailto:${inmueble.emailPropietario}`}
-                      className="inline-flex items-center gap-1 text-primary hover:underline"
-                    >
-                      <Mail className="size-3.5" />
-                      {inmueble.emailPropietario}
-                    </a>
-                  ) : (
-                    ""
-                  )
-                }
-              />
-            )}
-          </div>
+          <PropietarioPanel inmueble={inmueble} detailReady={detailReady} />
         </aside>
       </div>
 
       {/* Floating save bar */}
-      {(dirty || saveStatus === "pending" || saveStatus === "saved" || saveStatus === "error") && (
-        <div className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-between gap-4 px-4 py-3 bg-card border-t border-border shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.15)] md:left-56">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {saveStatus === "pending" ? (
-              <>
-                <Loader2 className="size-3.5 animate-spin" /> Guardando…
-              </>
-            ) : saveStatus === "saved" ? (
-              <>
-                <Check className="size-3.5 text-success" />{" "}
-                <span className="text-success">Guardado</span>
-              </>
-            ) : saveStatus === "error" ? (
-              <>
-                <span className="size-2 rounded-full bg-destructive" /> Error al guardar
-              </>
-            ) : dirtyAuto ? (
-              <>
-                <span className="size-2 rounded-full bg-warning animate-pulse" /> Guardando en 2 s…
-              </>
-            ) : (
-              <>
-                <span className="size-2 rounded-full bg-warning" /> Cambios sin guardar — requiere
-                guardado manual
-              </>
-            )}
-          </div>
-          <button
-            onClick={onSave}
-            disabled={mutation.isPending || !detailReady}
-            className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 hover:bg-primary/90 transition-colors"
-          >
-            <Save className="size-4" />
-            Guardar ahora
-          </button>
-        </div>
-      )}
+      <SaveBar
+        dirty={dirty}
+        dirtyAuto={dirtyAuto}
+        saveStatus={saveStatus}
+        isPending={mutation.isPending}
+        detailReady={detailReady}
+        onSave={onSave}
+      />
     </AppShell>
   );
 }
