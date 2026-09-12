@@ -35,6 +35,7 @@ import {
   RecentRow,
   LeadsCalientesPanel,
   SinSeguimientoPanel,
+  SinAsignarPanel,
 } from "@/components/dashboard/DashboardPanels";
 import {
   TrendingUp,
@@ -630,10 +631,13 @@ function Dashboard() {
       </div>
 
       {/* ── ROW 3.5: SilvIA Insights ── */}
-      {(insights.topCalientes.length > 0 || insights.sinSeguimiento.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+      {(insights.topCalientes.length > 0 ||
+        insights.sinSeguimiento.length > 0 ||
+        insights.sinAsignar.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
           <LeadsCalientesPanel leads={insights.topCalientes} />
           <SinSeguimientoPanel leads={insights.sinSeguimiento} />
+          <SinAsignarPanel leads={insights.sinAsignar} />
         </div>
       )}
 

@@ -889,6 +889,7 @@ export type LeadInsight = {
 export type LeadInsightsData = {
   topCalientes: LeadInsight[];
   sinSeguimiento: LeadInsight[];
+  sinAsignar: LeadInsight[];
   total: number;
 };
 
@@ -993,7 +994,22 @@ export const getLeadInsightsFn = createServerFn({ method: "GET" }).handler(async
     })
     .slice(0, 5);
 
-  return { topCalientes, sinSeguimiento, total: scored.length } satisfies LeadInsightsData;
+  // `scored` conserva el orden de contactRows (created_at desc), así que
+  // esto ya son los sin agente más recientes, no hace falta reordenar.
+  // La consulta de origen ya está acotada a los 120 Lead/Prospecto más
+  // recientes (arriba), así que el histórico (2.797 de los 2.808 Leads
+  // totales no tienen agente) queda fuera sin necesidad de ningún filtro de
+  // fecha nuevo — este panel es para que se note un lead nuevo sin asignar
+  // en el día a día, no para triar el histórico (decisión de David, 12 sep
+  // 2026, ver Kanban de Leads filtrado por agente más abajo en Pendiente).
+  const sinAsignar = scored.filter((c) => !c.tieneAgente).slice(0, 5);
+
+  return {
+    topCalientes,
+    sinSeguimiento,
+    sinAsignar,
+    total: scored.length,
+  } satisfies LeadInsightsData;
 });
 
 // ── Histórico / Descartado paginado ───────────────────────────────────────────

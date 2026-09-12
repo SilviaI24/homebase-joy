@@ -126,6 +126,26 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Panel "Leads recientes sin asignar" en el Dashboard, 12 sep 2026:**
+  Complemento del punto anterior (Kanban de Leads por agente): David pidió
+  poder notar un lead nuevo sin asignar en el día a día, sin mezclarlo con
+  el histórico (2.797 de los 2.808 Leads totales no tienen agente, sin
+  peso específico). `getLeadInsightsFn` ya traía los 120 Lead/Prospecto más
+  recientes y ya calculaba `tieneAgente` por cada uno (solo se usaba como
+  factor menor del score de "calor") — se añadió `sinAsignar` al resultado
+  (los mismos 120, filtrados por `!tieneAgente`, top 5, sin reordenar
+  porque `scored` ya viene por fecha de creación descendente). Nuevo
+  `SinAsignarPanel` en `DashboardPanels.tsx`, mismo estilo que
+  `LeadsCalientesPanel`/`SinSeguimientoPanel`, sin enlace "Ver todos" (el
+  de los otros dos lleva al Kanban de Leads, que es por agente y no
+  mostraría nada aquí). Dashboard: los 3 paneles de insights pasan de
+  `grid-cols-2` a `grid-cols-3`.
+  Verificado contra producción antes de aplicar (solo lectura): de los 120
+  Lead/Prospecto más recientes, 119 no tienen agente — los 5 más recientes
+  son del 6-11 sep 2026, confirma que el panel muestra actividad real del
+  día a día, no ruido histórico. tsc limpio, eslint limpio, 79/79 tests,
+  build OK.
+
 - **Kanban de Leads de Contactos filtrado por agente en servidor, 12 sep
   2026 (la decisión de UX que había quedado pendiente de la auditoría):**
   Datos reales antes de tocar nada: 2.808 Leads en total, pero solo 11

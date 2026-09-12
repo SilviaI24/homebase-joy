@@ -2,7 +2,7 @@
 // (sin hooks de Route, reciben todo por props) del Dashboard.
 import { Link } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
-import { MapPin, TrendingDown, Flame, BellOff, ArrowRight } from "lucide-react";
+import { MapPin, TrendingDown, Flame, BellOff, ArrowRight, UserX } from "lucide-react";
 import type { Inmueble } from "@/lib/inmuebles.functions";
 import type { LeadInsight } from "@/lib/clientes.functions";
 import { moneyShort, moneyFull, fmtDate, calcDelta } from "@/lib/dashboard-format";
@@ -342,6 +342,52 @@ export function SinSeguimientoPanel({ leads }: { leads: LeadInsight[] }) {
                     Sin asignar
                   </span>
                 )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// Leads recientes (últimos 120 por fecha de creación, ver getLeadInsightsFn)
+// sin ningún agente asignado — para que se note uno nuevo en el día a día,
+// no para triar el histórico (2.797 de los 2.808 Leads totales no tienen
+// agente; decisión de David, 12 sep 2026: el histórico se queda fuera a
+// propósito, sin panel ni vista dedicada). Sin "Ver todos": el enlace de
+// los otros dos paneles lleva al Kanban de Leads, que es por agente y no
+// mostraría nada aquí.
+export function SinAsignarPanel({ leads }: { leads: LeadInsight[] }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <UserX className="size-4 text-warning" /> Leads recientes sin asignar
+        </h3>
+      </div>
+      {leads.length === 0 ? (
+        <div className="p-6 text-center text-xs text-muted-foreground">
+          Todos los leads recientes tienen agente asignado.
+        </div>
+      ) : (
+        <ul className="divide-y divide-border">
+          {leads.map((lead) => (
+            <li key={lead.id}>
+              <Link
+                to="/clientes"
+                search={{ id: lead.id }}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
+              >
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-warning/10 text-warning">
+                  <UserX className="size-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium truncate">{lead.nombre}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">
+                    {lead.telefono ?? "Sin tel."} · {lead.ciclo_vida}
+                  </div>
+                </div>
               </Link>
             </li>
           ))}
