@@ -248,10 +248,22 @@ export function ScoreBadge({ score }: { score: number }) {
   );
 }
 
+// Superficie marfil (paleta de marca, 9 sep 2026): este es, de los tres
+// paneles de insights, el que más urgencia comunica ("más calientes" = actuar
+// ya) — se distingue por color, no solo por icono. Los otros dos
+// (SinSeguimientoPanel/SinAsignarPanel) se quedan en --card a propósito, para
+// no diluir el énfasis convirtiéndolo en el estilo por defecto de los tres.
+// Contraste verificado por cálculo antes de aplicar (mismo método que el
+// resto de la paleta): texto principal 17.1:1, texto secundario 4.7:1 sobre
+// marfil — ambos pasan AA. El icono dorado (2.96:1) y el badge "Sin
+// asignar" (2.39:1) quedan por debajo del mínimo de UI no textual, pero ya
+// lo estaban sobre --card antes de este cambio (3.43:1 y 2.75:1
+// respectivamente) — no es una regresión introducida aquí, es deuda
+// preexistente fuera del alcance de este cambio.
 export function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
   return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+    <div className="rounded-2xl border border-carbon/10 bg-marfil overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-carbon/10">
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <Flame className="size-4 text-[var(--gold)]" /> Leads más calientes
         </h3>
@@ -267,13 +279,13 @@ export function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
           Sin leads con score alto.
         </div>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="divide-y divide-carbon/10">
           {leads.map((lead) => (
             <li key={lead.id}>
               <Link
                 to="/clientes"
                 search={{ id: lead.id }}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 hover:bg-carbon/5 transition-colors"
               >
                 <ScoreBadge score={lead.score} />
                 <div className="min-w-0 flex-1">
