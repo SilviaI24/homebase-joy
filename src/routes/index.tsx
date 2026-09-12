@@ -20,9 +20,8 @@ import { RouteError } from "@/components/RouteError";
 import { moneyShort, moneyFull, fmtMes } from "@/lib/dashboard-format";
 import {
   dashboardStatsQuery,
-  clientesQueryOpts,
   visitasQuery,
-  leadsQueryOpts,
+  dashboardContactCountsQuery,
   insightsQuery,
   statsQuery,
   operacionesQuery,
@@ -64,8 +63,6 @@ type VisRow = {
   inmuebleNumeros?: string[];
 };
 
-const clientesQuery = clientesQueryOpts;
-
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -75,9 +72,8 @@ export const Route = createFileRoute("/")({
   }),
   loader: ({ context }) => {
     context.queryClient.ensureQueryData(dashboardStatsQuery).catch(() => {});
-    context.queryClient.ensureQueryData(clientesQuery).catch(() => {});
+    context.queryClient.ensureQueryData(dashboardContactCountsQuery).catch(() => {});
     context.queryClient.ensureQueryData(visitasQuery).catch(() => {});
-    context.queryClient.ensureQueryData(leadsQueryOpts).catch(() => {});
     context.queryClient.ensureQueryData(insightsQuery).catch(() => {});
     context.queryClient.ensureQueryData(statsQuery).catch(() => {});
     context.queryClient.ensureQueryData(operacionesQuery).catch(() => {});
@@ -104,15 +100,14 @@ const ANALYTICS_PALETTE = [
 
 function Dashboard() {
   const { data: dashStats } = useSuspenseQuery(dashboardStatsQuery);
-  const { data: cliData } = useSuspenseQuery(clientesQuery);
+  const { data: contactCounts } = useSuspenseQuery(dashboardContactCountsQuery);
   const { data: visData } = useSuspenseQuery(visitasQuery);
-  const { data: leadsData } = useSuspenseQuery(leadsQueryOpts);
   const { data: insights } = useSuspenseQuery(insightsQuery);
   const { data: statsData } = useSuspenseQuery(statsQuery);
   const { data: opsData } = useSuspenseQuery(operacionesQuery);
   const { data: myRole } = useSuspenseQuery(myRoleQuery);
 
-  const leadsCount = leadsData.clientes.length;
+  const leadsCount = contactCounts.leadsTotal;
 
   // M-01-bis: los agregados (conteos, serie de 12 meses, comisiones, pulso,
   // zonas, cartera por tipo) ya vienen calculados desde SQL
@@ -149,7 +144,7 @@ function Dashboard() {
     };
   }, [dashStats]);
 
-  const cliTotal = useMemo(() => cliData.clientes.length, [cliData]);
+  const cliTotal = contactCounts.clientesTotal;
 
   const visStats = useMemo(() => {
     const v = visData.visitas;

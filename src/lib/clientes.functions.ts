@@ -793,6 +793,27 @@ export const getClientesStats = createServerFn({ method: "GET" }).handler(async 
   return computeSegmentoCounts(supa);
 });
 
+// Contadores del Dashboard ("N clientes", "N leads"). Antes el Dashboard
+// llamaba a listClientes()/listLeads() completos (con joins de inmuebles y
+// el motor de matching corriendo fila por fila) solo para leer
+// `.clientes.length` — con miles de contactos, eso es cargar y procesar
+// todo el detalle para mostrar dos números (auditoría 12 sep 2026).
+// clientesQueryOpts/leadsQueryOpts (listClientes/listLeads) se mantienen
+// intactos para sus otros consumidores (pickers de create-dialogs, Kanban
+// de Leads en Contactos), que sí necesitan el detalle completo.
+export const getDashboardContactCounts = createServerFn({ method: "GET" }).handler(async () => {
+  await requirePermissions("contacts.read");
+  const supa = getSupa();
+  const [clientesRes, leadsRes] = await Promise.all([
+    supa
+      .from("contacts")
+      .select("id", { count: "exact", head: true })
+      .in("ciclo_vida", ["Cliente", "Prospecto"]),
+    supa.from("contacts").select("id", { count: "exact", head: true }).eq("ciclo_vida", "Lead"),
+  ]);
+  return { clientesTotal: clientesRes.count ?? 0, leadsTotal: leadsRes.count ?? 0 };
+});
+
 // Full Cliente detail for a single contact (includes property joins + AI matching).
 // Called when user opens the detail Sheet for a contact row.
 export const getClienteById = createServerFn({ method: "GET" })
@@ -804,10 +825,15 @@ export const getClienteById = createServerFn({ method: "GET" })
     await requirePermissions("contacts.read", "contact_roles.read", "properties.read");
     const supa = getSupa();
 
-    const { data: r, error } = await supa
-      .from("contacts")
-      .select(
-        `
+    // Las dos consultas son independientes (la de propiedades activas para
+    // el motor de matching no depende del contacto) — en paralelo en vez de
+    // esperar la primera para lanzar la segunda (auditoría 12 sep 2026,
+    // ahorra un roundtrip en cada apertura de ficha de cliente).
+    const [{ data: r, error }, { data: activePropRows }] = await Promise.all([
+      supa
+        .from("contacts")
+        .select(
+          `
         id, nombre, email, telefono, dni, profesion, ciclo_vida, duplicados,
         motivo, solicitud, conversaciones, observaciones, feedback, canal_origen,
         seccion, trabajado, categoria, contrato_trabajo, mascota,
@@ -817,19 +843,19 @@ export const getClienteById = createServerFn({ method: "GET" })
             estatus, precio, precio_final, imagenes, habitaciones, metros_construidos)),
         contact_agents(agent_id, agents(id, nombre, email))
       `,
-      )
-      .eq("id", data.id)
-      .single();
+        )
+        .eq("id", data.id)
+        .single(),
+      // Active properties for match engine (same data as listClientes)
+      supa
+        .from("properties")
+        .select(
+          "id, ref, calle, numero, barrio, localidad, tipo, es_alquiler, estatus, precio, precio_final, imagenes, habitaciones, metros_construidos",
+        )
+        .eq("estatus", "Activo"),
+    ]);
 
     if (error) throw new Error("Error al cargar contacto");
-
-    // Active properties for match engine (same data as listClientes)
-    const { data: activePropRows } = await supa
-      .from("properties")
-      .select(
-        "id, ref, calle, numero, barrio, localidad, tipo, es_alquiler, estatus, precio, precio_final, imagenes, habitaciones, metros_construidos",
-      )
-      .eq("estatus", "Activo");
 
     const allProps = (activePropRows ?? []).map(mapPropertyRow);
     const activosVenta = allProps.filter((i) => !i.esAlquiler);

@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { createInmueble, type CreateInmueblePayload } from "@/lib/mutations.functions";
 import { uploadPropertyAttachment } from "@/lib/inmuebles.functions";
-import { agentesQuery, clientesQueryOpts } from "@/lib/queries";
+import { agentesQuery, searchClientesPickerQuery } from "@/lib/queries";
 import { Field, MoreSection, MultiSelect, NewButton } from "@/components/create-dialogs/shared";
 import { NewClienteDialog } from "@/components/create-dialogs/NewClienteDialog";
 import {
@@ -101,17 +101,16 @@ function PropietarioBlock({
   fechaExclusiva: string;
   setFechaExclusiva: (v: string) => void;
 }) {
-  const clientes = useQuery(clientesQueryOpts);
   const [filter, setFilter] = useState("");
-  const matching = (clientes.data?.clientes ?? []).filter((c) =>
-    filter ? `${c.nombre} ${c.telefono}`.toLowerCase().includes(filter.toLowerCase()) : true,
-  );
-  const list = [
-    ...matching.filter((c) => selected.includes(c.id)),
-    ...matching.filter((c) => !selected.includes(c.id)),
-  ]
-    .slice(0, 30)
-    .map((c) => ({ id: c.id, label: `${c.nombre}${c.telefono ? ` · ${c.telefono}` : ""}` }));
+  // Búsqueda server-side con límite — antes cargaba clientesQueryOpts
+  // completo (todos los Cliente/Prospecto, con el motor de matching
+  // corriendo fila por fila) y filtraba/recortaba a 30 en memoria (auditoría
+  // 12 sep 2026).
+  const clientes = useQuery(searchClientesPickerQuery({ q: filter, limit: 30 }));
+  const list = (clientes.data?.clientes ?? []).map((c) => ({
+    id: c.id,
+    label: `${c.nombre}${c.telefono ? ` · ${c.telefono}` : ""}`,
+  }));
 
   return (
     <div className="sm:col-span-2 mt-3 rounded-lg border border-border bg-muted/30 p-4 space-y-3">
@@ -133,9 +132,9 @@ function PropietarioBlock({
           className="mb-2"
         />
         <MultiSelect options={list} value={selected} onChange={onChange} />
-        {matching.length > list.length && (
+        {list.length === 30 && (
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Mostrando {list.length} de {matching.length}. Escribe nombre o teléfono para acotar.
+            Mostrando los 30 más recientes. Escribe nombre o teléfono para acotar.
           </p>
         )}
       </Field>

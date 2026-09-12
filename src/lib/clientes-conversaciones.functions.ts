@@ -123,7 +123,25 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         );
       }
 
-      const { data: rows, error, count } = await query.range(from, to);
+      // Tab counts (all SilvIA contacts, no canal-button or search filter) —
+      // en el mismo Promise.all que la query paginada principal, en vez de
+      // esperarla primero: son independientes entre sí (auditoría 12 sep
+      // 2026, ahorra un roundtrip en cada carga/paginación/filtro).
+      const baseCount = () =>
+        supa.from("contacts").select("id", { count: "exact", head: true }).or(silviaOrFilter);
+
+      const pendientesOr =
+        "trabajado.is.null,and(trabajado.not.ilike.descartado,trabajado.not.ilike.contactado)";
+
+      const [{ data: rows, error, count }, todosRes, cualRes, archRes, pendRes] = await Promise.all(
+        [
+          query.range(from, to),
+          baseCount(),
+          baseCount().ilike("trabajado", "contactado"),
+          baseCount().ilike("trabajado", "descartado"),
+          baseCount().or(pendientesOr),
+        ],
+      );
       if (error) throw new Error("Error al cargar conversaciones");
 
       // Mismo select que listConversacionesIa -> mismo tipo de fila.
@@ -159,20 +177,6 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
           .filter((id): id is string => Boolean(id)),
         matches: [],
       }));
-
-      // Tab counts (all SilvIA contacts, no canal-button or search filter)
-      const baseCount = () =>
-        supa.from("contacts").select("id", { count: "exact", head: true }).or(silviaOrFilter);
-
-      const pendientesOr =
-        "trabajado.is.null,and(trabajado.not.ilike.descartado,trabajado.not.ilike.contactado)";
-
-      const [todosRes, cualRes, archRes, pendRes] = await Promise.all([
-        baseCount(),
-        baseCount().ilike("trabajado", "contactado"),
-        baseCount().ilike("trabajado", "descartado"),
-        baseCount().or(pendientesOr),
-      ]);
 
       return {
         clientes,

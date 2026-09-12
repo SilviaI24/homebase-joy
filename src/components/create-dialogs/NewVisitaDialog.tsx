@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { createVisita, type CreateVisitaPayload } from "@/lib/mutations.functions";
-import { agentesQuery, searchInmueblesQuery, clientesQueryOpts } from "@/lib/queries";
+import { agentesQuery, searchInmueblesQuery, searchClientesPickerQuery } from "@/lib/queries";
 import { Field, MoreSection, MultiSelect, NewButton } from "@/components/create-dialogs/shared";
 
 export function NewVisitaDialog({
@@ -33,7 +33,6 @@ export function NewVisitaDialog({
   const fn = useServerFn(createVisita);
   const [open, setOpen] = useState(false);
   const agentes = useQuery({ ...agentesQuery, enabled: open });
-  const clientes = useQuery({ ...clientesQueryOpts, enabled: open });
   const [form, setForm] = useState<CreateVisitaPayload>({
     fecha: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
     estado: "Programada",
@@ -66,14 +65,18 @@ export function NewVisitaDialog({
     label: `${i.ref || "—"} · ${i.calle} ${i.numero || ""}`,
   }));
 
-  const cliList = (clientes.data?.clientes ?? [])
-    .filter((c) =>
-      cliFilter
-        ? `${c.nombre} ${c.telefono}`.toLowerCase().includes(cliFilter.toLowerCase())
-        : true,
-    )
-    .slice(0, 80)
-    .map((c) => ({ id: c.id, label: `${c.nombre}${c.telefono ? ` · ${c.telefono}` : ""}` }));
+  // Búsqueda server-side con límite — antes cargaba clientesQueryOpts
+  // completo (todos los Cliente/Prospecto, con el motor de matching
+  // corriendo fila por fila) y filtraba/recortaba a 80 en memoria (auditoría
+  // 12 sep 2026).
+  const clientes = useQuery({
+    ...searchClientesPickerQuery({ q: cliFilter, limit: 80 }),
+    enabled: open,
+  });
+  const cliList = (clientes.data?.clientes ?? []).map((c) => ({
+    id: c.id,
+    label: `${c.nombre}${c.telefono ? ` · ${c.telefono}` : ""}`,
+  }));
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

@@ -102,6 +102,56 @@ export const createSeguimiento = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export type SearchClientesPickerParams = { q: string; limit: number };
+
+// Búsqueda server-side por texto (nombre/teléfono), con límite — para los
+// pickers de cliente/propietario en NewVisitaDialog/NewInmuebleDialog.
+// Antes cargaban clientesQueryOpts completo (listClientes(): todos los
+// contactos Cliente/Prospecto, con el motor de matching corriendo fila por
+// fila) al navegador y filtraban/recortaban a 80/30 en memoria — mismo
+// antipatrón que ya resolvió searchInmuebles para el picker de inmuebles
+// del mismo diálogo (auditoría 12 sep 2026). Sin mínimo de caracteres (a
+// diferencia de searchContactos): sin filtro, se listan los más recientes,
+// igual que hace searchInmuebles.
+export const searchClientesPicker = createServerFn({ method: "GET" })
+  .validator((d: Partial<SearchClientesPickerParams>): SearchClientesPickerParams => {
+    const q = typeof d?.q === "string" ? d.q.trim() : "";
+    const limit = Math.min(80, Math.max(1, Number(d?.limit) || 30));
+    return { q, limit };
+  })
+  .handler(
+    async ({ data }): Promise<{ clientes: { id: string; nombre: string; telefono: string }[] }> => {
+      await requirePermission("contacts.read");
+      const supa = getSupa();
+      let query = supa
+        .from("contacts")
+        .select("id, nombre, telefono")
+        .in("ciclo_vida", ["Cliente", "Prospecto"])
+        .order("created_at", { ascending: false })
+        .limit(data.limit);
+
+      if (data.q) {
+        const needle = escapeSearchTerm(data.q);
+        query = query.or(`nombre.ilike.%${needle}%,telefono.ilike.%${needle}%`);
+      }
+
+      const { data: rows, error } = await query;
+      if (error) throw new Error("Error al buscar clientes");
+      const typed = (rows ?? []) as Array<{
+        id: string;
+        nombre: string | null;
+        telefono: string | null;
+      }>;
+      return {
+        clientes: typed.map((r) => ({
+          id: r.id,
+          nombre: r.nombre ?? "",
+          telefono: r.telefono ?? "",
+        })),
+      };
+    },
+  );
+
 export type SearchContactosPayload = { q: string };
 
 export const searchContactos = createServerFn({ method: "GET" })

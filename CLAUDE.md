@@ -126,6 +126,39 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Auditoría estructural, Fase 3 (rendimiento) — 12 sep 2026, parcial:**
+  - **4 roundtrips evitables fusionados con `Promise.all`** (antes: esperar
+    la primera consulta para lanzar la segunda que no dependía de ella):
+    `getInmueble` (ficha de inmueble + propietarios), `getClienteById`
+    (ficha de cliente + propiedades activas para el motor de matching),
+    `listConversacionesIaPage` (query paginada + 4 conteos de pestaña). El
+    4º (`listInmueblesPage`) se resolvió solo al retirar `sectionTotals` en
+    la Fase 1 (ver más abajo) — ya no hacía falta la segunda consulta.
+  - **Dashboard cargaba `listClientes()`/`listLeads()` completos (joins de
+    inmuebles + motor de matching corriendo fila por fila) solo para leer
+    `.length`.** Nueva función ligera `getDashboardContactCounts()` (2
+    `COUNT(*)` exactos) — `clientesQueryOpts`/`leadsQueryOpts` se mantienen
+    intactos para sus otros consumidores (pickers, Kanban de Leads en
+    Contactos), que sí necesitan el detalle completo.
+  - **Pickers de cliente/propietario en `NewVisitaDialog`/`NewInmuebleDialog`
+    cargaban `clientesQueryOpts` completo** y filtraban/recortaban a 80/30
+    en memoria — mismo antipatrón que `searchInmuebles` ya resolvió para el
+    picker de inmuebles del mismo diálogo. Nueva función
+    `searchClientesPicker` (búsqueda server-side por nombre/teléfono, sin
+    mínimo de caracteres, mismo patrón que `searchInmuebles`).
+  - **Sin tocar, fuera de esta fase:** la pestaña "Leads" de Contactos
+    (`leadsQueryOpts`) sigue cargando todos los Leads sin paginar — a
+    diferencia del Dashboard, ahí el detalle completo sí se usa (tarjetas
+    del Kanban), así que no es un simple "sustituir por conteo": paginar un
+    Kanban es un cambio de UX, no un fix mecánico, queda pendiente de
+    decisión. El motor de matching triplicado en `clientes.functions.ts`
+    (listClientes/listLeads/getClienteById) tampoco se tocó en esta pasada.
+    El "Bandeja: total/tabCounts no coinciden con las filas mostradas"
+    (filtro de Idealista aplicado post-fetch, no en el `count`) sigue
+    abierto — se dejó pasar al fusionar el roundtrip de
+    `listConversacionesIaPage` para no mezclar el fix de rendimiento con
+    uno de corrección de datos.
+
 - **Auditoría estructural, Fase 2 (búsqueda + accesibilidad) — 12 sep 2026:**
   - **Búsqueda unificada:** existían dos funciones de escape incompletas
     (`escapeLike` en inmuebles.functions.ts, `escapeLikeCliente` en

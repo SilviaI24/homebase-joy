@@ -497,24 +497,25 @@ export const getInmueble = createServerFn({ method: "GET" })
     await requirePermissions("contacts.read", "contact_roles.read", "properties.read");
     const supa = getSupa();
 
-    const { data: row, error } = await supa
-      .from("properties")
-      .select("*, agents(id, nombre, email)")
-      .eq("id", data.id)
-      .single();
+    // Las dos consultas son independientes (la de roles solo necesita
+    // data.id) — en paralelo en vez de esperar la primera para lanzar la
+    // segunda (auditoría 12 sep 2026, ahorra un roundtrip en cada apertura
+    // de ficha).
+    const [{ data: row, error }, { data: roles }] = await Promise.all([
+      supa.from("properties").select("*, agents(id, nombre, email)").eq("id", data.id).single(),
+      // Contactos "dueños" del inmueble vía contact_roles: Propietario
+      // (venta) y Arrendador (alquiler) se tratan como equivalentes en el
+      // resto del código (deriveSegmento, listProspectos, listClientesPage)
+      // — antes este filtro solo pedía "Propietario", así que la ficha de
+      // un inmueble en alquiler nunca mostraba a su dueño.
+      supa
+        .from("contact_roles")
+        .select("contacts(id, nombre, telefono, email)")
+        .eq("property_id", data.id)
+        .in("tipo", ["Propietario", "Arrendador"]),
+    ]);
 
     if (error) throw new Error(error.message);
-
-    // Contactos "dueños" del inmueble vía contact_roles: Propietario (venta) y
-    // Arrendador (alquiler) se tratan como equivalentes en el resto del código
-    // (deriveSegmento, listProspectos, listClientesPage) — antes este filtro
-    // solo pedía "Propietario", así que la ficha de un inmueble en alquiler
-    // (rol "Arrendador") nunca mostraba a su dueño (auditoría 12 sep 2026).
-    const { data: roles } = await supa
-      .from("contact_roles")
-      .select("contacts(id, nombre, telefono, email)")
-      .eq("property_id", data.id)
-      .in("tipo", ["Propietario", "Arrendador"]);
 
     const roleRows = (roles ?? []) as unknown as Array<{
       contacts: { id: string; nombre: string; telefono: string; email: string } | null;

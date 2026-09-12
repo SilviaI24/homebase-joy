@@ -18,11 +18,13 @@ import {
   getClientesStats,
   getClienteById,
   listContactosPage,
+  getDashboardContactCounts,
 } from "@/lib/clientes.functions";
 import { listConversacionesIaPage } from "@/lib/clientes-conversaciones.functions";
 import { listVisitas } from "@/lib/visitas.functions";
 import { getNotifications } from "@/lib/notifications.functions";
-import { listSeguimientos } from "@/lib/seguimiento.functions";
+import { listSeguimientos, searchClientesPicker } from "@/lib/seguimiento.functions";
+import type { SearchClientesPickerParams } from "@/lib/seguimiento.functions";
 import { listOperaciones } from "@/lib/operaciones.functions";
 import { getStatsData } from "@/lib/clientes.functions";
 import { getMyRole } from "@/lib/role.functions";
@@ -76,6 +78,17 @@ export function searchInmueblesQuery(params: Partial<SearchInmueblesParams>) {
   });
 }
 
+/** Búsqueda server-side de clientes por texto (nombre/teléfono), con límite —
+ * picker de cliente/propietario en NewVisitaDialog/NewInmuebleDialog. */
+export function searchClientesPickerQuery(params: Partial<SearchClientesPickerParams>) {
+  return queryOptions({
+    queryKey: ["clientes-picker-search", params],
+    queryFn: () => searchClientesPicker({ data: params }),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
 export const clientesQueryOpts = queryOptions({
   queryKey: ["clientes"],
   queryFn: () => listClientes(),
@@ -86,6 +99,13 @@ export const clientesQueryOpts = queryOptions({
 export const leadsQueryOpts = queryOptions({
   queryKey: ["leads"],
   queryFn: () => listLeads(),
+  staleTime: 5 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
+});
+
+export const dashboardContactCountsQuery = queryOptions({
+  queryKey: ["dashboard-contact-counts"],
+  queryFn: () => getDashboardContactCounts(),
   staleTime: 5 * 60 * 1000,
   gcTime: 30 * 60 * 1000,
 });
