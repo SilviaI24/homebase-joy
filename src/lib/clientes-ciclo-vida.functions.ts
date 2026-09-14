@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSupa } from "./supabase.server";
-import { requirePermission, requirePermissions } from "@/lib/crm-auth.server";
+import { requirePermission } from "@/lib/crm-auth.server";
 import { ETAPAS } from "@/lib/clientes.functions";
 
 // ── Delete ────────────────────────────────────────────────────────────────────
@@ -81,34 +81,12 @@ export const restaurarContactoDeHistorico = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const gestionarRol = createServerFn({ method: "POST" })
-  .validator((d: { contactId: string; propertyId: string; tipo: string | null }) => {
-    if (!d?.contactId || !d?.propertyId) throw new Error("contactId y propertyId requeridos");
-    if (
-      d.tipo !== null &&
-      !["Propietario", "Arrendador", "Comprador", "Inquilino"].includes(d.tipo)
-    ) {
-      throw new Error("Tipo de relación inválido");
-    }
-    return d;
-  })
-  .handler(async ({ data }) => {
-    const { crm } = await requirePermissions(
-      "contact_roles.create",
-      "contact_roles.update",
-      "properties.read",
-    );
-    if (data.tipo === null) await requirePermission("contact_roles.delete");
-    const supa = getSupa();
-    // H-05: vía RPC (crea/actualiza/borra el rol y recalcula ciclo_vida, todo
-    // en la misma transacción) para que el actor real quede en
-    // audit_log.usuario_id — antes eran 4 llamadas .from() sueltas.
-    const { error } = await supa.rpc("crm_gestionar_rol", {
-      p_contact_id: data.contactId,
-      p_property_id: data.propertyId,
-      p_tipo: data.tipo,
-      p_actor_id: crm.userId,
-    });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
+// gestionarRol (crear/actualizar/borrar un rol contacto↔inmueble vía el RPC
+// crm_gestionar_rol) se retiró el 14 sep 2026 — nunca tuvo consumidor en la
+// UI (confirmado por grep) y el caso real de uso, crear el rol al asociar un
+// contacto a un inmueble, ya lo cubre asociarLeadAInmueble
+// (mutations-seguimiento.functions.ts). Decisión de David: no se deja como
+// código a la espera de una UI futura ("sólida pero sencilla, sin
+// evolutivos") — si en el futuro hace falta editar o quitar un rol ya
+// asignado, se construye entonces. El RPC crm_gestionar_rol en la base de
+// datos no se tocó (retirarlo es un cambio de esquema aparte).
