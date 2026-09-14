@@ -555,10 +555,21 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   carbón son valores fijos que no cambian con el tema (decisión de diseño ya
   aprobada) — no compete a este fix. No verificado visualmente en la app
   real (requiere login) — solo por cálculo WCAG + tsc/eslint/tests/build.
-  **El icono dorado (`--gold`, 2.96:1) sigue sin resolver** — es un token
-  distinto, usado en decenas de sitios más (AppShell, KpiCard, gráficos,
-  StatusBadge) con su propio contraste ya afinado ahí; oscurecerlo de raíz
-  como se hizo con `--warning` no se ha decidido todavía.
+  **14 sep 2026 — icono dorado (`--gold`) también resuelto de raíz:** mismo
+  patrón que `--warning` — no era solo el icono de este panel, el mismo
+  `bg-gold/15 text-gold` fallaba en `StatusBadge`, el contador de KPI de
+  `DashboardPanels` y `permisos.index.tsx` (2.53-2.88:1 sobre marfil/card).
+  Oscurecido `oklch(0.65 0.18 52)` → `oklch(0.58 0.18 52)`: icono vs marfil
+  3.93:1 (antes 2.96), badge-tint vs marfil/card 3.25/3.71:1 (antes
+  2.53/2.88), KPIs grandes vs card 4.55:1 (antes 3.43). El texto de
+  navegación sobre `--sidebar` (fondo oscuro fijo) baja de 5.90 a 4.45:1 —
+  sigue sobrando con margen. `--ring` no se toca aunque hoy comparte el
+  mismo valor literal — token distinto (anillo de foco), fuera de esta
+  auditoría. Modo oscuro sin tocar, ya pasaba (6.4-6.7:1). Mismo gap
+  conocido que `--warning`: en tema oscuro, `--gold` sobre `--marfil` (fijo)
+  queda en 2.64:1 — consecuencia de la decisión ya aprobada de que
+  marfil/carbón no cambian con el tema. No verificado visualmente en la app
+  real (requiere login) — solo por cálculo WCAG + tsc/eslint/tests/build.
   Sigue abierto: tipografía de marca (más allá de Space Grotesk/DM Sans ya
   en uso) y el tamaño de letra de 9-11px en varias pantallas (40 archivos,
   294 ocurrencias confirmado por auditoría 14 sep 2026 — antes solo una
