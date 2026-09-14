@@ -14,12 +14,10 @@ export type CreateVisitaPayload = {
   agentesIds?: string[];
 };
 
-// Nota: idéntico a ESTADO_IN_MAP_UPDATE de abajo (usado por updateVisitaEstado)
-// -- son solo la validación de "estado de visita permitido", duplicada en el
-// archivo original antes de esta extracción. No se unifica aquí a propósito
-// (misma cautela que moneyShort en dashboard-format/bandeja-format: no tocar
-// duplicación preexistente sin decidirlo explícitamente).
-const ESTADO_IN_MAP: Record<string, string> = {
+// Validación de "estado de visita permitido", compartida por createVisita y
+// updateVisitaEstado (antes duplicada como ESTADO_IN_MAP/ESTADO_IN_MAP_UPDATE,
+// idénticas byte a byte — unificado 14 sep 2026).
+const ESTADO_VISITA_VALIDOS: Record<string, string> = {
   Programada: "Programada",
   Realizada: "Realizada",
   Cancelada: "Cancelada",
@@ -36,7 +34,7 @@ export const createVisita = createServerFn({ method: "POST" })
     const { crm } = await requirePermission("visits.create");
     const supa = getSupa();
     const estadoRaw = strOpt(data.estado) ?? "Programada";
-    if (!Object.prototype.hasOwnProperty.call(ESTADO_IN_MAP, estadoRaw)) {
+    if (!Object.prototype.hasOwnProperty.call(ESTADO_VISITA_VALIDOS, estadoRaw)) {
       throw new Error("Estado de visita inválido");
     }
     const com = strOpt(data.comentarios);
@@ -56,7 +54,7 @@ export const createVisita = createServerFn({ method: "POST" })
       // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
       const { data: visitaId, error } = await supa.rpc("crm_crear_visita", {
         p_fecha: data.fecha,
-        p_estado: ESTADO_IN_MAP[estadoRaw] ?? "Programada",
+        p_estado: ESTADO_VISITA_VALIDOS[estadoRaw] ?? "Programada",
         p_notas: notas,
         p_property_id: propertyId,
         p_contact_id: contactId,
@@ -69,17 +67,11 @@ export const createVisita = createServerFn({ method: "POST" })
     return { id: ids[0], ids };
   });
 
-const ESTADO_IN_MAP_UPDATE: Record<string, string> = {
-  Programada: "Programada",
-  Realizada: "Realizada",
-  Cancelada: "Cancelada",
-};
-
 export const updateVisitaEstado = createServerFn({ method: "POST" })
   .validator((d: { visitaId: string; estado: string }) => {
     if (!d?.visitaId) throw new Error("visitaId requerido");
     if (!d?.estado) throw new Error("estado requerido");
-    if (!Object.prototype.hasOwnProperty.call(ESTADO_IN_MAP_UPDATE, d.estado)) {
+    if (!Object.prototype.hasOwnProperty.call(ESTADO_VISITA_VALIDOS, d.estado)) {
       throw new Error("Estado de visita inválido");
     }
     return d;
@@ -87,7 +79,7 @@ export const updateVisitaEstado = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { crm } = await requirePermission("visits.update");
     const supa = getSupa();
-    const dbEstado = ESTADO_IN_MAP_UPDATE[data.estado] ?? data.estado;
+    const dbEstado = ESTADO_VISITA_VALIDOS[data.estado] ?? data.estado;
     // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
     const { error } = await supa.rpc("crm_actualizar_visita_estado", {
       p_visita_id: data.visitaId,
