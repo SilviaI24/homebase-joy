@@ -39,7 +39,10 @@ async function fetchAll<T>(table: string, select: string): Promise<T[]> {
   let from = 0;
   const PAGE = 1000;
   while (true) {
-    const { data, error } = await supa.from(table).select(select).range(from, from + PAGE - 1);
+    const { data, error } = await supa
+      .from(table)
+      .select(select)
+      .range(from, from + PAGE - 1);
     if (error) throw new Error(`[${table}] ${error.message}`);
     results.push(...(data as T[]));
     if ((data?.length ?? 0) < PAGE) break;
@@ -50,17 +53,15 @@ async function fetchAll<T>(table: string, select: string): Promise<T[]> {
 
 async function main() {
   console.log("Fetching contacts...");
-  const contacts = await fetchAll<{ id: string; ciclo_vida: string }>(
-    "contacts",
-    "id, ciclo_vida"
-  );
+  const contacts = await fetchAll<{ id: string; ciclo_vida: string }>("contacts", "id, ciclo_vida");
   console.log(`  ${contacts.length} contacts`);
 
   console.log("Fetching contact_roles with property statuses...");
-  const roles = await fetchAll<{ contact_id: string; property_id: string | null; properties: { estatus: string } | null }>(
-    "contact_roles",
-    "contact_id, property_id, properties(estatus)"
-  );
+  const roles = await fetchAll<{
+    contact_id: string;
+    property_id: string | null;
+    properties: { estatus: string } | null;
+  }>("contact_roles", "contact_id, property_id, properties(estatus)");
   console.log(`  ${roles.length} roles`);
 
   // Build map: contact_id → array of property statuses
@@ -124,4 +125,7 @@ async function main() {
   console.log(`\nDone. Updated ${done}/${updates.length} contacts.`);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

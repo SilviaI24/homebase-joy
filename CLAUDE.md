@@ -142,6 +142,25 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   `web-lead`/`valorador`) — nada en `src/`, el cierre de H-07 del 24 ago
   nunca cubrió ese directorio. tsc limpio, 80/80 tests tras el fix de
   `eslint.config.js`.
+  **Deuda cerrada del todo, mismo 14 sep 2026 — 320→0 errores:** los 299 de
+  formato con `npx eslint . --fix` (verificado con diff que solo tocaba
+  espaciado/saltos de línea — reflow de expresiones largas al ancho de
+  prettier, sin cambio de tokens — en 8 archivos: los 5 scripts de
+  `scripts-riesgo-alto/` + `web-lead`/`valorador`). Los 21
+  `no-explicit-any` — todos en el helper de paginación de Airtable
+  (`fetchAll`/`fetchAirtable`/`fetchAllAirtable`, repetido en los 5
+  scripts de `scripts-riesgo-alto/`) y en los arrays de filas a
+  insertar/upsertar de `fix-fk-links.ts`/`migrate-from-airtable.ts` —
+  tipados con el mismo criterio que H-07 (forma real del dato, nunca
+  `any` ciego): nuevo tipo `AirtableRecord = { id, fields: Record<string,
+  unknown> }` por script (se mantiene la duplicación deliberada de estos
+  scripts archivados, sin extraer a un módulo compartido), y un cast `as
+  string` explícito en los 3 sitios que hacían `new Date(f["..."])`
+  directamente sobre un campo de fecha de Airtable. Sin cambio de
+  comportamiento. Quedan los 9 warnings preexistentes de
+  `react-refresh/only-export-components` (patrón shadcn/ui, no un bug,
+  ya señalado en el cierre de H-07). tsc limpio, eslint 0 errores, 80/80
+  tests, build OK.
 - **Panel "Leads recientes sin asignar" en el Dashboard, 12 sep 2026:**
   Complemento del punto anterior (Kanban de Leads por agente): David pidió
   poder notar un lead nuevo sin asignar en el día a día, sin mezclarlo con

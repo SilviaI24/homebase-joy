@@ -46,7 +46,14 @@ function json(body: unknown, status = 200) {
 
 function num(v: unknown): number | null {
   if (v == null || v === "") return null;
-  const n = typeof v === "number" ? v : Number(String(v).replace(/[^\d.,-]/g, "").replace(",", "."));
+  const n =
+    typeof v === "number"
+      ? v
+      : Number(
+          String(v)
+            .replace(/[^\d.,-]/g, "")
+            .replace(",", "."),
+        );
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
@@ -120,32 +127,37 @@ Deno.serve(async (req) => {
       : str(orientacionRaw);
 
     const property = {
-      calle:               pick(body["Calle"],               body.calle),
-      numero:              pick(body["Numero"],              body["Número"],    body.numero)              || "",
-      barrio:              pick(body["Barrio"],              body.barrio)                                 || "",
-      localidad:           pick(body["Localidad"],           body.localidad)                              || "",
-      tipo:                pick(body["Tipo de inmueble (desplegable)"], body["Tipo de inmueble"], body.tipo) || "Piso",
-      metros_construidos:  num(body["Superficie"]            ?? body.superficie),
-      habitaciones:        num(body["Habitaciones / dormitorios"] ?? body["Habitaciones"] ?? body.habitaciones),
-      banos:               num(body["Baño"]                  ?? body["Banos"]    ?? body.banos),
-      piso:                pick(body["Planta"],              body.piso,         body.planta)              || "",
-      garaje:              pick(body["Garaje"],              body.garaje)                                 || "",
-      ascensor:            pick(body["Ascensor"],            body.ascensor)                               || "",
-      trastero:            pick(body["Trastero"],            body.trastero)                                || "",
-      terraza:             pick(body["Terraza"],             body.terraza)                                || "",
-      balcon:              pick(body["Balcon"]               ?? body["Balcón"]   ?? body.balcon)          || "",
-      armarios_empotrados: pick(body["Armarios empotrados"], body.armarios_empotrados)                    || "",
-      estado:              pick(body["Estado"],              body.estado)                                 || "",
-      ano_construccion:    pick(body["Año de construcción"]  ?? body["Año de construccion"] ?? body.ano_construccion) || "",
-      precio:              num(body["Precio"]                ?? body.precio),
-      orientacion:         orientacion                                                                    || "",
-      descripcion:         pick(body["Descripción"]          ?? body["Descripcion"] ?? body.descripcion)  || "",
+      calle: pick(body["Calle"], body.calle),
+      numero: pick(body["Numero"], body["Número"], body.numero) || "",
+      barrio: pick(body["Barrio"], body.barrio) || "",
+      localidad: pick(body["Localidad"], body.localidad) || "",
+      tipo:
+        pick(body["Tipo de inmueble (desplegable)"], body["Tipo de inmueble"], body.tipo) || "Piso",
+      metros_construidos: num(body["Superficie"] ?? body.superficie),
+      habitaciones: num(
+        body["Habitaciones / dormitorios"] ?? body["Habitaciones"] ?? body.habitaciones,
+      ),
+      banos: num(body["Baño"] ?? body["Banos"] ?? body.banos),
+      piso: pick(body["Planta"], body.piso, body.planta) || "",
+      garaje: pick(body["Garaje"], body.garaje) || "",
+      ascensor: pick(body["Ascensor"], body.ascensor) || "",
+      trastero: pick(body["Trastero"], body.trastero) || "",
+      terraza: pick(body["Terraza"], body.terraza) || "",
+      balcon: pick(body["Balcon"] ?? body["Balcón"] ?? body.balcon) || "",
+      armarios_empotrados: pick(body["Armarios empotrados"], body.armarios_empotrados) || "",
+      estado: pick(body["Estado"], body.estado) || "",
+      ano_construccion:
+        pick(body["Año de construcción"] ?? body["Año de construccion"] ?? body.ano_construccion) ||
+        "",
+      precio: num(body["Precio"] ?? body.precio),
+      orientacion: orientacion || "",
+      descripcion: pick(body["Descripción"] ?? body["Descripcion"] ?? body.descripcion) || "",
       // Fijos para el valorador: entra como prospecto sin verificar, nunca
       // como listado activo (antes se guardaba como "Activo" por error — un
       // envío del formulario público no debe aparecer como inmueble en venta).
-      estatus:             "Prospección",
-      publicacion:         "PROSPECTO",
-      es_alquiler:         false,
+      estatus: "Prospección",
+      publicacion: "PROSPECTO",
+      es_alquiler: false,
     };
 
     // ── 2. Insertar propiedad ────────────────────────────────────────────────
@@ -159,20 +171,25 @@ Deno.serve(async (req) => {
     propertyId = propRow.id;
 
     // ── 3. Mapear y crear contacto (propietario) ────────────────────────────
-    const nombre   = pick(body["nombre"],   body["Nombre"],   body["Nombre Propietario"]);
+    const nombre = pick(body["nombre"], body["Nombre"], body["Nombre Propietario"]);
     const telefono = pick(body["telefono"], body["Teléfono"], body["Telefono"]);
-    const email    = pick(body["email"],    body["Email"]);
-    const motivo   = pick(body["motivo"],   body["Observaciones"], body.observaciones, "Valoración de inmueble");
+    const email = pick(body["email"], body["Email"]);
+    const motivo = pick(
+      body["motivo"],
+      body["Observaciones"],
+      body.observaciones,
+      "Valoración de inmueble",
+    );
 
     if (nombre || telefono || email) {
       const { data: contactRow, error: contactErr } = await supa
         .from("contacts")
         .insert({
-          nombre:       nombre   || "Sin nombre",
-          telefono:     telefono || "",
-          email:        email    || "",
-          motivo:       motivo,
-          ciclo_vida:   "Prospecto",
+          nombre: nombre || "Sin nombre",
+          telefono: telefono || "",
+          email: email || "",
+          motivo: motivo,
+          ciclo_vida: "Prospecto",
           // Valor válido del CHECK contacts_canal_origen_check — la versión
           // anterior usaba "Valorador-Web", que no existe en el constraint y
           // hacía fallar el alta del contacto (el inmueble quedaba huérfano).
@@ -186,15 +203,14 @@ Deno.serve(async (req) => {
 
       // ── 4. Vincular como Propietario ──────────────────────────────────────
       const { error: roleErr } = await supa.from("contact_roles").insert({
-        contact_id:  contactId,
+        contact_id: contactId,
         property_id: propertyId,
-        tipo:        "Propietario",
+        tipo: "Propietario",
       });
       if (roleErr) throw new Error(`contact_roles: ${roleErr.message}`);
     }
 
     return json({ ok: true, property_id: propertyId, contact_id: contactId }, 201);
-
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[valorador]", msg);
