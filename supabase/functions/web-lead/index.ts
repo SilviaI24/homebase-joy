@@ -14,6 +14,16 @@ function json(data: unknown, status = 200) {
   });
 }
 
+// Misma lógica que escapeSearchTerm() en src/lib/format.ts (no importable aquí:
+// runtime Deno separado del bundle de la app). "," y "(" ")" son caracteres
+// estructurales del parser .or()/.filter() de PostgREST — un teléfono con
+// formato "+34 (912) 345 678" o un email con una coma rompían el filtro y
+// devolvían 400, que esta función no distinguía de otros errores y respondía
+// como 500 genérico. No es un ilike, así que no hace falta escapar %/_.
+function escapeSearchTerm(str: string): string {
+  return str.trim().replace(/[,()]/g, " ").replace(/\s+/g, " ");
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -56,10 +66,12 @@ Deno.serve(async (req: Request) => {
     const rolTipo = prop.es_alquiler ? "Inquilino" : "Comprador";
 
     // 2. Buscar contacto existente por email o teléfono
+    const emailSafe = escapeSearchTerm(email);
+    const telefonoSafe = escapeSearchTerm(telefono);
     const { data: existing } = await supabase
       .from("contacts")
       .select("id")
-      .or(`email.eq.${email},telefono.eq.${telefono}`)
+      .or(`email.eq.${emailSafe},telefono.eq.${telefonoSafe}`)
       .limit(1)
       .maybeSingle();
 

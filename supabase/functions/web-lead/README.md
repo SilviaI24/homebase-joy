@@ -63,3 +63,19 @@ fecha (violación del CHECK al insertar en `contact_roles`). Reportado por la
 agencia que gestiona la web el 11 sep 2026. Corregido mapeando
 `es_alquiler ? "Inquilino" : "Comprador"` — el mismo mapeo que ya usó esa
 migración para normalizar las filas legacy.
+
+## Bug corregido (14 sep 2026)
+
+La agencia reportó 500 seguidos en la última semana de logs pese al fix del
+11 sep. Causa distinta: la búsqueda de contacto existente
+(`.or('email.eq.${email},telefono.eq.${telefono}')`) interpolaba los valores
+del formulario sin escapar dentro de un filtro `.or()` de PostgREST. `,` y
+`(`/`)` son caracteres estructurales de ese parser — un teléfono con formato
+`+34 (912) 345 678`, o un email con una coma, rompían el filtro y PostgREST
+devolvía 400, indistinguible aquí de cualquier otro error y respondido como
+500 genérico. Mismo patrón de bug que la "búsqueda unificada" corregida el 12
+sep en 5 puntos de `src/` (`escapeSearchTerm()` en `src/lib/format.ts`) — esa
+pasada no llegó a `supabase/functions/` porque no era su alcance. Corregido
+con la misma lógica (`,`/`(`/`)` → espacio), reimplementada localmente porque
+esta función corre en un runtime Deno separado del bundle de la app y no
+puede importar de `src/lib`.
