@@ -96,7 +96,29 @@
   --border: oklch(0.912 0.005 80);
   --input: oklch(0.912 0.005 80);
   --ring: oklch(0.65 0.18 52);
-  --gold: oklch(0.65 0.18 52);
+  /* --gold oscurecido de L=0.65 a L=0.58 el 14 sep 2026 (mismo tipo de
+     auditoría que --warning, ver ese comentario más abajo): el icono Flame
+     de LeadsCalientesPanel (text-[var(--gold)] sobre --marfil) daba 2.96:1,
+     y el mismo patrón bg-gold/15 text-gold (StatusBadge "Cliente", contador
+     de KPI en DashboardPanels, badges en permisos.index.tsx) daba 2.53-2.88:1
+     sobre marfil/card -- ambos por debajo del mínimo de UI no textual (3:1).
+     A L=0.58: icono vs marfil 3.93:1 (antes 2.96), badge-tint vs marfil
+     3.25:1 y vs card 3.71:1 (antes 2.53/2.88), texto grande (KPIs) vs card
+     4.55:1 (antes 3.43).
+     --gold también es texto de navegación sobre --sidebar (fondo oscuro casi
+     negro, fijo): ahí bajar la luminosidad reduce el contraste en vez de
+     subirlo -- de 5.90:1 a 4.45:1, sigue sobrando con margen. Igual con
+     bg-gold sólido + --gold-foreground (badges, AppShell): de 5.78:1 a
+     4.36:1, también con margen sobre el mínimo de UI/large-text.
+     --ring no se toca aunque comparte hoy el mismo valor literal: es un
+     token distinto (anillo de foco), no un consumidor de marca reportado
+     en esta auditoría.
+     Modo oscuro sin tocar: ya daba 6.4-6.7:1 contra sus propios fondos. Mismo
+     gap conocido que --warning: en tema oscuro, --gold sobre --marfil (fijo)
+     queda en 2.64:1 -- consecuencia de que marfil/carbón no cambian con el
+     tema, no compete a este fix. No verificado visualmente en la app real
+     (requiere login) -- solo por cálculo WCAG + tsc/eslint/tests/build. */
+  --gold: oklch(0.58 0.18 52);
   --gold-foreground: oklch(0.14 0.025 165);
   --cream: oklch(0.97 0.008 80);
 
