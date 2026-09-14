@@ -37,7 +37,7 @@ export function HeroImagePanel({
         {/* Top chips */}
         <div className="absolute inset-x-0 top-0 p-4 flex items-start justify-between pointer-events-none">
           <span
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold shadow-sm ${statusTint(
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-semibold shadow-sm ${statusTint(
               inmueble.estatus,
             )}`}
           >
@@ -45,7 +45,7 @@ export function HeroImagePanel({
             {inmueble.estatus || "—"}
           </span>
           {inmueble.ref && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold bg-background text-foreground border border-border/60 px-2 py-1 rounded-full shadow-sm">
+            <span className="inline-flex items-center gap-1 text-xs font-mono font-semibold bg-background text-foreground border border-border/60 px-2.5 py-1.5 rounded-full shadow-sm">
               <Hash className="size-3" />
               {cleanRef(inmueble.ref)}
             </span>

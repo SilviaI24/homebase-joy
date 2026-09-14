@@ -210,7 +210,7 @@ function PermissionAdminPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs font-medium">{permission.descripcion}</span>
                           {permission.sensible && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-[9px] font-semibold text-warning">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning">
                               <LockKeyhole className="size-2.5" /> Sensible
                             </span>
                           )}
@@ -220,7 +220,7 @@ function PermissionAdminPage() {
                         </div>
                       </div>
                       <span
-                        className={`w-fit rounded-full px-2 py-0.5 text-[9px] font-semibold ${
+                        className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${
                           effective ? "bg-success/10 text-success" : "bg-red-500/10 text-red-600"
                         }`}
                       >

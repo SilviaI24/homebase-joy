@@ -93,12 +93,12 @@ export function ConversationCard({
               <span className="font-medium text-sm truncate">{c.nombre || "Sin nombre"}</span>
               <CanalChip canal={canal} />
               {isCualified && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-success bg-success/10 px-1.5 py-0.5 rounded">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-success bg-success/10 px-2 py-1 rounded">
                   <UserCheck className="size-3" /> Cualificado
                 </span>
               )}
               {isArchived && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
                   <Archive className="size-3" /> Archivado
                 </span>
               )}
@@ -141,7 +141,7 @@ export function ConversationCard({
           {c.categoria.map((cat) => (
             <span
               key={cat}
-              className="inline-flex items-center gap-1 text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full"
+              className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full"
             >
               <Tag className="size-3" />
               {cat}
@@ -232,7 +232,7 @@ export function ConversationCard({
                     {m.razones.slice(0, 2).map((r, i) => (
                       <span
                         key={i}
-                        className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded"
+                        className="text-xs bg-primary/10 text-primary px-2 py-1 rounded"
                       >
                         {r}
                       </span>
@@ -295,19 +295,19 @@ export function ConversationCard({
               <span className="text-xs text-muted-foreground mr-0.5">¿Tipo?</span>
               <button
                 onClick={() => onRoute("captacion")}
-                className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-info/10 text-info hover:bg-info/20 cursor-pointer transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md bg-info/10 text-info hover:bg-info/20 cursor-pointer transition-colors"
               >
                 <Home className="size-3" /> Vende / valora
               </button>
               <button
                 onClick={() => onRoute("compra")}
-                className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-warning/10 text-warning hover:bg-warning/20 cursor-pointer transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md bg-warning/10 text-warning hover:bg-warning/20 cursor-pointer transition-colors"
               >
                 <Search className="size-3" /> Busca comprar
               </button>
               <button
                 onClick={() => onRoute("alquiler")}
-                className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-brand-green/10 text-brand-green hover:bg-brand-green/20 cursor-pointer transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md bg-brand-green/10 text-brand-green hover:bg-brand-green/20 cursor-pointer transition-colors"
               >
                 <KeyRound className="size-3" /> Busca alquilar
               </button>
@@ -323,7 +323,7 @@ export function ConversationCard({
             !isCualified && (
               <button
                 onClick={onStartRouting}
-                className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-success/10 text-success hover:bg-success/20 cursor-pointer transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-md bg-success/10 text-success hover:bg-success/20 cursor-pointer transition-colors"
               >
                 <UserCheck className="size-3" /> Cualificar
               </button>
@@ -336,7 +336,7 @@ export function ConversationCard({
           {canal === "WhatsApp" && c.telefono && (
             <button
               onClick={onToggleReply}
-              className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm active:scale-95"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg transition-all cursor-pointer shadow-sm active:scale-95"
               style={
                 replyOpenActive
                   ? {
@@ -358,7 +358,7 @@ export function ConversationCard({
           {c.etapa === "Lead" && !isArchived && (
             <button
               onClick={onArchivar}
-              className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
             >
               <Archive className="size-3" /> Archivar
             </button>

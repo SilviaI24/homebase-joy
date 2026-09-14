@@ -193,7 +193,7 @@ function SeguimientoPage() {
           <button
             key={t}
             onClick={() => setTipoFilter(t as SeguimientoTipo | "Todos")}
-            className={`px-3 py-1 rounded-full text-[11px] font-medium border transition-all ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
               tipoFilter === t
                 ? "bg-primary text-primary-foreground border-transparent"
                 : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-border/80"
@@ -273,7 +273,7 @@ function SeguimientoPage() {
                     key={t}
                     type="button"
                     onClick={() => setFormTipo(t)}
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+                    className={`px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all ${
                       formTipo === t
                         ? "bg-primary text-primary-foreground border-transparent"
                         : "bg-background border-border text-muted-foreground hover:text-foreground"

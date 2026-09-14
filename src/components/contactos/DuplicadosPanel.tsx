@@ -80,7 +80,7 @@ function GrupoDuplicadoCard({ grupo }: { grupo: GrupoDuplicado }) {
             </span>
             <span className="text-muted-foreground/70">{c.cicloVida}</span>
             {c.tieneActividad && (
-              <span className="rounded-full bg-info/10 text-info px-1.5 py-0.5 text-[9px] font-semibold">
+              <span className="rounded-full bg-info/10 text-info px-2 py-1 text-xs font-semibold">
                 con historial
               </span>
             )}

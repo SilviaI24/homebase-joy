@@ -48,7 +48,7 @@ export function AsignarLeadButton({
     setSelected((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   }
 
-  const sizeCls = size === "xs" ? "text-[10px] px-2 py-0.5" : "text-[11px] font-medium px-2.5 py-1";
+  const sizeCls = size === "xs" ? "text-xs px-2.5 py-1" : "text-xs font-medium px-2.5 py-1.5";
 
   return (
     <Popover
@@ -124,7 +124,7 @@ export function AsignarLeadButton({
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="text-[11px] px-2 py-1 rounded-md hover:bg-muted text-muted-foreground"
+              className="text-xs px-2.5 py-1.5 rounded-md hover:bg-muted text-muted-foreground"
             >
               Cancelar
             </button>
@@ -132,7 +132,7 @@ export function AsignarLeadButton({
               type="button"
               disabled={mut.isPending}
               onClick={() => mut.mutate(selected)}
-              className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 cursor-pointer disabled:opacity-60"
+              className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-90 cursor-pointer disabled:opacity-60"
             >
               {mut.isPending && <Loader2 className="size-3 animate-spin" />}
               Guardar

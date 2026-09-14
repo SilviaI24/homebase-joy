@@ -227,7 +227,7 @@ function OperacionesPage() {
             <button
               key={e}
               onClick={() => setEstadoFilter(e as OperacionEstado | "Todas")}
-              className={`px-3 py-1 rounded-full text-[11px] font-medium border transition-all ${
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                 estadoFilter === e
                   ? "bg-primary text-primary-foreground border-transparent"
                   : "bg-card border-border text-muted-foreground hover:text-foreground"
@@ -241,7 +241,7 @@ function OperacionesPage() {
             <button
               key={t}
               onClick={() => setTipoFilter(t as OperacionTipo | "Todos")}
-              className={`px-3 py-1 rounded-full text-[11px] font-medium border transition-all ${
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                 tipoFilter === t
                   ? "bg-foreground text-background border-transparent"
                   : "bg-card border-border text-muted-foreground hover:text-foreground"
@@ -278,7 +278,7 @@ function OperacionesPage() {
                     key={t}
                     type="button"
                     onClick={() => setFTipo(t)}
-                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${fTipo === t ? "bg-primary text-primary-foreground border-transparent" : "bg-background border-border text-muted-foreground hover:text-foreground"}`}
+                    className={`px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all ${fTipo === t ? "bg-primary text-primary-foreground border-transparent" : "bg-background border-border text-muted-foreground hover:text-foreground"}`}
                   >
                     {t}
                   </button>

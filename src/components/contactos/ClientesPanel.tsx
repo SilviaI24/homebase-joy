@@ -59,7 +59,7 @@ export function ClienteRow({ c, onClick }: { c: ClienteRowType; onClick: () => v
       </td>
       <td className="py-3 px-2">
         <span
-          className={`inline-flex items-center gap-1 text-[10px] border rounded-full px-2 py-0.5 font-medium ${segCfg.chip}`}
+          className={`inline-flex items-center gap-1 text-xs border rounded-full px-2.5 py-1 font-medium ${segCfg.chip}`}
         >
           <Icon className="size-3" />
           {segCfg.label.replace("s", "")}
@@ -71,7 +71,7 @@ export function ClienteRow({ c, onClick }: { c: ClienteRowType; onClick: () => v
       <td className="py-3 pl-2 pr-4 text-right">
         <div className="flex items-center justify-end gap-1.5">
           {c.inmueblesActivosCount > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+            <span className="inline-flex items-center gap-0.5 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
               <Building2 className="size-2.5" />
               {c.inmueblesActivosCount}
             </span>
@@ -121,7 +121,7 @@ export function ClienteDetallePanel({ id }: { id: string }) {
           <div className="text-base font-semibold">{cliente.nombre || "Sin nombre"}</div>
           <div className="flex items-center gap-2 mt-1">
             <span
-              className={`inline-flex items-center gap-1 text-[11px] border rounded-full px-2 py-0.5 font-medium ${segCfg.chip}`}
+              className={`inline-flex items-center gap-1 text-xs border rounded-full px-2.5 py-1 font-medium ${segCfg.chip}`}
             >
               <segCfg.icon className="size-3" />
               {segCfg.label.replace("s", "")}

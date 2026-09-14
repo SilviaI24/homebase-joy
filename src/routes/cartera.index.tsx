@@ -279,7 +279,7 @@ function CaptacionTab() {
               <Icon className="size-4" />
               {meta.label}
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
+                className={`text-xs px-2 py-1 rounded-full font-mono ${
                   active ? meta.badgeActive : "bg-muted text-muted-foreground"
                 }`}
               >
@@ -482,7 +482,7 @@ function CaptacionTab() {
                   <td className="py-3 pl-2 pr-4 text-right">
                     <button
                       onClick={() => activar(p.id)}
-                      className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md bg-success/10 text-success hover:bg-success/20 transition-colors"
+                      className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md bg-success/10 text-success hover:bg-success/20 transition-colors"
                     >
                       <CheckCircle2 className="size-3" /> Activar
                     </button>

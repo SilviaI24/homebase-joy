@@ -58,7 +58,7 @@ export function AsociarInmuebleButton({ contactId }: { contactId: string }) {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-violet-500/10 text-violet-700 dark:text-violet-400 hover:bg-violet-500/20 cursor-pointer transition-colors"
+          className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md bg-violet-500/10 text-violet-700 dark:text-violet-400 hover:bg-violet-500/20 cursor-pointer transition-colors"
         >
           <Link2 className="size-3" /> Asociar inmueble
         </button>
@@ -73,7 +73,7 @@ export function AsociarInmuebleButton({ contactId }: { contactId: string }) {
                 key={value}
                 type="button"
                 onClick={() => setTipo(value)}
-                className={`flex-1 inline-flex items-center justify-center gap-1 text-[10px] font-medium py-1 rounded border transition-colors ${
+                className={`flex-1 inline-flex items-center justify-center gap-1 text-xs font-medium py-1.5 rounded border transition-colors ${
                   tipo === value
                     ? "bg-primary text-primary-foreground border-primary"
                     : "border-border text-muted-foreground hover:bg-accent"
@@ -140,7 +140,7 @@ export function AsociarInmuebleButton({ contactId }: { contactId: string }) {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="text-[11px] px-2 py-1 rounded-md hover:bg-muted text-muted-foreground"
+              className="text-xs px-2.5 py-1.5 rounded-md hover:bg-muted text-muted-foreground"
             >
               Cancelar
             </button>
@@ -148,7 +148,7 @@ export function AsociarInmuebleButton({ contactId }: { contactId: string }) {
               type="button"
               disabled={!selectedId || mut.isPending}
               onClick={() => mut.mutate()}
-              className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
               {mut.isPending && <Loader2 className="size-3 animate-spin" />}
               Asociar

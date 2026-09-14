@@ -303,7 +303,7 @@ function Dashboard() {
           <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground font-medium mb-4 flex items-center gap-2">
             {myRole.isFinanciero ? "Comisiones este mes" : "Actividad próxima"}
             {myRole.isFinanciero && (
-              <span className="normal-case tracking-normal text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-normal">
+              <span className="normal-case tracking-normal text-xs px-2 py-1 rounded bg-muted text-muted-foreground font-normal">
                 est.
               </span>
             )}
@@ -674,7 +674,7 @@ function Dashboard() {
           </span>
           <span className="flex-1 h-px bg-border" />
           {myRole.isFinanciero && (
-            <span className="text-[9px] text-success bg-success/10 px-2 py-0.5 rounded-full font-medium">
+            <span className="text-xs text-success bg-success/10 px-2.5 py-1 rounded-full font-medium">
               Vista financiera
             </span>
           )}
@@ -891,7 +891,7 @@ function Dashboard() {
                       key={a.nombre}
                       className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border"
                     >
-                      <div className="size-8 rounded-full grid place-items-center text-[11px] font-bold border border-border bg-card shrink-0">
+                      <div className="size-9 rounded-full grid place-items-center text-xs font-bold border border-border bg-card shrink-0">
                         {a.nombre.slice(0, 1).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">

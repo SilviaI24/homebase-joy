@@ -285,7 +285,7 @@ function LeadsTab() {
             <button
               key={k}
               onClick={() => setOrigenFilter(k as string)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors cursor-pointer ${active ? (meta ? meta.cls : "bg-foreground text-background border-foreground") : "bg-card border-border text-muted-foreground hover:text-foreground"}`}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors cursor-pointer ${active ? (meta ? meta.cls : "bg-foreground text-background border-foreground") : "bg-card border-border text-muted-foreground hover:text-foreground"}`}
             >
               {meta && <meta.icon className="size-3" />}
               {meta ? meta.label : k}
@@ -567,7 +567,7 @@ function SimpleContactsTab({ etapa }: { etapa: string }) {
                       </td>
                       <td className="py-3 px-2">
                         <span
-                          className={`inline-flex items-center gap-1 text-[10px] border rounded-full px-2 py-0.5 font-medium ${segCfg.chip}`}
+                          className={`inline-flex items-center gap-1 text-xs border rounded-full px-2.5 py-1 font-medium ${segCfg.chip}`}
                         >
                           <Icon className="size-3" />
                           {segCfg.label.replace("s", "")}

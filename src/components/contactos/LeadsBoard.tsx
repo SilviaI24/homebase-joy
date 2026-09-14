@@ -88,7 +88,7 @@ export function KanbanCard({
               {cliente.nombre || "Sin nombre"}
             </span>
             <span
-              className={`inline-flex items-center gap-0.5 text-[10px] border rounded-full px-1.5 py-0.5 font-medium ${meta.cls}`}
+              className={`inline-flex items-center gap-0.5 text-xs border rounded-full px-2 py-1 font-medium ${meta.cls}`}
             >
               <meta.icon className="size-2.5" />
               {meta.label}
@@ -119,7 +119,7 @@ export function KanbanCard({
           trigger={
             <button
               type="button"
-              className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-muted transition-colors"
+              className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted transition-colors"
             >
               <CalendarPlus className="size-3" /> Visita
             </button>
@@ -129,7 +129,7 @@ export function KanbanCard({
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-muted transition-colors"
+              className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted transition-colors"
             >
               <StickyNote className="size-3" /> Nota
             </button>
@@ -303,7 +303,7 @@ export function LeadCard({ cliente, estado }: { cliente: Cliente; estado: Estado
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm">{cliente.nombre || "Sin nombre"}</span>
             <span
-              className={`inline-flex items-center gap-1 text-[10px] border rounded-full px-2 py-0.5 font-medium ${meta.cls}`}
+              className={`inline-flex items-center gap-1 text-xs border rounded-full px-2.5 py-1 font-medium ${meta.cls}`}
             >
               <meta.icon className="size-2.5" />
               {meta.label}
@@ -311,7 +311,7 @@ export function LeadCard({ cliente, estado }: { cliente: Cliente; estado: Estado
             {cliente.categoria.map((cat) => (
               <span
                 key={cat}
-                className="inline-flex items-center gap-0.5 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full"
+                className="inline-flex items-center gap-0.5 text-xs bg-primary/10 text-primary px-2 py-1 rounded-full"
               >
                 <Tag className="size-2.5" />
                 {cat}
@@ -367,7 +367,7 @@ export function LeadCard({ cliente, estado }: { cliente: Cliente; estado: Estado
           trigger={
             <button
               type="button"
-              className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+              className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
             >
               <CalendarPlus className="size-3" /> Visita
             </button>

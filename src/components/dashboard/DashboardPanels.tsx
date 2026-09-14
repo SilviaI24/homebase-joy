@@ -80,11 +80,11 @@ export function DepartamentosPanel({
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span className="text-xs font-medium truncate">{d.display}</span>
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded bg-gold/15 text-gold text-[10px] font-bold tabular-nums">
+                  <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded bg-gold/15 text-gold text-xs font-bold tabular-nums">
                     {d.captaciones}
                   </span>
                   {d.ventas > 0 && (
-                    <span className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded bg-success/10 text-success text-[10px] font-bold tabular-nums">
+                    <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 rounded bg-success/10 text-success text-xs font-bold tabular-nums">
                       {d.ventas}
                     </span>
                   )}
@@ -175,7 +175,7 @@ export function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: 
                 params={{ id: i.id }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
               >
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-alert/10 text-alert text-[11px] font-bold tabular-nums">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-alert/10 text-alert text-xs font-bold tabular-nums">
                   {dias}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -237,7 +237,7 @@ export function ScoreBadge({ score }: { score: number }) {
         : "bg-muted text-muted-foreground";
   return (
     <span
-      className={`inline-flex items-center justify-center size-8 rounded-lg text-[11px] font-bold tabular-nums shrink-0 ${color}`}
+      className={`inline-flex items-center justify-center size-9 rounded-lg text-xs font-bold tabular-nums shrink-0 ${color}`}
     >
       {pct}
     </span>
@@ -296,7 +296,7 @@ export function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
                   </div>
                 </div>
                 {!lead.tieneAgente && (
-                  <span className="text-[10px] text-warning bg-warning/10 px-1.5 py-0.5 rounded shrink-0">
+                  <span className="text-xs text-warning bg-warning/10 px-2 py-1 rounded shrink-0">
                     Sin asignar
                   </span>
                 )}
@@ -336,7 +336,7 @@ export function SinSeguimientoPanel({ leads }: { leads: LeadInsight[] }) {
                 search={{ id: lead.id }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
               >
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive text-[11px] font-bold tabular-nums">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive text-xs font-bold tabular-nums">
                   {lead.diasSinContacto === null ? "∞" : lead.diasSinContacto}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -346,7 +346,7 @@ export function SinSeguimientoPanel({ leads }: { leads: LeadInsight[] }) {
                   </div>
                 </div>
                 {!lead.tieneAgente && (
-                  <span className="text-[10px] text-warning bg-warning/10 px-1.5 py-0.5 rounded shrink-0">
+                  <span className="text-xs text-warning bg-warning/10 px-2 py-1 rounded shrink-0">
                     Sin asignar
                   </span>
                 )}

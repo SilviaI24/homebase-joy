@@ -364,10 +364,10 @@ function VisitasPage() {
                 className="h-8 pl-7 w-56 text-xs"
               />
             </div>
-            <div className="inline-flex rounded-md border border-border overflow-hidden text-[11px]">
+            <div className="inline-flex rounded-md border border-border overflow-hidden text-xs">
               <button
                 onClick={() => setEstadoFilter(null)}
-                className={`px-2 py-1 transition-colors ${!estadoFilter ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+                className={`px-2.5 py-1.5 transition-colors ${!estadoFilter ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
               >
                 Todas
               </button>
@@ -375,7 +375,7 @@ function VisitasPage() {
                 <button
                   key={e}
                   onClick={() => setEstadoFilter(estadoFilter === e ? null : e)}
-                  className={`px-2 py-1 transition-colors border-l border-border ${estadoFilter === e ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+                  className={`px-2.5 py-1.5 transition-colors border-l border-border ${estadoFilter === e ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
                 >
                   {e}
                 </button>

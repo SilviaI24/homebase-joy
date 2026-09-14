@@ -250,7 +250,7 @@ function VisitaRowHoy({ visita: v }: { visita: VisitaRow }) {
         </span>
       )}
       {!isActive && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0 capitalize">
+        <span className="text-xs px-2 py-1 rounded bg-muted text-muted-foreground shrink-0 capitalize">
           {v.estado === "Realizada" ? "Completada" : "Anulada"}
         </span>
       )}
@@ -351,20 +351,20 @@ export function AgenteCardHub({ card }: { card: AgenteHub }) {
         <div className="grid grid-cols-3 gap-1">
           <Link
             to="/inmuebles"
-            className="flex items-center justify-center gap-1 h-7 rounded-md border border-border text-[11px] font-medium hover:bg-accent transition-colors"
+            className="flex items-center justify-center gap-1 h-8 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
           >
             <Building2 className="size-3" /> Inmuebles
           </Link>
           <Link
             to="/mis-leads"
             search={{ agente: card.id }}
-            className="flex items-center justify-center gap-1 h-7 rounded-md border border-border text-[11px] font-medium hover:bg-accent transition-colors"
+            className="flex items-center justify-center gap-1 h-8 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
           >
             <Users className="size-3" /> Leads
           </Link>
           <Link
             to="/visitas"
-            className="flex items-center justify-center gap-1 h-7 rounded-md border border-border text-[11px] font-medium hover:bg-accent transition-colors"
+            className="flex items-center justify-center gap-1 h-8 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
           >
             <CalendarCheck className="size-3" /> Visitas
           </Link>
@@ -548,7 +548,7 @@ function InmuebleRowAgente({ inmueble: i }: { inmueble: Inmueble }) {
         </span>
       ) : null}
       {isReservado && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/10 text-warning shrink-0">
+        <span className="text-xs px-2 py-1 rounded bg-warning/10 text-warning shrink-0">
           Reservado
         </span>
       )}

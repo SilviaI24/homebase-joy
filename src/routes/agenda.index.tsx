@@ -121,15 +121,13 @@ function estadoBadge(estado: string) {
   const m = ESTADO_META[estado];
   if (!m) {
     return (
-      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-        {estado}
-      </span>
+      <span className="text-xs px-2 py-1 rounded bg-muted text-muted-foreground">{estado}</span>
     );
   }
   const Icon = m.icon;
   return (
     <span
-      className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-medium ${m.color}`}
+      className={`inline-flex items-center gap-0.5 text-xs px-2 py-1 rounded font-medium ${m.color}`}
     >
       <Icon className="size-2.5" /> {m.label}
     </span>
@@ -336,7 +334,7 @@ function VisitasTab() {
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground capitalize">
                   {formatFechaMes(dia)}
                 </span>
-                <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                <span className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground">
                   {visitasDia.length}
                 </span>
                 <hr className="flex-1 border-border" />

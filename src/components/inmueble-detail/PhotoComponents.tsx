@@ -91,7 +91,7 @@ export function PhotoUpload({
             {uploading.map((u) => (
               <span
                 key={u.name}
-                className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ${
+                className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full ${
                   u.status === "uploading"
                     ? "bg-muted text-muted-foreground"
                     : u.status === "done"
@@ -184,7 +184,7 @@ export function ImagenesReorder({
               >
                 <SafeImage src={img.url} alt="" />
               </button>
-              <span className="absolute -top-1.5 -left-1.5 bg-background border border-border rounded-full size-5 text-[10px] font-mono flex items-center justify-center text-muted-foreground">
+              <span className="absolute -top-1.5 -left-1.5 bg-background border border-border rounded-full size-6 text-xs font-mono flex items-center justify-center text-muted-foreground">
                 {idx + 1}
               </span>
             </div>

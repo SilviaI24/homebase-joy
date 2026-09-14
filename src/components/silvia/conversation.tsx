@@ -55,7 +55,7 @@ const CANAL_MAP: Record<Canal, { cls: string; icon: typeof Phone }> = {
 
 export function CanalChip({ canal, size = "sm" }: { canal: Canal; size?: "sm" | "xs" }) {
   const { cls, icon: Icon } = CANAL_MAP[canal];
-  const sz = size === "xs" ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[10px]";
+  const sz = size === "xs" ? "px-2 py-1 text-xs" : "px-2.5 py-1 text-xs";
   return (
     <span className={`inline-flex items-center gap-1 rounded-full font-medium ${sz} ${cls}`}>
       <Icon className="size-3" />
@@ -68,7 +68,7 @@ export function SilviaIndicator({ canal }: { canal: Canal }) {
   const { cls, icon: Icon } = CANAL_MAP[canal];
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${cls}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${cls}`}
       title={`Conversación de Silvia · ${canal}`}
     >
       <Sparkles className="size-2.5" />
@@ -172,7 +172,7 @@ export function Transcripcion({ text }: { text: string }) {
           case "date":
             return (
               <div key={i} className="flex items-center gap-2 pt-2 first:pt-0">
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-background border border-border px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground bg-background border border-border px-2.5 py-1 rounded-full">
                   <CalendarDays className="size-3" />
                   {b.text}
                 </span>
@@ -184,7 +184,7 @@ export function Transcripcion({ text }: { text: string }) {
           case "ref":
             return (
               <div key={i} className="pl-3">
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded">
+                <span className="inline-flex items-center gap-1 text-xs font-mono font-semibold bg-primary/10 text-primary px-2.5 py-1 rounded">
                   Ref. {b.text}
                 </span>
               </div>

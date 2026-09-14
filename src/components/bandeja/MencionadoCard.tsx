@@ -115,7 +115,7 @@ export function MencionadoCard({
                 key={value}
                 type="button"
                 onClick={() => setTipo(value)}
-                className={`inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded border transition-colors ${tipo === value ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent"}`}
+                className={`inline-flex items-center gap-0.5 text-xs font-medium px-2 py-1 rounded border transition-colors ${tipo === value ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-accent"}`}
               >
                 <Icon className="size-2.5" />
                 {label}
@@ -139,7 +139,7 @@ export function MencionadoCard({
               type="button"
               disabled={pending}
               onClick={confirmar}
-              className="inline-flex items-center gap-0.5 text-[10px] font-medium px-2 py-0.5 rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-60 transition-opacity"
+              className="inline-flex items-center gap-0.5 text-xs font-medium px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-60 transition-opacity"
             >
               {pending ? (
                 <Loader2 className="size-2.5 animate-spin" />

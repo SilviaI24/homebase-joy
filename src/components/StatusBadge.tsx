@@ -36,7 +36,7 @@ export function StatusBadge({
   const cls = CICLO_VIDA_CLS[cicloVida as CicloVida] ?? "bg-muted text-muted-foreground";
   return (
     <span
-      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium leading-none ${cls} ${className}`}
+      className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium leading-none ${cls} ${className}`}
     >
       {cicloVida}
     </span>
@@ -53,7 +53,7 @@ export function EstatusInmuebleBadge({
   const cls = ESTATUS_CLS[estatus as EstatusInmueble] ?? "bg-muted text-muted-foreground";
   return (
     <span
-      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium leading-none ${cls} ${className}`}
+      className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium leading-none ${cls} ${className}`}
     >
       {estatus}
     </span>
@@ -64,7 +64,7 @@ export function CanalBadge({ canal, className = "" }: { canal: CanalType; classN
   const cls = CANAL_CLS[canal] ?? "bg-muted text-muted-foreground";
   return (
     <span
-      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium leading-none ${cls} ${className}`}
+      className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium leading-none ${cls} ${className}`}
     >
       {canal}
     </span>

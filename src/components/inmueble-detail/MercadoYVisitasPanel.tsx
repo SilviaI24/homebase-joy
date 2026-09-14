@@ -186,7 +186,7 @@ function VisitaList({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="text-sm font-medium">{formatDateTime(v.fecha)}</div>
               {v.estado && (
-                <span className={`text-[11px] px-2 py-0.5 rounded ${estadoVisitaColor(v.estado)}`}>
+                <span className={`text-xs px-2.5 py-1 rounded ${estadoVisitaColor(v.estado)}`}>
                   {v.estado}
                 </span>
               )}

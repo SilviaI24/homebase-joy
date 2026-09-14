@@ -126,7 +126,7 @@ function ProspectosBadge({ enabled }: { enabled: boolean }) {
   const count = data?.prospectos.length ?? 0;
   if (!count) return null;
   return (
-    <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-gold text-gold-foreground text-[10px] font-bold leading-none px-1">
+    <span className="ml-auto min-w-[20px] h-[20px] flex items-center justify-center rounded-full bg-gold text-gold-foreground text-xs font-bold leading-none px-1">
       {count > 9 ? "9+" : count}
     </span>
   );
@@ -193,7 +193,7 @@ function NotificationBell({ enabled }: { enabled: boolean }) {
         <Bell className="size-[15px]" />
         {total > 0 && (
           <span
-            className={`absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full text-white text-[9px] font-bold leading-none px-0.5 ${
+            className={`absolute -top-1 -right-1 min-w-[18px] h-5 flex items-center justify-center rounded-full text-white text-xs font-bold leading-none px-0.5 ${
               urgente > 0 ? "bg-red-500" : "bg-amber-500"
             }`}
           >
