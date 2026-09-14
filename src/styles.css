@@ -133,7 +133,27 @@
   --success: oklch(0.48 0.15 148);
   --success-soft: oklch(0.93 0.04 148);
   --success-foreground: oklch(0.99 0 0);
-  --warning: oklch(0.68 0.17 75);
+  /* --warning oscurecido de L=0.68 a L=0.55 el 14 sep 2026 (auditoría de
+     contraste): a 0.68 quedaba muy por encima de --success (0.48) e --info
+     (0.50) -- inconsistente con el resto del trío semántico -- y el patrón
+     text-warning/bg-warning-10 (StatusBadge, LeadsBoard, ConversationCard,
+     AgendaWorkspace, OperacionesPanels, DashboardPanels, seguimiento/permisos)
+     daba 2.3-2.95:1 sobre card/marfil, por debajo incluso del mínimo de UI
+     no textual (3:1), y varios de esos usos son texto de lectura real, no
+     solo iconos/badges. A L=0.55: 4.96:1 sobre --card, 4.52:1 sobre
+     --background, 4.28:1 sobre --marfil (todos muy por encima de 2.3-2.95,
+     el peor caso -marfil- queda algo corto de 4.5 pero muy por encima de
+     3:1). bg-warning sólido + --warning-foreground pasa de 6.74:1 a 4.00:1
+     (sigue sobrando el mínimo de UI/large-text; su único consumidor,
+     cartera.index.tsx, es un badge de 10px ya señalado aparte en el
+     pendiente de tamaños 9-11px). Modo oscuro sin tocar: ya daba 8.3-8.65:1
+     contra sus propios fondos, no tenía el problema.
+     Gap conocido, no corregido aquí: en tema oscuro, --warning (claro por
+     diseño en ese modo) pierde contraste contra --marfil (2.0:1) porque
+     marfil/carbón son valores fijos que no cambian con el tema -- ver nota
+     de "Marfil / carbón" arriba. Es una consecuencia de esa decisión de
+     diseño ya aprobada, no algo que este fix del token warning deba resolver. */
+  --warning: oklch(0.55 0.17 75);
   --warning-soft: oklch(0.95 0.05 75);
   --warning-foreground: oklch(0.14 0.025 165);
   --info: oklch(0.50 0.14 220);
