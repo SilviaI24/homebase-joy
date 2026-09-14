@@ -537,13 +537,35 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   — a propósito, para que el énfasis no se diluya siendo el estilo por
   defecto de los tres. Contraste verificado por cálculo antes de aplicar:
   texto principal 17.1:1, texto secundario 4.7:1 sobre marfil, ambos pasan
-  AA. El icono dorado (2.96:1) y el badge "Sin asignar" (2.39:1) quedan bajo
-  el mínimo no-textual, pero ya lo estaban sobre `--card` antes de este
-  cambio (3.43:1 y 2.75:1) — deuda preexistente, no introducida aquí.
+  AA. El icono dorado (2.96:1, token `--gold`) y el badge "Sin asignar"
+  (2.39:1, token `--warning`) quedaban bajo el mínimo no-textual, ya lo
+  estaban sobre `--card` antes de este cambio (3.43:1 y 2.75:1) — deuda
+  preexistente, no introducida por marfil/carbón.
+  **14 sep 2026 — badge "Sin asignar" resuelto de raíz:** el problema no era
+  solo de este panel — el patrón `text-warning bg-warning/10` fallaba igual
+  (o peor) en ~9 componentes más de toda la app (StatusBadge, LeadsBoard,
+  ConversationCard, AgendaWorkspace, OperacionesPanels, seguimiento/permisos,
+  AppShell, KpiCard) porque `--warning` (oklch L=0.68) estaba
+  inconsistentemente más claro que sus hermanos `--success`/`--info` (L=0.48/
+  0.50) del mismo trío semántico. Oscurecido a `oklch(0.55 0.17 75)` (ver
+  comentario junto al token en `styles.css`): 4.96:1 sobre `--card`, 4.52:1
+  sobre `--background`, 4.28:1 sobre `--marfil` (antes 2.95/2.68/2.54). Modo
+  oscuro sin tocar, ya pasaba (8.3-8.65:1). Gap conocido sin resolver: en
+  tema oscuro, `--warning` sobre `--marfil` queda en 2.0:1 porque marfil/
+  carbón son valores fijos que no cambian con el tema (decisión de diseño ya
+  aprobada) — no compete a este fix. No verificado visualmente en la app
+  real (requiere login) — solo por cálculo WCAG + tsc/eslint/tests/build.
+  **El icono dorado (`--gold`, 2.96:1) sigue sin resolver** — es un token
+  distinto, usado en decenas de sitios más (AppShell, KpiCard, gráficos,
+  StatusBadge) con su propio contraste ya afinado ahí; oscurecerlo de raíz
+  como se hizo con `--warning` no se ha decidido todavía.
   Sigue abierto: tipografía de marca (más allá de Space Grotesk/DM Sans ya
-  en uso) y el tamaño de letra de 9-11px en varias pantallas (legibilidad,
-  no contraste — no se toca sin revisar cada layout, riesgo de romper chips/
-  badges ajustados a propósito).
+  en uso) y el tamaño de letra de 9-11px en varias pantallas (40 archivos,
+  294 ocurrencias confirmado por auditoría 14 sep 2026 — antes solo una
+  estimación de "37/cientos"; ~195-200 son texto de lectura real o
+  labels/eyebrows sin riesgo de layout, ~82 son chips/badges con
+  dimensiones fijas acopladas al tamaño de texto actual, requieren ajustar
+  también el contenedor).
 - **M-06 (observabilidad/Lovable) — limpieza cosmética hecha, decisiones de
   producto pendientes**: `.lovable/` eliminado, nombre de `package.json`
   corregido, doc de despliegue corregida (era Vercel, no Cloudflare
