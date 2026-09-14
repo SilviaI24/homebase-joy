@@ -371,20 +371,21 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
      `supabase/functions/web-lead/`, creada esa misma sesión). Corregido
      mapeando `es_alquiler ? "Inquilino" : "Comprador"` y desplegado.
   2. **Lecturas/escrituras de la web fallando desde el domingo 6 sep 15:31 —
-     sin resolver, fuera del alcance de este repo.** La agencia lo atribuye a
-     un cambio de permisos sobre la clave de servicio que usa la web; lo
-     workaroundearon cambiando a otra clave `service_role` sin restricciones.
-     Verificado que RLS/GRANTs de `service_role` en Postgres están bien (todas
-     las tablas relevantes tienen `service_role_all`/GRANT completo) — no hay
-     ninguna migración ni commit con esa fecha que lo explique. La hipótesis
-     más probable es un cambio de alcance en el sistema nuevo de claves de
-     Supabase (`sb_secret_...`, distinto del `service_role` JWT clásico), que
-     se edita desde el Dashboard (Project Settings → API Keys) y no deja
-     rastro en migraciones ni git. David eligió revisar y restaurar los
-     permisos de la clave original en vez de generar una nueva — pendiente de
-     hacerlo en el Dashboard. Los leads de valorador perdidos durante la
-     ventana del fallo (Excel de la agencia) los gestiona David manualmente,
-     no por importación.
+     resuelto por David el 14 sep 2026, fuera del alcance de este repo.** La
+     agencia lo atribuía a un cambio de permisos sobre la clave de servicio
+     que usa la web; lo workaroundearon cambiando a otra clave `service_role`
+     sin restricciones. Verificado en su momento que RLS/GRANTs de
+     `service_role` en Postgres estaban bien (todas las tablas relevantes
+     tienen `service_role_all`/GRANT completo) — no había ninguna migración
+     ni commit con esa fecha que lo explicara; la hipótesis era un cambio de
+     alcance en el sistema nuevo de claves de Supabase (`sb_secret_...`,
+     distinto del `service_role` JWT clásico), editado desde el Dashboard
+     (Project Settings → API Keys), sin rastro en migraciones ni git. David
+     restauró los permisos de la clave original ahí — confirmado resuelto,
+     sin detalle técnico de qué encontró exactamente (edición manual fuera
+     de este repo). Los leads de valorador perdidos durante la ventana del
+     fallo (Excel de la agencia) los gestionó David manualmente, no por
+     importación.
 - **H-07 (ESLint) — completado del todo el 24 ago 2026**: 253→0 errores.
   Fase 1 (23 ago): autofix seguro de formato (166 de los 253, sin cambio de
   lógica). Fase 2 (24 ago): tipados los 86 `@typescript-eslint/no-explicit-any`
@@ -422,10 +423,14 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   placeholders) se dejaron sin tocar a propósito. Ver
   `REGLA_CALIDAD_METRICAS_AGREGADAS_2026-08-20.md` (elsol-client-hub) para
   el criterio aplicado.
-- **CI (`.github/workflows/ci.yml`) creado el 21 ago 2026, commit local
-  `045a9ab` sin subir todavía:** el push falló porque el PAT embebido en el
-  remoto no tiene el scope `workflow` que GitHub exige para archivos bajo
-  `.github/workflows/`. Hay que subirlo a mano o añadir ese scope al token.
+- **CI (`.github/workflows/ci.yml`) creado el 21 ago 2026 — resuelto el 14
+  sep 2026:** el push llevaba desde entonces bloqueado porque el PAT
+  embebido en el remoto no tenía el scope `workflow` que GitHub exige para
+  archivos bajo `.github/workflows/`. David añadió el scope al token
+  (editado, no regenerado — mismo valor, sin tocar remotos). Confirmado
+  con `git fetch`/`push` sin error y `main` puesto al día en `origin`
+  (10 commits de esta sesión, `86832bd..e003c01`, más los siguientes de
+  tipografía de marca).
 - **Trigger a tener en cuenta al escribir migraciones futuras que tocan
   `properties.estatus`:** `trg_crm_preserve_closed_property_state` impide
   cambiar `estatus`/`precio_final`/`fecha_escritura`/`publicacion` una vez
@@ -594,13 +599,31 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   queda en 2.64:1 — consecuencia de la decisión ya aprobada de que
   marfil/carbón no cambian con el tema. No verificado visualmente en la app
   real (requiere login) — solo por cálculo WCAG + tsc/eslint/tests/build.
-  Sigue abierto: tipografía de marca (más allá de Space Grotesk/DM Sans ya
-  en uso) y el tamaño de letra de 9-11px en varias pantallas (40 archivos,
-  294 ocurrencias confirmado por auditoría 14 sep 2026 — antes solo una
-  estimación de "37/cientos"; ~195-200 son texto de lectura real o
-  labels/eyebrows sin riesgo de layout, ~82 son chips/badges con
-  dimensiones fijas acopladas al tamaño de texto actual, requieren ajustar
-  también el contenedor).
+  **14 sep 2026 — tamaño de letra 9-11px, completado en dos pasadas:**
+  primero el subconjunto seguro (182 líneas en 37 archivos: eyebrows/labels
+  de sección, `<label>` de formulario, celdas de tabla sin ancho fijo,
+  mensajes de error/éxito/advertencia, texto libre sin pastilla —
+  `text-[9|10|11px]` → `text-xs`, sin tocar nada más). Después el resto —
+  chips/badges/contadores de dimensión fija (76 líneas en 24 archivos) —
+  con el ajuste de contenedor emparejado en la misma línea (`size-N` sube
+  un escalón, `min-w`/`h` en píxeles +2-4px, padding de pastilla sube un
+  escalón) para no dejarlos apretados. Aplicado con agentes en paralelo
+  (mismo split de archivos sin solape en ambas pasadas), restringidos a la
+  lista exacta de líneas ya identificadas por la auditoría — no se
+  re-escaneó buscando casos nuevos, y lo dudoso se dejó sin tocar
+  (columnas de ancho fijo, celdas de calendario/gráfico, un puñado de
+  casos ambiguos). tsc/eslint/tests/build verificados en cada pasada; no
+  verificado visualmente en la app real (requiere login).
+  **14 sep 2026 — tipografía de marca resuelta:** 2 propuestas comparadas
+  con contenido real del CRM en un Artifact antes de aplicar (Opción A,
+  "editorial cálida": `Fraunces` en titulares/KPIs — Opción B habría
+  mantenido Space Grotesk y cambiado solo el cuerpo a Manrope). David
+  eligió A. `--font-display` pasa de Space Grotesk a Fraunces (variable,
+  pesos 500/600/700); DM Sans se mantiene sin cambios en el cuerpo. El
+  `letter-spacing: -0.01em` del bloque `h1-h6`/`.font-display` (pensado
+  para lo geométrico de Space Grotesk) se quitó por apretar de más las
+  curvas de una serif. Verificado visualmente en el login (única pantalla
+  pública sin sesión) — Fraunces carga y renderiza sin errores de consola.
 - **M-06 (observabilidad/Lovable) — limpieza cosmética hecha, error-tracking
   archivado para fase futura**: `.lovable/` eliminado, nombre de
   `package.json` corregido, doc de despliegue corregida (era Vercel, no
