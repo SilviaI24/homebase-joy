@@ -18,6 +18,15 @@
  * solo cubrían el segundo punto — de ahí que buscar "Mayor, 3" o "López
  * (hijo)" devolviera un error en vez de resultados.
  */
+export function escapeSearchTerm(str: string): string {
+  return str
+    .trim()
+    .replace(/[,()]/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_");
+}
+
 /**
  * Núcleo compartido de moneyShort — antes triplicado (lógica idéntica salvo
  * el nº de decimales para millones) en dashboard-format.ts, comerciales-format.ts
@@ -32,15 +41,6 @@ export function moneyShortCore(v: number, decimalsMillion: number): string {
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(decimalsMillion)}M €`;
   if (v >= 1_000) return `${Math.round(v / 1_000)}k €`;
   return `${v} €`;
-}
-
-export function escapeSearchTerm(str: string): string {
-  return str
-    .trim()
-    .replace(/[,()]/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/%/g, "\\%")
-    .replace(/_/g, "\\_");
 }
 
 /**
