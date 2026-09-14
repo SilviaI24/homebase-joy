@@ -312,12 +312,18 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
       del pipeline (4.151) y de canales coincide exactamente con
       `COUNT(*)` real de `contacts`, y la suma de `agentes` (22) coincide
       con `contact_agents` de agentes activos.
-    - **`getLeadInsightsFn` sigue igual, sin tocar**: usa un límite
-      explícito de 3.000 filas — no produce datos incorrectos hoy, pero
-      dejará de ser cierto en cuanto el volumen lo supere. Es un cálculo
-      más heurístico (score, última interacción, próximas visitas) que el
-      pipeline de `getStatsData` — llevarlo a SQL es más trabajo y se deja
-      para una pasada aparte.
+    - **`getLeadInsightsFn` — nota corregida el 14 sep 2026**: esta entrada
+      describía un límite explícito de 3.000 filas que ya no existe en el
+      código (`.limit(120)` desde el mismo 12 sep, ver "Panel Leads
+      recientes sin asignar" más arriba) — quedó desactualizada al no
+      reflejar ese cambio, escrito el mismo día. No hay bug de escala vivo
+      hoy: el límite a 120 es intencional (los Lead/Prospecto más
+      recientes, no un cálculo global), así que llevar el scoring
+      heurístico a SQL no aplica como "mismo patrón que getStatsData" —
+      sería reimplementar reglas de negocio (regex de canal, franjas de
+      días sin contacto) en PL/pgSQL, un proyecto de alcance propio, no
+      una desduplicación mecánica. Sin acción pendiente salvo que se pida
+      explícitamente.
     - **H-05 completado del todo el 12 sep 2026** (antes quedaban fuera
       `createOperacion`/`updateOperacionEstado`, con `.insert()`/`.update()`
       directos sin actor real): migración `h05_completar_operaciones` —
