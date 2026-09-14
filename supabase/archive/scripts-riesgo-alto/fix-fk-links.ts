@@ -36,6 +36,15 @@ const str = (v: unknown): string => {
 };
 const arr = (v: unknown): string[] => (Array.isArray(v) ? v.map(String).filter(Boolean) : []);
 
+type AirtableRecord = { id: string; fields: Record<string, unknown> };
+type RoleRow = {
+  contact_id: string;
+  tipo: string;
+  estado: string;
+  property_id: string | null;
+  agente_id: string | null;
+};
+
 // ── Fetch all pages from a Supabase table ─────────────────────────────────────
 async function fetchAllSupa<T>(table: string, select: string): Promise<T[]> {
   const results: T[] = [];
@@ -55,8 +64,8 @@ async function fetchAllSupa<T>(table: string, select: string): Promise<T[]> {
 }
 
 // ── Fetch all pages from Airtable ─────────────────────────────────────────────
-async function fetchAllAirtable(tableId: string): Promise<any[]> {
-  const records: any[] = [];
+async function fetchAllAirtable(tableId: string): Promise<AirtableRecord[]> {
+  const records: AirtableRecord[] = [];
   let offset: string | undefined;
   do {
     const params = new URLSearchParams({ pageSize: "100" });
@@ -65,7 +74,7 @@ async function fetchAllAirtable(tableId: string): Promise<any[]> {
       headers: { Authorization: `Bearer ${AT_KEY}` },
     });
     if (!res.ok) throw new Error(`Airtable ${tableId}: ${await res.text()}`);
-    const json = (await res.json()) as { records: any[]; offset?: string };
+    const json = (await res.json()) as { records: AirtableRecord[]; offset?: string };
     records.push(...json.records);
     offset = json.offset;
     if (offset) await sleep(200);
@@ -137,7 +146,7 @@ async function main() {
   console.log("   Cleared contact_roles table");
 
   const atClientes = await fetchAllAirtable("tbl4N1uR3A3XMwsqZ");
-  const roleRows: any[] = [];
+  const roleRows: RoleRow[] = [];
 
   for (const r of atClientes) {
     const f = r.fields;

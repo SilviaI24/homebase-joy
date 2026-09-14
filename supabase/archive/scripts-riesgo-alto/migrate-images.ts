@@ -57,9 +57,11 @@ type Att = {
 const srcUrl = (a: Att): string =>
   a.url ?? a.thumbnails?.full?.url ?? a.thumbnails?.large?.url ?? "";
 
+type AirtableRecord = { id: string; fields: Record<string, unknown> };
+
 /** Fetch all pages from an Airtable table */
-async function fetchAirtable(tableId: string): Promise<any[]> {
-  const records: any[] = [];
+async function fetchAirtable(tableId: string): Promise<AirtableRecord[]> {
+  const records: AirtableRecord[] = [];
   let offset: string | undefined;
   do {
     const params = new URLSearchParams({ pageSize: "100" });
@@ -71,7 +73,7 @@ async function fetchAirtable(tableId: string): Promise<any[]> {
       const text = await res.text();
       throw new Error(`Airtable ${tableId} error ${res.status}: ${text}`);
     }
-    const json = (await res.json()) as { records: any[]; offset?: string };
+    const json = (await res.json()) as { records: AirtableRecord[]; offset?: string };
     records.push(...json.records);
     offset = json.offset;
     if (offset) await sleep(200);

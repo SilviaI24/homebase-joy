@@ -81,9 +81,35 @@ const mapCicloVida = (tipo: string, pIds: string[], cIds: string[], aIds: string
   return "Lead";
 };
 
+type AirtableRecord = { id: string; createdTime?: string; fields: Record<string, unknown> };
+type ContactRow = {
+  nombre: string;
+  telefono: string;
+  email: string;
+  dni: string;
+  profesion: string;
+  ciclo_vida: string;
+  motivo: string;
+  solicitud: string;
+  conversaciones: string;
+  observaciones: string;
+  feedback: string;
+  seccion: string;
+  trabajado: string;
+  categoria: string[];
+  contrato_trabajo: string;
+  mascota: string;
+  avalista: string;
+  attachments: ReturnType<typeof mapAttachments>;
+  airtable_id: string;
+  created_at: string | undefined;
+};
+type ContactAgentRow = { _at: string; agent_id: string };
+type RoleRow = { _at: string; tipo: string; property_id: string | null; agente_id: string | null };
+
 // ── Airtable fetch (paginated) ────────────────────────────────────────────────
-async function fetchAll(tableId: string): Promise<any[]> {
-  const records: any[] = [];
+async function fetchAll(tableId: string): Promise<AirtableRecord[]> {
+  const records: AirtableRecord[] = [];
   let offset: string | undefined;
   do {
     const params = new URLSearchParams({ pageSize: "100" });
@@ -92,7 +118,7 @@ async function fetchAll(tableId: string): Promise<any[]> {
       headers: { Authorization: `Bearer ${AT_KEY}` },
     });
     if (!res.ok) throw new Error(`Airtable ${tableId}: ${await res.text()}`);
-    const json = (await res.json()) as { records: any[]; offset?: string };
+    const json = (await res.json()) as { records: AirtableRecord[]; offset?: string };
     records.push(...json.records);
     offset = json.offset;
     if (offset) await sleep(200);
@@ -101,7 +127,11 @@ async function fetchAll(tableId: string): Promise<any[]> {
 }
 
 // ── Batch upsert ──────────────────────────────────────────────────────────────
-async function batchUpsert(table: string, rows: any[], conflictCol: string): Promise<number> {
+async function batchUpsert<T extends Record<string, unknown>>(
+  table: string,
+  rows: T[],
+  conflictCol: string,
+): Promise<number> {
   let ok = 0;
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK);
@@ -115,7 +145,10 @@ async function batchUpsert(table: string, rows: any[], conflictCol: string): Pro
   return ok;
 }
 
-async function batchInsert(table: string, rows: any[]): Promise<number> {
+async function batchInsert<T extends Record<string, unknown>>(
+  table: string,
+  rows: T[],
+): Promise<number> {
   if (!rows.length) return 0;
   let ok = 0;
   for (let i = 0; i < rows.length; i += CHUNK) {
@@ -216,7 +249,9 @@ async function main() {
       documentos: mapAttachments(f["Documentación"]),
       agente_id: agentAT ? (agentMap.get(agentAT) ?? null) : null,
       airtable_id: r.id,
-      created_at: f["Fecha de inicio"] ? new Date(f["Fecha de inicio"]).toISOString() : undefined,
+      created_at: f["Fecha de inicio"]
+        ? new Date(f["Fecha de inicio"] as string).toISOString()
+        : undefined,
     };
   });
   const propCount = await batchUpsert("properties", propRows, "airtable_id");
@@ -230,9 +265,9 @@ async function main() {
 
   // ── Step 4: Contacts ──────────────────────────────────────────────────────
   console.log("3/5  Contacts...");
-  const contactRows: any[] = [];
-  const contactAgentRows: any[] = [];
-  const roleRows: any[] = [];
+  const contactRows: ContactRow[] = [];
+  const contactAgentRows: ContactAgentRow[] = [];
+  const roleRows: RoleRow[] = [];
 
   for (const r of atClientes) {
     const f = r.fields;
@@ -263,7 +298,7 @@ async function main() {
       avalista: str(f["¿Dispones de avalista en caso de ser necesario?"]),
       attachments: mapAttachments(f["Attachments"]),
       airtable_id: r.id,
-      created_at: f["Fecha"] ? new Date(f["Fecha"]).toISOString() : r.createdTime,
+      created_at: f["Fecha"] ? new Date(f["Fecha"] as string).toISOString() : r.createdTime,
     });
 
     // Collect agent assignments (need contact supa id — resolved after insert)
@@ -349,7 +384,7 @@ async function main() {
         property_id: arr(f["Inmuebles"])[0] ? (propMap.get(arr(f["Inmuebles"])[0]) ?? null) : null,
         contact_id: arr(f["Clientes"])[0] ? (contactMap.get(arr(f["Clientes"])[0]) ?? null) : null,
         agente_id: arr(f["Agentes"])[0] ? (agentMap.get(arr(f["Agentes"])[0]) ?? null) : null,
-        fecha: new Date(f["Fecha y Hora"]).toISOString(),
+        fecha: new Date(f["Fecha y Hora"] as string).toISOString(),
         estado:
           {
             Confirmada: "Programada",

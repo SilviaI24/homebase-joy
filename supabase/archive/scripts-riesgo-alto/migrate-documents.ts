@@ -36,9 +36,10 @@ const supa = createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: false } 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type Att = { url?: string; filename?: string; type?: string };
+type AirtableRecord = { id: string; fields: Record<string, unknown> };
 
-async function fetchAirtable(tableId: string): Promise<any[]> {
-  const records: any[] = [];
+async function fetchAirtable(tableId: string): Promise<AirtableRecord[]> {
+  const records: AirtableRecord[] = [];
   let offset: string | undefined;
   do {
     const params = new URLSearchParams({ pageSize: "100" });
@@ -47,7 +48,7 @@ async function fetchAirtable(tableId: string): Promise<any[]> {
       headers: { Authorization: `Bearer ${AT_KEY}` },
     });
     if (!res.ok) throw new Error(`Airtable ${res.status}: ${await res.text()}`);
-    const json = (await res.json()) as { records: any[]; offset?: string };
+    const json = (await res.json()) as { records: AirtableRecord[]; offset?: string };
     records.push(...json.records);
     offset = json.offset;
     if (offset) await sleep(200);

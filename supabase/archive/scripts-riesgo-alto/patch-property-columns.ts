@@ -40,8 +40,10 @@ const date = (v: unknown): string | null => {
   }
 };
 
-async function fetchAll(tableId: string): Promise<any[]> {
-  const records: any[] = [];
+type AirtableRecord = { id: string; fields: Record<string, unknown> };
+
+async function fetchAll(tableId: string): Promise<AirtableRecord[]> {
+  const records: AirtableRecord[] = [];
   let offset: string | undefined;
   do {
     const params = new URLSearchParams({ pageSize: "100" });
@@ -50,7 +52,7 @@ async function fetchAll(tableId: string): Promise<any[]> {
       headers: { Authorization: `Bearer ${AT_KEY}` },
     });
     if (!res.ok) throw new Error(`Airtable ${tableId}: ${await res.text()}`);
-    const json = (await res.json()) as { records: any[]; offset?: string };
+    const json = (await res.json()) as { records: AirtableRecord[]; offset?: string };
     records.push(...json.records);
     offset = json.offset;
     if (offset) await sleep(200);
