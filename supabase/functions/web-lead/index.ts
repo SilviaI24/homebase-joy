@@ -21,11 +21,11 @@ Deno.serve(async (req: Request) => {
   try {
     const body = await req.json();
 
-    const nombre      = (body.nombre      ?? "").trim();
-    const apellidos   = (body.apellidos   ?? "").trim();
-    const email       = (body.email       ?? "").trim().toLowerCase();
-    const telefono    = (body.telefono    ?? "").trim();
-    const mensaje     = (body.mensaje     ?? "").trim();
+    const nombre = (body.nombre ?? "").trim();
+    const apellidos = (body.apellidos ?? "").trim();
+    const email = (body.email ?? "").trim().toLowerCase();
+    const telefono = (body.telefono ?? "").trim();
+    const mensaje = (body.mensaje ?? "").trim();
     const property_id = (body.property_id ?? "").trim();
 
     if (!nombre || !email || !telefono || !property_id) {
@@ -72,11 +72,11 @@ Deno.serve(async (req: Request) => {
       const { data: created, error: createErr } = await supabase
         .from("contacts")
         .insert({
-          nombre:        nombreCompleto,
+          nombre: nombreCompleto,
           email,
           telefono,
-          ciclo_vida:    "Lead",
-          canal_origen:  "Web",
+          ciclo_vida: "Lead",
+          canal_origen: "Web",
           observaciones: mensaje,
         })
         .select("id")
@@ -95,21 +95,18 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (!existingRole) {
-      const { error: roleErr } = await supabase
-        .from("contact_roles")
-        .insert({
-          contact_id:  contactId,
-          property_id,
-          tipo:        rolTipo,
-          estado:      "Prospecto",
-          notas:       mensaje,
-        });
+      const { error: roleErr } = await supabase.from("contact_roles").insert({
+        contact_id: contactId,
+        property_id,
+        tipo: rolTipo,
+        estado: "Prospecto",
+        notas: mensaje,
+      });
 
       if (roleErr) throw roleErr;
     }
 
     return json({ success: true, contact_id: contactId });
-
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("web-lead:", msg);
