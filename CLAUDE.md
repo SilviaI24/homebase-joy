@@ -126,6 +126,22 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Lint inservible en local por dos causas de contaminación, resuelto el 14
+  sep 2026:** `npx eslint .` tardaba 7+ min y reportaba 35.216 problemas
+  falsos — `eslint.config.js` no excluía `.vercel/output/` (bundles
+  minificados de `npm run build` local, no existe en CI) ni
+  `.claude/worktrees/` (copias de trabajo temporales que crea el propio
+  entorno de ejecución de Claude Code, una de ellas — sin relación con este
+  hallazgo — tenía además un commit útil sin mergear, `fix(lint): ignorar
+  .vercel/output en eslint`, rescatado por cherry-pick antes de borrar el
+  worktree). Con ambas exclusiones: 4s, 329 problemas reales. **Deuda de
+  lint real que quedó al descubierto, sin tocar en esta pasada** (fuera de
+  alcance, delegada aparte): 299 errores de formato + 21
+  `@typescript-eslint/no-explicit-any`, todos en `supabase/` (scripts de
+  `supabase/archive/scripts-riesgo-alto/` y las Edge Functions
+  `web-lead`/`valorador`) — nada en `src/`, el cierre de H-07 del 24 ago
+  nunca cubrió ese directorio. tsc limpio, 80/80 tests tras el fix de
+  `eslint.config.js`.
 - **Panel "Leads recientes sin asignar" en el Dashboard, 12 sep 2026:**
   Complemento del punto anterior (Kanban de Leads por agente): David pidió
   poder notar un lead nuevo sin asignar en el día a día, sin mezclarlo con
@@ -298,11 +314,19 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
       historial de cierre ante cualquier cambio de estado, no solo al cerrar.
   - **Sin tocar, con criterio explícito documentado en el propio código o
     aquí:**
-    - `gestionarRol` (`clientes-ciclo-vida.functions.ts`): permiso-gateado,
-      convertido a H-05 el 24 ago, pero sin ningún consumidor en la UI hoy.
-      No se retira porque no está claro si es una función a la espera de
-      su UI o ya superada por `asociarLeadAInmueble` — pendiente de
-      decisión.
+    - **`gestionarRol` — retirada el 14 sep 2026** (decisión de David: "sólida
+      pero sencilla, sin evolutivos"). Permiso-gateada, convertida a H-05 el
+      24 ago, pero nunca tuvo consumidor en la UI (confirmado por grep) —
+      quedaba como pregunta abierta si era una función a la espera de su UI
+      o ya superada por `asociarLeadAInmueble`. No lo segundo del todo:
+      `gestionarRol` también sabía actualizar/quitar un rol ya asignado y el
+      tipo "Arrendador", capacidades que `asociarLeadAInmueble` (única
+      consumida, solo crea) no tiene — pero como nadie las usa hoy, no se
+      mantiene código a la espera de una UI futura. Si en el futuro hace
+      falta editar o quitar un rol contacto↔inmueble ya creado, se
+      construye entonces. El RPC `crm_gestionar_rol` en la base de datos no
+      se tocó (retirarlo es un cambio de esquema aparte, sin decidir).
+      tsc limpio, 80/80 tests.
     - **`getStatsData` resuelto el 12 sep 2026** (migración
       `dashboard_contactos_stats_function`): pasó de 4 consultas con
       `LIMIT 5.000`/`2.000` agregadas en TypeScript a una sola función SQL
@@ -577,14 +601,16 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   labels/eyebrows sin riesgo de layout, ~82 son chips/badges con
   dimensiones fijas acopladas al tamaño de texto actual, requieren ajustar
   también el contenedor).
-- **M-06 (observabilidad/Lovable) — limpieza cosmética hecha, decisiones de
-  producto pendientes**: `.lovable/` eliminado, nombre de `package.json`
-  corregido, doc de despliegue corregida (era Vercel, no Cloudflare
-  Workers), worktree viejo de Lovable borrado (23 ago). Sigue pendiente,
-  decisión de David: elegir proveedor de error-tracking (la interfaz en
-  `error-reporting.ts` ya está preparada para conectarlo) y definir alertas
-  críticas — ninguna de las dos es un cambio de código, son decisiones de
-  producto/coste.
+- **M-06 (observabilidad/Lovable) — limpieza cosmética hecha, error-tracking
+  archivado para fase futura**: `.lovable/` eliminado, nombre de
+  `package.json` corregido, doc de despliegue corregida (era Vercel, no
+  Cloudflare Workers), worktree viejo de Lovable borrado (23 ago). Elegir
+  proveedor de error-tracking (la interfaz en `error-reporting.ts` ya está
+  preparada para conectarlo) y definir alertas críticas quedaba pendiente
+  como decisión de producto/coste de David — **decidido el 14 sep 2026: no
+  se atiende en esta fase** (equipo de 5 personas, no se justifica montar
+  observabilidad automatizada todavía). Se archiva como evolutivo en el
+  informe de entrega del proyecto, no como pendiente abierto de este repo.
 - **M-07 (cabeceras de seguridad HTTP) — resuelto el 21 ago 2026**: CSP,
   HSTS, X-Frame-Options, Permissions-Policy, Cross-Origin-Opener-Policy
   aplicados en dos capas (`vercel.json` para `/assets/*` + `src/lib/security-headers.ts`
