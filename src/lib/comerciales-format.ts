@@ -1,6 +1,6 @@
 // M-03: extraído de src/routes/comerciales.index.lazy.tsx.
-// Nota: moneyShort ya está duplicada en otros 2 archivos de este proyecto con
-// redondeos distintos — no se unifica aquí, solo se mueve tal cual estaba.
+
+import { moneyShortCore } from "@/lib/format";
 
 export function localDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -27,8 +27,8 @@ export function estadoColor(estado: string): string {
   return "#6366f1";
 }
 
+// 1 decimal para millones -- distinto de dashboard-format.ts (2 decimales). Ver
+// moneyShortCore en format.ts para el porqué de no unificar el redondeo en sí.
 export function moneyShort(v: number): string {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M €`;
-  if (v >= 1_000) return `${Math.round(v / 1_000)}k €`;
-  return `${v} €`;
+  return moneyShortCore(v, 1);
 }

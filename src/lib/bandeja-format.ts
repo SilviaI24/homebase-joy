@@ -1,13 +1,8 @@
 // Helpers de formato puros de Bandeja (M-03: extraídos de
 // src/routes/bandeja.index.tsx). Sin estado, sin JSX.
-//
-// moneyShort aquí redondea a 1 decimal y acepta null -- distinto de las
-// versiones homónimas en dashboard-format.ts (2 decimales) y
-// comerciales.index.lazy.tsx (sin null). No se unifican: son 3 pantallas
-// distintas y no hay evidencia de qué redondeo es el "correcto" a nivel de
-// producto -- decisión para cuando se aborde esa duplicación explícitamente.
 
 import type { Inmueble } from "@/lib/inmuebles.functions";
+import { moneyShortCore } from "@/lib/format";
 
 export function formatFecha(f: string | null): string {
   if (!f) return "Sin fecha";
@@ -22,11 +17,12 @@ export function formatFecha(f: string | null): string {
   }
 }
 
+// 1 decimal para millones y acepta null -- distinto de dashboard-format.ts (2
+// decimales, no acepta null). Ver moneyShortCore en format.ts para el porqué
+// de no unificar el redondeo en sí.
 export function moneyShort(v: number | null): string {
   if (v == null) return "—";
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M €`;
-  if (v >= 1_000) return `${Math.round(v / 1_000)}k €`;
-  return `${v} €`;
+  return moneyShortCore(v, 1);
 }
 
 // ── Detección de inmuebles mencionados en texto libre de conversación ─────────

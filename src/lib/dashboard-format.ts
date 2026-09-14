@@ -2,10 +2,13 @@
 // src/routes/index.tsx, que mezclaba estos con el componente y el resto de
 // la lógica de la página). Sin estado, sin JSX, sin dependencias externas.
 
+import { moneyShortCore } from "@/lib/format";
+
+// 2 decimales para millones -- distinto de comerciales-format.ts/bandeja-format.ts
+// (1 decimal). Ver moneyShortCore en format.ts para el porqué de no unificar el
+// redondeo en sí.
 export function moneyShort(v: number): string {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M €`;
-  if (v >= 1_000) return `${Math.round(v / 1_000)}k €`;
-  return `${v} €`;
+  return moneyShortCore(v, 2);
 }
 
 export function moneyFull(v: number): string {

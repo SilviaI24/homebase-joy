@@ -18,6 +18,22 @@
  * solo cubrían el segundo punto — de ahí que buscar "Mayor, 3" o "López
  * (hijo)" devolviera un error en vez de resultados.
  */
+/**
+ * Núcleo compartido de moneyShort — antes triplicado (lógica idéntica salvo
+ * el nº de decimales para millones) en dashboard-format.ts, comerciales-format.ts
+ * y bandeja-format.ts. Cada uno mantiene su propio moneyShort() como wrapper
+ * fino sobre este núcleo, con el mismo decimalsMillion/trato de null que
+ * tenía antes, para no cambiar ni un carácter de lo que ve cada pantalla.
+ * Unificar el redondeo en sí (¿1 o 2 decimales, mismo criterio en las 3?) es
+ * una decisión de producto pendiente, no algo que se decida al eliminar la
+ * duplicación de código (ver CLAUDE.md).
+ */
+export function moneyShortCore(v: number, decimalsMillion: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(decimalsMillion)}M €`;
+  if (v >= 1_000) return `${Math.round(v / 1_000)}k €`;
+  return `${v} €`;
+}
+
 export function escapeSearchTerm(str: string): string {
   return str
     .trim()
