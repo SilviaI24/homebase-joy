@@ -435,7 +435,7 @@ function CaptacionTab() {
                 >
                   <td className="py-3 pl-4 pr-2">
                     <div className="font-medium text-sm">{p.nombre || "Sin nombre"}</div>
-                    <div className="flex flex-wrap gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                    <div className="flex flex-wrap gap-2 mt-0.5 text-xs text-muted-foreground">
                       {p.telefono && (
                         <a
                           href={`tel:${p.telefono}`}
@@ -454,7 +454,7 @@ function CaptacionTab() {
                       )}
                     </div>
                     {p.motivo && (
-                      <p className="mt-0.5 text-[10px] text-muted-foreground italic line-clamp-1">
+                      <p className="mt-0.5 text-xs text-muted-foreground italic line-clamp-1">
                         {p.motivo}
                       </p>
                     )}
@@ -463,20 +463,20 @@ function CaptacionTab() {
                     {p.inmueble ? (
                       <div>
                         <div className="text-xs font-medium">{p.inmueble.tipo}</div>
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                           {p.inmueble.calle} {p.inmueble.numero}, {p.inmueble.localidad}
                         </div>
                         {p.inmueble.precio && (
-                          <div className="text-[10px] text-muted-foreground">
+                          <div className="text-xs text-muted-foreground">
                             {formatEuro(p.inmueble.precio)}
                           </div>
                         )}
                       </div>
                     ) : (
-                      <span className="text-[11px] text-muted-foreground">Sin inmueble</span>
+                      <span className="text-xs text-muted-foreground">Sin inmueble</span>
                     )}
                   </td>
-                  <td className="py-3 px-2 text-[11px] text-muted-foreground whitespace-nowrap">
+                  <td className="py-3 px-2 text-xs text-muted-foreground whitespace-nowrap">
                     {formatFecha(p.fechaAlta)}
                   </td>
                   <td className="py-3 pl-2 pr-4 text-right">
@@ -514,10 +514,10 @@ function InmuebleCard({ inm }: { inm: Inmueble }) {
       </div>
       <div className="p-3 flex-1 flex flex-col gap-1">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-mono text-muted-foreground">#{cleanRef(inm.ref)}</span>
+          <span className="text-xs font-mono text-muted-foreground">#{cleanRef(inm.ref)}</span>
           <EstatusInmuebleBadge estatus={inm.estatus} />
           {dias !== null && dias > 90 && (
-            <span className="text-[10px] text-destructive/80 inline-flex items-center gap-0.5">
+            <span className="text-xs text-destructive/80 inline-flex items-center gap-0.5">
               <AlertTriangle className="size-2.5" /> {dias}d
             </span>
           )}
@@ -525,7 +525,7 @@ function InmuebleCard({ inm }: { inm: Inmueble }) {
         <div className="text-sm font-semibold text-foreground line-clamp-1">
           {inm.calle} {inm.numero}
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-0.5">
             <MapPin className="size-3" />
             {inm.barrio || inm.localidad}
@@ -663,7 +663,7 @@ function AlquilerTab() {
             </div>
             <div className="p-3 flex-1 flex flex-col gap-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-mono text-muted-foreground">
+                <span className="text-xs font-mono text-muted-foreground">
                   #{cleanRef(inm.ref)}
                 </span>
                 <EstatusInmuebleBadge estatus={inm.estatus} />
@@ -671,13 +671,13 @@ function AlquilerTab() {
               <div className="text-sm font-semibold line-clamp-1">
                 {inm.calle} {inm.numero}
               </div>
-              <div className="text-[11px] text-muted-foreground inline-flex items-center gap-0.5">
+              <div className="text-xs text-muted-foreground inline-flex items-center gap-0.5">
                 <MapPin className="size-3" />
                 {inm.barrio || inm.localidad}
               </div>
               <div className="mt-auto text-sm font-semibold text-primary">
                 {formatEuro(inm.precioFinal ?? inm.precio)}
-                <span className="text-[10px] text-muted-foreground font-normal">/mes</span>
+                <span className="text-xs text-muted-foreground font-normal">/mes</span>
               </div>
             </div>
           </Link>
@@ -773,11 +773,11 @@ function HistoricoTab() {
                     <div className="font-medium text-sm truncate max-w-[250px]">
                       {inm.calle} {inm.numero}
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       {inm.barrio || inm.localidad}
                     </div>
                   </td>
-                  <td className="py-3 px-2 text-[11px] font-mono text-muted-foreground">
+                  <td className="py-3 px-2 text-xs font-mono text-muted-foreground">
                     {cleanRef(inm.ref)}
                   </td>
                   <td className="py-3 px-2">

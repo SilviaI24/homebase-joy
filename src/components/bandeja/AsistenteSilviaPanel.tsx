@@ -62,7 +62,7 @@ export function AsistenteSilviaPanel() {
           <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
             <Bot className="size-4 text-primary" />
             <span className="text-sm font-medium">Pregunta a SilvIA</span>
-            <span className="text-[10px] text-muted-foreground ml-auto">CRM · consulta segura</span>
+            <span className="text-xs text-muted-foreground ml-auto">CRM · consulta segura</span>
           </div>
 
           {/* Messages */}

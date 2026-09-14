@@ -33,7 +33,7 @@ export function ChartCard({
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <Icon className="size-4 text-muted-foreground" /> {title}
         </h3>
-        {subtitle && <div className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</div>}
+        {subtitle && <div className="text-xs text-muted-foreground mt-0.5">{subtitle}</div>}
       </div>
       {children}
     </div>
@@ -190,7 +190,7 @@ export function CalendarSemanal({
             }
           />
           <div>
-            <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold mb-2">
+            <div className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-semibold mb-2">
               Tipo de evento
             </div>
             {Object.entries(ESTADO_COLORS).map(([estado, color]) => (
@@ -328,7 +328,7 @@ export function CalendarSemanal({
                   return (
                     <div
                       key={v.id}
-                      className="rounded-md border border-border p-2 text-[10px] leading-snug"
+                      className="rounded-md border border-border p-2 text-xs leading-snug"
                       style={{ borderLeftColor: color, borderLeftWidth: 2 }}
                     >
                       <div className="font-semibold tabular-nums text-foreground">
@@ -360,7 +360,7 @@ export function CalendarSemanal({
 
           {/* Week stats */}
           <div>
-            <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold mb-3">
+            <div className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-semibold mb-3">
               Esta semana
             </div>
             <div className="grid grid-cols-2 gap-2 text-center">

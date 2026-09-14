@@ -167,7 +167,7 @@ export function GlobalSearch({
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-medium truncate">{r.label}</div>
-                <div className="text-[11px] text-muted-foreground truncate">{r.sub}</div>
+                <div className="text-xs text-muted-foreground truncate">{r.sub}</div>
               </div>
             </button>
           ))}
@@ -245,7 +245,7 @@ function VisitaRowHoy({ visita: v }: { visita: VisitaRow }) {
       <span className="size-2 rounded-full shrink-0" style={{ background: color }} />
       <span className="flex-1 min-w-0 text-xs font-medium truncate">{address}</span>
       {cliente && (
-        <span className="text-[11px] text-muted-foreground truncate hidden sm:block max-w-[140px]">
+        <span className="text-xs text-muted-foreground truncate hidden sm:block max-w-[140px]">
           {cliente}
         </span>
       )}
@@ -315,7 +315,7 @@ export function AgenteCardHub({ card }: { card: AgenteHub }) {
           {card.mail && (
             <a
               href={`mailto:${card.mail}`}
-              className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 truncate"
+              className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 truncate"
             >
               <Mail className="size-3" /> {card.mail}
             </a>
@@ -326,15 +326,15 @@ export function AgenteCardHub({ card }: { card: AgenteHub }) {
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-md border border-border bg-card px-2 py-1.5 text-center">
           <div className="text-sm font-semibold tabular-nums text-success">{card.activos}</div>
-          <div className="text-[10px] text-muted-foreground leading-none mt-0.5">Activos</div>
+          <div className="text-xs text-muted-foreground leading-none mt-0.5">Activos</div>
         </div>
         <div className="rounded-md border border-border bg-card px-2 py-1.5 text-center">
           <div className="text-sm font-semibold tabular-nums text-warning">{card.reservados}</div>
-          <div className="text-[10px] text-muted-foreground leading-none mt-0.5">Reservados</div>
+          <div className="text-xs text-muted-foreground leading-none mt-0.5">Reservados</div>
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 text-[11px] min-h-[18px]">
+      <div className="flex items-center gap-1.5 text-xs min-h-[18px]">
         {card.proximaVisita ? (
           <>
             <Clock className="size-3 text-primary shrink-0" />
@@ -383,7 +383,7 @@ export function ActividadPanel({ actividad, label }: { actividad: ActividadEvt[]
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <Activity className="size-4 text-muted-foreground" /> Actividad reciente
         </h3>
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</span>
+        <span className="text-xs text-muted-foreground uppercase tracking-wide">{label}</span>
       </div>
       <ol className="divide-y divide-border max-h-[640px] overflow-y-auto">
         {actividad.map((e) => (
@@ -392,11 +392,11 @@ export function ActividadPanel({ actividad, label }: { actividad: ActividadEvt[]
               <ActividadIcon tipo={e.tipo} />
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-medium truncate">{e.titulo}</div>
-                <div className="text-[11px] text-muted-foreground truncate">
+                <div className="text-xs text-muted-foreground truncate">
                   {e.sub}
                   {e.agentes.length > 0 && <> · {e.agentes.join(", ")}</>}
                 </div>
-                <div className="text-[10px] text-muted-foreground/80 mt-0.5">
+                <div className="text-xs text-muted-foreground/80 mt-0.5">
                   {e.fecha.toLocaleDateString("es-ES", {
                     day: "2-digit",
                     month: "short",
@@ -505,7 +505,7 @@ function ProximaVisitaRow({ visita: v }: { visita: VisitaRow }) {
       <span className="size-2 rounded-full shrink-0 mt-0.5" style={{ background: color }} />
       <div className="flex-1 min-w-0">
         <div className="text-xs font-medium truncate">{address}</div>
-        <div className="text-[11px] text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           {fmtDateCompact(v.fecha)} · {fmtTime(v.fecha)}
           {cliente && <> · {cliente}</>}
         </div>
@@ -537,7 +537,7 @@ function InmuebleRowAgente({ inmueble: i }: { inmueble: Inmueble }) {
         <div className="text-xs font-medium truncate">
           {i.calle} {i.numero ?? ""}
         </div>
-        <div className="text-[11px] text-muted-foreground truncate">
+        <div className="text-xs text-muted-foreground truncate">
           {i.localidad ?? ""}
           {i.tipo && ` · ${i.tipo}`}
         </div>

@@ -83,7 +83,7 @@ function EditSpecField({
 }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
+      <div className="text-xs uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
         {label}
       </div>
       {type === "select" && options ? (
@@ -208,7 +208,7 @@ export function CaracteristicasPanel({
           {/* Tipo — read-only */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
+              <div className="text-xs uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
                 Tipo
               </div>
               <div className="h-8 px-2 flex items-center rounded border border-input bg-muted text-sm text-muted-foreground">

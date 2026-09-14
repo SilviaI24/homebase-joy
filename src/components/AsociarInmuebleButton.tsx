@@ -115,7 +115,7 @@ export function AsociarInmuebleButton({ contactId }: { contactId: string }) {
                       {i.calle}
                       {i.numero ? ` ${i.numero}` : ""}
                     </div>
-                    <div className="text-[10px] text-muted-foreground truncate">
+                    <div className="text-xs text-muted-foreground truncate">
                       {[i.barrio, i.localidad].filter(Boolean).join(", ")}
                       {i.ref ? ` · ${i.ref}` : ""}
                       {" · "}

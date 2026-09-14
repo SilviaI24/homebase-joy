@@ -95,18 +95,18 @@ export function KanbanCard({
             </span>
           </div>
           {cliente.telefono && (
-            <div className="mt-1 text-[10px] text-muted-foreground flex items-center gap-0.5">
+            <div className="mt-1 text-xs text-muted-foreground flex items-center gap-0.5">
               <Phone className="size-2.5" />
               {cliente.telefono}
             </div>
           )}
           {dias !== null && (
-            <div className="mt-0.5 text-[10px] text-muted-foreground">
+            <div className="mt-0.5 text-xs text-muted-foreground">
               {dias === 0 ? "Hoy" : `Hace ${dias}d`}
             </div>
           )}
           {ultimaNota && (
-            <div className="mt-1.5 rounded bg-muted/50 px-1.5 py-1 text-[10px] text-muted-foreground line-clamp-1">
+            <div className="mt-1.5 rounded bg-muted/50 px-1.5 py-1 text-xs text-muted-foreground line-clamp-1">
               <StickyNote className="size-2.5 inline mr-0.5" />
               {ultimaNota.texto}
             </div>
@@ -318,7 +318,7 @@ export function LeadCard({ cliente, estado }: { cliente: Cliente; estado: Estado
               </span>
             ))}
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             {cliente.telefono && (
               <a
                 href={`tel:${cliente.telefono}`}
@@ -344,12 +344,10 @@ export function LeadCard({ cliente, estado }: { cliente: Cliente; estado: Estado
             </span>
           </div>
           {cliente.motivo && (
-            <p className="mt-2 text-[11px] text-foreground/70 italic line-clamp-2">
-              {cliente.motivo}
-            </p>
+            <p className="mt-2 text-xs text-foreground/70 italic line-clamp-2">{cliente.motivo}</p>
           )}
           {ultimaNota && (
-            <div className="mt-1.5 rounded-md bg-muted/50 px-2 py-1 text-[10px] text-muted-foreground">
+            <div className="mt-1.5 rounded-md bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
               <MessageSquare className="size-2.5 inline mr-0.5" />
               {ultimaNota.fecha}: {ultimaNota.texto}
             </div>

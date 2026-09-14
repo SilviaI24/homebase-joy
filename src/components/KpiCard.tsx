@@ -55,7 +55,7 @@ export function KpiCard({
           </div>
         )}
       </div>
-      {hint && <div className="mt-0.5 text-[11px] text-muted-foreground line-clamp-1">{hint}</div>}
+      {hint && <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{hint}</div>}
       {sparkData && sparkData.length > 1 && (
         <div className="mt-2 -mx-1 h-8">
           <ResponsiveContainer width="100%" height="100%">

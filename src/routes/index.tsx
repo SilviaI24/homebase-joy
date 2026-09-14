@@ -300,7 +300,7 @@ function Dashboard() {
       {/* ── ROW 1: Hero ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
         <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 flex flex-col min-h-[200px]">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground font-medium mb-4 flex items-center gap-2">
+          <div className="text-xs uppercase tracking-[0.22em] text-muted-foreground font-medium mb-4 flex items-center gap-2">
             {myRole.isFinanciero ? "Comisiones este mes" : "Actividad próxima"}
             {myRole.isFinanciero && (
               <span className="normal-case tracking-normal text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-normal">
@@ -397,7 +397,7 @@ function Dashboard() {
             style={{ color: "var(--sidebar-foreground)" }}
           >
             <div
-              className="text-[10px] uppercase tracking-[0.22em] font-medium mb-3"
+              className="text-xs uppercase tracking-[0.22em] font-medium mb-3"
               style={{ opacity: 0.45 }}
             >
               Cartera activa
@@ -420,7 +420,7 @@ function Dashboard() {
           </div>
           <div className="flex-1 rounded-2xl border border-border bg-card p-5 grid grid-cols-3 divide-x divide-border">
             <div className="pr-3">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
                 Clientes
               </div>
               <div className="text-3xl font-display font-bold tabular-nums leading-none">
@@ -435,7 +435,7 @@ function Dashboard() {
               </Link>
             </div>
             <div className="px-3">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
                 Visitas / 7d
               </div>
               <div className="text-3xl font-display font-bold tabular-nums leading-none">
@@ -449,7 +449,7 @@ function Dashboard() {
               </Link>
             </div>
             <div className="pl-3">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
+              <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
                 Prospectos
               </div>
               <div
@@ -531,10 +531,10 @@ function Dashboard() {
             <div className="text-2xl font-display font-bold tabular-nums leading-none">
               {leadsCount}
             </div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">
               Leads activos
             </div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">Pendientes de cualificar</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Pendientes de cualificar</div>
           </div>
         </Link>
         <Link
@@ -552,10 +552,10 @@ function Dashboard() {
             <div className="text-2xl font-display font-bold tabular-nums leading-none">
               {cliTotal}
             </div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">
               En seguimiento
             </div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">Activos · Prospectos</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Activos · Prospectos</div>
           </div>
         </Link>
         <Link
@@ -572,10 +572,10 @@ function Dashboard() {
             <div className="text-2xl font-display font-bold tabular-nums leading-none">
               {stats.reservados}
             </div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">
               Reservados
             </div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">Inmuebles en reserva</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Inmuebles en reserva</div>
           </div>
         </Link>
         <Link
@@ -592,10 +592,10 @@ function Dashboard() {
             <div className="text-2xl font-display font-bold tabular-nums leading-none">
               {visStats.proximas}
             </div>
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mt-1.5">
               Visitas · 7 días
             </div>
-            <div className="text-[11px] text-muted-foreground mt-0.5">Agendadas próxima semana</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Agendadas próxima semana</div>
           </div>
         </Link>
       </div>
@@ -669,7 +669,7 @@ function Dashboard() {
       {/* ── ROW 5: Análisis comercial ── */}
       <div className="mt-6">
         <div className="flex items-center gap-3 mb-4">
-          <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
+          <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-semibold">
             Análisis comercial
           </span>
           <span className="flex-1 h-px bg-border" />
@@ -685,7 +685,7 @@ function Dashboard() {
           <div className="rounded-2xl border border-border bg-card p-5">
             <div className="mb-4">
               <h3 className="text-sm font-semibold">Pipeline de contactos</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {analytics.totalContactos} contactos · Conv. {analytics.convRate}%
               </p>
             </div>
@@ -715,19 +715,19 @@ function Dashboard() {
             {myRole.isFinanciero && (
               <div className="mt-4 pt-3 border-t border-border flex flex-wrap gap-x-6 gap-y-2">
                 <div>
-                  <div className="text-[10px] text-muted-foreground">Pipeline (valor real)</div>
+                  <div className="text-xs text-muted-foreground">Pipeline (valor real)</div>
                   <div className="text-[13px] font-semibold tabular-nums">
                     {moneyFull(analytics.pipelineValorOps)}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-muted-foreground">Ops. cerradas</div>
+                  <div className="text-xs text-muted-foreground">Ops. cerradas</div>
                   <div className="text-[13px] font-semibold tabular-nums">
                     {analytics.opsCerradas.length}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-muted-foreground">Comisiones reales</div>
+                  <div className="text-xs text-muted-foreground">Comisiones reales</div>
                   <div className="text-[13px] font-semibold tabular-nums">
                     {moneyFull(analytics.totalComision)}
                   </div>
@@ -739,7 +739,7 @@ function Dashboard() {
           {/* Canal captación */}
           <div className="rounded-2xl border border-border bg-card p-5">
             <h3 className="text-sm font-semibold mb-1">Canal de captación</h3>
-            <p className="text-[11px] text-muted-foreground mb-4">Distribución por origen</p>
+            <p className="text-xs text-muted-foreground mb-4">Distribución por origen</p>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart
                 data={analytics.canalData}
@@ -786,7 +786,7 @@ function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
           <div className="rounded-2xl border border-border bg-card p-5">
             <h3 className="text-sm font-semibold mb-1">Leads captados</h3>
-            <p className="text-[11px] text-muted-foreground mb-4">Últimos 12 meses</p>
+            <p className="text-xs text-muted-foreground mb-4">Últimos 12 meses</p>
             <ResponsiveContainer width="100%" height={160}>
               <BarChart
                 data={analytics.leadsChartData}
@@ -822,7 +822,7 @@ function Dashboard() {
           </div>
           <div className="rounded-2xl border border-border bg-card p-5">
             <h3 className="text-sm font-semibold mb-1">Visitas</h3>
-            <p className="text-[11px] text-muted-foreground mb-4">
+            <p className="text-xs text-muted-foreground mb-4">
               Realizadas vs canceladas · 12 meses
             </p>
             <ResponsiveContainer width="100%" height={160}>
@@ -897,10 +897,10 @@ function Dashboard() {
                       <div className="flex-1 min-w-0">
                         <div className="text-[12px] font-medium truncate">{a.nombre}</div>
                         <div className="flex gap-3 mt-0.5">
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             <span className="font-semibold text-foreground">{a.leads}</span> leads
                           </span>
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             <span className="font-semibold text-gold">{a.clientes}</span> clientes
                           </span>
                         </div>

@@ -16,7 +16,7 @@ function Field({
   if (hideEmpty && isEmpty) return null;
   return (
     <div className="py-2 border-b border-border/40 last:border-0">
-      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground">
+      <div className="text-xs uppercase tracking-[0.08em] font-medium text-muted-foreground">
         {label}
       </div>
       <div className="text-sm mt-1 font-medium text-foreground">

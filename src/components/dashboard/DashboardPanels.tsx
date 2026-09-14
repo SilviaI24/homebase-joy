@@ -33,7 +33,7 @@ export function PulsoChip({
       </span>
       <div className="min-w-0 flex-1">
         <div className="text-2xl font-display font-bold tabular-nums leading-none">{value}</div>
-        <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mt-1 leading-tight">
+        <div className="text-xs uppercase tracking-[0.15em] text-muted-foreground mt-1 leading-tight">
           {label}
         </div>
       </div>
@@ -63,7 +63,7 @@ export function DepartamentosPanel({
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <MapPin className="size-4 text-gold" /> Actividad por zona
         </h3>
-        <div className="text-[10px] text-muted-foreground tabular-nums text-right leading-tight">
+        <div className="text-xs text-muted-foreground tabular-nums text-right leading-tight">
           <span className="font-semibold text-foreground">{totalCapt}</span> capt
           <br />
           <span className="font-semibold text-foreground">{totalVentas}</span> vtas
@@ -123,7 +123,7 @@ export function CarteraBreakdown({
 }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
-      <h3 className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-4">
+      <h3 className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mb-4">
         Cartera activa · por tipo
       </h3>
       {data.length === 0 ? (
@@ -134,7 +134,7 @@ export function CarteraBreakdown({
             <div key={d.tipo}>
               <div className="flex items-baseline justify-between text-xs mb-1.5">
                 <span className="font-medium truncate max-w-[55%]">{d.tipo}</span>
-                <span className="text-muted-foreground tabular-nums shrink-0 text-[11px]">
+                <span className="text-muted-foreground tabular-nums shrink-0 text-xs">
                   <span className="font-semibold text-foreground">{d.count}</span> ·{" "}
                   {moneyShort(d.valor)}
                 </span>
@@ -160,9 +160,7 @@ export function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: 
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <TrendingDown className="size-4 text-alert" /> Inmuebles estancados
         </h3>
-        <p className="text-[11px] text-muted-foreground mt-0.5">
-          Activos sin escritura tras +90 días.
-        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">Activos sin escritura tras +90 días.</p>
       </div>
       {estancados.length === 0 ? (
         <div className="p-6 text-center text-xs text-muted-foreground">
@@ -184,11 +182,11 @@ export function AlertasPanel({ estancados }: { estancados: { i: Inmueble; dias: 
                   <div className="text-xs font-medium truncate">
                     {i.calle || "Sin dirección"} {i.numero}
                   </div>
-                  <div className="text-[11px] text-muted-foreground truncate">
+                  <div className="text-xs text-muted-foreground truncate">
                     {[i.barrio, i.localidad].filter(Boolean).join(" · ") || i.tipo}
                   </div>
                 </div>
-                <div className="text-[11px] text-muted-foreground tabular-nums">
+                <div className="text-xs text-muted-foreground tabular-nums">
                   {i.precio ? moneyShort(i.precio) : "—"}
                 </div>
               </Link>
@@ -211,9 +209,7 @@ export function RecentRow({ i }: { i: Inmueble }) {
         <div className="text-sm font-medium truncate">
           {i.calle || "Sin dirección"} {i.numero}
           {i.ref && (
-            <span className="ml-2 text-[11px] font-mono text-muted-foreground">
-              #{cleanRef(i.ref)}
-            </span>
+            <span className="ml-2 text-xs font-mono text-muted-foreground">#{cleanRef(i.ref)}</span>
           )}
         </div>
         <div className="text-xs text-muted-foreground truncate">
@@ -225,7 +221,7 @@ export function RecentRow({ i }: { i: Inmueble }) {
         <div className="text-sm font-semibold tabular-nums">
           {i.precio ? moneyFull(i.precio) : "—"}
         </div>
-        <div className="text-[11px] text-muted-foreground">{fmtDate(i.fechaInicio)}</div>
+        <div className="text-xs text-muted-foreground">{fmtDate(i.fechaInicio)}</div>
       </div>
     </Link>
   );
@@ -290,7 +286,7 @@ export function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
                 <ScoreBadge score={lead.score} />
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-medium truncate">{lead.nombre}</div>
-                  <div className="text-[11px] text-muted-foreground truncate">
+                  <div className="text-xs text-muted-foreground truncate">
                     {lead.telefono ?? "Sin tel."} · {lead.ciclo_vida}
                     {lead.diasSinContacto !== null && (
                       <span className={`ml-1 ${lead.diasSinContacto < 7 ? "text-success" : ""}`}>
@@ -345,7 +341,7 @@ export function SinSeguimientoPanel({ leads }: { leads: LeadInsight[] }) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-medium truncate">{lead.nombre}</div>
-                  <div className="text-[11px] text-muted-foreground truncate">
+                  <div className="text-xs text-muted-foreground truncate">
                     {lead.telefono ?? "Sin tel."} · {lead.ciclo_vida}
                   </div>
                 </div>
@@ -396,7 +392,7 @@ export function SinAsignarPanel({ leads }: { leads: LeadInsight[] }) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-medium truncate">{lead.nombre}</div>
-                  <div className="text-[11px] text-muted-foreground truncate">
+                  <div className="text-xs text-muted-foreground truncate">
                     {lead.telefono ?? "Sin tel."} · {lead.ciclo_vida}
                   </div>
                 </div>

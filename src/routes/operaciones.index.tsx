@@ -269,7 +269,7 @@ function OperacionesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Tipo */}
             <div>
-              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+              <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
                 Tipo *
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -288,7 +288,7 @@ function OperacionesPage() {
 
             {/* Inmueble */}
             <div className="sm:col-span-2">
-              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+              <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
                 Inmueble
               </label>
               {fProperty ? (
@@ -337,7 +337,7 @@ function OperacionesPage() {
 
             {/* Agente */}
             <div>
-              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+              <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
                 Agente responsable
               </label>
               <select
@@ -386,7 +386,7 @@ function OperacionesPage() {
               <>
                 {/* Precio */}
                 <div>
-                  <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+                  <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
                     Precio operación (€)
                   </label>
                   <Input
@@ -400,7 +400,7 @@ function OperacionesPage() {
 
                 {/* Comisión % */}
                 <div>
-                  <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+                  <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
                     Comisión (%)
                   </label>
                   <Input
@@ -411,7 +411,7 @@ function OperacionesPage() {
                     inputMode="decimal"
                   />
                   {comisionCalc !== null && (
-                    <p className="text-[11px] text-success mt-1 font-medium">
+                    <p className="text-xs text-success mt-1 font-medium">
                       = {fmtEur(comisionCalc)}
                     </p>
                   )}
@@ -421,7 +421,7 @@ function OperacionesPage() {
 
             {/* Notas */}
             <div className="sm:col-span-2">
-              <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+              <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
                 Notas
               </label>
               <textarea

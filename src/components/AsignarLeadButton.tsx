@@ -99,7 +99,7 @@ export function AsignarLeadButton({
                   <div className="min-w-0">
                     <div className="truncate font-medium">{a.nombre}</div>
                     {a.mail && (
-                      <div className="truncate text-[10px] text-muted-foreground">{a.mail}</div>
+                      <div className="truncate text-xs text-muted-foreground">{a.mail}</div>
                     )}
                   </div>
                   <span
@@ -117,7 +117,7 @@ export function AsignarLeadButton({
           })}
         </ul>
         <div className="border-t border-border p-2 flex items-center justify-between gap-2">
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {selected.length} seleccionado{selected.length === 1 ? "" : "s"}
           </span>
           <div className="flex gap-1.5">

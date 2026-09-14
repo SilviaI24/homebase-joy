@@ -207,24 +207,22 @@ function NotificationBell({ enabled }: { enabled: boolean }) {
           {/* Panel header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-sidebar/60">
             <span className="text-[12px] font-semibold text-foreground">Notificaciones</span>
-            {total === 0 && (
-              <span className="text-[10px] text-muted-foreground">Sin pendientes</span>
-            )}
+            {total === 0 && <span className="text-xs text-muted-foreground">Sin pendientes</span>}
             {total > 0 && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 {total} pendiente{total !== 1 ? "s" : ""}
               </span>
             )}
           </div>
 
           {total === 0 ? (
-            <div className="py-8 text-center text-[11px] text-muted-foreground">Todo al día ✓</div>
+            <div className="py-8 text-center text-xs text-muted-foreground">Todo al día ✓</div>
           ) : (
             <div className="max-h-[360px] overflow-y-auto">
               {groups.map(({ key, items }) => (
                 <div key={key}>
                   <div
-                    className={`px-4 py-1.5 text-[9px] uppercase tracking-[0.14em] font-semibold ${PRIO_COLOR[key]} bg-muted/40`}
+                    className={`px-4 py-1.5 text-xs uppercase tracking-[0.14em] font-semibold ${PRIO_COLOR[key]} bg-muted/40`}
                   >
                     {PRIO_LABEL[key]}
                   </div>
@@ -239,10 +237,10 @@ function NotificationBell({ enabled }: { enabled: boolean }) {
                       >
                         <Icon className={`size-3.5 mt-0.5 shrink-0 ${PRIO_COLOR[key]}`} />
                         <div className="min-w-0">
-                          <div className="text-[11px] font-medium text-foreground leading-snug truncate">
+                          <div className="text-xs font-medium text-foreground leading-snug truncate">
                             {n.titulo}
                           </div>
-                          <div className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                          <div className="text-xs text-muted-foreground mt-0.5 truncate">
                             {n.detalle}
                           </div>
                         </div>
@@ -391,9 +389,7 @@ function SilviaFloat({ enabled }: { enabled: boolean }) {
             </div>
             <div>
               <div className="text-[13px] font-semibold text-gold leading-tight">SilvIA</div>
-              <div className="text-[10px] text-muted-foreground leading-none">
-                IA · El Sol Grupo
-              </div>
+              <div className="text-xs text-muted-foreground leading-none">IA · El Sol Grupo</div>
             </div>
             {msgs.length > 0 && (
               <button
@@ -411,7 +407,7 @@ function SilviaFloat({ enabled }: { enabled: boolean }) {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
             {msgs.length === 0 && (
-              <div className="text-center text-[11px] text-muted-foreground pt-6 px-4 leading-relaxed">
+              <div className="text-center text-xs text-muted-foreground pt-6 px-4 leading-relaxed">
                 Hola, soy SilvIA. Puedo ayudarte a consultar contactos, visitas e inmuebles del CRM.
               </div>
             )}
@@ -443,7 +439,7 @@ function SilviaFloat({ enabled }: { enabled: boolean }) {
               </div>
             )}
             {error && (
-              <div className="text-[11px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+              <div className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
                 {error}
               </div>
             )}
@@ -531,7 +527,7 @@ function SidebarContent({
             <div className="font-display font-semibold tracking-tight text-[13px] text-gold leading-tight">
               El Sol Grupo
             </div>
-            <div className="text-[9px] uppercase tracking-[0.18em] text-sidebar-foreground/35 mt-0.5">
+            <div className="text-xs uppercase tracking-[0.18em] text-sidebar-foreground/35 mt-0.5">
               CRM Inmobiliario
             </div>
           </div>
@@ -549,7 +545,7 @@ function SidebarContent({
             <div key={gi}>
               {group.label && (
                 <div className="px-3 pb-1.5 flex items-center gap-2">
-                  <span className="text-[9px] uppercase tracking-[0.16em] text-sidebar-foreground/35 font-semibold">
+                  <span className="text-xs uppercase tracking-[0.16em] text-sidebar-foreground/35 font-semibold">
                     {group.label}
                   </span>
                   <span className="flex-1 h-px bg-sidebar-border/60" />
@@ -584,7 +580,7 @@ function SidebarContent({
           <Link
             to="/perfil"
             onClick={onLinkClick}
-            className="text-[9px] uppercase tracking-[0.14em] text-sidebar-foreground/25 font-medium hover:text-sidebar-foreground/50 transition-colors"
+            className="text-xs uppercase tracking-[0.14em] text-sidebar-foreground/25 font-medium hover:text-sidebar-foreground/50 transition-colors"
           >
             v0.5
           </Link>
@@ -690,7 +686,7 @@ export function AppShell({
               {title}
             </h1>
             {subtitle && (
-              <p className="text-[11px] text-muted-foreground truncate hidden sm:block mt-0.5 leading-none">
+              <p className="text-xs text-muted-foreground truncate hidden sm:block mt-0.5 leading-none">
                 {subtitle}
               </p>
             )}
@@ -736,9 +732,7 @@ export function AppShell({
                 className="flex-1 flex flex-col items-center justify-center gap-1 text-muted-foreground [&.active]:text-gold transition-colors duration-150 py-1"
               >
                 <Icon className="size-[18px]" />
-                <span className="text-[9px] font-medium leading-none tracking-wide">
-                  {item.label}
-                </span>
+                <span className="text-xs font-medium leading-none tracking-wide">{item.label}</span>
               </Link>
             );
           })}

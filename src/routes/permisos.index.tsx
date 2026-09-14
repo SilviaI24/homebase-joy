@@ -100,7 +100,7 @@ function PermissionAdminPage() {
     >
       <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="rounded-xl border border-border bg-card p-2 self-start">
-          <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          <div className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             Equipo · {data.users.length}
           </div>
           <div className="space-y-1">
@@ -121,8 +121,8 @@ function PermissionAdminPage() {
                   />
                   <span className="truncate text-xs font-semibold">{user.nombre}</span>
                 </div>
-                <div className="mt-1 truncate pl-4 text-[10px] opacity-70">{user.email}</div>
-                <div className="mt-1 pl-4 text-[9px] uppercase tracking-wide opacity-55">
+                <div className="mt-1 truncate pl-4 text-xs opacity-70">{user.email}</div>
+                <div className="mt-1 pl-4 text-xs uppercase tracking-wide opacity-55">
                   {ROLE_LABEL[user.rolBase]}
                 </div>
               </button>
@@ -139,13 +139,13 @@ function PermissionAdminPage() {
                 </div>
                 <div className="min-w-0">
                   <h2 className="truncate text-sm font-semibold">{selected.nombre}</h2>
-                  <p className="truncate text-[11px] text-muted-foreground">{selected.email}</p>
+                  <p className="truncate text-xs text-muted-foreground">{selected.email}</p>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-end gap-3">
                 <label className="space-y-1">
-                  <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <span className="block text-xs uppercase tracking-wide text-muted-foreground">
                     Rol
                   </span>
                   <select
@@ -186,7 +186,7 @@ function PermissionAdminPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-4 text-[11px] text-muted-foreground">
+          <div className="rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground">
             Lo que puede hacer{" "}
             <strong className="text-foreground">{ROLE_LABEL[selected.rolBase]}</strong> — depende
             solo del rol, no hay excepciones por persona.
@@ -196,7 +196,7 @@ function PermissionAdminPage() {
             <div key={domain} className="overflow-hidden rounded-xl border border-border bg-card">
               <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
                 <ShieldCheck className="size-3.5 text-gold" />
-                <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em]">{domain}</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-[0.14em]">{domain}</h3>
               </div>
               <div className="divide-y divide-border">
                 {permissions.map((permission) => {
@@ -215,7 +215,7 @@ function PermissionAdminPage() {
                             </span>
                           )}
                         </div>
-                        <div className="mt-1 font-mono text-[9px] text-muted-foreground">
+                        <div className="mt-1 font-mono text-xs text-muted-foreground">
                           {permission.clave}
                         </div>
                       </div>

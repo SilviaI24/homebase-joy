@@ -167,7 +167,7 @@ export function ManagementPanel(props: {
             </div>
           )}
           {!agentesOpen && selectedNames.length > 0 && (
-            <div className="text-[11px] text-muted-foreground mt-1 truncate">
+            <div className="text-xs text-muted-foreground mt-1 truncate">
               {selectedNames.join(", ")}
             </div>
           )}

@@ -71,7 +71,7 @@ export function HeroImagePanel({
                 {formatEuro(inmueble.precio)}
               </div>
               {inmueble.precioFinal ? (
-                <div className="text-[11px] text-white/75 mt-1">
+                <div className="text-xs text-white/75 mt-1">
                   Cerrado en {formatEuro(inmueble.precioFinal)}
                 </div>
               ) : null}

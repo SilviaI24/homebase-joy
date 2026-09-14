@@ -519,7 +519,7 @@ export function NuevaCaptacionDialog({
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                   Propietario
                 </p>
                 <div className="space-y-2">
@@ -551,7 +551,7 @@ export function NuevaCaptacionDialog({
                 </div>
               </div>
               <div>
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                   Inmueble
                 </p>
                 <div className="space-y-2">

@@ -84,15 +84,13 @@ export function MencionadoCard({
         </div>
         <div className="flex-1 min-w-0 py-2 pr-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-mono text-muted-foreground">
-              #{cleanRef(inm.ref)}
-            </span>
+            <span className="text-xs font-mono text-muted-foreground">#{cleanRef(inm.ref)}</span>
             <EstatusInmuebleBadge estatus={inm.estatus} />
           </div>
           <div className="text-xs font-semibold truncate">
             {inm.calle} {inm.numero}
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-0.5">
               <MapPin className="size-2.5" />
               {inm.barrio || inm.localidad || "—"}
@@ -106,7 +104,7 @@ export function MencionadoCard({
       </Link>
       {/* Confirmar vínculo */}
       {readOnly ? null : done ? (
-        <div className="px-2 py-1.5 border-t border-success/20 flex items-center gap-1 text-[10px] text-success">
+        <div className="px-2 py-1.5 border-t border-success/20 flex items-center gap-1 text-xs text-success">
           <Link2 className="size-3" /> Vinculado como {tipo}
         </div>
       ) : (

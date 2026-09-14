@@ -85,7 +85,7 @@ export function PhotoUpload({
           Añadir fotos
         </button>
         {uploading.length === 0 ? (
-          <span className="text-[11px] text-muted-foreground">o arrastra imágenes aquí</span>
+          <span className="text-xs text-muted-foreground">o arrastra imágenes aquí</span>
         ) : (
           <div className="flex items-center gap-1.5 flex-wrap">
             {uploading.map((u) => (
@@ -109,7 +109,7 @@ export function PhotoUpload({
         )}
       </div>
       {isDragging && (
-        <div className="mt-2 text-[11px] text-primary text-center py-2 border border-dashed border-primary/40 rounded-md">
+        <div className="mt-2 text-xs text-primary text-center py-2 border border-dashed border-primary/40 rounded-md">
           Suelta las imágenes aquí
         </div>
       )}
@@ -139,7 +139,7 @@ export function ImagenesReorder({
   };
   return (
     <div className="px-3 py-3 border-t border-border bg-card">
-      <div className="text-[11px] text-muted-foreground mb-2">
+      <div className="text-xs text-muted-foreground mb-2">
         Arrastra para reordenar las fotos. El nuevo orden se guarda al pulsar “Guardar”.
       </div>
       <div className="flex gap-2 overflow-x-auto">

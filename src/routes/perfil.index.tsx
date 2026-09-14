@@ -62,7 +62,7 @@ function PerfilPage() {
           </div>
           <div className="min-w-0">
             <p className="text-[13px] font-semibold truncate">{user?.email}</p>
-            <p className="text-[11px] text-muted-foreground">Administrador</p>
+            <p className="text-xs text-muted-foreground">Administrador</p>
           </div>
         </div>
 
@@ -75,7 +75,7 @@ function PerfilPage() {
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="space-y-1">
-              <label className="text-[11px] text-muted-foreground">Contraseña actual</label>
+              <label className="text-xs text-muted-foreground">Contraseña actual</label>
               <input
                 type="password"
                 value={current}
@@ -85,7 +85,7 @@ function PerfilPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] text-muted-foreground">
+              <label className="text-xs text-muted-foreground">
                 Nueva contraseña (mín. 8 caracteres)
               </label>
               <input
@@ -97,9 +97,7 @@ function PerfilPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] text-muted-foreground">
-                Confirmar nueva contraseña
-              </label>
+              <label className="text-xs text-muted-foreground">Confirmar nueva contraseña</label>
               <input
                 type="password"
                 value={confirm}
@@ -110,11 +108,11 @@ function PerfilPage() {
             </div>
 
             {newPass && confirm && newPass !== confirm && (
-              <p className="text-[11px] text-destructive">Las contraseñas no coinciden.</p>
+              <p className="text-xs text-destructive">Las contraseñas no coinciden.</p>
             )}
-            {err && <p className="text-[11px] text-destructive">{err}</p>}
+            {err && <p className="text-xs text-destructive">{err}</p>}
             {success && (
-              <div className="flex items-center gap-1.5 text-[11px] text-success">
+              <div className="flex items-center gap-1.5 text-xs text-success">
                 <Check className="size-3.5" strokeWidth={2.5} />
                 Contraseña actualizada correctamente.
               </div>

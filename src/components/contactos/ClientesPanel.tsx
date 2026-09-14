@@ -49,14 +49,12 @@ export function ClienteRow({ c, onClick }: { c: ClienteRowType; onClick: () => v
           <div className="min-w-0">
             <div className="text-sm font-medium truncate max-w-[200px]">{c.nombre || "—"}</div>
             {c.email && (
-              <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">
-                {c.email}
-              </div>
+              <div className="text-xs text-muted-foreground truncate max-w-[180px]">{c.email}</div>
             )}
           </div>
         </div>
       </td>
-      <td className="py-3 px-2 text-[11px] text-muted-foreground whitespace-nowrap">
+      <td className="py-3 px-2 text-xs text-muted-foreground whitespace-nowrap">
         {c.telefono || "—"}
       </td>
       <td className="py-3 px-2">
@@ -67,7 +65,7 @@ export function ClienteRow({ c, onClick }: { c: ClienteRowType; onClick: () => v
           {segCfg.label.replace("s", "")}
         </span>
       </td>
-      <td className="py-3 px-2 text-[11px] text-muted-foreground whitespace-nowrap">
+      <td className="py-3 px-2 text-xs text-muted-foreground whitespace-nowrap">
         {formatFechaCorta(c.fecha)}
       </td>
       <td className="py-3 pl-2 pr-4 text-right">
@@ -182,7 +180,7 @@ export function ClienteDetallePanel({ id }: { id: string }) {
                   <div className="text-xs font-medium truncate">
                     {inm.calle} {inm.numero}
                   </div>
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     {inm.rolTipo} · {inm.estatus}
                   </div>
                 </div>

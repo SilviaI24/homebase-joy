@@ -16,7 +16,7 @@ export function DescripcionPanel({
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-display text-base font-semibold">Descripción</h3>
-        {descripcion !== original && <span className="text-[11px] text-warning">Sin guardar</span>}
+        {descripcion !== original && <span className="text-xs text-warning">Sin guardar</span>}
       </div>
       {detailReady ? (
         <textarea

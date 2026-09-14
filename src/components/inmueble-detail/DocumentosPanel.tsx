@@ -101,7 +101,7 @@ export function DocumentosPanel({
               {docIcon(doc.type)}
               <div className="flex-1 min-w-0">
                 <span className="font-medium truncate block">{doc.filename}</span>
-                <span className="text-[10px] text-muted-foreground">{doc.type}</span>
+                <span className="text-xs text-muted-foreground">{doc.type}</span>
               </div>
               <button
                 type="button"

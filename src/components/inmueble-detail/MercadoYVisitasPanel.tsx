@@ -55,7 +55,7 @@ export function StatBox({
     <div
       className={`relative rounded-md border border-border bg-background px-3 py-2.5 overflow-hidden before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] ${accent}`}
     >
-      <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground">
+      <div className="text-xs uppercase tracking-[0.08em] font-medium text-muted-foreground">
         {label}
       </div>
       <div
@@ -63,7 +63,7 @@ export function StatBox({
       >
         {value}
       </div>
-      {hint && <div className="text-[10px] text-muted-foreground mt-0.5">{hint}</div>}
+      {hint && <div className="text-xs text-muted-foreground mt-0.5">{hint}</div>}
     </div>
   );
 }
@@ -134,7 +134,7 @@ export function TiempoMercadoPanel({
 
           {completados.length > 0 && (
             <div>
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
                 Duración entre hitos
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -176,7 +176,7 @@ function VisitaList({
 }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">{title}</div>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">{title}</div>
       <ul className="space-y-2">
         {visitas.map((v) => (
           <li
@@ -360,7 +360,7 @@ export function VisitasPanel({ id }: { id: string }) {
             />
           </div>
           <div>
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
               Visitas últimos 6 meses
             </div>
             <div className="flex items-end gap-2 h-20">

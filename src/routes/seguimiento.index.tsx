@@ -210,7 +210,7 @@ function SeguimientoPage() {
           <div className="space-y-4">
             {/* Contact picker */}
             <div>
-              <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wide font-medium">
+              <p className="text-xs text-muted-foreground mb-1.5 uppercase tracking-wide font-medium">
                 Contacto *
               </p>
               {formContact ? (
@@ -264,7 +264,7 @@ function SeguimientoPage() {
 
             {/* Tipo chips */}
             <div>
-              <p className="text-[11px] text-muted-foreground mb-1.5 uppercase tracking-wide font-medium">
+              <p className="text-xs text-muted-foreground mb-1.5 uppercase tracking-wide font-medium">
                 Tipo *
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -329,15 +329,15 @@ function SeguimientoPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">{s.contactoNombre}</span>
-                    <span className="text-[11px] text-muted-foreground">{s.tipo}</span>
+                    <span className="text-xs text-muted-foreground">{s.tipo}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{s.texto}</p>
                   {s.agenteNombre && (
-                    <p className="text-[11px] text-muted-foreground/70 mt-1">{s.agenteNombre}</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">{s.agenteNombre}</p>
                   )}
                 </div>
                 <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
-                  <span className="text-[11px] text-muted-foreground">{fmtDate(s.created_at)}</span>
+                  <span className="text-xs text-muted-foreground">{fmtDate(s.created_at)}</span>
                   <ChevronRight className="size-3.5 text-muted-foreground/40" />
                 </div>
               </div>

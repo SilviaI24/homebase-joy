@@ -29,7 +29,7 @@ export function ContactPicker({
 }) {
   return (
     <div>
-      <label className="text-[11px] text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
+      <label className="text-xs text-muted-foreground uppercase tracking-wide font-medium block mb-1.5">
         {label}
       </label>
       {value ? (
@@ -98,7 +98,7 @@ export function OperacionRow({
           >
             {op.estado}
           </span>
-          <span className="text-[11px] text-muted-foreground">{op.tipo}</span>
+          <span className="text-xs text-muted-foreground">{op.tipo}</span>
         </div>
 
         {/* Detalles */}
@@ -128,17 +128,17 @@ export function OperacionRow({
           {/* Partes */}
           <div className="flex flex-wrap gap-x-4 gap-y-0.5">
             {op.vendedorNombre && (
-              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <User className="size-3 shrink-0" /> {op.vendedorNombre}
               </span>
             )}
             {op.compradorNombre && (
-              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Users className="size-3 shrink-0" /> {op.compradorNombre}
               </span>
             )}
             {op.agenteNombre && (
-              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <User className="size-3 shrink-0 text-primary/60" />
                 <span className="text-primary/70">{op.agenteNombre}</span>
               </span>
@@ -146,7 +146,7 @@ export function OperacionRow({
           </div>
 
           {op.notas && (
-            <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1 italic">{op.notas}</p>
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-1 italic">{op.notas}</p>
           )}
         </div>
 
@@ -156,12 +156,12 @@ export function OperacionRow({
             <span className="text-sm font-semibold tabular-nums">{fmtEur(op.precioOperacion)}</span>
           )}
           {op.comisionTotal !== null && (
-            <span className="text-[11px] text-success font-medium tabular-nums">
+            <span className="text-xs text-success font-medium tabular-nums">
               {fmtEur(op.comisionTotal)} ({op.comisionPct}%)
             </span>
           )}
           {op.fechaApertura && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1 justify-end">
+            <span className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
               <Calendar className="size-2.5" />
               {fmtDate(op.fechaApertura)}
             </span>
@@ -204,7 +204,7 @@ export function OperacionRow({
                   : "Confirmar cierre definitivo"}
               </p>
               {closeBlockers.length > 0 ? (
-                <ul className="mt-2 space-y-1 text-[11px] text-warning">
+                <ul className="mt-2 space-y-1 text-xs text-warning">
                   {closeBlockers.map((blocker) => (
                     <li key={blocker} className="flex gap-1.5">
                       <span aria-hidden="true">•</span>
@@ -213,7 +213,7 @@ export function OperacionRow({
                   ))}
                 </ul>
               ) : (
-                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                   Se actualizarán conjuntamente la operación, el inmueble, las partes, el pipeline y
                   el seguimiento. Una operación cerrada no podrá reabrirse desde el CRM.
                 </p>

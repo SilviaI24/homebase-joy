@@ -100,7 +100,7 @@ export function HistorialPanel({
           </ol>
           <div className="grid grid-cols-2 gap-x-6 mt-5 pt-4 border-t border-border">
             <div className="py-2">
-              <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
+              <div className="text-xs uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
                 Notaría
               </div>
               <input
@@ -111,7 +111,7 @@ export function HistorialPanel({
               />
             </div>
             <div className="py-2">
-              <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
+              <div className="text-xs uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
                 Honorarios
               </div>
               <input
@@ -122,7 +122,7 @@ export function HistorialPanel({
               />
             </div>
             <div className="py-2">
-              <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
+              <div className="text-xs uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
                 Tipo exclusiva
               </div>
               <input
@@ -133,7 +133,7 @@ export function HistorialPanel({
               />
             </div>
             <div className="py-2">
-              <div className="text-[10px] uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
+              <div className="text-xs uppercase tracking-[0.08em] font-medium text-muted-foreground mb-1">
                 Llaves
               </div>
               <input

@@ -274,7 +274,7 @@ function LeadsTab() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium mr-1">
+        <span className="text-xs uppercase tracking-wide text-muted-foreground font-medium mr-1">
           Origen
         </span>
         {(["Todos", ...Object.keys(ORIGEN_META)] as const).map((k) => {
@@ -559,10 +559,10 @@ function SimpleContactsTab({ etapa }: { etapa: string }) {
                           </span>
                         </div>
                       </td>
-                      <td className="py-3 px-2 text-[11px] text-muted-foreground">
+                      <td className="py-3 px-2 text-xs text-muted-foreground">
                         {c.telefono || "—"}
                       </td>
-                      <td className="py-3 px-2 text-[11px] text-muted-foreground truncate max-w-[180px]">
+                      <td className="py-3 px-2 text-xs text-muted-foreground truncate max-w-[180px]">
                         {c.email || "—"}
                       </td>
                       <td className="py-3 px-2">
@@ -573,7 +573,7 @@ function SimpleContactsTab({ etapa }: { etapa: string }) {
                           {segCfg.label.replace("s", "")}
                         </span>
                       </td>
-                      <td className="py-3 pl-2 pr-4 text-[11px] text-muted-foreground whitespace-nowrap">
+                      <td className="py-3 pl-2 pr-4 text-xs text-muted-foreground whitespace-nowrap">
                         {formatFechaCorta(c.fecha)}
                         {c.diasDesdeAlta !== null && (
                           <span className="text-muted-foreground/50 ml-1">

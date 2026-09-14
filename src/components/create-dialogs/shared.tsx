@@ -41,7 +41,7 @@ export function Field({
         {label}
       </Label>
       {control}
-      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }

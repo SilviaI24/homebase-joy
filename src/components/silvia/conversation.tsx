@@ -193,7 +193,7 @@ export function Transcripcion({ text }: { text: string }) {
             return (
               <div
                 key={i}
-                className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground pt-2"
+                className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-2"
               >
                 {b.text}
               </div>

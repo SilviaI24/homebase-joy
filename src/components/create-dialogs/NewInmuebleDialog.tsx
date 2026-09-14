@@ -133,7 +133,7 @@ function PropietarioBlock({
         />
         <MultiSelect options={list} value={selected} onChange={onChange} />
         {list.length === 30 && (
-          <p className="mt-1 text-[11px] text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             Mostrando los 30 más recientes. Escribe nombre o teléfono para acotar.
           </p>
         )}
@@ -525,7 +525,7 @@ export function NewInmuebleDialog({
         {!tipo ? (
           <div className="space-y-4">
             <div>
-              <div className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground mb-2">
+              <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground mb-2">
                 Venta
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
@@ -543,7 +543,7 @@ export function NewInmuebleDialog({
               </div>
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-wider font-medium text-muted-foreground mb-2">
+              <div className="text-xs uppercase tracking-wider font-medium text-muted-foreground mb-2">
                 Alquiler
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">

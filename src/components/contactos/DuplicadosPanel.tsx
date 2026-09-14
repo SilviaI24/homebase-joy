@@ -35,7 +35,7 @@ function GrupoDuplicadoCard({ grupo }: { grupo: GrupoDuplicado }) {
   return (
     <div className="rounded-xl border border-border bg-card p-3">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] font-mono text-muted-foreground">{grupo.telNorm}</span>
+        <span className="text-xs font-mono text-muted-foreground">{grupo.telNorm}</span>
         <button
           type="button"
           disabled={mutation.isPending}

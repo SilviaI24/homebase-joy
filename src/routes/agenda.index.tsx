@@ -375,7 +375,7 @@ function VisitaCard({ visita: v }: { visita: VisitaFull }) {
           <span className="text-sm text-muted-foreground">Sin inmueble</span>
         )}
         {v.actividad && (
-          <p className="mt-1 text-[11px] text-muted-foreground line-clamp-2">{v.actividad}</p>
+          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{v.actividad}</p>
         )}
       </div>
 
@@ -402,7 +402,7 @@ function VisitaCard({ visita: v }: { visita: VisitaFull }) {
 
       {/* Comentarios */}
       {v.comentarios && (
-        <div className="w-full text-[11px] text-muted-foreground italic border-t border-border pt-2 mt-1">
+        <div className="w-full text-xs text-muted-foreground italic border-t border-border pt-2 mt-1">
           {v.comentarios}
         </div>
       )}
@@ -500,7 +500,7 @@ function ActividadTab() {
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       {estadoBadge(v.estado)}
                       {v.fecha && (
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {new Date(v.fecha + "T12:00:00").toLocaleDateString("es-ES", {
                             day: "numeric",
                             month: "short",
@@ -524,12 +524,12 @@ function ActividadTab() {
                       )}
                     </div>
                     {v.actividad && (
-                      <p className="mt-1.5 text-[11px] text-foreground/80 line-clamp-2">
+                      <p className="mt-1.5 text-xs text-foreground/80 line-clamp-2">
                         {v.actividad}
                       </p>
                     )}
                     {v.comentarios && (
-                      <p className="mt-0.5 text-[11px] text-muted-foreground italic line-clamp-1">
+                      <p className="mt-0.5 text-xs text-muted-foreground italic line-clamp-1">
                         {v.comentarios}
                       </p>
                     )}

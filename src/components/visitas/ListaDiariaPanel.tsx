@@ -91,7 +91,7 @@ function DaySection({
         className={`flex items-center gap-3 px-4 py-1.5 select-none ${group.isToday ? "bg-primary/5" : "bg-muted/30"}`}
       >
         <span
-          className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${group.isToday ? "text-primary" : "text-muted-foreground"}`}
+          className={`text-xs font-semibold uppercase tracking-[0.12em] ${group.isToday ? "text-primary" : "text-muted-foreground"}`}
         >
           {group.label}
         </span>

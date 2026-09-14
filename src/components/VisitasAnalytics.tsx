@@ -20,7 +20,7 @@ export default function VisitasAnalytics({
 }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-5 flex flex-col">
-      <h3 className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-medium mb-3">
+      <h3 className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium mb-3">
         Visitas · últimas 8 semanas
       </h3>
       <ResponsiveContainer width="100%" height={100}>
@@ -40,7 +40,7 @@ export default function VisitasAnalytics({
       </ResponsiveContainer>
       {data.topInmuebles.length > 0 && (
         <div className="mt-3 pt-3 border-t border-border flex-1">
-          <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground mb-2">
+          <div className="text-xs uppercase tracking-[0.15em] text-muted-foreground mb-2">
             Top inmuebles
           </div>
           <div className="space-y-1.5">

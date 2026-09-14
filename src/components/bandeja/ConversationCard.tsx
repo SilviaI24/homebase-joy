@@ -103,7 +103,7 @@ export function ConversationCard({
                 </span>
               )}
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               {c.telefono && (
                 <span className="inline-flex items-center gap-1">
                   <Phone className="size-3" />
@@ -128,7 +128,7 @@ export function ConversationCard({
       {/* Motivo (siempre visible, resumen) */}
       {c.motivo && (
         <div className="px-4 pb-3">
-          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
             Motivo
           </div>
           <p className="text-sm text-foreground/90 leading-relaxed">{c.motivo}</p>
@@ -148,7 +148,7 @@ export function ConversationCard({
             </span>
           ))}
           {c.solicitud && (
-            <span className="text-[11px] text-muted-foreground italic">
+            <span className="text-xs text-muted-foreground italic">
               “{c.solicitud.slice(0, 100)}
               {c.solicitud.length > 100 ? "…" : ""}”
             </span>
@@ -177,10 +177,10 @@ export function ConversationCard({
       {/* Inmuebles mencionados en la conversación */}
       {mencionados.length > 0 && (
         <div className="px-4 pb-3 border-t border-border pt-3">
-          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
             <MessageSquare className="size-3 text-primary" />
             Inmuebles mencionados ({mencionados.length})
-            <span className="ml-auto text-[10px] text-muted-foreground font-normal">
+            <span className="ml-auto text-xs text-muted-foreground font-normal">
               {c.etapa === "Lead"
                 ? "Confirma el vínculo para mover a Clientes"
                 : "Referencias detectadas en la conversación"}
@@ -204,7 +204,7 @@ export function ConversationCard({
       {/* Matches de propiedades */}
       {c.matches.length > 0 && (
         <div className="px-4 pb-3 border-t border-border pt-3">
-          <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1">
             <MessageSquare className="size-3 text-primary" />
             Posibles matches ({c.matches.length})
           </div>
@@ -223,7 +223,7 @@ export function ConversationCard({
                   <div className="text-xs font-medium truncate">
                     {cleanRef(m.inmueble.ref)} · {m.inmueble.calle} {m.inmueble.numero}
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <MapPin className="size-3" /> {m.inmueble.barrio || m.inmueble.localidad}
                     <Euro className="size-3 ml-1" />
                     {moneyShort(m.inmueble.precioFinal ?? m.inmueble.precio)}
@@ -278,7 +278,7 @@ export function ConversationCard({
               Enviar
             </button>
           </div>
-          <p className="mt-1.5 text-[10px] text-muted-foreground">
+          <p className="mt-1.5 text-xs text-muted-foreground">
             ⌘↵ para enviar · Solo disponible dentro de la ventana de 24 h de WhatsApp
           </p>
         </div>
@@ -286,13 +286,13 @@ export function ConversationCard({
 
       {/* Acciones */}
       <footer className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-t border-border bg-muted/20 rounded-b-lg">
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {c.etapa === "Lead" ? "Gestión manual del lead" : `Contacto · ${c.etapa}`}
         </span>
         <div className="flex items-center gap-1.5">
           {routingActive ? (
             <div className="flex flex-wrap items-center gap-1">
-              <span className="text-[11px] text-muted-foreground mr-0.5">¿Tipo?</span>
+              <span className="text-xs text-muted-foreground mr-0.5">¿Tipo?</span>
               <button
                 onClick={() => onRoute("captacion")}
                 className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-info/10 text-info hover:bg-info/20 cursor-pointer transition-colors"
