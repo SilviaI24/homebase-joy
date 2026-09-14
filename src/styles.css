@@ -6,7 +6,9 @@
 
 /*
  * Design system — El Sol Grupo
- * Heading: Space Grotesk · Body: DM Sans
+ * Heading: Fraunces · Body: DM Sans (tipografía de marca, 14 sep 2026 —
+ * antes Space Grotesk en encabezados; ver Artifact de propuesta aprobado
+ * por David, "Opción A: editorial cálida", en CLAUDE.md)
  * Gold accent · Warm near-white surface · Dark sidebar
  */
 
@@ -71,7 +73,7 @@
   --color-info-soft: var(--info-soft);
   --color-info-foreground: var(--info-foreground);
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
 }
 
 :root {
@@ -277,7 +279,10 @@
   h1, h2, h3, h4, h5, h6,
   .font-display {
     font-family: var(--font-display);
-    letter-spacing: -0.01em;
+    font-optical-sizing: auto;
+    /* Fraunces es serif -- el -0.01em que le venía bien a Space Grotesk
+       (geométrico) apretaba demasiado sus curvas más orgánicas. */
+    letter-spacing: 0;
   }
 
   /* Text selection */
