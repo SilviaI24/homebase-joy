@@ -6,7 +6,12 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi", ".vercel"] },
+  // .claude/worktrees: copias de trabajo temporales que crea el propio
+  // entorno de ejecución de Claude Code (aisladas por tarea) — no son código
+  // del proyecto. Sin esta exclusión, eslint las recorre como si fueran
+  // fuente propia y duplica cada problema (detectado el 14 sep 2026: una
+  // sola de estas copias sumó decenas de miles de falsos positivos).
+  { ignores: ["dist", ".output", ".vinxi", ".vercel", ".claude/worktrees"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
