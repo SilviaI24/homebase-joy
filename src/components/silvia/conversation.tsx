@@ -1,8 +1,24 @@
 import { useMemo } from "react";
-import { Phone, MessageCircle, Globe, Bot, CalendarDays, Sparkles } from "lucide-react";
+import {
+  Phone,
+  MessageCircle,
+  Globe,
+  Bot,
+  CalendarDays,
+  Sparkles,
+  Mail,
+  History,
+} from "lucide-react";
 import type { Cliente } from "@/lib/clientes.functions";
 
-export type Canal = "WhatsApp" | "Voz" | "Idealista" | "Otro";
+// 14 sep 2026: canal_origen dejó de ser un dato adivinado por texto libre —
+// ver migración normalizar_trabajado_y_canal_origen_bandeja. Vocabulario
+// completo en el CHECK de `contacts.canal_origen`: WhatsApp/Voz/Email/
+// Valorador/Idealista/Presencial/Referido/Manual/Web/Legado. `Canal` (este
+// tipo) cubre solo los que necesitan su propio chip visual hoy — el resto
+// cae en "Otro", que ya no debería aparecer en la práctica salvo un dato
+// futuro sin mapear.
+export type Canal = "WhatsApp" | "Voz" | "Email" | "Legado" | "Idealista" | "Otro";
 
 type ConversationChannelSource = Pick<
   Cliente,
@@ -10,28 +26,18 @@ type ConversationChannelSource = Pick<
 >;
 
 export function inferCanal(c: ConversationChannelSource): Canal {
-  const origen = c.canalOrigen.trim().toLowerCase();
-  if (origen === "silvia-whatsapp") return "WhatsApp";
-  if (origen === "silvia-voz") return "Voz";
-  if (origen === "idealista") return "Idealista";
-  const txt = `${c.solicitud} ${c.motivo} ${c.conversaciones} ${c.seccion}`.toLowerCase();
-  if (/idealista/.test(txt)) return "Idealista";
-  if (/whats|wa\b|wsp/.test(txt)) return "WhatsApp";
-  if (/llamad|tel[eé]fono|call|\bvoz\b/.test(txt)) return "Voz";
+  const origen = c.canalOrigen.trim();
+  if (origen === "WhatsApp") return "WhatsApp";
+  if (origen === "Voz") return "Voz";
+  if (origen === "Email") return "Email";
+  if (origen === "Legado") return "Legado";
+  if (origen === "Idealista") return "Idealista";
   return "Otro";
 }
 
 export function hasSilviaConversation(c: Cliente): boolean {
-  const origen = c.canalOrigen.trim().toLowerCase();
-  if (origen === "silvia-whatsapp" || origen === "silvia-voz") return true;
-  if (origen) return false;
-
-  const texto = `${c.motivo} ${c.solicitud} ${c.conversaciones}`;
-  return (
-    c.conversaciones.trim().length > 0 &&
-    !/idealista/i.test(texto) &&
-    /whats|llamad|tel[eé]fono|call|\bvoz\b/i.test(texto)
-  );
+  const origen = c.canalOrigen.trim();
+  return origen === "WhatsApp" || origen === "Voz" || origen === "Email" || origen === "Legado";
 }
 
 const CANAL_MAP: Record<Canal, { cls: string; icon: typeof Phone }> = {
@@ -42,6 +48,14 @@ const CANAL_MAP: Record<Canal, { cls: string; icon: typeof Phone }> = {
   Voz: {
     cls: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
     icon: Phone,
+  },
+  Email: {
+    cls: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
+    icon: Mail,
+  },
+  Legado: {
+    cls: "bg-slate-500/15 text-slate-600 dark:text-slate-400",
+    icon: History,
   },
   Idealista: {
     cls: "bg-[#e8f5b8] text-[#5a6b1a] dark:bg-lime-500/20 dark:text-lime-300",

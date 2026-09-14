@@ -26,7 +26,14 @@ export type ConversacionIa = Pick<
 
 // Bandeja de IA: conserva las conversaciones de los agentes de WhatsApp y voz
 // aunque el contacto deje de ser Lead. `contacts.canal_origen` es la fuente
-// canónica; el texto solo se usa como compatibilidad con registros antiguos.
+// canónica — desde la normalización del 14 sep 2026 (ver migración
+// normalizar_trabajado_y_canal_origen_bandeja) ya no hace falta adivinar por
+// texto: todo lo que pertenece a esta bandeja tiene canal_origen en
+// BANDEJA_CANALES, sin excepción.
+const BANDEJA_CANALES = ["WhatsApp", "Voz", "Email", "Legado"] as const;
+const ESTADO_TABS = ["Pendientes", "Cualificados", "Archivados", "Antiguos", "Todos"] as const;
+const VENTANA_PENDIENTES_DIAS = 30;
+
 type ConversacionIaQueryRow = {
   id: string;
   nombre: string | null;
@@ -44,15 +51,15 @@ type ConversacionIaQueryRow = {
   contact_agents: Array<{ agent_id: string | null }> | null;
 };
 
-// Paginated SilvIA bandeja — contacts with canal_origen SilvIA-WhatsApp / SilvIA-Voz
-// plus legacy records without canal_origen that contain conversation text.
-// Tab filter maps to contacts.trabajado field; canal filter refines by channel.
+// Paginated SilvIA bandeja — contacts con canal_origen en BANDEJA_CANALES.
+// Tab filter mapea a contacts.trabajado (+ recencia en Pendientes/Antiguos);
+// canal filter refina por canal_origen exacto.
 export const listConversacionesIaPage = createServerFn({ method: "GET" })
   .validator(
     (d: { page?: number; pageSize?: number; tab?: string; q?: string; canal?: string }) => {
       const page = Math.max(1, Number(d?.page) || 1);
       const pageSize = Math.min(200, Math.max(1, Number(d?.pageSize) || 50));
-      const tab = ["Pendientes", "Cualificados", "Archivados", "Todos"].includes(d?.tab ?? "")
+      const tab = ESTADO_TABS.includes((d?.tab ?? "") as (typeof ESTADO_TABS)[number])
         ? (d!.tab as string)
         : "Pendientes";
       const q = typeof d?.q === "string" ? d.q.trim() : "";
@@ -74,22 +81,9 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
       const supa = getSupa();
       const from = (data.page - 1) * data.pageSize;
       const to = from + data.pageSize - 1;
-
-      // Main SilvIA canal filter (OR: primary + legacy). El legado (sin
-      // canal_origen) además excluye menciones a "Idealista" — antes ese
-      // descarte se hacía en JS después de traer la página (líneas más
-      // abajo), así que el total/tabCounts (calculados aquí, en SQL) no
-      // coincidían con las filas realmente mostradas tras el filtro
-      // post-fetch (auditoría 12 sep 2026). Se mueve el criterio a SQL para
-      // que cuente exactamente lo mismo que se pagina. `or(campo.is.null,
-      // campo.not.ilike...)` en motivo/solicitud (pueden ser NULL) evita que
-      // NULL NOT ILIKE '%x%' (que da NULL, no true) descarte filas cuyo
-      // único texto está en otro campo.
-      const silviaOrPrimary =
-        "canal_origen.ilike.silvia-whatsapp,canal_origen.ilike.silvia-voz,canal_origen.ilike.silvia-email";
-      const silviaOrLegacy =
-        "and(canal_origen.is.null,conversaciones.not.is.null,conversaciones.not.ilike.%idealista%,or(motivo.is.null,motivo.not.ilike.%idealista%),or(solicitud.is.null,solicitud.not.ilike.%idealista%))";
-      const silviaOrFilter = `${silviaOrPrimary},${silviaOrLegacy}`;
+      const corte = new Date(
+        Date.now() - VENTANA_PENDIENTES_DIAS * 24 * 60 * 60 * 1000,
+      ).toISOString();
 
       let query = supa
         .from("contacts")
@@ -99,31 +93,27 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
            contact_agents(agent_id)`,
           { count: "exact" },
         )
+        .in("canal_origen", BANDEJA_CANALES)
         .order("created_at", { ascending: false });
 
-      // Apply canal filter (determines if we use primary only or primary+legacy)
-      if (data.canal === "WhatsApp") {
-        query = query.ilike("canal_origen", "silvia-whatsapp");
-      } else if (data.canal === "Voz") {
-        query = query.ilike("canal_origen", "silvia-voz");
-      } else if (data.canal === "Email") {
-        query = query.ilike("canal_origen", "silvia-email");
-      } else {
-        query = query.or(silviaOrFilter);
+      // Canal filter: cada botón es un valor exacto (ya normalizado, sin
+      // ambigüedad de mayúsculas ni heurística de texto).
+      if (data.canal === "WhatsApp" || data.canal === "Voz" || data.canal === "Email") {
+        query = query.eq("canal_origen", data.canal);
       }
+      // "Todos" → sin filtro adicional de canal (incluye Legado)
 
-      // Apply tab filter via trabajado field
+      // Tab filter: trabajado + ventana de recencia.
       if (data.tab === "Cualificados") {
-        query = query.ilike("trabajado", "contactado");
+        query = query.eq("trabajado", "Contactado");
       } else if (data.tab === "Archivados") {
-        query = query.ilike("trabajado", "descartado");
+        query = query.eq("trabajado", "Descartado");
       } else if (data.tab === "Pendientes") {
-        // Include: trabajado IS NULL OR (trabajado != 'Descartado' AND trabajado != 'Contactado')
-        query = query.or(
-          "trabajado.is.null,and(trabajado.not.ilike.descartado,trabajado.not.ilike.contactado)",
-        );
+        query = query.is("trabajado", null).gte("created_at", corte);
+      } else if (data.tab === "Antiguos") {
+        query = query.is("trabajado", null).lt("created_at", corte);
       }
-      // "Todos" → no trabajado filter
+      // "Todos" → sin filtro de trabajado
 
       // Apply search filter
       if (data.q) {
@@ -133,30 +123,27 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         );
       }
 
-      // Tab counts (all SilvIA contacts, no canal-button or search filter) —
-      // en el mismo Promise.all que la query paginada principal, en vez de
-      // esperarla primero: son independientes entre sí (auditoría 12 sep
-      // 2026, ahorra un roundtrip en cada carga/paginación/filtro).
+      // Tab counts (todos los contactos de Bandeja, sin filtro de canal ni
+      // búsqueda) — en el mismo Promise.all que la query paginada principal
+      // en vez de esperarla primero: son independientes entre sí (auditoría
+      // 12 sep 2026, ahorra un roundtrip en cada carga/paginación/filtro).
       const baseCount = () =>
-        supa.from("contacts").select("id", { count: "exact", head: true }).or(silviaOrFilter);
+        supa
+          .from("contacts")
+          .select("id", { count: "exact", head: true })
+          .in("canal_origen", BANDEJA_CANALES);
 
-      const pendientesOr =
-        "trabajado.is.null,and(trabajado.not.ilike.descartado,trabajado.not.ilike.contactado)";
-
-      const [{ data: rows, error, count }, todosRes, cualRes, archRes, pendRes] = await Promise.all(
-        [
+      const [{ data: rows, error, count }, todosRes, cualRes, archRes, pendRes, antiguosRes] =
+        await Promise.all([
           query.range(from, to),
           baseCount(),
-          baseCount().ilike("trabajado", "contactado"),
-          baseCount().ilike("trabajado", "descartado"),
-          baseCount().or(pendientesOr),
-        ],
-      );
+          baseCount().eq("trabajado", "Contactado"),
+          baseCount().eq("trabajado", "Descartado"),
+          baseCount().is("trabajado", null).gte("created_at", corte),
+          baseCount().is("trabajado", null).lt("created_at", corte),
+        ]);
       if (error) throw new Error("Error al cargar conversaciones");
 
-      // Mismo select que listConversacionesIa -> mismo tipo de fila. El
-      // descarte de legado "Idealista" ya va en silviaOrFilter (SQL), no
-      // hace falta filtrar otra vez aquí en JS.
       const typedRows = (rows ?? []) as unknown as ConversacionIaQueryRow[];
 
       const clientes: ConversacionIa[] = typedRows.map((row) => ({
@@ -187,6 +174,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
           Cualificados: cualRes.count ?? 0,
           Archivados: archRes.count ?? 0,
           Pendientes: pendRes.count ?? 0,
+          Antiguos: antiguosRes.count ?? 0,
         },
       };
     },

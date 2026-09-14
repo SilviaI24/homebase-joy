@@ -26,7 +26,7 @@ export const Route = createFileRoute("/bandeja/")({
     s: Record<string, unknown>,
   ): { page?: number; tab?: string; q?: string; canal?: string } => ({
     page: typeof s.page === "number" && s.page >= 1 ? Math.floor(s.page) : undefined,
-    tab: ["Pendientes", "Cualificados", "Archivados", "Todos"].includes(s.tab as string)
+    tab: ["Pendientes", "Cualificados", "Archivados", "Antiguos", "Todos"].includes(s.tab as string)
       ? (s.tab as string)
       : undefined,
     q: typeof s.q === "string" ? s.q : undefined,
@@ -60,7 +60,7 @@ export const Route = createFileRoute("/bandeja/")({
   ),
 });
 
-const ESTADO_TABS = ["Pendientes", "Cualificados", "Archivados", "Todos"] as const;
+const ESTADO_TABS = ["Pendientes", "Cualificados", "Archivados", "Antiguos", "Todos"] as const;
 type EstadoTab = (typeof ESTADO_TABS)[number];
 
 function BandejaPage() {
@@ -96,6 +96,7 @@ function BandejaPage() {
     Pendientes: 0,
     Cualificados: 0,
     Archivados: 0,
+    Antiguos: 0,
     Todos: 0,
   };
 
