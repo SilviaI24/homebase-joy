@@ -142,6 +142,47 @@ function CarteraPage() {
   );
 }
 
+// Inmuebles con estatus='Prospección' (captados vía "Nueva captación
+// directa" con el formulario completo de NewInmuebleDialog, en la pestaña
+// Venta) no aparecían en ninguna pestaña de Cartera: Venta/Alquiler exigen
+// Activo/Reservado e Histórico exige Vendido/Alquilado/Baja. Quedaban
+// invisibles hasta que alguien los activaba a mano conociendo la URL de la
+// ficha. Sección aparte de la tabla de prospectos (que es sobre contactos,
+// vía prospectoQuery) porque esto son fichas de inmueble ya creadas con el
+// formulario completo, no leads todavía sin propiedad.
+function InmueblesEnProspeccionSection() {
+  const { data, isFetching } = useQuery(
+    inmueblesPageQuery({ page: 1, pageSize: 12, statuses: ["Prospección"] }),
+  );
+  const inmuebles = data?.inmuebles ?? [];
+  const total = data?.total ?? 0;
+
+  if (!isFetching && inmuebles.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <div className="mb-3 flex items-center gap-2">
+        <Hourglass className="size-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold">Inmuebles captados, pendientes de activar</h3>
+        <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-mono">
+          {total}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {inmuebles.map((inm) => (
+          <InmuebleCard key={inm.id} inm={inm} />
+        ))}
+      </div>
+      {total > inmuebles.length && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Mostrando los {inmuebles.length} más recientes de {total}. Actívalos desde su ficha para
+          que pasen a Venta o Alquiler.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CAPTACIÓN TAB
 // ─────────────────────────────────────────────────────────────────────────────
@@ -409,6 +450,8 @@ function CaptacionTab() {
           </div>
         </div>
       )}
+
+      <InmueblesEnProspeccionSection />
 
       {/* Tabla prospectos */}
       {byCanal.length === 0 ? (
