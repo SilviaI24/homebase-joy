@@ -58,7 +58,7 @@ const CANAL_MAP: Record<Canal, { cls: string; icon: typeof Phone }> = {
     icon: History,
   },
   Idealista: {
-    cls: "bg-[#e8f5b8] text-[#5a6b1a] dark:bg-lime-500/20 dark:text-lime-300",
+    cls: "bg-lime-200 text-lime-800 dark:bg-lime-500/20 dark:text-lime-300",
     icon: Globe,
   },
   Otro: {
