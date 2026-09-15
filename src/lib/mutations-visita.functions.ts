@@ -67,6 +67,57 @@ export const createVisita = createServerFn({ method: "POST" })
     return { id: ids[0], ids };
   });
 
+export type UpdateVisitaPayload = {
+  visitaId: string;
+  fecha: string;
+  inmuebleId: string;
+  clienteId?: string | null;
+  agenteId?: string | null;
+  notas?: string;
+};
+
+export const updateVisita = createServerFn({ method: "POST" })
+  .validator((d: UpdateVisitaPayload) => {
+    if (!d?.visitaId) throw new Error("visitaId requerido");
+    if (!d?.fecha) throw new Error("Fecha requerida");
+    if (!d?.inmuebleId) throw new Error("Selecciona un inmueble");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const { crm } = await requirePermission("visits.update");
+    const supa = getSupa();
+    const notas = strOpt(data.notas);
+    // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
+    const { error } = await supa.rpc("crm_actualizar_visita", {
+      p_visita_id: data.visitaId,
+      p_fecha: data.fecha,
+      p_property_id: data.inmuebleId,
+      p_contact_id: data.clienteId || null,
+      p_agente_id: data.agenteId || null,
+      p_notas: notas ? toSentenceCase(notas) : null,
+      p_actor_id: crm.userId,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteVisita = createServerFn({ method: "POST" })
+  .validator((d: { visitaId: string }) => {
+    if (!d?.visitaId) throw new Error("visitaId requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const { crm } = await requirePermission("visits.delete");
+    const supa = getSupa();
+    // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
+    const { error } = await supa.rpc("crm_eliminar_visita", {
+      p_visita_id: data.visitaId,
+      p_actor_id: crm.userId,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const updateVisitaEstado = createServerFn({ method: "POST" })
   .validator((d: { visitaId: string; estado: string }) => {
     if (!d?.visitaId) throw new Error("visitaId requerido");

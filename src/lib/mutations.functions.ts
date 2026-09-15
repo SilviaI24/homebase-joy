@@ -8,6 +8,9 @@ export {
   type CreateVisitaPayload,
   createVisita,
   updateVisitaEstado,
+  type UpdateVisitaPayload,
+  updateVisita,
+  deleteVisita,
 } from "./mutations-visita.functions";
 export {
   type AssignClientePayload,

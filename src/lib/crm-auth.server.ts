@@ -12,7 +12,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // 20260909120210_retirar_permisos_sin_uso_real). `contacts.archive` sí tenía
 // una función real (archivar = mover a Histórico) sin este check — se
 // implementó en vez de retirarla, ver actualizarCicloVida en
-// clientes-ciclo-vida.functions.ts.
+// clientes-ciclo-vida.functions.ts. `visits.delete` sí se reinstauró el 15
+// sep 2026 al construirse la función real (eliminar una visita ya creada,
+// ver crm_eliminar_visita en mutations-visita.functions.ts).
 export const CRM_CAPABILITIES = [
   "contacts.read",
   "contacts.create",
@@ -38,6 +40,7 @@ export const CRM_CAPABILITIES = [
   "visits.read",
   "visits.create",
   "visits.update",
+  "visits.delete",
   "seguimiento.read",
   "seguimiento.create",
   "operations.read",

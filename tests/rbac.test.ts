@@ -14,10 +14,14 @@ import { CRM_CAPABILITIES } from "@/lib/crm-auth.server";
 // audit.read; ver 20260909124258_retirar_permisos_sin_uso_real.sql) y se
 // añadió documents.read, que sí separa una acción real (ver
 // 20260909124425_agregar_permiso_documents_read.sql).
+//
+// 15 sep 2026: visits.delete se reinstaura a 31 al construirse la función
+// real (eliminar una visita ya creada desde la Agenda, ver
+// 20260915120000_visitas_editar_y_eliminar.sql).
 
 describe("catálogo RBAC del CRM", () => {
-  it("contiene 30 capacidades sin duplicados", () => {
-    expect(CRM_CAPABILITIES).toHaveLength(30);
+  it("contiene 31 capacidades sin duplicados", () => {
+    expect(CRM_CAPABILITIES).toHaveLength(31);
     expect(new Set(CRM_CAPABILITIES).size).toBe(CRM_CAPABILITIES.length);
   });
 

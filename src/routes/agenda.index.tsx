@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { z } from "zod";
+import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { RouteError } from "@/components/RouteError";
 import { visitasQuery, seguimientosQuery, agentesQuery } from "@/lib/queries";
+import { updateVisitaEstado } from "@/lib/mutations.functions";
 import type { VisitaFull } from "@/lib/visitas.functions";
+import { EditVisitaDialog } from "@/components/visitas/EditVisitaDialog";
 import {
   Calendar,
   CalendarDays,
@@ -21,6 +25,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ListFilter,
+  Pencil,
+  Ban,
 } from "lucide-react";
 
 const searchSchema = z.object({
@@ -353,6 +359,18 @@ function VisitasTab() {
 }
 
 function VisitaCard({ visita: v }: { visita: VisitaFull }) {
+  const qc = useQueryClient();
+  const estadoFn = useServerFn(updateVisitaEstado);
+
+  const anularMut = useMutation({
+    mutationFn: () => estadoFn({ data: { visitaId: v.id, estado: "Cancelada" } }),
+    onSuccess: () => {
+      toast.success("Visita anulada");
+      qc.invalidateQueries({ queryKey: ["visitas-all"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "No se pudo anular"),
+  });
+
   return (
     <div className="rounded-xl border border-border bg-card p-4 flex flex-wrap items-start gap-4">
       {/* Estado */}
@@ -404,6 +422,35 @@ function VisitaCard({ visita: v }: { visita: VisitaFull }) {
           {v.comentarios}
         </div>
       )}
+
+      {/* Acciones */}
+      <div className="flex items-center gap-1 shrink-0">
+        <EditVisitaDialog
+          visita={v}
+          trigger={
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-md text-muted-foreground hover:bg-accent transition-colors"
+              title="Editar visita"
+            >
+              <Pencil className="size-3.5" />
+            </button>
+          }
+        />
+        {v.estado !== "Cancelada" && (
+          <button
+            type="button"
+            disabled={anularMut.isPending}
+            onClick={() => {
+              if (window.confirm("¿Anular esta visita?")) anularMut.mutate();
+            }}
+            className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-md text-muted-foreground hover:bg-accent transition-colors disabled:opacity-60"
+            title="Anular visita"
+          >
+            <Ban className="size-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
