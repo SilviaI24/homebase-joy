@@ -30,6 +30,8 @@ import { Route as BandejaIndexRouteImport } from './routes/bandeja.index'
 import { Route as AlquileresIndexRouteImport } from './routes/alquileres.index'
 import { Route as AgendaIndexRouteImport } from './routes/agenda.index'
 import { Route as InmueblesIdRouteImport } from './routes/inmuebles.$id'
+import { Route as ApiGoogleCalendarConnectRouteImport } from './routes/api.google-calendar.connect'
+import { Route as ApiGoogleCalendarCallbackRouteImport } from './routes/api.google-calendar.callback'
 
 const RestablecerContrasenaRoute = RestablecerContrasenaRouteImport.update({
   id: '/restablecer-contrasena',
@@ -138,6 +140,18 @@ const InmueblesIdRoute = InmueblesIdRouteImport.update({
   path: '/inmuebles/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGoogleCalendarConnectRoute =
+  ApiGoogleCalendarConnectRouteImport.update({
+    id: '/api/google-calendar/connect',
+    path: '/api/google-calendar/connect',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiGoogleCalendarCallbackRoute =
+  ApiGoogleCalendarCallbackRouteImport.update({
+    id: '/api/google-calendar/callback',
+    path: '/api/google-calendar/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -161,6 +175,8 @@ export interface FileRoutesByFullPath {
   '/seguimiento/': typeof SeguimientoIndexRoute
   '/silvia/': typeof SilviaIndexRoute
   '/visitas/': typeof VisitasIndexRoute
+  '/api/google-calendar/callback': typeof ApiGoogleCalendarCallbackRoute
+  '/api/google-calendar/connect': typeof ApiGoogleCalendarConnectRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -184,6 +200,8 @@ export interface FileRoutesByTo {
   '/seguimiento': typeof SeguimientoIndexRoute
   '/silvia': typeof SilviaIndexRoute
   '/visitas': typeof VisitasIndexRoute
+  '/api/google-calendar/callback': typeof ApiGoogleCalendarCallbackRoute
+  '/api/google-calendar/connect': typeof ApiGoogleCalendarConnectRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -208,6 +226,8 @@ export interface FileRoutesById {
   '/seguimiento/': typeof SeguimientoIndexRoute
   '/silvia/': typeof SilviaIndexRoute
   '/visitas/': typeof VisitasIndexRoute
+  '/api/google-calendar/callback': typeof ApiGoogleCalendarCallbackRoute
+  '/api/google-calendar/connect': typeof ApiGoogleCalendarConnectRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -233,6 +253,8 @@ export interface FileRouteTypes {
     | '/seguimiento/'
     | '/silvia/'
     | '/visitas/'
+    | '/api/google-calendar/callback'
+    | '/api/google-calendar/connect'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -256,6 +278,8 @@ export interface FileRouteTypes {
     | '/seguimiento'
     | '/silvia'
     | '/visitas'
+    | '/api/google-calendar/callback'
+    | '/api/google-calendar/connect'
   id:
     | '__root__'
     | '/'
@@ -279,6 +303,8 @@ export interface FileRouteTypes {
     | '/seguimiento/'
     | '/silvia/'
     | '/visitas/'
+    | '/api/google-calendar/callback'
+    | '/api/google-calendar/connect'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -303,6 +329,8 @@ export interface RootRouteChildren {
   SeguimientoIndexRoute: typeof SeguimientoIndexRoute
   SilviaIndexRoute: typeof SilviaIndexRoute
   VisitasIndexRoute: typeof VisitasIndexRoute
+  ApiGoogleCalendarCallbackRoute: typeof ApiGoogleCalendarCallbackRoute
+  ApiGoogleCalendarConnectRoute: typeof ApiGoogleCalendarConnectRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -454,6 +482,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InmueblesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/google-calendar/connect': {
+      id: '/api/google-calendar/connect'
+      path: '/api/google-calendar/connect'
+      fullPath: '/api/google-calendar/connect'
+      preLoaderRoute: typeof ApiGoogleCalendarConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/google-calendar/callback': {
+      id: '/api/google-calendar/callback'
+      path: '/api/google-calendar/callback'
+      fullPath: '/api/google-calendar/callback'
+      preLoaderRoute: typeof ApiGoogleCalendarCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -479,6 +521,8 @@ const rootRouteChildren: RootRouteChildren = {
   SeguimientoIndexRoute: SeguimientoIndexRoute,
   SilviaIndexRoute: SilviaIndexRoute,
   VisitasIndexRoute: VisitasIndexRoute,
+  ApiGoogleCalendarCallbackRoute: ApiGoogleCalendarCallbackRoute,
+  ApiGoogleCalendarConnectRoute: ApiGoogleCalendarConnectRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

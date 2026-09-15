@@ -28,6 +28,7 @@ import type { SearchClientesPickerParams } from "@/lib/seguimiento.functions";
 import { listOperaciones } from "@/lib/operaciones.functions";
 import { getStatsData } from "@/lib/clientes.functions";
 import { getMyRole } from "@/lib/role.functions";
+import { getGoogleCalendarStatus } from "@/lib/google-calendar.functions";
 
 export const agentesQuery = queryOptions({
   queryKey: ["agentes"],
@@ -170,6 +171,13 @@ export const myRoleQuery = queryOptions({
   queryFn: () => getMyRole(),
   staleTime: 10 * 60 * 1000,
   gcTime: 60 * 60 * 1000,
+});
+
+export const googleCalendarStatusQuery = queryOptions({
+  queryKey: ["google-calendar-status"],
+  queryFn: () => getGoogleCalendarStatus(),
+  staleTime: 60 * 1000,
+  gcTime: 5 * 60 * 1000,
 });
 
 // ── Paginated query factories ─────────────────────────────────────────────────

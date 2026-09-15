@@ -1,16 +1,60 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { z } from "zod";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/context/auth";
 import { supabase } from "@/lib/supabase-browser";
-import { KeyRound, Check, User } from "lucide-react";
+import { KeyRound, Check, User, CalendarDays, Link2, Unlink } from "lucide-react";
+import { googleCalendarStatusQuery } from "@/lib/queries";
+import { disconnectGoogleCalendar } from "@/lib/google-calendar.functions";
+
+const GOOGLE_CALENDAR_STATUS_MENSAJE: Record<string, { tono: "success" | "error"; texto: string }> =
+  {
+    ok: { tono: "success", texto: "Google Calendar conectado correctamente." },
+    error: { tono: "error", texto: "No se pudo conectar con Google Calendar. Inténtalo de nuevo." },
+    cancelado: { tono: "error", texto: "Conexión con Google Calendar cancelada." },
+    "sin-agente": {
+      tono: "error",
+      texto: "Tu usuario no tiene un agente asociado, así que no se puede conectar un calendario.",
+    },
+  };
 
 export const Route = createFileRoute("/perfil/")({
+  validateSearch: z.object({ google_calendar: z.string().optional() }),
   component: PerfilPage,
 });
 
 function PerfilPage() {
   const { user } = useAuth();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const qc = useQueryClient();
+  const disconnectFn = useServerFn(disconnectGoogleCalendar);
+  const { data: googleStatus, isLoading: googleLoading } = useQuery(googleCalendarStatusQuery);
+
+  useEffect(() => {
+    if (!search.google_calendar) return;
+    const m = GOOGLE_CALENDAR_STATUS_MENSAJE[search.google_calendar];
+    if (m) (m.tono === "success" ? toast.success : toast.error)(m.texto);
+    qc.invalidateQueries({ queryKey: ["google-calendar-status"] });
+    navigate({ search: {}, replace: true });
+    // Solo debe dispararse una vez, al aterrizar de vuelta de Google -- no en
+    // cada cambio de las dependencias que usa (navigate/qc son estables).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.google_calendar]);
+
+  const disconnectMut = useMutation({
+    mutationFn: () => disconnectFn(),
+    onSuccess: () => {
+      toast.success("Google Calendar desconectado");
+      qc.invalidateQueries({ queryKey: ["google-calendar-status"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "No se pudo desconectar"),
+  });
+
   const [current, setCurrent] = useState("");
   const [newPass, setNewPass] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -64,6 +108,53 @@ function PerfilPage() {
             <p className="text-[13px] font-semibold truncate">{user?.email}</p>
             <p className="text-xs text-muted-foreground">Administrador</p>
           </div>
+        </div>
+
+        {/* Google Calendar */}
+        <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <CalendarDays className="size-4 text-muted-foreground" strokeWidth={1.5} />
+            <h2 className="text-[13px] font-semibold">Google Calendar</h2>
+          </div>
+          {googleLoading ? (
+            <p className="text-xs text-muted-foreground">Comprobando…</p>
+          ) : googleStatus?.connected ? (
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs text-success flex items-center gap-1">
+                  <Check className="size-3.5" strokeWidth={2.5} /> Conectado
+                </p>
+                {googleStatus.email && (
+                  <p className="text-xs text-muted-foreground truncate">{googleStatus.email}</p>
+                )}
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Tus visitas se crean automáticamente en este calendario.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => disconnectMut.mutate()}
+                disabled={disconnectMut.isPending}
+                className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:bg-accent transition-colors disabled:opacity-60 shrink-0"
+              >
+                <Unlink className="size-3.5" />
+                Desconectar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">
+                Conecta tu calendario para que tus visitas aparezcan ahí automáticamente.
+              </p>
+              <a
+                href="/api/google-calendar/connect"
+                className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity shrink-0"
+              >
+                <Link2 className="size-3.5" />
+                Conectar
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Change password */}
