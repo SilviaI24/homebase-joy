@@ -10,6 +10,7 @@ import { visitasQuery, seguimientosQuery, agentesQuery } from "@/lib/queries";
 import { updateVisitaEstado } from "@/lib/mutations.functions";
 import type { VisitaFull } from "@/lib/visitas.functions";
 import { EditVisitaDialog } from "@/components/visitas/EditVisitaDialog";
+import { NewVisitaDialog } from "@/components/CreateDialogs";
 import {
   Calendar,
   CalendarDays,
@@ -301,6 +302,8 @@ function VisitasTab() {
             className="h-9 pl-8 pr-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring w-48"
           />
         </div>
+
+        <NewVisitaDialog />
       </div>
 
       {/* KPI tiles */}
