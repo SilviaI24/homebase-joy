@@ -23,6 +23,7 @@ import { DescripcionPanel } from "@/components/inmueble-detail/DescripcionPanel"
 import { CaracteristicasPanel } from "@/components/inmueble-detail/CaracteristicasPanel";
 import { HistorialPanel } from "@/components/inmueble-detail/HistorialPanel";
 import { PropietarioPanel } from "@/components/inmueble-detail/PropietarioPanel";
+import { InteresadosPanel } from "@/components/inmueble-detail/InteresadosPanel";
 import { SaveBar } from "@/components/inmueble-detail/SaveBar";
 import {
   getInmueble,
@@ -47,6 +48,7 @@ function seedFromList(base: Inmueble): InmuebleDetalle {
     propietarioIds: [],
     emailPropietario: "",
     observacionesPropietario: "",
+    interesados: [],
     certificacionEnergetica: "",
     anoConstruccion: "",
     gastosComunidad: "",
@@ -644,6 +646,9 @@ function DetailView({
 
           {/* Propietario */}
           <PropietarioPanel inmueble={inmueble} detailReady={detailReady} />
+
+          {/* Interesados */}
+          <InteresadosPanel inmueble={inmueble} detailReady={detailReady} />
         </aside>
       </div>
 

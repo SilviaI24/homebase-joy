@@ -88,7 +88,7 @@ export const asociarLeadAInmueble = createServerFn({ method: "POST" })
     if (!d?.contactId) throw new Error("contactId requerido");
     if (!d?.propertyId) throw new Error("propertyId requerido");
     if (!d?.tipo) throw new Error("tipo requerido");
-    if (!["Propietario", "Comprador", "Inquilino"].includes(d.tipo)) {
+    if (!["Propietario", "Comprador", "Inquilino", "Interesado"].includes(d.tipo)) {
       throw new Error("Tipo de relación inválido");
     }
     return d;

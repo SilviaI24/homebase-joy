@@ -15,6 +15,7 @@ import {
   KeyRound,
   ShoppingCart,
   UserRound,
+  Eye,
 } from "lucide-react";
 import { EstatusInmuebleBadge } from "@/components/StatusBadge";
 import { SafeImage } from "@/components/SafeImage";
@@ -25,11 +26,13 @@ import { cleanRef } from "@/lib/format";
 import { moneyShort } from "@/lib/bandeja-format";
 
 const TIPO_VINCULAR_VENTA = [
+  { value: "Interesado", icon: Eye, label: "Interesado" },
   { value: "Comprador", icon: ShoppingCart, label: "Comprador" },
   { value: "Propietario", icon: Home, label: "Propietario" },
 ] as const;
 
 const TIPO_VINCULAR_ALQUILER = [
+  { value: "Interesado", icon: Eye, label: "Interesado" },
   { value: "Inquilino", icon: KeyRound, label: "Inquilino" },
   { value: "Propietario", icon: Home, label: "Propietario" },
 ] as const;
@@ -51,7 +54,9 @@ export function MencionadoCard({
   const fn = useServerFn(asociarLeadAInmueble);
   const esAlq = inm.esAlquiler;
   const tiposVincular = esAlq ? TIPO_VINCULAR_ALQUILER : TIPO_VINCULAR_VENTA;
-  const [tipo, setTipo] = useState<string>(esAlq ? "Inquilino" : "Comprador");
+  // "Interesado" por defecto -- Comprador/Inquilino son, por definición,
+  // solo tras una reserva formal, no al primer contacto desde la bandeja.
+  const [tipo, setTipo] = useState<string>("Interesado");
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
 

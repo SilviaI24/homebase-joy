@@ -45,6 +45,7 @@ export type InmuebleDetalle = Inmueble & {
   propietarioIds: string[];
   emailPropietario: string;
   observacionesPropietario: string;
+  interesados: Array<{ id: string; nombre: string; telefono: string }>;
   certificacionEnergetica: string;
   anoConstruccion: string;
   gastosComunidad: string;
@@ -219,6 +220,7 @@ function mapBase(row: SupabasePropertyRow): Inmueble {
 function mapDetalle(
   row: SupabasePropertyRow,
   propietarios: Array<{ id: string; nombre: string; telefono: string; email: string }>,
+  interesados: Array<{ id: string; nombre: string; telefono: string }> = [],
 ): InmuebleDetalle {
   const base = mapBase(row);
   const imgs = row.imagenes ?? [];
@@ -240,6 +242,11 @@ function mapDetalle(
     propietarioIds: propietarios.map((p) => p.id),
     emailPropietario: propietario?.email ?? "",
     observacionesPropietario: toSentenceCase(s(row.observaciones_propietario)),
+    interesados: interesados.map((i) => ({
+      id: i.id,
+      nombre: toTitleCase(i.nombre),
+      telefono: i.telefono ?? "",
+    })),
     certificacionEnergetica: toTitleCase(s(row.certificacion_energetica)),
     anoConstruccion: s(row.ano_construccion),
     gastosComunidad: toTitleCase(s(row.gastos_comunidad)),
@@ -504,7 +511,7 @@ export const getInmueble = createServerFn({ method: "GET" })
     // data.id) — en paralelo en vez de esperar la primera para lanzar la
     // segunda (auditoría 12 sep 2026, ahorra un roundtrip en cada apertura
     // de ficha).
-    const [{ data: row, error }, { data: roles }] = await Promise.all([
+    const [{ data: row, error }, { data: roles }, { data: interesadosRows }] = await Promise.all([
       supa.from("properties").select("*, agents(id, nombre, email)").eq("id", data.id).single(),
       // Contactos "dueños" del inmueble vía contact_roles: Propietario
       // (venta) y Arrendador (alquiler) se tratan como equivalentes en el
@@ -516,6 +523,13 @@ export const getInmueble = createServerFn({ method: "GET" })
         .select("contacts(id, nombre, telefono, email)")
         .eq("property_id", data.id)
         .in("tipo", ["Propietario", "Arrendador"]),
+      // Interesados: leads enlazados a este inmueble sin formalizar todavía
+      // (ver punto "Interesado" de las instrucciones de mejora, sep 2026).
+      supa
+        .from("contact_roles")
+        .select("contacts(id, nombre, telefono)")
+        .eq("property_id", data.id)
+        .eq("tipo", "Interesado"),
     ]);
 
     if (error) throw new Error(error.message);
@@ -530,7 +544,16 @@ export const getInmueble = createServerFn({ method: "GET" })
       email: string;
     }>;
 
-    const inmueble = mapDetalle(row as SupabasePropertyRow, propietarios);
+    const interesadosRaw = (interesadosRows ?? []) as unknown as Array<{
+      contacts: { id: string; nombre: string; telefono: string } | null;
+    }>;
+    const interesados = interesadosRaw.map((r) => r.contacts).filter(Boolean) as Array<{
+      id: string;
+      nombre: string;
+      telefono: string;
+    }>;
+
+    const inmueble = mapDetalle(row as SupabasePropertyRow, propietarios, interesados);
     return { inmueble };
   });
 
