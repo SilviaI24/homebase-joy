@@ -152,11 +152,14 @@ Deno.serve(async (req) => {
       precio: num(body["Precio"] ?? body.precio),
       orientacion: orientacion || "",
       descripcion: pick(body["Descripción"] ?? body["Descripcion"] ?? body.descripcion) || "",
-      // Fijos para el valorador: entra como prospecto sin verificar, nunca
+      // Fijo para el valorador: entra como prospecto sin verificar, nunca
       // como listado activo (antes se guardaba como "Activo" por error — un
       // envío del formulario público no debe aparecer como inmueble en venta).
+      // `publicacion` ya no lleva un valor especial para el origen web (se
+      // retiró "PROSPECTO" del catálogo, sep 2026) -- estatus='Prospección'
+      // ya deja el inmueble visible en Cartera > Captación pendiente de
+      // revisión, sea cual sea su origen.
       estatus: "Prospección",
-      publicacion: "PROSPECTO",
       es_alquiler: false,
     };
 

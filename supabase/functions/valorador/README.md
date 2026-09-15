@@ -77,8 +77,8 @@ O en snake_case:
 
 | Tabla | Campo | Valor |
 |---|---|---|
-| `properties` | `estatus` | `"Activo"` |
-| `properties` | `publicacion` | `"PROSPECTO"` (etiqueta especial en el CRM — no visible en la web) |
+| `properties` | `estatus` | `"Prospección"` (esta tabla estaba desactualizada — corregido sep 2026, ver comentario junto a la asignación en `index.ts`) |
+| `properties` | `publicacion` | sin valor especial (se retiró `"PROSPECTO"` del catálogo, sep 2026); `estatus='Prospección'` ya deja el inmueble visible en Cartera > Captación pendiente de revisión |
 | `properties` | `es_alquiler` | `false` |
 | `contacts` | `ciclo_vida` | `"Prospecto"` |
 | `contact_roles` | `tipo` | `"Propietario"` |

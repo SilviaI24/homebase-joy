@@ -46,6 +46,7 @@ function seedFromList(base: Inmueble): InmuebleDetalle {
     agentesNombres: [],
     propietarioIds: [],
     emailPropietario: "",
+    observacionesPropietario: "",
     certificacionEnergetica: "",
     anoConstruccion: "",
     gastosComunidad: "",
@@ -486,15 +487,14 @@ function DetailView({
         </div>
       )}
 
-      {inmueble.publicacion === "PROSPECTO" && (
+      {inmueble.estatus === "Prospección" && (
         <div className="mb-4 flex items-start gap-3 rounded-lg border border-info/40 bg-info/10 px-4 py-3 text-sm text-info">
           <Hourglass className="size-4 mt-0.5 shrink-0 text-info" />
           <div>
-            <p className="font-semibold">Inmueble prospecto — pendiente de revisión</p>
+            <p className="font-semibold">Inmueble en prospección — pendiente de activar</p>
             <p className="text-xs mt-0.5 text-info/80">
-              Este inmueble llegó desde el valorador web. El propietario solicitó ser contactado.
-              Revisa los datos, contacta con él y cambia la publicación a <strong>SUBIR</strong> o{" "}
-              <strong>PUBLICADO</strong> cuando corresponda.
+              Todavía no hay acuerdo de comercialización firmado. Revisa los datos y cambia el
+              Estatus a <strong>Activo</strong> cuando corresponda.
             </p>
           </div>
         </div>

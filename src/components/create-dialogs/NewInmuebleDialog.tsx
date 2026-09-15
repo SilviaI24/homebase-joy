@@ -93,6 +93,9 @@ function PropietarioBlock({
   setFechaInicio,
   fechaExclusiva,
   setFechaExclusiva,
+  observaciones,
+  setObservaciones,
+  esAlquiler,
 }: {
   selected: string[];
   onChange: (ids: string[]) => void;
@@ -100,6 +103,11 @@ function PropietarioBlock({
   setFechaInicio: (v: string) => void;
   fechaExclusiva: string;
   setFechaExclusiva: (v: string) => void;
+  observaciones: string;
+  setObservaciones: (v: string) => void;
+  // Instrucciones de mejora del CRM (sep 2026), §2.7: en alquiler basta con
+  // cliente + fecha de inicio -- la exclusiva de venta no aplica.
+  esAlquiler: boolean;
 }) {
   const [filter, setFilter] = useState("");
   // Búsqueda server-side con límite — antes cargaba clientesQueryOpts
@@ -142,14 +150,24 @@ function PropietarioBlock({
         <Field label="Fecha de inicio">
           <Input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} />
         </Field>
-        <Field label="Fecha de autorización de venta (exclusiva)">
-          <Input
-            type="date"
-            value={fechaExclusiva}
-            onChange={(e) => setFechaExclusiva(e.target.value)}
-          />
-        </Field>
+        {!esAlquiler && (
+          <Field label="Fecha de autorización de venta (exclusiva)">
+            <Input
+              type="date"
+              value={fechaExclusiva}
+              onChange={(e) => setFechaExclusiva(e.target.value)}
+            />
+          </Field>
+        )}
       </div>
+      <Field label="Observaciones sobre el propietario">
+        <Textarea
+          rows={2}
+          value={observaciones}
+          onChange={(e) => setObservaciones(e.target.value)}
+          placeholder="P. ej. prefiere que le llamen por la tarde…"
+        />
+      </Field>
     </div>
   );
 }
@@ -436,22 +454,23 @@ export function NewInmuebleDialog({
   const [tipo, setTipo] = useState<TipoInmueble | null>(null);
   const [values, setValues] = useState<Record<string, string>>({
     estatus: "Prospección",
-    publicacion: "PROSPECTO",
   });
   const [ag, setAg] = useState<string[]>([]);
   const [propietarios, setPropietarios] = useState<string[]>([]);
   const [fechaInicio, setFechaInicio] = useState<string>(new Date().toISOString().slice(0, 10));
   const [fechaExclusiva, setFechaExclusiva] = useState<string>("");
+  const [observacionesPropietario, setObservacionesPropietario] = useState<string>("");
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [docUrls, setDocUrls] = useState<string[]>([]);
 
   const reset = () => {
     setTipo(null);
-    setValues({ estatus: "Prospección", publicacion: "PROSPECTO" });
+    setValues({ estatus: "Prospección" });
     setAg([]);
     setPropietarios([]);
     setFechaInicio(new Date().toISOString().slice(0, 10));
     setFechaExclusiva("");
+    setObservacionesPropietario("");
     setImageUrls([]);
     setDocUrls([]);
   };
@@ -474,9 +493,10 @@ export function NewInmuebleDialog({
       calle: values.calle ?? "",
       tipo,
       estatus: values.estatus || "Prospección",
-      publicacion: values.publicacion || "PROSPECTO",
+      publicacion: values.publicacion || undefined,
       fechaInicio: fechaInicio || null,
       fechaExclusiva: fechaExclusiva || null,
+      observacionesPropietario: observacionesPropietario || undefined,
       agentesIds: ag.length ? ag : undefined,
       propietariosIds: propietarios.length ? propietarios : undefined,
     };
@@ -635,6 +655,9 @@ export function NewInmuebleDialog({
               setFechaInicio={setFechaInicio}
               fechaExclusiva={fechaExclusiva}
               setFechaExclusiva={setFechaExclusiva}
+              observaciones={observacionesPropietario}
+              setObservaciones={setObservacionesPropietario}
+              esAlquiler={!!esAlquiler}
             />
 
             <DialogFooter className="sm:col-span-2 pt-2">

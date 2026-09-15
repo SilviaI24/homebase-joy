@@ -71,6 +71,9 @@ export function PropietarioPanel({
           }
         />
       )}
+      {detailReady && (
+        <Field label="Observaciones" value={inmueble.observacionesPropietario} hideEmpty />
+      )}
     </div>
   );
 }

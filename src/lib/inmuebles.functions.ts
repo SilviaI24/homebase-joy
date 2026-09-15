@@ -44,6 +44,7 @@ export type InmuebleDetalle = Inmueble & {
   agentesNombres: string[];
   propietarioIds: string[];
   emailPropietario: string;
+  observacionesPropietario: string;
   certificacionEnergetica: string;
   anoConstruccion: string;
   gastosComunidad: string;
@@ -90,7 +91,7 @@ export const ESTATUS_OPCIONES = [
   "Alquilado",
 ] as const;
 
-export const PUBLICACION_OPCIONES = ["SUBIR", "PROSPECTO", "PUBLICADO"] as const;
+export const PUBLICACION_OPCIONES = ["SUBIR", "PUBLICADO"] as const;
 
 export const CATEGORIAS = [
   "Pisos",
@@ -172,6 +173,7 @@ type SupabasePropertyRow = {
   notaria: string | null;
   llaves: string | null;
   observaciones: string | null;
+  observaciones_propietario: string | null;
   created_at: string;
   agents: { id: string; nombre: string; email: string | null } | null;
 };
@@ -237,6 +239,7 @@ function mapDetalle(
     agentesNombres: agente ? [toTitleCase(agente.nombre)] : [],
     propietarioIds: propietarios.map((p) => p.id),
     emailPropietario: propietario?.email ?? "",
+    observacionesPropietario: toSentenceCase(s(row.observaciones_propietario)),
     certificacionEnergetica: toTitleCase(s(row.certificacion_energetica)),
     anoConstruccion: s(row.ano_construccion),
     gastosComunidad: toTitleCase(s(row.gastos_comunidad)),
@@ -608,6 +611,7 @@ export type UpdateInmueblePayload = {
   precioFinal?: number | null;
   agentesIds?: string[];
   observaciones?: string;
+  observacionesPropietario?: string;
   descripcion?: string;
   imagenesAttachmentIds?: string[]; // URLs in desired order
   habitaciones?: string;
@@ -670,6 +674,8 @@ export const updateInmueble = createServerFn({ method: "POST" })
     if (data.precio !== undefined) up.precio = data.precio;
     if (data.precioFinal !== undefined) up.precio_final = data.precioFinal;
     if (data.observaciones !== undefined) up.observaciones = data.observaciones;
+    if (data.observacionesPropietario !== undefined)
+      up.observaciones_propietario = data.observacionesPropietario;
     if (data.descripcion !== undefined) up.descripcion = data.descripcion;
     if (data.habitaciones !== undefined)
       up.habitaciones = data.habitaciones ? Number(data.habitaciones) || null : null;
@@ -1110,7 +1116,7 @@ export type DashboardStats = {
   vendidos: number;
   alquilados: number;
   valorCartera: number;
-  prospectosWeb: number;
+  prospectosPendientes: number;
   serie: DashboardSerieMes[];
   comisionMes: number;
   comisionAnual: number;

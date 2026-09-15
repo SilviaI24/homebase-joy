@@ -141,7 +141,7 @@ function Dashboard() {
       comisionAnual: dashStats.comisionAnual,
       comisionPipeline: dashStats.comisionPipeline,
       estancados: dashStats.estancados,
-      prospectosWeb: dashStats.prospectosWeb,
+      prospectosPendientes: dashStats.prospectosPendientes,
     };
   }, [dashStats]);
 
@@ -453,9 +453,9 @@ function Dashboard() {
                 Prospectos
               </div>
               <div
-                className={`text-3xl font-display font-bold tabular-nums leading-none ${stats.prospectosWeb > 0 ? "text-info" : ""}`}
+                className={`text-3xl font-display font-bold tabular-nums leading-none ${stats.prospectosPendientes > 0 ? "text-info" : ""}`}
               >
-                {stats.prospectosWeb}
+                {stats.prospectosPendientes}
               </div>
               <Link
                 to="/prospectos"

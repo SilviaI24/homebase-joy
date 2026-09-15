@@ -20,6 +20,7 @@ export type CreateInmueblePayload = {
   superficie?: string;
   descripcion?: string;
   observaciones?: string;
+  observacionesPropietario?: string;
   fechaInicio?: string | null;
   fechaExclusiva?: string | null;
   agentesIds?: string[];
@@ -60,7 +61,7 @@ export const createInmueble = createServerFn({ method: "POST" })
     if (d.estatus && !estatusValidos.includes(d.estatus)) {
       throw new Error("Estatus de inmueble inválido");
     }
-    if (d.publicacion && !["SUBIR", "PROSPECTO", "PUBLICADO"].includes(d.publicacion)) {
+    if (d.publicacion && !["SUBIR", "PUBLICADO"].includes(d.publicacion)) {
       throw new Error("Estado de publicación inválido");
     }
     return d;
@@ -101,6 +102,8 @@ export const createInmueble = createServerFn({ method: "POST" })
     if (strOpt(data.estado)) row.estado = data.estado;
     if (strOpt(data.descripcion)) row.descripcion = toSentenceCase(data.descripcion!);
     if (strOpt(data.observaciones)) row.observaciones = toSentenceCase(data.observaciones!);
+    if (strOpt(data.observacionesPropietario))
+      row.observaciones_propietario = toSentenceCase(data.observacionesPropietario!);
     if (strOpt(data.planta)) row.piso = data.planta;
     if (strOpt(data.calefaccion)) row.calefaccion = data.calefaccion;
     if (strOpt(data.orientacion)) row.orientacion = data.orientacion;

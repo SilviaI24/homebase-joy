@@ -15,6 +15,7 @@ export const TIPOS_VENTA = [
   "Nave",
   "Oficina",
   "Edificio",
+  "Otros",
 ] as const;
 export const TIPOS_ALQUILER = [
   "Alquiler Piso",
@@ -38,6 +39,7 @@ export const ICONOS_TIPO: Record<string, string> = {
   Nave: "🏭",
   Oficina: "💼",
   Edificio: "🏬",
+  Otros: "🏷️",
 };
 
 export const ORIENTACION_OPCIONES = [
@@ -131,7 +133,7 @@ const F = {
     key: "publicacion",
     label: "Publicación",
     kind: "select",
-    options: ["PROSPECTO", "SUBIR", "PUBLICADO"],
+    options: ["SUBIR", "PUBLICADO"],
   } satisfies FieldDef,
   enlaceTours: {
     key: "enlaceTours",
