@@ -14,6 +14,7 @@ import {
   Home,
   KeyRound,
   ShoppingCart,
+  UserRound,
 } from "lucide-react";
 import { EstatusInmuebleBadge } from "@/components/StatusBadge";
 import { SafeImage } from "@/components/SafeImage";
@@ -100,6 +101,12 @@ export function MencionadoCard({
               {moneyShort(inm.precioFinal ?? inm.precio)}
             </span>
           </div>
+          {inm.agentesNombres.length > 0 && (
+            <div className="flex items-center gap-0.5 text-xs text-muted-foreground truncate">
+              <UserRound className="size-2.5 shrink-0" />
+              {inm.agentesNombres.join(", ")}
+            </div>
+          )}
         </div>
       </Link>
       {/* Confirmar vínculo */}
