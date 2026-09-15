@@ -10,6 +10,7 @@ import { visitasQuery, seguimientosQuery, agentesQuery } from "@/lib/queries";
 import { updateVisitaEstado } from "@/lib/mutations.functions";
 import type { VisitaFull } from "@/lib/visitas.functions";
 import { EditVisitaDialog } from "@/components/visitas/EditVisitaDialog";
+import { CalendarioVisitas } from "@/components/visitas/CalendarioVisitas";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
 import {
   Calendar,
@@ -28,6 +29,8 @@ import {
   ListFilter,
   Pencil,
   Ban,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 
 const searchSchema = z.object({
@@ -36,6 +39,7 @@ const searchSchema = z.object({
   agente: z.string().optional(),
   estado: z.string().optional(),
   q: z.string().optional(),
+  vista: z.enum(["calendario", "lista"]).optional(),
 });
 
 type AgendaTab = "visitas" | "actividad";
@@ -162,6 +166,7 @@ function VisitasTab() {
   const now = new Date();
   const defaultMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const mes = rawSearch.mes ?? defaultMes;
+  const vista = rawSearch.vista ?? "calendario";
   const estadoFiltro = rawSearch.estado ?? "Todas";
   const agenteFiltro = rawSearch.agente ?? "Todos";
   const q = rawSearch.q ?? "";
@@ -303,6 +308,24 @@ function VisitasTab() {
           />
         </div>
 
+        {/* Vista: calendario / lista */}
+        <div className="flex items-center rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => navigate({ search: (prev) => ({ ...prev, vista: "calendario" }) })}
+            className={`p-2 transition-colors ${vista === "calendario" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            title="Vista calendario"
+          >
+            <LayoutGrid className="size-4" />
+          </button>
+          <button
+            onClick={() => navigate({ search: (prev) => ({ ...prev, vista: "lista" }) })}
+            className={`p-2 transition-colors ${vista === "lista" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+            title="Vista lista"
+          >
+            <List className="size-4" />
+          </button>
+        </div>
+
         <NewVisitaDialog />
       </div>
 
@@ -329,13 +352,17 @@ function VisitasTab() {
         })}
       </div>
 
+      {vista === "calendario" && (
+        <CalendarioVisitas mesActual={mesActual} visitas={visitasFiltradas} />
+      )}
+
       {/* Lista de visitas agrupadas por día */}
-      {byDia.length === 0 ? (
+      {vista === "lista" && byDia.length === 0 ? (
         <div className="py-16 text-center text-sm text-muted-foreground">
           <CalendarDays className="mx-auto mb-2 size-6 opacity-50" />
           Sin visitas en {mesLabel}.
         </div>
-      ) : (
+      ) : vista === "lista" ? (
         <div className="space-y-6">
           {byDia.map(([dia, visitasDia]) => (
             <div key={dia}>
@@ -356,7 +383,7 @@ function VisitasTab() {
             </div>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
