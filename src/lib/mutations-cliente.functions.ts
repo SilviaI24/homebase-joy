@@ -109,10 +109,10 @@ export const invitarPropietarioPortal = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     const row = (
       rows as Array<{
-        propietario_id: string;
-        email: string;
-        nombre: string;
-        ya_existia: boolean;
+        out_propietario_id: string;
+        out_email: string;
+        out_nombre: string;
+        out_ya_existia: boolean;
       }> | null
     )?.[0];
     if (!row) throw new Error("No se pudo crear el acceso de propietario");
@@ -122,21 +122,25 @@ export const invitarPropietarioPortal = createServerFn({ method: "POST" })
       throw new Error("PORTAL_URL no configurada — pide a David que la añada a .env.local");
     }
 
-    const { error: inviteError } = await supa.auth.admin.inviteUserByEmail(row.email, {
+    const { error: inviteError } = await supa.auth.admin.inviteUserByEmail(row.out_email, {
       redirectTo: `${portalUrl}/reset-password?invite=1`,
-      data: { nombre: row.nombre, invited_as: "propietario" },
+      data: { nombre: row.out_nombre, invited_as: "propietario" },
     });
 
     // Si el usuario ya tenía cuenta en auth.users, el invite falla — no es
     // bloqueante, ya tiene acceso, solo no recibe un email nuevo.
     const yaRegistrado = Boolean(inviteError?.message?.includes("already been registered"));
     if (inviteError && !yaRegistrado) {
-      return { propietarioId: row.propietario_id, yaExistia: row.ya_existia, inviteSent: false };
+      return {
+        propietarioId: row.out_propietario_id,
+        yaExistia: row.out_ya_existia,
+        inviteSent: false,
+      };
     }
 
     return {
-      propietarioId: row.propietario_id,
-      yaExistia: row.ya_existia,
+      propietarioId: row.out_propietario_id,
+      yaExistia: row.out_ya_existia,
       inviteSent: !yaRegistrado,
     };
   });
