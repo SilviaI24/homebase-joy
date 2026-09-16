@@ -18,10 +18,12 @@ import { CRM_CAPABILITIES } from "@/lib/crm-auth.server";
 // 15 sep 2026: visits.delete se reinstaura a 31 al construirse la función
 // real (eliminar una visita ya creada desde la Agenda, ver
 // 20260915120000_visitas_editar_y_eliminar.sql).
+// 16 sep 2026: +1 con contacts.portal_invite (botón "Dar acceso al portal"
+// en la ficha de cliente, ver crm_invitar_propietario_portal).
 
 describe("catálogo RBAC del CRM", () => {
-  it("contiene 31 capacidades sin duplicados", () => {
-    expect(CRM_CAPABILITIES).toHaveLength(31);
+  it("contiene 32 capacidades sin duplicados", () => {
+    expect(CRM_CAPABILITIES).toHaveLength(32);
     expect(new Set(CRM_CAPABILITIES).size).toBe(CRM_CAPABILITIES.length);
   });
 

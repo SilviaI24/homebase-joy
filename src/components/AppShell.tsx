@@ -26,6 +26,8 @@ import {
   UserCog,
   ShieldCheck,
   NotebookPen,
+  Wrench,
+  FileText,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -139,6 +141,8 @@ const TIPO_ICON: Record<Notif["tipo"], typeof Bell> = {
   propiedad_estancada: AlertTriangle,
   reserva_larga: Clock,
   lead_nuevo: UserPlus,
+  solicitud_portal: Wrench,
+  documento_portal: FileText,
 };
 
 const PRIO_COLOR: Record<Notif["prioridad"], string> = {

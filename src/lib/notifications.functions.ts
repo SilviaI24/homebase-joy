@@ -6,7 +6,13 @@ import { requirePermissions } from "@/lib/crm-auth.server";
 
 export type Notif = {
   id: string;
-  tipo: "visita_hoy" | "propiedad_estancada" | "reserva_larga" | "lead_nuevo";
+  tipo:
+    | "visita_hoy"
+    | "propiedad_estancada"
+    | "reserva_larga"
+    | "lead_nuevo"
+    | "solicitud_portal"
+    | "documento_portal";
   prioridad: "urgente" | "atencion" | "info";
   titulo: string;
   detalle: string;
@@ -39,42 +45,62 @@ export const getNotifications = createServerFn({ method: "GET" }).handler(
     yesterday.setDate(yesterday.getDate() - 1);
     const d1 = yesterday.toISOString();
 
-    const [visitasRes, estancadasRes, reservasRes, leadsRes] = await Promise.all([
-      // Visitas confirmadas para hoy
-      supa
-        .from("visits")
-        .select("id, fecha, estado, notas, properties(calle, ref), contacts(nombre)")
-        .eq("fecha", today)
-        .in("estado", ["Programada", "Confirmada"]),
+    const [visitasRes, estancadasRes, reservasRes, leadsRes, solicitudesRes, documentosRes] =
+      await Promise.all([
+        // Visitas confirmadas para hoy
+        supa
+          .from("visits")
+          .select("id, fecha, estado, notas, properties(calle, ref), contacts(nombre)")
+          .eq("fecha", today)
+          .in("estado", ["Programada", "Confirmada"]),
 
-      // Propiedades de venta activas >90 días sin cambio
-      supa
-        .from("properties")
-        .select("id, ref, calle, barrio, fecha_inicio, created_at")
-        .eq("estatus", "Activo")
-        .not("es_alquiler", "eq", true)
-        .lte("fecha_inicio", d90)
-        .order("fecha_inicio", { ascending: true })
-        .limit(10),
+        // Propiedades de venta activas >90 días sin cambio
+        supa
+          .from("properties")
+          .select("id, ref, calle, barrio, fecha_inicio, created_at")
+          .eq("estatus", "Activo")
+          .not("es_alquiler", "eq", true)
+          .lte("fecha_inicio", d90)
+          .order("fecha_inicio", { ascending: true })
+          .limit(10),
 
-      // Reservas >30 días sin escritura
-      supa
-        .from("properties")
-        .select("id, ref, calle, fecha_reserva")
-        .eq("estatus", "Reservado")
-        .lte("fecha_reserva", d30)
-        .order("fecha_reserva", { ascending: true })
-        .limit(10),
+        // Reservas >30 días sin escritura
+        supa
+          .from("properties")
+          .select("id, ref, calle, fecha_reserva")
+          .eq("estatus", "Reservado")
+          .lte("fecha_reserva", d30)
+          .order("fecha_reserva", { ascending: true })
+          .limit(10),
 
-      // Nuevos leads/prospectos últimas 24h
-      supa
-        .from("contacts")
-        .select("id, nombre, canal_origen, created_at")
-        .in("ciclo_vida", ["Lead", "Prospecto"])
-        .gte("created_at", d1)
-        .order("created_at", { ascending: false })
-        .limit(15),
-    ]);
+        // Nuevos leads/prospectos últimas 24h
+        supa
+          .from("contacts")
+          .select("id, nombre, canal_origen, created_at")
+          .in("ciclo_vida", ["Lead", "Prospecto"])
+          .gte("created_at", d1)
+          .order("created_at", { ascending: false })
+          .limit(15),
+
+        // Solicitudes de servicio nuevas desde el Portal del propietario
+        supa
+          .from("solicitudes_servicio")
+          .select("id, tipo, contact_id, created_at, contacts(nombre)")
+          .eq("estado", "nueva")
+          .order("created_at", { ascending: false })
+          .limit(10),
+
+        // Documentos subidos por el propietario desde el Portal, pendientes de
+        // revisión (los que sube el propio operario ya entran como
+        // estado='aprobado', no aparecen aquí).
+        supa
+          .from("documentos")
+          .select("id, nombre, categoria, contact_id, created_at, contacts(nombre)")
+          .in("estado", ["pendiente", "revision"])
+          .not("contact_id", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(10),
+      ]);
 
     const notifs: Notif[] = [];
 
@@ -166,6 +192,47 @@ export const getNotifications = createServerFn({ method: "GET" }).handler(
         titulo: nombre,
         detalle: `Nuevo lead · ${canal}`,
         href: "/mis-leads",
+      });
+    }
+
+    // ── Solicitudes del portal del propietario (atención) ───────────────────
+    const solicitudesRows = (solicitudesRes.data ?? []) as unknown as Array<{
+      id: string;
+      tipo: string | null;
+      contact_id: string | null;
+      created_at: string;
+      contacts: { nombre: string | null } | null;
+    }>;
+    for (const s of solicitudesRows) {
+      const cliente = s.contacts ? toTitleCase(s.contacts.nombre ?? "") : "Propietario";
+      notifs.push({
+        id: `solicitud-${s.id}`,
+        tipo: "solicitud_portal",
+        prioridad: "atencion",
+        titulo: `Solicitud de servicio · ${toTitleCase(s.tipo ?? "")}`,
+        detalle: `${cliente} · Portal del propietario`,
+        href: s.contact_id ? `/contactos?id=${s.contact_id}` : "/contactos",
+      });
+    }
+
+    // ── Documentos subidos por el propietario (atención) ────────────────────
+    const documentosRows = (documentosRes.data ?? []) as unknown as Array<{
+      id: string;
+      nombre: string | null;
+      categoria: string | null;
+      contact_id: string | null;
+      created_at: string;
+      contacts: { nombre: string | null } | null;
+    }>;
+    for (const d of documentosRows) {
+      const cliente = d.contacts ? toTitleCase(d.contacts.nombre ?? "") : "Propietario";
+      notifs.push({
+        id: `documento-${d.id}`,
+        tipo: "documento_portal",
+        prioridad: "atencion",
+        titulo: `Documento pendiente de revisión`,
+        detalle: `${cliente} · ${d.nombre ?? d.categoria ?? "Documento"}`,
+        href: d.contact_id ? `/contactos?id=${d.contact_id}` : "/contactos",
       });
     }
 

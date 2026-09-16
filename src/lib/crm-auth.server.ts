@@ -21,6 +21,10 @@ export const CRM_CAPABILITIES = [
   "contacts.update",
   "contacts.archive",
   "contacts.delete_hard",
+  // Crea acceso externo para el contacto (Portal del propietario) y envía un
+  // email en su nombre — sensible=true en crm_permisos, mismo criterio que
+  // whatsapp.send (16 sep 2026, ver invitarPropietarioPortal).
+  "contacts.portal_invite",
   "contact_roles.read",
   "contact_roles.create",
   "contact_roles.update",

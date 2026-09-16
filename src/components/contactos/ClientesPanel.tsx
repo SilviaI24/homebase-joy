@@ -1,4 +1,5 @@
 // M-03: extraído de src/routes/contactos.index.tsx.
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -12,6 +13,7 @@ import {
   Loader2,
   ArrowUpRight,
   Archive,
+  KeyRound,
 } from "lucide-react";
 import { SafeImage } from "@/components/SafeImage";
 import {
@@ -21,9 +23,74 @@ import {
   hasSilviaConversation,
 } from "@/components/silvia/conversation";
 import { clienteDetailQuery } from "@/lib/queries";
-import type { ClienteRow as ClienteRowType, Segmento } from "@/lib/clientes.functions";
+import type {
+  ClienteRow as ClienteRowType,
+  MiniInmueble,
+  Segmento,
+} from "@/lib/clientes.functions";
 import { actualizarCicloVida } from "@/lib/clientes-ciclo-vida.functions";
+import { invitarPropietarioPortal } from "@/lib/mutations-cliente.functions";
 import { SEG_META, formatFechaCorta, initials } from "@/lib/contactos-format";
+
+// Botón "Dar acceso al portal": solo tiene sentido si el contacto es
+// Propietario/Arrendador de al menos un inmueble (única forma de vincular
+// propietario_inmueble hoy). Reusa el mismo patrón de mutación+confirm que
+// "Archivar", más abajo en este archivo.
+function DarAccesoPortalButton({
+  contactId,
+  propiedades,
+}: {
+  contactId: string;
+  propiedades: MiniInmueble[];
+}) {
+  const invitarFn = useServerFn(invitarPropietarioPortal);
+  const [propertyId, setPropertyId] = useState(propiedades[0]?.id ?? "");
+
+  const mutation = useMutation({
+    mutationFn: () => invitarFn({ data: { contactId, propertyId } }),
+    onSuccess: (res) => {
+      if (res.inviteSent) {
+        toast.success("Invitación enviada — recibirá un email para activar su acceso al portal");
+      } else if (res.yaExistia) {
+        toast.success("Ya tenía acceso al portal — vinculado a este inmueble");
+      } else {
+        toast.error("Acceso creado, pero no se pudo enviar el email — compártelo manualmente");
+      }
+    },
+    onError: (e: Error) => toast.error(e.message || "No se pudo dar acceso al portal"),
+  });
+
+  return (
+    <div className="border-t border-border pt-4 flex items-center gap-2">
+      {propiedades.length > 1 && (
+        <select
+          value={propertyId}
+          onChange={(e) => setPropertyId(e.target.value)}
+          className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
+        >
+          {propiedades.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.calle} {p.numero}
+            </option>
+          ))}
+        </select>
+      )}
+      <button
+        type="button"
+        disabled={mutation.isPending || !propertyId}
+        onClick={() => mutation.mutate()}
+        className="inline-flex items-center gap-1.5 text-xs text-foreground hover:text-primary border border-dashed border-border rounded-md px-2.5 py-1.5 transition-colors disabled:opacity-50"
+      >
+        {mutation.isPending ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : (
+          <KeyRound className="size-3.5" />
+        )}
+        Dar acceso al portal
+      </button>
+    </div>
+  );
+}
 
 export function ClienteRow({ c, onClick }: { c: ClienteRowType; onClick: () => void }) {
   const segCfg = SEG_META[c.segmento as Segmento] ?? SEG_META.Lead;
@@ -110,6 +177,9 @@ export function ClienteDetallePanel({ id }: { id: string }) {
 
   const segCfg = SEG_META[cliente.segmento as keyof typeof SEG_META] ?? SEG_META.Lead;
   const canal = inferCanal(cliente);
+  const propiedadesEnPropiedad = cliente.inmueblesVinculados.filter(
+    (i) => i.rolTipo === "Propietario" || i.rolTipo === "Arrendador",
+  );
 
   return (
     <div className="space-y-5 p-1">
@@ -189,6 +259,10 @@ export function ClienteDetallePanel({ id }: { id: string }) {
             ))}
           </div>
         </div>
+      )}
+
+      {cliente.email && propiedadesEnPropiedad.length > 0 && (
+        <DarAccesoPortalButton contactId={cliente.id} propiedades={propiedadesEnPropiedad} />
       )}
 
       {/* Motivo */}

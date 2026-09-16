@@ -74,3 +74,69 @@ export const createCliente = createServerFn({ method: "POST" })
 
     return { id: contactId as string };
   });
+
+export type InvitarPropietarioPortalPayload = {
+  contactId: string;
+  propertyId: string;
+};
+
+// Da de alta (o reutiliza) la ficha de propietario en el Portal y envía la
+// invitación de acceso por email — mismo destino final que
+// admin_crear_invitacion_propietario en elsol-client-hub, pero llamado desde
+// aquí (service role, sin auth.uid()) por lo que usa crm_invitar_propietario_portal
+// en su lugar (actor explícito, validado contra crm_usuarios). Llama
+// directamente a supabase.auth.admin en vez de invocar la Edge Function
+// invite-propietario: esa función exige un JWT de usuario real en el header
+// (comprueba rol admin vía roles_usuario), y una llamada con la service key
+// no lleva ese JWT — más simple reproducir aquí la única línea que hace
+// falta (inviteUserByEmail) que enmendar el Edge Function para un segundo
+// caso de uso.
+export const invitarPropietarioPortal = createServerFn({ method: "POST" })
+  .validator((d: InvitarPropietarioPortalPayload) => {
+    if (!d?.contactId) throw new Error("Contacto requerido");
+    if (!d?.propertyId) throw new Error("Inmueble requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const { crm } = await requirePermission("contacts.portal_invite");
+    const supa = getSupa();
+
+    const { data: rows, error } = await supa.rpc("crm_invitar_propietario_portal", {
+      p_actor_id: crm.userId,
+      p_contact_id: data.contactId,
+      p_property_id: data.propertyId,
+    });
+    if (error) throw new Error(error.message);
+    const row = (
+      rows as Array<{
+        propietario_id: string;
+        email: string;
+        nombre: string;
+        ya_existia: boolean;
+      }> | null
+    )?.[0];
+    if (!row) throw new Error("No se pudo crear el acceso de propietario");
+
+    const portalUrl = process.env.PORTAL_URL;
+    if (!portalUrl) {
+      throw new Error("PORTAL_URL no configurada — pide a David que la añada a .env.local");
+    }
+
+    const { error: inviteError } = await supa.auth.admin.inviteUserByEmail(row.email, {
+      redirectTo: `${portalUrl}/reset-password?invite=1`,
+      data: { nombre: row.nombre, invited_as: "propietario" },
+    });
+
+    // Si el usuario ya tenía cuenta en auth.users, el invite falla — no es
+    // bloqueante, ya tiene acceso, solo no recibe un email nuevo.
+    const yaRegistrado = Boolean(inviteError?.message?.includes("already been registered"));
+    if (inviteError && !yaRegistrado) {
+      return { propietarioId: row.propietario_id, yaExistia: row.ya_existia, inviteSent: false };
+    }
+
+    return {
+      propietarioId: row.propietario_id,
+      yaExistia: row.ya_existia,
+      inviteSent: !yaRegistrado,
+    };
+  });

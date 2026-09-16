@@ -126,6 +126,40 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **David — variable de entorno pendiente de añadir:** `PORTAL_URL` en
+  `.env.local` (URL base real de `elsol-client-hub` en producción). La usa
+  `invitarPropietarioPortal` (`src/lib/mutations-cliente.functions.ts`) para
+  construir el link de invitación (`${PORTAL_URL}/reset-password?invite=1`).
+  Sin ella, el botón "Dar acceso al portal" crea el acceso pero falla al
+  enviar el email — mensaje de error explícito, no falla en silencio.
+- **Acceso al Portal desde la ficha de cliente + notificación en el CRM —
+  16 sep 2026 (enfoque A, sin sobre-arquitectura):**
+  - Botón "Dar acceso al portal" en `ClienteDetallePanel`
+    (`src/components/contactos/ClientesPanel.tsx`), visible solo si el
+    contacto tiene email y al menos un inmueble vinculado como
+    Propietario/Arrendador. Llama a la nueva RPC
+    `crm_invitar_propietario_portal` (actor explícito validado contra
+    `crm_usuarios`, idempotente — reutiliza la ficha de `propietarios` si el
+    contacto ya tenía una) y luego a `supabase.auth.admin.inviteUserByEmail`
+    directamente desde `getSupa()` — sin pasar por el Edge Function
+    `invite-propietario` del Portal, porque esa función exige un JWT de
+    usuario real (`roles_usuario`) y una llamada por service role no lo
+    lleva. Nueva capability `contacts.portal_invite` (sensible=true, mismo
+    criterio que `whatsapp.send`; ADMIN/OPERATIVO permitido, FINANCIERO no).
+  - Notificaciones del Portal (solicitudes de servicio nuevas, documentos
+    subidos por el propietario pendientes de revisión) añadidas a la campana
+    de notificaciones ya existente (`getNotifications`,
+    `src/lib/notifications.functions.ts` + `AppShell.tsx`) — dos tipos
+    nuevos (`solicitud_portal`, `documento_portal`), mismo patrón que los 4
+    tipos que ya había, sin tabla ni infraestructura nueva. El email que ya
+    enviaban `notify-document-upload`/`notify-service-request` (Edge
+    Functions del Portal) no se ha tocado — la notificación en el CRM es un
+    canal adicional, no un sustituto.
+  - Verificado: tsc limpio, eslint limpio, 80/80 tests (actualizado el test
+    de conteo de capacidades RBAC a 32), build de producción OK. **No
+    verificado visualmente en la app real** (requiere login) — el botón y
+    la campana no se han probado en pantalla.
+
 - **Lint inservible en local por dos causas de contaminación, resuelto el 14
   sep 2026:** `npx eslint .` tardaba 7+ min y reportaba 35.216 problemas
   falsos — `eslint.config.js` no excluía `.vercel/output/` (bundles
