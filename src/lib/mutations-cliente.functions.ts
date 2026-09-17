@@ -144,3 +144,162 @@ export const invitarPropietarioPortal = createServerFn({ method: "POST" })
       inviteSent: !yaRegistrado,
     };
   });
+
+// Revisión de documentación + activación desde el CRM — 17 sep 2026.
+// Los comerciales trabajan siempre desde homebase-joy: hasta ahora esto solo
+// existía en AdminPropietarios.tsx (panel admin del propio Portal). Mismo
+// comportamiento, llamado desde aquí con actor auditado (H-05).
+
+export type RevisionPropietarioDoc = {
+  id: string;
+  nombre: string;
+  categoria: string | null;
+  estado: string;
+};
+
+export type RevisionPropietarioData = {
+  propietarioId: string;
+  nombre: string;
+  email: string | null;
+  dni: string | null;
+  domicilio: string | null;
+  estadoOnboarding: string;
+  docs: RevisionPropietarioDoc[];
+  contrato: { estado: string; firmadoAt: string | null } | null;
+};
+
+export const getRevisionPropietario = createServerFn({ method: "POST" })
+  .validator((d: { contactId: string }) => {
+    if (!d?.contactId) throw new Error("Contacto requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    await requirePermission("contacts.portal_invite");
+    const supa = getSupa();
+
+    const { data: propietario } = await supa
+      .from("propietarios")
+      .select("id, nombre, email, dni, domicilio, estado_onboarding")
+      .eq("contact_id", data.contactId)
+      .maybeSingle();
+    if (!propietario) return null;
+
+    const { data: enlaces } = await supa
+      .from("propietario_inmueble")
+      .select("property_id")
+      .eq("propietario_id", propietario.id);
+    const propertyIds = (enlaces ?? []).map((e) => e.property_id as string);
+
+    const [docsRes, txRes] = propertyIds.length
+      ? await Promise.all([
+          supa
+            .from("documentos")
+            .select("id, nombre, categoria, estado")
+            .in("property_id", propertyIds)
+            .eq("es_onboarding", true)
+            .order("created_at", { ascending: false }),
+          supa
+            .from("transacciones_docuten")
+            .select("estado, firmado_at")
+            .in("property_id", propertyIds)
+            .eq("tipo_documento", "CONTRATO_EXCLUSIVIDAD")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ])
+      : [{ data: [] }, { data: null }];
+
+    return {
+      propietarioId: propietario.id,
+      nombre: propietario.nombre,
+      email: propietario.email,
+      dni: propietario.dni,
+      domicilio: propietario.domicilio,
+      estadoOnboarding: propietario.estado_onboarding as string,
+      docs: (docsRes.data ?? []) as RevisionPropietarioDoc[],
+      contrato: txRes.data
+        ? { estado: txRes.data.estado as string, firmadoAt: txRes.data.firmado_at as string | null }
+        : null,
+    } satisfies RevisionPropietarioData;
+  });
+
+export type GuardarDatosFirmaPayload = { propietarioId: string; dni: string; domicilio: string };
+
+export const guardarDatosFirmaPropietario = createServerFn({ method: "POST" })
+  .validator((d: GuardarDatosFirmaPayload) => {
+    if (!d?.propietarioId) throw new Error("Propietario requerido");
+    if (!d?.dni?.trim() || !d?.domicilio?.trim()) throw new Error("DNI y domicilio requeridos");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const { crm } = await requirePermission("contacts.portal_invite");
+    const supa = getSupa();
+    const { error } = await supa.rpc("crm_actualizar_datos_firma_propietario", {
+      p_actor_id: crm.userId,
+      p_propietario_id: data.propietarioId,
+      p_dni: data.dni.trim(),
+      p_domicilio: data.domicilio.trim(),
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export type ActualizarEstadoDocumentoPayload = {
+  documentoId: string;
+  estado: "aprobado" | "rechazado";
+};
+
+export const actualizarEstadoDocumentoPropietario = createServerFn({ method: "POST" })
+  .validator((d: ActualizarEstadoDocumentoPayload) => {
+    if (!d?.documentoId) throw new Error("Documento requerido");
+    if (d?.estado !== "aprobado" && d?.estado !== "rechazado") throw new Error("Estado inválido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const { crm } = await requirePermission("contacts.portal_invite");
+    const supa = getSupa();
+    const { error } = await supa.rpc("crm_actualizar_estado_documento", {
+      p_actor_id: crm.userId,
+      p_documento_id: data.documentoId,
+      p_estado: data.estado,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export type ActivarPropietarioPayload = { propietarioId: string };
+
+// Mismo criterio que handleActivar en AdminPropietarios.tsx (Portal): el
+// acceso queda activo aunque el email de aviso falle.
+export const activarPropietarioCrm = createServerFn({ method: "POST" })
+  .validator((d: ActivarPropietarioPayload) => {
+    if (!d?.propietarioId) throw new Error("Propietario requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const { crm } = await requirePermission("contacts.portal_invite");
+    const supa = getSupa();
+
+    const { error } = await supa.rpc("crm_activar_propietario", {
+      p_actor_id: crm.userId,
+      p_propietario_id: data.propietarioId,
+    });
+    if (error) throw new Error(error.message);
+
+    const { data: propietario } = await supa
+      .from("propietarios")
+      .select("nombre, email")
+      .eq("id", data.propietarioId)
+      .maybeSingle();
+
+    if (!propietario?.email) return { ok: true, emailEnviado: false };
+
+    const { error: notifyError } = await supa.functions.invoke("notify-portal-activo", {
+      body: {
+        propietario_id: data.propietarioId,
+        propietario_email: propietario.email,
+        propietario_nombre: propietario.nombre,
+      },
+    });
+    return { ok: true, emailEnviado: !notifyError };
+  });

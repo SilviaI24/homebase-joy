@@ -12,7 +12,8 @@ export type Notif = {
     | "reserva_larga"
     | "lead_nuevo"
     | "solicitud_portal"
-    | "documento_portal";
+    | "documento_portal"
+    | "propietario_en_revision";
   prioridad: "urgente" | "atencion" | "info";
   titulo: string;
   detalle: string;
@@ -45,62 +46,78 @@ export const getNotifications = createServerFn({ method: "GET" }).handler(
     yesterday.setDate(yesterday.getDate() - 1);
     const d1 = yesterday.toISOString();
 
-    const [visitasRes, estancadasRes, reservasRes, leadsRes, solicitudesRes, documentosRes] =
-      await Promise.all([
-        // Visitas confirmadas para hoy
-        supa
-          .from("visits")
-          .select("id, fecha, estado, notas, properties(calle, ref), contacts(nombre)")
-          .eq("fecha", today)
-          .in("estado", ["Programada", "Confirmada"]),
+    const [
+      visitasRes,
+      estancadasRes,
+      reservasRes,
+      leadsRes,
+      solicitudesRes,
+      documentosRes,
+      revisionRes,
+    ] = await Promise.all([
+      // Visitas confirmadas para hoy
+      supa
+        .from("visits")
+        .select("id, fecha, estado, notas, properties(calle, ref), contacts(nombre)")
+        .eq("fecha", today)
+        .in("estado", ["Programada", "Confirmada"]),
 
-        // Propiedades de venta activas >90 días sin cambio
-        supa
-          .from("properties")
-          .select("id, ref, calle, barrio, fecha_inicio, created_at")
-          .eq("estatus", "Activo")
-          .not("es_alquiler", "eq", true)
-          .lte("fecha_inicio", d90)
-          .order("fecha_inicio", { ascending: true })
-          .limit(10),
+      // Propiedades de venta activas >90 días sin cambio
+      supa
+        .from("properties")
+        .select("id, ref, calle, barrio, fecha_inicio, created_at")
+        .eq("estatus", "Activo")
+        .not("es_alquiler", "eq", true)
+        .lte("fecha_inicio", d90)
+        .order("fecha_inicio", { ascending: true })
+        .limit(10),
 
-        // Reservas >30 días sin escritura
-        supa
-          .from("properties")
-          .select("id, ref, calle, fecha_reserva")
-          .eq("estatus", "Reservado")
-          .lte("fecha_reserva", d30)
-          .order("fecha_reserva", { ascending: true })
-          .limit(10),
+      // Reservas >30 días sin escritura
+      supa
+        .from("properties")
+        .select("id, ref, calle, fecha_reserva")
+        .eq("estatus", "Reservado")
+        .lte("fecha_reserva", d30)
+        .order("fecha_reserva", { ascending: true })
+        .limit(10),
 
-        // Nuevos leads/prospectos últimas 24h
-        supa
-          .from("contacts")
-          .select("id, nombre, canal_origen, created_at")
-          .in("ciclo_vida", ["Lead", "Prospecto"])
-          .gte("created_at", d1)
-          .order("created_at", { ascending: false })
-          .limit(15),
+      // Nuevos leads/prospectos últimas 24h
+      supa
+        .from("contacts")
+        .select("id, nombre, canal_origen, created_at")
+        .in("ciclo_vida", ["Lead", "Prospecto"])
+        .gte("created_at", d1)
+        .order("created_at", { ascending: false })
+        .limit(15),
 
-        // Solicitudes de servicio nuevas desde el Portal del propietario
-        supa
-          .from("solicitudes_servicio")
-          .select("id, tipo, contact_id, created_at, contacts(nombre)")
-          .eq("estado", "nueva")
-          .order("created_at", { ascending: false })
-          .limit(10),
+      // Solicitudes de servicio nuevas desde el Portal del propietario
+      supa
+        .from("solicitudes_servicio")
+        .select("id, tipo, contact_id, created_at, contacts(nombre)")
+        .eq("estado", "nueva")
+        .order("created_at", { ascending: false })
+        .limit(10),
 
-        // Documentos subidos por el propietario desde el Portal, pendientes de
-        // revisión (los que sube el propio operario ya entran como
-        // estado='aprobado', no aparecen aquí).
-        supa
-          .from("documentos")
-          .select("id, nombre, categoria, contact_id, created_at, contacts(nombre)")
-          .in("estado", ["pendiente", "revision"])
-          .not("contact_id", "is", null)
-          .order("created_at", { ascending: false })
-          .limit(10),
-      ]);
+      // Documentos subidos por el propietario desde el Portal, pendientes de
+      // revisión (los que sube el propio operario ya entran como
+      // estado='aprobado', no aparecen aquí).
+      supa
+        .from("documentos")
+        .select("id, nombre, categoria, contact_id, created_at, contacts(nombre)")
+        .in("estado", ["pendiente", "revision"])
+        .not("contact_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(10),
+
+      // Propietarios que enviaron su onboarding a revisión — el comercial
+      // activa el acceso completo desde la ficha del cliente (17 sep 2026).
+      supa
+        .from("propietarios")
+        .select("id, nombre, contact_id, updated_at")
+        .eq("estado_onboarding", "en_revision")
+        .order("updated_at", { ascending: false })
+        .limit(10),
+    ]);
 
     const notifs: Notif[] = [];
 
@@ -233,6 +250,24 @@ export const getNotifications = createServerFn({ method: "GET" }).handler(
         titulo: `Documento pendiente de revisión`,
         detalle: `${cliente} · ${d.nombre ?? d.categoria ?? "Documento"}`,
         href: d.contact_id ? `/contactos?id=${d.contact_id}` : "/contactos",
+      });
+    }
+
+    // ── Propietarios pendientes de revisión (atención) ──────────────────────
+    const revisionRows = (revisionRes.data ?? []) as Array<{
+      id: string;
+      nombre: string | null;
+      contact_id: string | null;
+      updated_at: string;
+    }>;
+    for (const p of revisionRows) {
+      notifs.push({
+        id: `revision-propietario-${p.id}`,
+        tipo: "propietario_en_revision",
+        prioridad: "atencion",
+        titulo: `${toTitleCase(p.nombre ?? "Propietario")} listo para revisar`,
+        detalle: "Documentación del Portal enviada para revisión",
+        href: p.contact_id ? `/contactos?id=${p.contact_id}` : "/contactos",
       });
     }
 

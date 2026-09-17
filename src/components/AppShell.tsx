@@ -28,6 +28,7 @@ import {
   NotebookPen,
   Wrench,
   FileText,
+  ClipboardCheck,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -143,6 +144,7 @@ const TIPO_ICON: Record<Notif["tipo"], typeof Bell> = {
   lead_nuevo: UserPlus,
   solicitud_portal: Wrench,
   documento_portal: FileText,
+  propietario_en_revision: ClipboardCheck,
 };
 
 const PRIO_COLOR: Record<Notif["prioridad"], string> = {

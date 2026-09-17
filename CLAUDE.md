@@ -159,6 +159,30 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
     de conteo de capacidades RBAC a 32), build de producción OK. **No
     verificado visualmente en la app real** (requiere login) — el botón y
     la campana no se han probado en pantalla.
+  - **PORTAL_URL:** confirmado añadido a `.env.local` por David el mismo 16 sep.
+
+- **Revisión de documentación y activación desde el CRM — 17 sep 2026:**
+  David aclaró que los comerciales trabajan siempre desde homebase-joy, nunca
+  desde el panel admin del propio Portal (`AdminPropietarios.tsx`, que se deja
+  intacto como camino secundario) — así que la revisión de documentos +
+  activación del acceso tenían que estar aquí también, no solo el botón de
+  invitar. Nuevo panel "Revisión de documentación" en `ClienteDetallePanel`
+  (visible solo si el contacto ya tiene fila en `propietarios`): mismo
+  DNI/domicilio que puede rellenar el comercial si el propietario no usa la
+  app, lista de documentos del onboarding con Aprobar/Rechazar, estado del
+  contrato Docuten, y "Activar acceso completo" (pasa `estado_onboarding` a
+  `activo` — la máquina de estados no cambia, solo se puede disparar desde
+  aquí además de desde el Portal). 4 funciones nuevas en
+  `mutations-cliente.functions.ts` (`getRevisionPropietario`,
+  `guardarDatosFirmaPropietario`, `actualizarEstadoDocumentoPropietario`,
+  `activarPropietarioCrm`), reutilizando la capability `contacts.portal_invite`
+  ya existente — sin capability nueva. Tercer tipo de notificación en la
+  campana, `propietario_en_revision`, cuando un propietario llega a
+  `estado_onboarding='en_revision'`. Detalle completo del porqué (y de la
+  personalización real del contrato con `pdf-lib`) en el `CLAUDE.md` de
+  `elsol-client-hub`, sección "Contrato de exclusividad personalizado +
+  revisión desde el CRM". Verificado: tsc limpio, eslint limpio, 80/80 tests
+  (sin cambio de conteo RBAC), build OK. No verificado visualmente.
 
 - **Lint inservible en local por dos causas de contaminación, resuelto el 14
   sep 2026:** `npx eslint .` tardaba 7+ min y reportaba 35.216 problemas

@@ -1,5 +1,5 @@
 // M-03: extraído de src/routes/contactos.index.tsx.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -29,7 +29,13 @@ import type {
   Segmento,
 } from "@/lib/clientes.functions";
 import { actualizarCicloVida } from "@/lib/clientes-ciclo-vida.functions";
-import { invitarPropietarioPortal } from "@/lib/mutations-cliente.functions";
+import {
+  invitarPropietarioPortal,
+  getRevisionPropietario,
+  guardarDatosFirmaPropietario,
+  actualizarEstadoDocumentoPropietario,
+  activarPropietarioCrm,
+} from "@/lib/mutations-cliente.functions";
 import { SEG_META, formatFechaCorta, initials } from "@/lib/contactos-format";
 
 // Botón "Dar acceso al portal": solo tiene sentido si el contacto es
@@ -88,6 +94,161 @@ function DarAccesoPortalButton({
         )}
         Dar acceso al portal
       </button>
+    </div>
+  );
+}
+
+// Revisión de documentación + activación — 17 sep 2026. Los comerciales
+// trabajan siempre desde el CRM: esto reemplaza (para su uso diario) al
+// panel admin del propio Portal (AdminPropietarios.tsx), que se deja
+// intacto como camino secundario. Solo aparece si el contacto ya tiene
+// acceso al portal (fila en `propietarios`) — antes de eso no hay nada
+// que revisar.
+function RevisionPropietarioPanel({ contactId }: { contactId: string }) {
+  const qc = useQueryClient();
+  const getRevisionFn = useServerFn(getRevisionPropietario);
+  const guardarDatosFn = useServerFn(guardarDatosFirmaPropietario);
+  const actualizarDocFn = useServerFn(actualizarEstadoDocumentoPropietario);
+  const activarFn = useServerFn(activarPropietarioCrm);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["revision-propietario", contactId],
+    queryFn: () => getRevisionFn({ data: { contactId } }),
+  });
+
+  const [dni, setDni] = useState("");
+  const [domicilio, setDomicilio] = useState("");
+  useEffect(() => {
+    setDni(data?.dni ?? "");
+    setDomicilio(data?.domicilio ?? "");
+  }, [data]);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["revision-propietario", contactId] });
+
+  const guardarMutation = useMutation({
+    mutationFn: () =>
+      guardarDatosFn({ data: { propietarioId: data!.propietarioId, dni, domicilio } }),
+    onSuccess: () => {
+      toast.success("Datos guardados");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message || "No se pudo guardar"),
+  });
+
+  const docMutation = useMutation({
+    mutationFn: (vars: { documentoId: string; estado: "aprobado" | "rechazado" }) =>
+      actualizarDocFn({ data: vars }),
+    onSuccess: () => invalidate(),
+    onError: (e: Error) => toast.error(e.message || "No se pudo actualizar el documento"),
+  });
+
+  const activarMutation = useMutation({
+    mutationFn: () => activarFn({ data: { propietarioId: data!.propietarioId } }),
+    onSuccess: (res) => {
+      toast.success(
+        res.emailEnviado
+          ? "Portal activado"
+          : "Portal activado — el aviso por email falló, contacta manualmente",
+      );
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message || "No se pudo activar"),
+  });
+
+  if (isLoading || !data) return null;
+
+  const contratoLabel =
+    data.contrato?.estado === "signed"
+      ? "Firmado"
+      : data.contrato
+        ? "Pendiente de firma"
+        : "No iniciado";
+
+  return (
+    <div className="border-t border-border pt-4 space-y-3">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Revisión de documentación
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          value={dni}
+          onChange={(e) => setDni(e.target.value)}
+          placeholder="DNI del propietario"
+          className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
+        />
+        <input
+          value={domicilio}
+          onChange={(e) => setDomicilio(e.target.value)}
+          placeholder="Domicilio"
+          className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
+        />
+      </div>
+      <button
+        type="button"
+        disabled={guardarMutation.isPending}
+        onClick={() => guardarMutation.mutate()}
+        className="text-xs text-foreground hover:text-primary border border-dashed border-border rounded-md px-2.5 py-1.5 disabled:opacity-50"
+      >
+        Guardar DNI / domicilio
+      </button>
+
+      {data.docs.length > 0 && (
+        <div className="space-y-1.5">
+          {data.docs.map((doc) => (
+            <div
+              key={doc.id}
+              className="flex items-center justify-between gap-2 text-xs border border-border rounded-md px-2.5 py-1.5"
+            >
+              <span className="truncate">{doc.nombre}</span>
+              {doc.estado === "aprobado" ? (
+                <span className="text-success shrink-0">Aprobado</span>
+              ) : doc.estado === "rechazado" ? (
+                <span className="text-destructive shrink-0">Rechazado</span>
+              ) : (
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => docMutation.mutate({ documentoId: doc.id, estado: "aprobado" })}
+                    className="text-success hover:underline"
+                  >
+                    Aprobar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => docMutation.mutate({ documentoId: doc.id, estado: "rechazado" })}
+                    className="text-destructive hover:underline"
+                  >
+                    Rechazar
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between text-xs border border-border rounded-md px-2.5 py-1.5">
+        <span>Contrato de exclusividad</span>
+        <span
+          className={data.contrato?.estado === "signed" ? "text-success" : "text-muted-foreground"}
+        >
+          {contratoLabel}
+        </span>
+      </div>
+
+      {data.estadoOnboarding === "activo" ? (
+        <div className="text-xs text-success font-medium text-center py-1.5">Portal activo</div>
+      ) : (
+        <button
+          type="button"
+          disabled={activarMutation.isPending}
+          onClick={() => activarMutation.mutate()}
+          className="w-full text-xs font-semibold text-center rounded-md px-2.5 py-2 bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+        >
+          {activarMutation.isPending ? "Activando…" : "Activar acceso completo"}
+        </button>
+      )}
     </div>
   );
 }
@@ -264,6 +425,7 @@ export function ClienteDetallePanel({ id }: { id: string }) {
       {cliente.email && propiedadesEnPropiedad.length > 0 && (
         <DarAccesoPortalButton contactId={cliente.id} propiedades={propiedadesEnPropiedad} />
       )}
+      {propiedadesEnPropiedad.length > 0 && <RevisionPropietarioPanel contactId={cliente.id} />}
 
       {/* Motivo */}
       {cliente.motivo && (
