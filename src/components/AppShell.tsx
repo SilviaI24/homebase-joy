@@ -22,14 +22,14 @@ import {
   UserPlus,
   LogOut,
   UserCircle,
-  HandCoins,
   UserCog,
   ShieldCheck,
-  NotebookPen,
   Wrench,
   FileText,
   ClipboardCheck,
+  MoreHorizontal,
 } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -72,54 +72,37 @@ type NavItem = {
   icon: typeof LayoutDashboard;
   capability?: CrmCapability;
 };
-type NavGroup = { label?: string; items: NavItem[] };
 
-const navGroups: NavGroup[] = [
-  {
-    items: [
-      { to: "/", label: "Dashboard", icon: LayoutDashboard, capability: "contacts.read" },
-      { to: "/bandeja", label: "Bandeja", icon: Inbox, capability: "silvia.use" },
-      { to: "/agenda", label: "Agenda", icon: CalendarDays, capability: "visits.read" },
-    ],
-  },
-  {
-    label: "CRM",
-    items: [
-      { to: "/contactos", label: "Contactos", icon: Users, capability: "contacts.read" },
-      { to: "/cartera", label: "Cartera", icon: Building2, capability: "properties.read" },
-      { to: "/operaciones", label: "Operaciones", icon: HandCoins, capability: "operations.read" },
-      {
-        to: "/seguimiento",
-        label: "Seguimiento",
-        icon: NotebookPen,
-        capability: "seguimiento.read",
-      },
-    ],
-  },
-  {
-    label: "Equipo",
-    items: [
-      { to: "/comerciales", label: "Equipo", icon: UserCog, capability: "contacts.read" },
-      {
-        to: "/permisos",
-        label: "Permisos",
-        icon: ShieldCheck,
-        capability: "permissions.manage",
-      },
-    ],
-  },
-  {
-    label: "Cuenta",
-    items: [{ to: "/perfil", label: "Mi perfil", icon: UserCircle }],
-  },
+// Rediseño de navegación (17 sep 2026): sidebar aplanado, sin grupos — con
+// Operaciones y Seguimiento retirados del menú (ver OperacionesPanel en el
+// Dashboard y la pestaña Actividad en la ficha de contacto), solo quedan 8
+// destinos, muy por debajo del umbral donde agrupar aporta algo.
+const navItems: NavItem[] = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, capability: "contacts.read" },
+  { to: "/bandeja", label: "Bandeja", icon: Inbox, capability: "silvia.use" },
+  { to: "/agenda", label: "Agenda", icon: CalendarDays, capability: "visits.read" },
+  { to: "/contactos", label: "Contactos", icon: Users, capability: "contacts.read" },
+  { to: "/cartera", label: "Cartera", icon: Building2, capability: "properties.read" },
+  { to: "/comerciales", label: "Equipo", icon: UserCog, capability: "contacts.read" },
+  { to: "/permisos", label: "Permisos", icon: ShieldCheck, capability: "permissions.manage" },
+  { to: "/perfil", label: "Mi perfil", icon: UserCircle },
 ];
 
+// Paridad total móvil/escritorio: los 5 destinos de más uso siguen a un
+// toque en la barra inferior, el resto vive en la hoja "Más" — nunca
+// desktop-only (decisión de David, 17 sep 2026).
 const mobileNav: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, capability: "contacts.read" },
   { to: "/bandeja", label: "Bandeja", icon: Inbox, capability: "silvia.use" },
   { to: "/agenda", label: "Agenda", icon: CalendarDays, capability: "visits.read" },
   { to: "/contactos", label: "Contactos", icon: Users, capability: "contacts.read" },
   { to: "/cartera", label: "Cartera", icon: Building2, capability: "properties.read" },
+];
+
+const mobileMoreNav: NavItem[] = [
+  { to: "/comerciales", label: "Equipo", icon: UserCog, capability: "contacts.read" },
+  { to: "/permisos", label: "Permisos", icon: ShieldCheck, capability: "permissions.manage" },
+  { to: "/perfil", label: "Mi perfil", icon: UserCircle },
 ];
 
 // ── Prospectos badge ──────────────────────────────────────────────────────────
@@ -541,43 +524,25 @@ function SidebarContent({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-2 overflow-y-auto pt-3 space-y-3 md:space-y-5">
-        {navGroups.map((group, gi) => {
-          const visibleItems = group.items.filter(
-            (item) => !item.capability || allowedCapabilities.has(item.capability),
-          );
-          if (visibleItems.length === 0) return null;
-          return (
-            <div key={gi}>
-              {group.label && (
-                <div className="px-3 pb-1.5 flex items-center gap-2">
-                  <span className="text-xs uppercase tracking-[0.16em] text-sidebar-foreground/35 font-semibold">
-                    {group.label}
-                  </span>
-                  <span className="flex-1 h-px bg-sidebar-border/60" />
-                </div>
-              )}
-              <div className="space-y-0.5">
-                {visibleItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Link
-                      key={item.to}
-                      to={item.to as "/"}
-                      activeOptions={{ exact: item.to === "/" }}
-                      className={LINK_CLS}
-                      onClick={onLinkClick}
-                    >
-                      <Icon className="size-[15px] shrink-0 opacity-70 group-[.active]:opacity-100" />
-                      {item.label}
-                      {item.to === "/cartera" && <ProspectosBadge enabled />}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+      <nav className="flex-1 p-2 overflow-y-auto pt-3 space-y-0.5">
+        {navItems
+          .filter((item) => !item.capability || allowedCapabilities.has(item.capability))
+          .map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.to}
+                to={item.to as "/"}
+                activeOptions={{ exact: item.to === "/" }}
+                className={LINK_CLS}
+                onClick={onLinkClick}
+              >
+                <Icon className="size-[15px] shrink-0 opacity-70 group-[.active]:opacity-100" />
+                {item.label}
+                {item.to === "/cartera" && <ProspectosBadge enabled />}
+              </Link>
+            );
+          })}
       </nav>
 
       {/* Footer */}
@@ -626,6 +591,10 @@ export function AppShell({
     allowedCapabilities.has("properties.read") &&
     allowedCapabilities.has("visits.read");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const visibleMoreNav = mobileMoreNav.filter(
+    (item) => !item.capability || allowedCapabilities.has(item.capability),
+  );
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
@@ -742,7 +711,44 @@ export function AppShell({
               </Link>
             );
           })}
+        {visibleMoreNav.length > 0 && (
+          <button
+            onClick={() => setMoreOpen(true)}
+            className="flex-1 flex flex-col items-center justify-center gap-1 text-muted-foreground [&.active]:text-gold transition-colors duration-150 py-1"
+          >
+            <MoreHorizontal className="size-[18px]" />
+            <span className="text-xs font-medium leading-none tracking-wide">Más</span>
+          </button>
+        )}
       </nav>
+
+      {/* ── Mobile "Más" sheet — Equipo/Permisos/Mi perfil, nunca inalcanzables ── */}
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent
+          side="bottom"
+          className="md:hidden rounded-t-2xl pb-[calc(1rem+env(safe-area-inset-bottom))]"
+        >
+          <SheetHeader>
+            <SheetTitle className="text-left">Más</SheetTitle>
+          </SheetHeader>
+          <div className="mt-2 space-y-1">
+            {visibleMoreNav.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to as "/"}
+                  onClick={() => setMoreOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-foreground hover:bg-accent transition-colors"
+                >
+                  <Icon className="size-4 text-muted-foreground" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* ── SilvIA flotante (global) ── */}
       <SilviaFloat enabled={allowedCapabilities.has("silvia.use")} />

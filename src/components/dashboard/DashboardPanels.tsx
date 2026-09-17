@@ -2,11 +2,23 @@
 // (sin hooks de Route, reciben todo por props) del Dashboard.
 import { Link } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
-import { MapPin, TrendingDown, Flame, BellOff, ArrowRight, UserX } from "lucide-react";
+import {
+  MapPin,
+  TrendingDown,
+  Flame,
+  BellOff,
+  ArrowRight,
+  UserX,
+  HandCoins,
+  Clock,
+  CheckCircle2,
+} from "lucide-react";
 import type { Inmueble } from "@/lib/inmuebles.functions";
 import type { LeadInsight } from "@/lib/clientes.functions";
+import type { OperacionRow as OperacionRowData } from "@/lib/operaciones.functions";
 import { moneyShort, moneyFull, fmtDate, calcDelta } from "@/lib/dashboard-format";
 import { cleanRef } from "@/lib/format";
+import { ESTADO_STYLE, fmtEur } from "@/lib/operaciones-format";
 
 export function PulsoChip({
   label,
@@ -400,6 +412,127 @@ export function SinAsignarPanel({ leads }: { leads: LeadInsight[] }) {
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+// Rediseño de navegación (17 sep 2026): sustituye a la antigua ruta
+// /operaciones como punto de entrada — resumen glanceable, sin filtros ni
+// alta/cierre de operación (eso vive en OperacionesWorkspace, que "Ver
+// todas" abre en un Dialog con el mismo detalle de siempre, no una fila más
+// aquí). canSeeFinanciero llega ya resuelto desde el servidor
+// (listOperaciones): sin ese permiso, precioOperacion/comisionTotal vienen
+// en null — no se ocultan aquí, ya vienen ocultos.
+export function OperacionesPanel({
+  opsData,
+  onVerTodas,
+}: {
+  opsData: { operaciones: OperacionRowData[]; permissions: { canSeeFinanciero: boolean } };
+  onVerTodas: () => void;
+}) {
+  const ops = opsData.operaciones;
+  const now = new Date();
+
+  const cerradasMes = ops.filter(
+    (o) =>
+      o.estado === "Cerrada" &&
+      o.fechaCierre &&
+      new Date(o.fechaCierre).getMonth() === now.getMonth() &&
+      new Date(o.fechaCierre).getFullYear() === now.getFullYear(),
+  );
+  const comisionMes = cerradasMes.reduce((s, o) => s + (o.comisionTotal ?? 0), 0);
+
+  const enNegociacion = ops.filter((o) => o.estado === "En negociación");
+  const valorNegociacion = enNegociacion.reduce((s, o) => s + (o.precioOperacion ?? 0), 0);
+
+  const pipelineTotal = ops.filter(
+    (o) => o.estado === "Abierta" || o.estado === "En negociación",
+  ).length;
+
+  const recientes = ops.slice(0, 3);
+
+  return (
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <HandCoins className="size-4 text-gold" /> Operaciones
+        </h3>
+        <button
+          onClick={onVerTodas}
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
+        >
+          Ver todas <ArrowRight className="size-3" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4">
+        <div className="rounded-lg border border-border p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground font-medium">Cerradas este mes</span>
+            <span className="size-6 rounded-md flex items-center justify-center bg-success/10 text-success">
+              <CheckCircle2 className="size-3.5" />
+            </span>
+          </div>
+          <div className="text-xl font-display font-semibold mt-1.5 tabular-nums">
+            {cerradasMes.length}
+          </div>
+          {opsData.permissions.canSeeFinanciero && (
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {fmtEur(comisionMes)} en comisión
+            </div>
+          )}
+        </div>
+        <div className="rounded-lg border border-border p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground font-medium">En negociación</span>
+            <span className="size-6 rounded-md flex items-center justify-center bg-warning/10 text-warning">
+              <Clock className="size-3.5" />
+            </span>
+          </div>
+          <div className="text-xl font-display font-semibold mt-1.5 tabular-nums">
+            {enNegociacion.length}
+          </div>
+          {opsData.permissions.canSeeFinanciero && (
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {fmtEur(valorNegociacion)} potencial
+            </div>
+          )}
+        </div>
+        <div className="rounded-lg border border-border p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground font-medium">Pipeline total</span>
+            <span className="size-6 rounded-md flex items-center justify-center bg-gold/10 text-gold">
+              <HandCoins className="size-3.5" />
+            </span>
+          </div>
+          <div className="text-xl font-display font-semibold mt-1.5 tabular-nums">
+            {pipelineTotal}
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">Abiertas + en negociación</div>
+        </div>
+      </div>
+
+      {recientes.length > 0 && (
+        <div className="divide-y divide-border border-t border-border">
+          {recientes.map((op) => (
+            <div key={op.id} className="flex items-center gap-3 px-4 py-2.5">
+              <span
+                className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${ESTADO_STYLE[op.estado]}`}
+              >
+                {op.estado}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                {op.propertyCalle ?? op.tipo}
+              </span>
+              {op.precioOperacion !== null && (
+                <span className="shrink-0 text-xs font-medium tabular-nums">
+                  {fmtEur(op.precioOperacion)}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

@@ -65,6 +65,54 @@ export const listSeguimientos = createServerFn({ method: "GET" }).handler(async 
   };
 });
 
+export type GetSeguimientosByContactoPayload = { contactId: string };
+
+// Rediseño de navegación (17 sep 2026): historial de un único contacto para
+// la pestaña "Actividad" de su ficha — a diferencia de listSeguimientos
+// (global, hasta 300 filas, para la vista de equipo que tenía /seguimiento),
+// aquí se filtra en SQL por contact_id, sin necesidad de traer el resto.
+export const getSeguimientosByContacto = createServerFn({ method: "GET" })
+  .validator((d: GetSeguimientosByContactoPayload) => {
+    if (!d?.contactId) throw new Error("Contacto requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    await requirePermission("seguimiento.read");
+    const supa = getSupa();
+
+    const { data: rows, error } = await supa
+      .from("seguimiento")
+      .select("id, tipo, texto, fecha, created_at, contact_id, agente_id, agents(id, nombre)")
+      .eq("contact_id", data.contactId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) throw new Error(`getSeguimientosByContacto: ${error.message}`);
+
+    type Row = {
+      id: string;
+      tipo: string | null;
+      texto: string | null;
+      fecha: string | null;
+      created_at: string;
+      contact_id: string;
+      agente_id: string | null;
+      agents: { id: string; nombre: string | null } | null;
+    };
+    const typed = (rows ?? []) as unknown as Row[];
+
+    return {
+      seguimientos: typed.map((r) => ({
+        id: r.id,
+        tipo: (r.tipo ?? "Nota") as SeguimientoTipo,
+        texto: r.texto ?? "",
+        fecha: r.fecha ?? null,
+        created_at: r.created_at,
+        agenteNombre: r.agents?.nombre ?? null,
+      })),
+    };
+  });
+
 export type CreateSeguimientoPayload = {
   contactId: string;
   tipo: SeguimientoTipo;

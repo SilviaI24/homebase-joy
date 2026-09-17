@@ -14,11 +14,9 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VisitasIndexRouteImport } from './routes/visitas.index'
 import { Route as SilviaIndexRouteImport } from './routes/silvia.index'
-import { Route as SeguimientoIndexRouteImport } from './routes/seguimiento.index'
 import { Route as ProspectosIndexRouteImport } from './routes/prospectos.index'
 import { Route as PermisosIndexRouteImport } from './routes/permisos.index'
 import { Route as PerfilIndexRouteImport } from './routes/perfil.index'
-import { Route as OperacionesIndexRouteImport } from './routes/operaciones.index'
 import { Route as MisLeadsIndexRouteImport } from './routes/mis-leads.index'
 import { Route as InmueblesIndexRouteImport } from './routes/inmuebles.index'
 import { Route as EstadisticasIndexRouteImport } from './routes/estadisticas.index'
@@ -58,11 +56,6 @@ const SilviaIndexRoute = SilviaIndexRouteImport.update({
   path: '/silvia/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SeguimientoIndexRoute = SeguimientoIndexRouteImport.update({
-  id: '/seguimiento/',
-  path: '/seguimiento/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProspectosIndexRoute = ProspectosIndexRouteImport.update({
   id: '/prospectos/',
   path: '/prospectos/',
@@ -76,11 +69,6 @@ const PermisosIndexRoute = PermisosIndexRouteImport.update({
 const PerfilIndexRoute = PerfilIndexRouteImport.update({
   id: '/perfil/',
   path: '/perfil/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacionesIndexRoute = OperacionesIndexRouteImport.update({
-  id: '/operaciones/',
-  path: '/operaciones/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MisLeadsIndexRoute = MisLeadsIndexRouteImport.update({
@@ -168,11 +156,9 @@ export interface FileRoutesByFullPath {
   '/estadisticas/': typeof EstadisticasIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
   '/mis-leads/': typeof MisLeadsIndexRoute
-  '/operaciones/': typeof OperacionesIndexRoute
   '/perfil/': typeof PerfilIndexRoute
   '/permisos/': typeof PermisosIndexRoute
   '/prospectos/': typeof ProspectosIndexRoute
-  '/seguimiento/': typeof SeguimientoIndexRoute
   '/silvia/': typeof SilviaIndexRoute
   '/visitas/': typeof VisitasIndexRoute
   '/api/google-calendar/callback': typeof ApiGoogleCalendarCallbackRoute
@@ -193,11 +179,9 @@ export interface FileRoutesByTo {
   '/estadisticas': typeof EstadisticasIndexRoute
   '/inmuebles': typeof InmueblesIndexRoute
   '/mis-leads': typeof MisLeadsIndexRoute
-  '/operaciones': typeof OperacionesIndexRoute
   '/perfil': typeof PerfilIndexRoute
   '/permisos': typeof PermisosIndexRoute
   '/prospectos': typeof ProspectosIndexRoute
-  '/seguimiento': typeof SeguimientoIndexRoute
   '/silvia': typeof SilviaIndexRoute
   '/visitas': typeof VisitasIndexRoute
   '/api/google-calendar/callback': typeof ApiGoogleCalendarCallbackRoute
@@ -219,11 +203,9 @@ export interface FileRoutesById {
   '/estadisticas/': typeof EstadisticasIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
   '/mis-leads/': typeof MisLeadsIndexRoute
-  '/operaciones/': typeof OperacionesIndexRoute
   '/perfil/': typeof PerfilIndexRoute
   '/permisos/': typeof PermisosIndexRoute
   '/prospectos/': typeof ProspectosIndexRoute
-  '/seguimiento/': typeof SeguimientoIndexRoute
   '/silvia/': typeof SilviaIndexRoute
   '/visitas/': typeof VisitasIndexRoute
   '/api/google-calendar/callback': typeof ApiGoogleCalendarCallbackRoute
@@ -246,11 +228,9 @@ export interface FileRouteTypes {
     | '/estadisticas/'
     | '/inmuebles/'
     | '/mis-leads/'
-    | '/operaciones/'
     | '/perfil/'
     | '/permisos/'
     | '/prospectos/'
-    | '/seguimiento/'
     | '/silvia/'
     | '/visitas/'
     | '/api/google-calendar/callback'
@@ -271,11 +251,9 @@ export interface FileRouteTypes {
     | '/estadisticas'
     | '/inmuebles'
     | '/mis-leads'
-    | '/operaciones'
     | '/perfil'
     | '/permisos'
     | '/prospectos'
-    | '/seguimiento'
     | '/silvia'
     | '/visitas'
     | '/api/google-calendar/callback'
@@ -296,11 +274,9 @@ export interface FileRouteTypes {
     | '/estadisticas/'
     | '/inmuebles/'
     | '/mis-leads/'
-    | '/operaciones/'
     | '/perfil/'
     | '/permisos/'
     | '/prospectos/'
-    | '/seguimiento/'
     | '/silvia/'
     | '/visitas/'
     | '/api/google-calendar/callback'
@@ -322,11 +298,9 @@ export interface RootRouteChildren {
   EstadisticasIndexRoute: typeof EstadisticasIndexRoute
   InmueblesIndexRoute: typeof InmueblesIndexRoute
   MisLeadsIndexRoute: typeof MisLeadsIndexRoute
-  OperacionesIndexRoute: typeof OperacionesIndexRoute
   PerfilIndexRoute: typeof PerfilIndexRoute
   PermisosIndexRoute: typeof PermisosIndexRoute
   ProspectosIndexRoute: typeof ProspectosIndexRoute
-  SeguimientoIndexRoute: typeof SeguimientoIndexRoute
   SilviaIndexRoute: typeof SilviaIndexRoute
   VisitasIndexRoute: typeof VisitasIndexRoute
   ApiGoogleCalendarCallbackRoute: typeof ApiGoogleCalendarCallbackRoute
@@ -370,13 +344,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SilviaIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/seguimiento/': {
-      id: '/seguimiento/'
-      path: '/seguimiento'
-      fullPath: '/seguimiento/'
-      preLoaderRoute: typeof SeguimientoIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/prospectos/': {
       id: '/prospectos/'
       path: '/prospectos'
@@ -396,13 +363,6 @@ declare module '@tanstack/react-router' {
       path: '/perfil'
       fullPath: '/perfil/'
       preLoaderRoute: typeof PerfilIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operaciones/': {
-      id: '/operaciones/'
-      path: '/operaciones'
-      fullPath: '/operaciones/'
-      preLoaderRoute: typeof OperacionesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mis-leads/': {
@@ -514,11 +474,9 @@ const rootRouteChildren: RootRouteChildren = {
   EstadisticasIndexRoute: EstadisticasIndexRoute,
   InmueblesIndexRoute: InmueblesIndexRoute,
   MisLeadsIndexRoute: MisLeadsIndexRoute,
-  OperacionesIndexRoute: OperacionesIndexRoute,
   PerfilIndexRoute: PerfilIndexRoute,
   PermisosIndexRoute: PermisosIndexRoute,
   ProspectosIndexRoute: ProspectosIndexRoute,
-  SeguimientoIndexRoute: SeguimientoIndexRoute,
   SilviaIndexRoute: SilviaIndexRoute,
   VisitasIndexRoute: VisitasIndexRoute,
   ApiGoogleCalendarCallbackRoute: ApiGoogleCalendarCallbackRoute,

@@ -1,6 +1,6 @@
 // M-03: extraído de src/routes/contactos.index.tsx.
 import { useMemo, useState, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
@@ -14,6 +14,8 @@ import {
   Zap,
   Trash2,
   StickyNote,
+  PhoneCall,
+  Send,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
@@ -21,7 +23,9 @@ import { AsignarLeadButton } from "@/components/AsignarLeadButton";
 import { AsociarInmuebleButton } from "@/components/AsociarInmuebleButton";
 import type { Cliente } from "@/lib/clientes.functions";
 import { deleteContacto } from "@/lib/clientes-ciclo-vida.functions";
+import { createSeguimiento, type SeguimientoTipo } from "@/lib/seguimiento.functions";
 import { updateClienteSeguimiento, type EstadoSeguimiento } from "@/lib/mutations.functions";
+import { myRoleQuery } from "@/lib/queries";
 import {
   ESTADO_META,
   PIPELINE_STAGES,
@@ -30,6 +34,85 @@ import {
   filterLeadsFn,
   formatFechaCorta,
 } from "@/lib/contactos-format";
+
+// Registro rápido de seguimiento — solo en el Kanban de Leads (alcance
+// decidido por David, 17 sep 2026): para cuando se hacen varias llamadas
+// seguidas y abrir la ficha completa de cada lead frena. Escribe en la
+// misma tabla `seguimiento` que antes alimentaba la ruta /seguimiento
+// (retirada) y que ahora también se ve en la pestaña Actividad de la ficha.
+const REGISTRO_TIPOS = ["Llamada", "WhatsApp", "Email"] as const satisfies SeguimientoTipo[];
+const REGISTRO_TIPO_CLS: Record<(typeof REGISTRO_TIPOS)[number], string> = {
+  Llamada: "bg-info/10 text-info",
+  WhatsApp: "bg-success/10 text-success",
+  Email: "bg-info/10 text-info",
+};
+
+function RegistrarSeguimientoButton({ contactId }: { contactId: string }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [tipo, setTipo] = useState<SeguimientoTipo>("Llamada");
+  const [texto, setTexto] = useState("");
+  const fn = useServerFn(createSeguimiento);
+
+  const mut = useMutation({
+    mutationFn: () => fn({ data: { contactId, tipo, texto: texto.trim() } }),
+    onSuccess: () => {
+      toast.success("Seguimiento registrado");
+      qc.invalidateQueries({ queryKey: ["seguimiento-contacto", contactId] });
+      qc.invalidateQueries({ queryKey: ["seguimientos"] });
+      setOpen(false);
+      setTexto("");
+      setTipo("Llamada");
+    },
+    onError: (e: Error) => toast.error(e.message || "No se pudo registrar"),
+  });
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted transition-colors"
+        >
+          <PhoneCall className="size-3" /> Registrar
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" className="w-64 p-2.5 space-y-2">
+        <div className="flex gap-1.5">
+          {REGISTRO_TIPOS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTipo(t)}
+              className={`flex-1 text-xs font-medium px-2 py-1.5 rounded-md border transition-all ${
+                tipo === t
+                  ? REGISTRO_TIPO_CLS[t] + " border-transparent"
+                  : "bg-background border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        <textarea
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          placeholder="Nota breve…"
+          rows={2}
+          className="w-full text-xs rounded border border-input bg-background p-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+        <button
+          onClick={() => mut.mutate()}
+          disabled={mut.isPending || !texto.trim()}
+          className="w-full h-7 inline-flex items-center justify-center gap-1 rounded bg-primary text-primary-foreground text-xs font-medium disabled:opacity-50 hover:bg-primary/90 transition-colors"
+        >
+          <Send className="size-3" />
+          {mut.isPending ? "Registrando…" : "Registrar"}
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function KanbanCard({
   cliente,
@@ -49,6 +132,10 @@ export function KanbanCard({
   const [notaOpen, setNotaOpen] = useState(false);
   const [nota, setNota] = useState("");
   const notaRef = useRef<HTMLTextAreaElement>(null);
+  const { data: access } = useQuery(myRoleQuery);
+  const canRegistrarSeguimiento = (access?.allowedCapabilities ?? []).includes(
+    "seguimiento.create",
+  );
 
   const mut = useMutation({
     mutationFn: fn,
@@ -152,6 +239,7 @@ export function KanbanCard({
             </button>
           </PopoverContent>
         </Popover>
+        {canRegistrarSeguimiento && <RegistrarSeguimientoButton contactId={cliente.id} />}
         <AsignarLeadButton clienteId={cliente.id} agentesActuales={cliente.agentesIds} />
         <AsociarInmuebleButton contactId={cliente.id} />
       </div>

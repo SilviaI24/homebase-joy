@@ -37,6 +37,7 @@ import {
   activarPropietarioCrm,
 } from "@/lib/mutations-cliente.functions";
 import { SEG_META, formatFechaCorta, initials } from "@/lib/contactos-format";
+import { ActividadSeguimiento } from "@/components/contactos/ActividadSeguimiento";
 
 // Botón "Dar acceso al portal": solo tiene sentido si el contacto es
 // Propietario/Arrendador de al menos un inmueble (única forma de vincular
@@ -448,6 +449,12 @@ export function ClienteDetallePanel({ id }: { id: string }) {
           </div>
         </div>
       )}
+
+      {/* Actividad — historial de Seguimiento de este contacto (antes vivía
+          en la ruta /seguimiento, global; ver ActividadSeguimiento). */}
+      <div className="border-t border-border pt-4">
+        <ActividadSeguimiento contactId={cliente.id} />
+      </div>
 
       {/* M-05: archivar — no borra nada, solo saca al contacto de las vistas
           del día a día. Se restaura desde la pestaña Histórico. */}

@@ -23,7 +23,11 @@ import {
 import { listConversacionesIaPage } from "@/lib/clientes-conversaciones.functions";
 import { listVisitas } from "@/lib/visitas.functions";
 import { getNotifications } from "@/lib/notifications.functions";
-import { listSeguimientos, searchClientesPicker } from "@/lib/seguimiento.functions";
+import {
+  listSeguimientos,
+  searchClientesPicker,
+  getSeguimientosByContacto,
+} from "@/lib/seguimiento.functions";
 import type { SearchClientesPickerParams } from "@/lib/seguimiento.functions";
 import { listOperaciones } from "@/lib/operaciones.functions";
 import { getStatsData } from "@/lib/clientes.functions";
@@ -151,6 +155,17 @@ export const operacionesQuery = queryOptions({
   staleTime: 2 * 60 * 1000,
   gcTime: 15 * 60 * 1000,
 });
+
+/** Historial de Seguimiento de un contacto — pestaña Actividad de su ficha. */
+export function seguimientosByContactoQuery(contactId: string) {
+  return queryOptions({
+    queryKey: ["seguimiento-contacto", contactId],
+    queryFn: () => getSeguimientosByContacto({ data: { contactId } }),
+    enabled: Boolean(contactId),
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+}
 
 export const statsQuery = queryOptions({
   queryKey: ["stats"],

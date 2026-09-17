@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { useMemo, lazy, Suspense } from "react";
+import { useMemo, useState, lazy, Suspense } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { OperacionesWorkspace } from "@/components/operaciones/OperacionesWorkspace";
 import {
   AreaChart,
   Area,
@@ -26,6 +28,7 @@ import {
   statsQuery,
   operacionesQuery,
   myRoleQuery,
+  agentesQuery,
 } from "@/lib/queries";
 import {
   PulsoChip,
@@ -36,6 +39,7 @@ import {
   LeadsCalientesPanel,
   SinSeguimientoPanel,
   SinAsignarPanel,
+  OperacionesPanel,
 } from "@/components/dashboard/DashboardPanels";
 import {
   TrendingUp,
@@ -79,6 +83,9 @@ export const Route = createFileRoute("/")({
     context.queryClient.ensureQueryData(statsQuery).catch(() => {});
     context.queryClient.ensureQueryData(operacionesQuery).catch(() => {});
     context.queryClient.ensureQueryData(myRoleQuery).catch(() => {});
+    // Prefetch para que el modal de OperacionesWorkspace ("Ver todas" del
+    // panel de Operaciones) no suspenda al abrirse.
+    context.queryClient.ensureQueryData(agentesQuery).catch(() => {});
   },
   component: Dashboard,
   errorComponent: ({ error }) => (
@@ -107,6 +114,7 @@ function Dashboard() {
   const { data: statsData } = useSuspenseQuery(statsQuery);
   const { data: opsData } = useSuspenseQuery(operacionesQuery);
   const { data: myRole } = useSuspenseQuery(myRoleQuery);
+  const [opsModalOpen, setOpsModalOpen] = useState(false);
 
   const leadsCount = contactCounts.leadsTotal;
 
@@ -641,6 +649,14 @@ function Dashboard() {
         </div>
       )}
 
+      {/* ── ROW 3.6: Operaciones — sustituye a la antigua ruta /operaciones,
+          retirada del menú en el rediseño de navegación del 17 sep 2026 ── */}
+      {myRole.allowedCapabilities.includes("operations.read") && (
+        <div className="mb-3">
+          <OperacionesPanel opsData={opsData} onVerTodas={() => setOpsModalOpen(true)} />
+        </div>
+      )}
+
       {/* ── ROW 4: Recientes + Estancados ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <div className="lg:col-span-2 rounded-2xl border border-border bg-card overflow-hidden">
@@ -911,6 +927,24 @@ function Dashboard() {
             </div>
           )}
       </div>
+
+      {/* "Ver todas" del panel de Operaciones — mismo workspace completo que
+          antes vivía en /operaciones (filtros, alta, cierre de operación),
+          ahora en un Dialog en vez de una ruta propia. */}
+      <Dialog open={opsModalOpen} onOpenChange={setOpsModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Operaciones</DialogTitle>
+          </DialogHeader>
+          <Suspense
+            fallback={
+              <div className="text-sm text-muted-foreground py-10 text-center">Cargando…</div>
+            }
+          >
+            {opsModalOpen && <OperacionesWorkspace />}
+          </Suspense>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

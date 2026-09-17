@@ -1,11 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+// Rediseño de navegación (17 sep 2026): extraído de la antigua ruta
+// /operaciones (retirada del menú — ver OperacionesPanel en el Dashboard,
+// que abre este mismo componente en un Dialog vía "Ver todas"). Contenido
+// sin cambios: mismos KPIs, filtros, alta y cierre de operación de siempre.
 import { useSuspenseQuery, useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { AppShell } from "@/components/AppShell";
 import { KpiCard } from "@/components/KpiCard";
-import { RouteError } from "@/components/RouteError";
 import { Input } from "@/components/ui/input";
 import { Banknote, TrendingUp, CheckCircle2, Clock, Plus, X, Building2 } from "lucide-react";
 
@@ -21,34 +22,7 @@ import { searchContactos } from "@/lib/seguimiento.functions";
 import { TIPOS, ESTADOS, fmtEur } from "@/lib/operaciones-format";
 import { ContactPicker, OperacionRow } from "@/components/operaciones/OperacionesPanels";
 
-export const Route = createFileRoute("/operaciones/")({
-  head: () => ({
-    meta: [
-      { title: "Operaciones · El Sol Grupo CRM" },
-      {
-        name: "description",
-        content: "Gestión de operaciones inmobiliarias: ventas, alquileres y comisiones.",
-      },
-    ],
-  }),
-  loader: ({ context }) => {
-    context.queryClient.ensureQueryData(operacionesQuery).catch(() => {});
-    context.queryClient.ensureQueryData(agentesQuery).catch(() => {});
-  },
-  component: OperacionesPage,
-  pendingComponent: () => (
-    <AppShell title="Operaciones">
-      <div className="text-sm text-muted-foreground py-10 text-center">Cargando operaciones…</div>
-    </AppShell>
-  ),
-  errorComponent: ({ error }) => (
-    <AppShell title="Operaciones">
-      <RouteError error={error} />
-    </AppShell>
-  ),
-});
-
-function OperacionesPage() {
+export function OperacionesWorkspace() {
   const { data } = useSuspenseQuery(operacionesQuery);
   const { data: agData } = useSuspenseQuery(agentesQuery);
   const qc = useQueryClient();
@@ -197,7 +171,7 @@ function OperacionesPage() {
   }, [data.operaciones]);
 
   return (
-    <AppShell title="Operaciones">
+    <>
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <KpiCard icon={Banknote} label="Total" value={kpis.total.toString()} />
@@ -463,6 +437,6 @@ function OperacionesPage() {
           ))}
         </div>
       )}
-    </AppShell>
+    </>
   );
 }
