@@ -1,0 +1,13 @@
+-- La migración 20260914163755_normalizar_trabajado_y_canal_origen_bandeja
+-- normalizó las filas existentes de contacts.trabajado ('' -> NULL) y añadió
+-- contacts_trabajado_check (NULL | 'Contactado' | 'Descartado'), pero nunca
+-- actualizó el DEFAULT de la columna, que seguía siendo '' desde el esquema
+-- inicial (20260601000000). Resultado: cualquier INSERT que no fije
+-- `trabajado` explícitamente (crm_crear_cliente nunca lo hace) violaba la
+-- restricción desde el 14 sep 2026 -- roto el alta manual de contactos
+-- ("Nuevo cliente" en el CRM) para cualquier tipo, no solo Propietario.
+--
+-- Auditados los 37 CHECK constraints del esquema público contra el DEFAULT
+-- de su columna (18 sep 2026): este es el único caso con un default que
+-- viola su propia restricción.
+alter table public.contacts alter column trabajado set default null;
