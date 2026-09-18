@@ -16,6 +16,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { SafeImage } from "@/components/SafeImage";
+import { Progress } from "@/components/ui/progress";
 import {
   CanalChip,
   Transcripcion,
@@ -99,6 +100,22 @@ function DarAccesoPortalButton({
   );
 }
 
+// Checklist obligatorio del onboarding — la lista real vive en
+// elsol-client-hub/src/config/onboarding.ts (CHECKLIST); aquí solo se
+// necesitan las categorías de documento "upload" obligatorias + su caso
+// especial, para calcular el contador de progreso. Si esa lista cambia
+// allí, hay que reflejarlo aquí también (el contrato de exclusividad no
+// está: se cuenta aparte vía `data.contrato`).
+const DOCUMENTOS_OBLIGATORIOS: { categoria: string; condicion?: string }[] = [
+  { categoria: "dni" },
+  { categoria: "escritura" },
+  { categoria: "ibi" },
+  { categoria: "acta_comunidad" },
+  { categoria: "herencia", condicion: "herencia" },
+  { categoria: "divorcio", condicion: "divorcio" },
+  { categoria: "menores", condicion: "menores" },
+];
+
 // Revisión de documentación + activación — 17 sep 2026. Los comerciales
 // trabajan siempre desde el CRM: esto reemplaza (para su uso diario) al
 // panel admin del propio Portal (AdminPropietarios.tsx), que se deja
@@ -165,10 +182,31 @@ function RevisionPropietarioPanel({ contactId }: { contactId: string }) {
         ? "Pendiente de firma"
         : "No iniciado";
 
+  const requiredDocs = DOCUMENTOS_OBLIGATORIOS.filter(
+    (d) => !d.condicion || data.casosEspeciales.includes(d.condicion),
+  );
+  const doneDocsCount = requiredDocs.filter((d) => {
+    const doc = data.docs.find((x) => x.categoria === d.categoria);
+    return !!doc && doc.estado !== "rechazado";
+  }).length;
+  const contratoDone = data.contrato?.estado === "signed";
+  const doneCount = doneDocsCount + (contratoDone ? 1 : 0);
+  const totalCount = requiredDocs.length + 1;
+
   return (
     <div className="border-t border-border pt-4 space-y-3">
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Revisión de documentación
+      </div>
+
+      <div className="space-y-1">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>Documentación obligatoria</span>
+          <span className="tabular-nums">
+            {doneCount} / {totalCount}
+          </span>
+        </div>
+        <Progress value={totalCount ? (doneCount / totalCount) * 100 : 0} className="h-1.5" />
       </div>
 
       <div className="grid grid-cols-2 gap-2">

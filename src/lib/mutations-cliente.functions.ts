@@ -164,6 +164,7 @@ export type RevisionPropietarioData = {
   dni: string | null;
   domicilio: string | null;
   estadoOnboarding: string;
+  casosEspeciales: string[];
   docs: RevisionPropietarioDoc[];
   contrato: { estado: string; firmadoAt: string | null } | null;
 };
@@ -179,7 +180,7 @@ export const getRevisionPropietario = createServerFn({ method: "POST" })
 
     const { data: propietario } = await supa
       .from("propietarios")
-      .select("id, nombre, email, dni, domicilio, estado_onboarding")
+      .select("id, nombre, email, dni, domicilio, estado_onboarding, casos_especiales")
       .eq("contact_id", data.contactId)
       .maybeSingle();
     if (!propietario) return null;
@@ -216,6 +217,7 @@ export const getRevisionPropietario = createServerFn({ method: "POST" })
       dni: propietario.dni,
       domicilio: propietario.domicilio,
       estadoOnboarding: propietario.estado_onboarding as string,
+      casosEspeciales: (propietario.casos_especiales ?? []) as string[],
       docs: (docsRes.data ?? []) as RevisionPropietarioDoc[],
       contrato: txRes.data
         ? { estado: txRes.data.estado as string, firmadoAt: txRes.data.firmado_at as string | null }
