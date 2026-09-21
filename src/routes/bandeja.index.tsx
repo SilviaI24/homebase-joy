@@ -7,7 +7,12 @@ import { AppShell } from "@/components/AppShell";
 import { RouteError } from "@/components/RouteError";
 import { Pagination } from "@/components/pagination/Pagination";
 import { comerciablesInmueblesQuery, iaConversationsPageQuery } from "@/lib/queries";
-import { updateClienteSeguimiento, sendWhatsAppReply } from "@/lib/mutations.functions";
+import {
+  updateClienteSeguimiento,
+  sendWhatsAppReply,
+  marcarTipoInteresLead,
+  type TipoInteres,
+} from "@/lib/mutations.functions";
 import {
   comercialStatus,
   compileInmueblePatterns,
@@ -108,6 +113,8 @@ function BandejaPage() {
   const [cualificados, setCualificados] = useState<Set<string>>(new Set());
   const [routing, setRouting] = useState<string | null>(null);
   const seguimientoFn = useServerFn(updateClienteSeguimiento);
+  const [tipoInteresLocal, setTipoInteresLocal] = useState<Record<string, TipoInteres>>({});
+  const tipoInteresFn = useServerFn(marcarTipoInteresLead);
 
   // WhatsApp reply state
   const [replyOpen, setReplyOpen] = useState<Set<string>>(new Set());
@@ -263,6 +270,27 @@ function BandejaPage() {
     }
   }
 
+  async function setTipoInteres(id: string, tipo: TipoInteres) {
+    const prev = tipoInteresLocal[id];
+    setTipoInteresLocal((p) => ({ ...p, [id]: tipo }));
+    // El RPC también fija trabajado="Contactado" (ver comentario en
+    // marcarTipoInteresLead) — reflejamos eso aquí igual que hace route().
+    setCualificados((p) => new Set(p).add(id));
+    try {
+      await tipoInteresFn({ data: { contactId: id, tipoInteres: tipo } });
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["ia-conversations-page"] });
+    } catch (e: unknown) {
+      setTipoInteresLocal((p) => {
+        const n = { ...p };
+        if (prev) n[id] = prev;
+        else delete n[id];
+        return n;
+      });
+      toast.error(e instanceof Error ? e.message : "No se pudo marcar el interés");
+    }
+  }
+
   return (
     <AppShell title="Bandeja operativa">
       {/* Header con stats */}
@@ -355,7 +383,7 @@ function BandejaPage() {
             return (
               <ConversationCard
                 key={c.id}
-                cliente={c}
+                cliente={{ ...c, tipoInteres: tipoInteresLocal[c.id] ?? c.tipoInteres }}
                 canal={canal}
                 mencionados={mencionados}
                 isOpen={expanded.has(c.id)}
@@ -373,6 +401,7 @@ function BandejaPage() {
                 onToggleReply={() => toggleReply(c.id)}
                 onReplyTextChange={(v) => setReplyTexts((p) => ({ ...p, [c.id]: v }))}
                 onSendReply={() => sendReply(c.id)}
+                onSetTipoInteres={(tipo) => setTipoInteres(c.id, tipo)}
                 onVinculado={() => {
                   queryClient.invalidateQueries({ queryKey: ["ia-conversations-page"] });
                   queryClient.invalidateQueries({ queryKey: ["leads"] });

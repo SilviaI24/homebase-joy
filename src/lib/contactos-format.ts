@@ -41,6 +41,27 @@ export const ESTADO_META: Record<
   },
 };
 
+// Badge de tipo_interes en las tarjetas del Kanban de Leads (filtro estricto:
+// todo lead visible ahí ya tiene uno, ver listLeads en clientes.functions.ts).
+export const TIPO_INTERES_META: Record<string, { cls: string; icon: typeof Clock; label: string }> =
+  {
+    Compra: {
+      cls: "bg-warning/10 text-warning border-warning/30",
+      icon: ShoppingCart,
+      label: "Compra",
+    },
+    Alquiler: {
+      cls: "bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/30",
+      icon: KeyRound,
+      label: "Alquiler",
+    },
+    Prospeccion: {
+      cls: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/30",
+      icon: SearchIcon,
+      label: "Prospección",
+    },
+  };
+
 export const ORIGEN_META: Record<
   string,
   { cls: string; icon: typeof Clock; label: string; descripcion: string }

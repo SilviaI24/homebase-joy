@@ -29,6 +29,7 @@ import { myRoleQuery } from "@/lib/queries";
 import {
   ESTADO_META,
   PIPELINE_STAGES,
+  TIPO_INTERES_META,
   diasDesde,
   extraerUltimaNota,
   filterLeadsFn,
@@ -180,6 +181,17 @@ export function KanbanCard({
               <meta.icon className="size-2.5" />
               {meta.label}
             </span>
+            {cliente.tipoInteres && TIPO_INTERES_META[cliente.tipoInteres] && (
+              <span
+                className={`inline-flex items-center gap-0.5 text-xs border rounded-full px-2 py-1 font-medium ${TIPO_INTERES_META[cliente.tipoInteres].cls}`}
+              >
+                {(() => {
+                  const Icon = TIPO_INTERES_META[cliente.tipoInteres].icon;
+                  return <Icon className="size-2.5" />;
+                })()}
+                {TIPO_INTERES_META[cliente.tipoInteres].label}
+              </span>
+            )}
           </div>
           {cliente.telefono && (
             <div className="mt-1 text-xs text-muted-foreground flex items-center gap-0.5">
@@ -396,6 +408,17 @@ export function LeadCard({ cliente, estado }: { cliente: Cliente; estado: Estado
               <meta.icon className="size-2.5" />
               {meta.label}
             </span>
+            {cliente.tipoInteres && TIPO_INTERES_META[cliente.tipoInteres] && (
+              <span
+                className={`inline-flex items-center gap-0.5 text-xs border rounded-full px-2.5 py-1 font-medium ${TIPO_INTERES_META[cliente.tipoInteres].cls}`}
+              >
+                {(() => {
+                  const Icon = TIPO_INTERES_META[cliente.tipoInteres].icon;
+                  return <Icon className="size-2.5" />;
+                })()}
+                {TIPO_INTERES_META[cliente.tipoInteres].label}
+              </span>
+            )}
             {cliente.categoria.map((cat) => (
               <span
                 key={cat}

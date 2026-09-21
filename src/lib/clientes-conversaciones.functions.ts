@@ -19,6 +19,7 @@ export type ConversacionIa = Pick<
   | "conversaciones"
   | "categoria"
   | "trabajado"
+  | "tipoInteres"
   | "etapa"
   | "agentesIds"
   | "matches"
@@ -48,6 +49,7 @@ type ConversacionIaQueryRow = {
   seccion: string | null;
   categoria: string[] | null;
   trabajado: string | null;
+  tipo_interes: string | null;
   contact_agents: Array<{ agent_id: string | null }> | null;
 };
 
@@ -89,7 +91,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         .from("contacts")
         .select(
           `id, nombre, email, telefono, ciclo_vida, canal_origen, created_at,
-           motivo, solicitud, conversaciones, seccion, categoria, trabajado,
+           motivo, solicitud, conversaciones, seccion, categoria, trabajado, tipo_interes,
            contact_agents(agent_id)`,
           { count: "exact" },
         )
@@ -159,6 +161,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         conversaciones: toSentenceCase(s(row.conversaciones)),
         categoria: Array.isArray(row.categoria) ? row.categoria : [],
         trabajado: toTitleCase(s(row.trabajado)),
+        tipoInteres: row.tipo_interes,
         etapa: (row.ciclo_vida ?? "Lead") as Etapa,
         agentesIds: (row.contact_agents ?? [])
           .map((a) => a.agent_id)

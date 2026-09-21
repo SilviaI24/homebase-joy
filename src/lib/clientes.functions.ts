@@ -62,6 +62,7 @@ export type Cliente = {
   avalista: string;
   categoria: string[];
   trabajado: string;
+  tipoInteres: string | null;
   // Inmuebles vinculados por tipo de rol
   propiedadIds: string[]; // Propietario
   propiedadRefs: string[];
@@ -144,6 +145,7 @@ type ContactQueryRow = {
   canal_origen: string | null;
   seccion: string | null;
   trabajado: string | null;
+  tipo_interes: string | null;
   categoria: string[] | null;
   contrato_trabajo: string | null;
   mascota: string | null;
@@ -417,6 +419,7 @@ function buildCliente(r: ContactQueryRow, matchCtx?: MatchContext): Cliente {
     avalista: toTitleCase(s(r.avalista)),
     categoria: Array.isArray(r.categoria) ? r.categoria : [],
     trabajado: toTitleCase(s(r.trabajado)),
+    tipoInteres: r.tipo_interes,
     propiedadIds,
     propiedadRefs: propietariosLinked.map((p) => p.ref),
     propiedadCalles: toTitleCaseArr(propietariosLinked.map((p) => p.calle)),
@@ -459,7 +462,7 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
         `
         id, nombre, email, telefono, dni, profesion, ciclo_vida, duplicados,
         motivo, solicitud, conversaciones, observaciones, feedback, canal_origen,
-        seccion, trabajado, categoria, contrato_trabajo, mascota,
+        seccion, trabajado, tipo_interes, categoria, contrato_trabajo, mascota,
         avalista, attachments, created_at,
         contact_roles(tipo, property_id,
           properties(id, ref, calle, numero, barrio, localidad, tipo, es_alquiler,
@@ -545,7 +548,7 @@ export const listLeads = createServerFn({ method: "GET" })
           `
         id, nombre, email, telefono, dni, profesion, ciclo_vida, duplicados,
         motivo, solicitud, conversaciones, observaciones, feedback, canal_origen,
-        seccion, trabajado, categoria, contrato_trabajo, mascota,
+        seccion, trabajado, tipo_interes, categoria, contrato_trabajo, mascota,
         avalista, attachments, created_at,
         contact_roles(tipo, property_id,
           properties(id, ref, calle, numero, barrio, localidad, tipo, es_alquiler,
@@ -555,6 +558,14 @@ export const listLeads = createServerFn({ method: "GET" })
         )
         .eq("ciclo_vida", "Lead")
         .in("id", contactIds)
+        // Filtro estricto del Kanban por comercial (decisión de David, 21
+        // sep 2026): oculto hasta que las 3 condiciones se cumplan a la vez
+        // -- asignado (ya filtrado arriba vía contact_agents), cualificado
+        // (trabajado ya no es NULL/"Pendiente" -- Contactado o Descartado
+        // ambos cuentan, para no ocultar un lead ya descartado que estaba
+        // visible) y con tipo de interés indicado.
+        .not("trabajado", "is", null)
+        .not("tipo_interes", "is", null)
         .order("created_at", { ascending: false })
         .range(from, from + PAGE - 1);
       if (error) throw new Error(error.message);
@@ -804,7 +815,7 @@ export const getClienteById = createServerFn({ method: "GET" })
           `
         id, nombre, email, telefono, dni, profesion, ciclo_vida, duplicados,
         motivo, solicitud, conversaciones, observaciones, feedback, canal_origen,
-        seccion, trabajado, categoria, contrato_trabajo, mascota,
+        seccion, trabajado, tipo_interes, categoria, contrato_trabajo, mascota,
         avalista, attachments, created_at,
         contact_roles(tipo, property_id,
           properties(id, ref, calle, numero, barrio, localidad, tipo, es_alquiler,

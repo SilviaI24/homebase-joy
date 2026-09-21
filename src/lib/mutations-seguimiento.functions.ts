@@ -83,6 +83,32 @@ export const updateClienteSeguimiento = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const TIPOS_INTERES = ["Compra", "Alquiler", "Prospeccion"] as const;
+export type TipoInteres = (typeof TIPOS_INTERES)[number];
+
+// Etiqueta de triage previa a la cualificación oficial (el flujo de arriba,
+// que exige comercial para Comprador/Inquilino) -- sin gates, se puede fijar
+// en cualquier momento desde la Bandeja. Marca trabajado="Contactado" a la
+// vez (ver comentario junto al RPC): es la definición de "cualificado" que
+// ya usa el resto del pipeline.
+export const marcarTipoInteresLead = createServerFn({ method: "POST" })
+  .validator((d: { contactId: string; tipoInteres: TipoInteres }) => {
+    if (!d?.contactId) throw new Error("contactId requerido");
+    if (!TIPOS_INTERES.includes(d?.tipoInteres)) throw new Error("Tipo de interés inválido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const { crm } = await requirePermission("contacts.update");
+    const supa = getSupa();
+    const { error } = await supa.rpc("crm_marcar_tipo_interes_lead", {
+      p_contact_id: data.contactId,
+      p_tipo_interes: data.tipoInteres,
+      p_actor_id: crm.userId,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const asociarLeadAInmueble = createServerFn({ method: "POST" })
   .validator((d: { contactId: string; propertyId: string; tipo: string }) => {
     if (!d?.contactId) throw new Error("contactId requerido");

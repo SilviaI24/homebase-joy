@@ -28,8 +28,15 @@ import { AsignarLeadButton } from "@/components/AsignarLeadButton";
 import { MencionadoCard } from "@/components/bandeja/MencionadoCard";
 import type { Inmueble } from "@/lib/inmuebles.functions";
 import type { ConversacionIa } from "@/lib/clientes-conversaciones.functions";
+import type { TipoInteres } from "@/lib/mutations-seguimiento.functions";
 import { cleanRef } from "@/lib/format";
 import { formatFecha, moneyShort } from "@/lib/bandeja-format";
+
+const TIPO_INTERES_OPCIONES: Array<{ value: TipoInteres; label: string; icon: typeof Home }> = [
+  { value: "Compra", label: "Compra", icon: Search },
+  { value: "Alquiler", label: "Alquiler", icon: KeyRound },
+  { value: "Prospeccion", label: "Prospección", icon: Home },
+];
 
 export function ConversationCard({
   cliente: c,
@@ -51,6 +58,7 @@ export function ConversationCard({
   onReplyTextChange,
   onSendReply,
   onVinculado,
+  onSetTipoInteres,
 }: {
   cliente: ConversacionIa;
   canal: Canal;
@@ -71,6 +79,7 @@ export function ConversationCard({
   onReplyTextChange: (v: string) => void;
   onSendReply: () => void;
   onVinculado: () => void;
+  onSetTipoInteres: (tipo: TipoInteres) => void;
 }) {
   return (
     <article
@@ -132,6 +141,34 @@ export function ConversationCard({
             Motivo
           </div>
           <p className="text-sm text-foreground/90 leading-relaxed">{c.motivo}</p>
+        </div>
+      )}
+
+      {/* Tipo de interés — etiqueta de triage previa a "Cualificar", sin
+          gates: se puede fijar antes de tener comercial asignado y antes de
+          la promoción de ciclo_vida que hace ese botón. Solo para Lead,
+          igual que el resto de acciones de gestión manual de esta tarjeta. */}
+      {c.etapa === "Lead" && (
+        <div className="px-4 pb-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-muted-foreground mr-0.5">Interés:</span>
+          {TIPO_INTERES_OPCIONES.map(({ value, label, icon: Icon }) => {
+            const active = c.tipoInteres === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onSetTipoInteres(value)}
+                className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
+                  active
+                    ? "bg-primary/10 text-primary border-primary/30"
+                    : "bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/30"
+                }`}
+              >
+                <Icon className="size-3" />
+                {label}
+              </button>
+            );
+          })}
         </div>
       )}
 

@@ -28,4 +28,7 @@ export {
   asociarLeadAInmueble,
   checkDuplicates,
   sendWhatsAppReply,
+  TIPOS_INTERES,
+  type TipoInteres,
+  marcarTipoInteresLead,
 } from "./mutations-seguimiento.functions";
