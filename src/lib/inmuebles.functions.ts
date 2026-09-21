@@ -68,6 +68,9 @@ export type InmuebleDetalle = Inmueble & {
   fechaFinExclusiva: string | null;
   fechaReserva: string | null;
   fechaEscritura: string | null;
+  duracionExclusividadMeses: number | null;
+  comisionExclusividadPct: number | null;
+  clausulasAdicionales: string;
 };
 
 export type Agente = { id: string; nombre: string; mail: string };
@@ -177,6 +180,9 @@ type SupabasePropertyRow = {
   observaciones_propietario: string | null;
   created_at: string;
   agents: { id: string; nombre: string; email: string | null } | null;
+  duracion_exclusividad_meses: number | null;
+  comision_exclusividad_pct: number | null;
+  clausulas_adicionales: string | null;
 };
 
 function s(v: string | null | undefined): string {
@@ -268,6 +274,9 @@ function mapDetalle(
     fechaFinExclusiva: row.fecha_fin_exclusiva ?? null,
     fechaReserva: row.fecha_reserva ?? null,
     fechaEscritura: row.fecha_escritura ?? null,
+    duracionExclusividadMeses: row.duracion_exclusividad_meses ?? null,
+    comisionExclusividadPct: row.comision_exclusividad_pct ?? null,
+    clausulasAdicionales: s(row.clausulas_adicionales),
   };
 }
 
@@ -557,6 +566,54 @@ export const getInmueble = createServerFn({ method: "GET" })
     return { inmueble };
   });
 
+export type PropietarioInmueble = {
+  id: string;
+  nombre: string;
+  dni: string;
+  domicilio: string;
+  contactId: string | null;
+};
+
+// Para el panel "Datos del contrato de exclusividad" en la ficha del
+// inmueble (21 sep 2026): el comercial necesita ver y editar el DNI/domicilio
+// de TODOS los propietarios vinculados desde un único sitio, no uno por uno
+// desde la ficha de cada contacto -- ninguna función existente traía esta
+// lista completa con datos de firma incluidos.
+export const listPropietariosInmueble = createServerFn({ method: "GET" })
+  .validator((d: { propertyId: string }) => {
+    if (!d?.propertyId) throw new Error("Inmueble requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    await requirePermission("contacts.portal_invite");
+    const supa = getSupa();
+
+    const { data: enlaces, error } = await supa
+      .from("propietario_inmueble")
+      .select("propietario_id")
+      .eq("property_id", data.propertyId);
+    if (error) throw new Error(error.message);
+
+    const ids = (enlaces ?? []).map((e) => e.propietario_id as string);
+    if (ids.length === 0) return { propietarios: [] as PropietarioInmueble[] };
+
+    const { data: rows, error: err2 } = await supa
+      .from("propietarios")
+      .select("id, nombre, dni, domicilio, contact_id")
+      .in("id", ids)
+      .order("nombre");
+    if (err2) throw new Error(err2.message);
+
+    const propietarios: PropietarioInmueble[] = (rows ?? []).map((r) => ({
+      id: r.id as string,
+      nombre: (r.nombre as string) ?? "",
+      dni: (r.dni as string) ?? "",
+      domicilio: (r.domicilio as string) ?? "",
+      contactId: (r.contact_id as string | null) ?? null,
+    }));
+    return { propietarios };
+  });
+
 export const listAgentes = createServerFn({ method: "GET" }).handler(async () => {
   await requirePermission("contacts.read");
   const supa = getSupa();
@@ -664,6 +721,9 @@ export type UpdateInmueblePayload = {
   notaria?: string;
   llaves?: string;
   documentos?: Array<{ url: string; filename: string; type: string }>;
+  duracionExclusividadMeses?: number | null;
+  comisionExclusividadPct?: number | null;
+  clausulasAdicionales?: string;
 };
 
 export const updateInmueble = createServerFn({ method: "POST" })
@@ -680,6 +740,13 @@ export const updateInmueble = createServerFn({ method: "POST" })
       throw new Error("Precio inválido");
     if (d.precioFinal != null && (typeof d.precioFinal !== "number" || d.precioFinal < 0))
       throw new Error("Precio final inválido");
+    if (d.duracionExclusividadMeses != null && d.duracionExclusividadMeses <= 0)
+      throw new Error("Duración de exclusividad inválida");
+    if (
+      d.comisionExclusividadPct != null &&
+      (d.comisionExclusividadPct < 0 || d.comisionExclusividadPct > 100)
+    )
+      throw new Error("Comisión de exclusividad inválida");
     return d;
   })
   .handler(async ({ data }) => {
@@ -733,6 +800,12 @@ export const updateInmueble = createServerFn({ method: "POST" })
     if (data.notaria !== undefined) up.notaria = data.notaria ?? "";
     if (data.llaves !== undefined) up.llaves = data.llaves ?? "";
     if (data.documentos !== undefined) up.documentos = data.documentos;
+    if (data.duracionExclusividadMeses !== undefined)
+      up.duracion_exclusividad_meses = data.duracionExclusividadMeses;
+    if (data.comisionExclusividadPct !== undefined)
+      up.comision_exclusividad_pct = data.comisionExclusividadPct;
+    if (data.clausulasAdicionales !== undefined)
+      up.clausulas_adicionales = data.clausulasAdicionales ?? "";
 
     // Agent update: store single agente_id (first agent in list)
     if (data.agentesIds !== undefined) {

@@ -23,6 +23,7 @@ import { DescripcionPanel } from "@/components/inmueble-detail/DescripcionPanel"
 import { CaracteristicasPanel } from "@/components/inmueble-detail/CaracteristicasPanel";
 import { HistorialPanel } from "@/components/inmueble-detail/HistorialPanel";
 import { PropietarioPanel } from "@/components/inmueble-detail/PropietarioPanel";
+import { ContratoExclusividadPanel } from "@/components/inmueble-detail/ContratoExclusividadPanel";
 import { InteresadosPanel } from "@/components/inmueble-detail/InteresadosPanel";
 import { SaveBar } from "@/components/inmueble-detail/SaveBar";
 import {
@@ -72,6 +73,9 @@ function seedFromList(base: Inmueble): InmuebleDetalle {
     fechaFinExclusiva: null,
     fechaReserva: null,
     fechaEscritura: null,
+    duracionExclusividadMeses: null,
+    comisionExclusividadPct: null,
+    clausulasAdicionales: "",
   };
 }
 
@@ -646,6 +650,14 @@ function DetailView({
 
           {/* Propietario */}
           <PropietarioPanel inmueble={inmueble} detailReady={detailReady} />
+
+          {/* Datos del contrato de exclusividad */}
+          <ContratoExclusividadPanel
+            propertyId={inmueble.id}
+            duracionExclusividadMeses={inmueble.duracionExclusividadMeses}
+            comisionExclusividadPct={inmueble.comisionExclusividadPct}
+            clausulasAdicionales={inmueble.clausulasAdicionales}
+          />
 
           {/* Interesados */}
           <InteresadosPanel inmueble={inmueble} detailReady={detailReady} />
