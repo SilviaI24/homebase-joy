@@ -15,6 +15,7 @@ import {
   listPropietariosInmueble,
   updateInmueble,
   getContratoExclusividadEstado,
+  rechazarContratoFirmado,
   type PropietarioInmueble,
 } from "@/lib/inmuebles.functions";
 import { guardarDatosFirmaPropietario } from "@/lib/mutations-cliente.functions";
@@ -90,6 +91,7 @@ export function ContratoExclusividadPanel({
   const listFn = useServerFn(listPropietariosInmueble);
   const updateFn = useServerFn(updateInmueble);
   const estadoContratoFn = useServerFn(getContratoExclusividadEstado);
+  const rechazarFn = useServerFn(rechazarContratoFirmado);
 
   const { data, isLoading } = useQuery({
     queryKey: ["propietarios-inmueble", propertyId],
@@ -135,7 +137,119 @@ export function ContratoExclusividadPanel({
 
   const [generarOpen, setGenerarOpen] = useState(false);
   const [previewContratoOpen, setPreviewContratoOpen] = useState(false);
+  const [confirmRechazar, setConfirmRechazar] = useState(false);
   const contratoFirmado = contratoEstado?.firmado ?? false;
+
+  const rechazarMutation = useMutation({
+    mutationFn: () => rechazarFn({ data: { propertyId } }),
+    onSuccess: () => {
+      toast.success("Contrato rechazado — ya puedes generar uno nuevo");
+      setConfirmRechazar(false);
+      qc.invalidateQueries({ queryKey: ["contrato-exclusividad-estado", propertyId] });
+      qc.invalidateQueries({ queryKey: ["documentos-onboarding", propertyId] });
+      qc.invalidateQueries({ queryKey: ["revision-propietario"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "No se pudo rechazar el contrato"),
+  });
+
+  const dialogos = (
+    <>
+      {contratoFirmado && contratoEstado?.documentoId && (
+        <DocumentoPreviewDialog
+          documentoId={previewContratoOpen ? contratoEstado.documentoId : null}
+          onOpenChange={(open) => !open && setPreviewContratoOpen(false)}
+        />
+      )}
+      <GenerarContratoDialog
+        open={generarOpen}
+        onOpenChange={setGenerarOpen}
+        propertyId={propertyId}
+        propietarios={data?.propietarios ?? []}
+        duracionInicial={duracionExclusividadMeses}
+        comisionInicial={comisionExclusividadPct}
+        clausulasIniciales={clausulasAdicionales}
+        onCompleted={() => {
+          qc.invalidateQueries({ queryKey: ["propietarios-inmueble", propertyId] });
+          qc.invalidateQueries({ queryKey: ["inmueble", propertyId] });
+          qc.invalidateQueries({ queryKey: ["contrato-exclusividad-estado", propertyId] });
+        }}
+      />
+    </>
+  );
+
+  // Con el contrato ya firmado, editar duración/comisión/cláusulas/DNI aquí
+  // no tiene efecto sobre nada real — el contrato ya está generado con los
+  // datos que tenía en ese momento. Se colapsa a solo las acciones que sí
+  // hacen algo (22 sep 2026, pedido por David).
+  if (contratoFirmado) {
+    return (
+      <>
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-display text-base font-semibold">
+              Datos del contrato de exclusividad
+            </h3>
+            <span className="text-xs text-success font-medium">Firmado</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPreviewContratoOpen(true)}
+              className="text-xs font-semibold rounded-md px-2.5 py-1.5 bg-success/10 text-success hover:bg-success/20"
+            >
+              Ver contrato firmado
+            </button>
+            <button
+              type="button"
+              onClick={() => setGenerarOpen(true)}
+              className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Generar uno nuevo
+            </button>
+            {!confirmRechazar ? (
+              <button
+                type="button"
+                onClick={() => setConfirmRechazar(true)}
+                className="text-xs text-destructive/80 hover:text-destructive hover:underline"
+              >
+                Rechazar contrato
+              </button>
+            ) : null}
+          </div>
+
+          {confirmRechazar && (
+            <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+              <p className="text-xs text-destructive font-medium">
+                ¿Rechazar este contrato firmado? Es para cuando el documento resulta erróneo —
+                dejará de contar como firmado y podrás generar uno nuevo correctamente.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmRechazar(false)}
+                  className="text-xs px-2.5 py-1.5 rounded-md hover:bg-muted text-muted-foreground"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={rechazarMutation.isPending}
+                  onClick={() => rechazarMutation.mutate()}
+                  className="text-xs font-semibold rounded-md px-2.5 py-1.5 bg-destructive text-destructive-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {rechazarMutation.isPending ? "Rechazando…" : "Sí, rechazar"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {dialogos}
+        <PropietariosOnboardingPanel propietarios={data?.propietarios ?? []} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -144,57 +258,16 @@ export function ContratoExclusividadPanel({
           <h3 className="font-display text-base font-semibold">
             Datos del contrato de exclusividad
           </h3>
-          <div className="flex items-center gap-2">
-            {contratoFirmado ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setPreviewContratoOpen(true)}
-                  className="text-xs font-semibold rounded-md px-2.5 py-1.5 bg-success/10 text-success hover:bg-success/20"
-                >
-                  Ver contrato firmado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGenerarOpen(true)}
-                  className="text-xs text-muted-foreground hover:text-foreground hover:underline"
-                >
-                  Generar uno nuevo
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setGenerarOpen(true)}
-                className="text-xs font-semibold rounded-md px-2.5 py-1.5 bg-primary text-primary-foreground hover:opacity-90"
-              >
-                Generar contrato
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => setGenerarOpen(true)}
+            className="text-xs font-semibold rounded-md px-2.5 py-1.5 bg-primary text-primary-foreground hover:opacity-90"
+          >
+            Generar contrato
+          </button>
         </div>
 
-        {contratoFirmado && contratoEstado?.documentoId && (
-          <DocumentoPreviewDialog
-            documentoId={previewContratoOpen ? contratoEstado.documentoId : null}
-            onOpenChange={(open) => !open && setPreviewContratoOpen(false)}
-          />
-        )}
-
-        <GenerarContratoDialog
-          open={generarOpen}
-          onOpenChange={setGenerarOpen}
-          propertyId={propertyId}
-          propietarios={data?.propietarios ?? []}
-          duracionInicial={duracionExclusividadMeses}
-          comisionInicial={comisionExclusividadPct}
-          clausulasIniciales={clausulasAdicionales}
-          onCompleted={() => {
-            qc.invalidateQueries({ queryKey: ["propietarios-inmueble", propertyId] });
-            qc.invalidateQueries({ queryKey: ["inmueble", propertyId] });
-            qc.invalidateQueries({ queryKey: ["contrato-exclusividad-estado", propertyId] });
-          }}
-        />
+        {dialogos}
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">

@@ -723,6 +723,48 @@ export const getContratoExclusividadEstado = createServerFn({ method: "GET" })
     return { firmado: true, documentoId: (doc?.id as string | undefined) ?? null };
   });
 
+// Rechazar un contrato ya firmado que resulta ser erróneo — 22 sep 2026,
+// pedido por David tras la primera firma real: si el comercial detecta un
+// error al revisar el PDF firmado, necesita poder invalidarlo (no solo
+// generar uno nuevo por encima, que dejaría el erróneo como si fuera válido
+// en el progreso de onboarding y en la lista de documentos del propietario).
+export const rechazarContratoFirmado = createServerFn({ method: "POST" })
+  .validator((d: { propertyId: string }) => {
+    if (!d?.propertyId) throw new Error("Inmueble requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    await requirePermission("contacts.portal_invite");
+    const supa = getSupa();
+
+    const { data: tx, error: txFindError } = await supa
+      .from("transacciones_docuten")
+      .select("id, envelope_id")
+      .eq("property_id", data.propertyId)
+      .eq("tipo_documento", "CONTRATO_EXCLUSIVIDAD")
+      .eq("estado", "signed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (txFindError) throw new Error(txFindError.message);
+    if (!tx) throw new Error("No hay ningún contrato firmado para rechazar");
+
+    const { error: txError } = await supa
+      .from("transacciones_docuten")
+      .update({ estado: "rejected" })
+      .eq("id", tx.id);
+    if (txError) throw new Error(txError.message);
+
+    if (tx.envelope_id) {
+      await supa
+        .from("documentos")
+        .update({ estado: "rechazado" })
+        .eq("docuten_envelope_id", tx.envelope_id as string);
+    }
+
+    return { ok: true };
+  });
+
 export const listAgentes = createServerFn({ method: "GET" }).handler(async () => {
   await requirePermission("contacts.read");
   const supa = getSupa();

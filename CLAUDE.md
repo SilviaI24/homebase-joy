@@ -154,6 +154,15 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
     en `transacciones_docuten` — evita regenerar uno nuevo por error (coste
     real en Docuten). Queda un enlace secundario discreto "Generar uno
     nuevo" para el caso raro de tener que rehacerlo a propósito.
+  - **Segunda pasada, mismo día:** con el contrato firmado, el panel se
+    colapsa (editar duración/comisión/cláusulas/DNI ya no tiene ningún
+    efecto sobre un contrato ya generado, así que se deja de mostrar el
+    formulario entero) a solo "Ver contrato firmado" / "Generar uno nuevo" /
+    **"Rechazar contrato"** — nueva acción (`rechazarContratoFirmado`) para
+    cuando el PDF firmado resulta erróneo: pasa la transacción a
+    `estado='rejected'` y el documento archivado a `estado='rechazado'`, con
+    confirmación inline (mismo patrón que "Eliminar inmueble" en
+    `ManagementPanel.tsx`) antes de ejecutarla.
   Verificado: tsc/eslint limpios, 160/160 tests, build OK. No verificado
   visualmente en la app real — requiere login.
 - **Fila de la pestaña "Histórico" de Cartera no navegaba a la ficha — 22
