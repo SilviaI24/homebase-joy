@@ -765,6 +765,42 @@ export const rechazarContratoFirmado = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Desvincular un propietario de un inmueble — 22 sep 2026, para el caso de
+// haber vinculado el contacto equivocado como propietario. Retira el rol
+// (contact_roles, lo que hace visible/editable "Propietario" en la ficha del
+// inmueble) y el enlace de Portal (propietario_inmueble, lo que hace que
+// vea este inmueble en su cartera). No borra la ficha de propietarios en sí
+// ni su cuenta del Portal — puede seguir vinculado a otros inmuebles.
+export const desvincularPropietarioInmueble = createServerFn({ method: "POST" })
+  .validator((d: { propertyId: string; propietarioId: string; contactId: string | null }) => {
+    if (!d?.propertyId) throw new Error("Inmueble requerido");
+    if (!d?.propietarioId) throw new Error("Propietario requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    await requirePermission("contacts.portal_invite");
+    const supa = getSupa();
+
+    const { error: piError } = await supa
+      .from("propietario_inmueble")
+      .delete()
+      .eq("propietario_id", data.propietarioId)
+      .eq("property_id", data.propertyId);
+    if (piError) throw new Error(piError.message);
+
+    if (data.contactId) {
+      const { error: rolError } = await supa
+        .from("contact_roles")
+        .delete()
+        .eq("contact_id", data.contactId)
+        .eq("property_id", data.propertyId)
+        .in("tipo", ["Propietario", "Arrendador"]);
+      if (rolError) throw new Error(rolError.message);
+    }
+
+    return { ok: true };
+  });
+
 export const listAgentes = createServerFn({ method: "GET" }).handler(async () => {
   await requirePermission("contacts.read");
   const supa = getSupa();

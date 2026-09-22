@@ -125,8 +125,17 @@ const DOCUMENTOS_OBLIGATORIOS: { categoria: string; condicion?: string }[] = [
 // que revisar.
 // Exportado (22 sep 2026) para reutilizarlo tal cual desde la ficha del
 // inmueble, uno por propietario vinculado — misma lógica de negocio, sin
-// duplicarla.
-export function RevisionPropietarioPanel({ contactId }: { contactId: string }) {
+// duplicarla. `mostrarDatosFirma` se desactiva desde ahí porque esos mismos
+// campos (DNI/domicilio/teléfono) ya se editan en el panel de datos del
+// contrato de esa misma ficha — mostrarlos dos veces en la misma página
+// confundía (pedido por David el mismo día).
+export function RevisionPropietarioPanel({
+  contactId,
+  mostrarDatosFirma = true,
+}: {
+  contactId: string;
+  mostrarDatosFirma?: boolean;
+}) {
   const qc = useQueryClient();
   const getRevisionFn = useServerFn(getRevisionPropietario);
   const guardarDatosFn = useServerFn(guardarDatosFirmaPropietario);
@@ -216,34 +225,38 @@ export function RevisionPropietarioPanel({ contactId }: { contactId: string }) {
         <Progress value={totalCount ? (doneCount / totalCount) * 100 : 0} className="h-1.5" />
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <input
-          value={dni}
-          onChange={(e) => setDni(e.target.value)}
-          placeholder="DNI del propietario"
-          className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
-        />
-        <input
-          value={domicilio}
-          onChange={(e) => setDomicilio(e.target.value)}
-          placeholder="Domicilio"
-          className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
-        />
-        <input
-          value={telefono}
-          onChange={(e) => setTelefono(e.target.value)}
-          placeholder="Teléfono (firma OTP)"
-          className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
-        />
-      </div>
-      <button
-        type="button"
-        disabled={guardarMutation.isPending}
-        onClick={() => guardarMutation.mutate()}
-        className="text-xs text-foreground hover:text-primary border border-dashed border-border rounded-md px-2.5 py-1.5 disabled:opacity-50"
-      >
-        Guardar DNI / domicilio / teléfono
-      </button>
+      {mostrarDatosFirma && (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <input
+              value={dni}
+              onChange={(e) => setDni(e.target.value)}
+              placeholder="DNI del propietario"
+              className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
+            />
+            <input
+              value={domicilio}
+              onChange={(e) => setDomicilio(e.target.value)}
+              placeholder="Domicilio"
+              className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
+            />
+            <input
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value)}
+              placeholder="Teléfono (firma OTP)"
+              className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
+            />
+          </div>
+          <button
+            type="button"
+            disabled={guardarMutation.isPending}
+            onClick={() => guardarMutation.mutate()}
+            className="text-xs text-foreground hover:text-primary border border-dashed border-border rounded-md px-2.5 py-1.5 disabled:opacity-50"
+          >
+            Guardar DNI / domicilio / teléfono
+          </button>
+        </>
+      )}
 
       {data.docs.length > 0 && (
         <div className="space-y-1.5">

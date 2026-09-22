@@ -163,6 +163,17 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
     `estado='rejected'` y el documento archivado a `estado='rechazado'`, con
     confirmación inline (mismo patrón que "Eliminar inmueble" en
     `ManagementPanel.tsx`) antes de ejecutarla.
+  - **Tercera pasada, mismo día:** `RevisionPropietarioPanel` seguía
+    mostrando DNI/domicilio/teléfono en la ficha del inmueble, duplicado con
+    el panel de datos del contrato de la misma página — nuevo prop
+    `mostrarDatosFirma` (default `true`, sigue mostrándose en la ficha de
+    cliente; `false` desde la ficha de inmueble). En su lugar, cada
+    propietario muestra "Propietario vinculado: [nombre]" + **"Desvincular"**
+    (nueva acción `desvincularPropietarioInmueble`, con confirmación) para
+    el caso de haber enlazado el contacto equivocado — borra el rol
+    (`contact_roles`) y el enlace de Portal (`propietario_inmueble`) para
+    ese inmueble concreto, sin tocar la ficha de `propietarios` ni su acceso
+    al Portal (puede seguir vinculado a otros inmuebles).
   Verificado: tsc/eslint limpios, 160/160 tests, build OK. No verificado
   visualmente en la app real — requiere login.
 - **Fila de la pestaña "Histórico" de Cartera no navegaba a la ficha — 22
