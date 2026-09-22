@@ -616,6 +616,113 @@ export const listPropietariosInmueble = createServerFn({ method: "GET" })
     return { propietarios };
   });
 
+// Documentos de onboarding (tabla `documentos`, no el campo `properties.documentos`
+// que edita DocumentosPanel) — 22 sep 2026. Nunca se veían desde la ficha del
+// inmueble, solo desde el Portal y desde la ficha de cliente: el comercial no
+// tenía forma de comprobar aquí que ya había un contrato firmado, ni el resto
+// de documentación subida.
+export type DocumentoOnboarding = {
+  id: string;
+  nombre: string;
+  categoria: string | null;
+  estado: string;
+  tipoMime: string | null;
+  createdAt: string | null;
+};
+
+export const listDocumentosOnboarding = createServerFn({ method: "GET" })
+  .validator((d: { propertyId: string }) => {
+    if (!d?.propertyId) throw new Error("Inmueble requerido");
+    return d;
+  })
+  .handler(async ({ data }): Promise<{ documentos: DocumentoOnboarding[] }> => {
+    await requirePermission("contacts.portal_invite");
+    const supa = getSupa();
+    const { data: rows, error } = await supa
+      .from("documentos")
+      .select("id, nombre, categoria, estado, tipo_mime, created_at")
+      .eq("property_id", data.propertyId)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return {
+      documentos: (rows ?? []).map((r) => ({
+        id: r.id as string,
+        nombre: (r.nombre as string) ?? "Documento",
+        categoria: (r.categoria as string | null) ?? null,
+        estado: (r.estado as string) ?? "pendiente",
+        tipoMime: (r.tipo_mime as string | null) ?? null,
+        createdAt: (r.created_at as string | null) ?? null,
+      })),
+    };
+  });
+
+// URL firmada de un documento de la tabla `documentos` (bucket client-documents
+// — el mismo que usa docuten-webhook para archivar el contrato firmado y el
+// Portal para las subidas de onboarding). Mismo patrón que getPropertyDocumentUrl
+// más abajo, pero para esta tabla en vez de properties.documentos.
+export const getDocumentoOnboardingUrl = createServerFn({ method: "POST" })
+  .validator((d: { documentoId: string }) => {
+    if (!d?.documentoId) throw new Error("Documento requerido");
+    return d;
+  })
+  .handler(async ({ data }): Promise<{ url: string; tipoMime: string | null; nombre: string }> => {
+    await requirePermission("contacts.portal_invite");
+    const supa = getSupa();
+    const { data: doc, error } = await supa
+      .from("documentos")
+      .select("storage_path, tipo_mime, nombre")
+      .eq("id", data.documentoId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!doc?.storage_path) throw new Error("Documento sin archivo asociado");
+    const { data: signed, error: signError } = await supa.storage
+      .from("client-documents")
+      .createSignedUrl(doc.storage_path as string, 120);
+    if (signError) throw new Error(signError.message);
+    return {
+      url: signed.signedUrl,
+      tipoMime: (doc.tipo_mime as string | null) ?? null,
+      nombre: (doc.nombre as string) ?? "Documento",
+    };
+  });
+
+// Estado del contrato de exclusividad de un inmueble — 22 sep 2026, para que
+// "Generar contrato" (ContratoExclusividadPanel) deje de estar siempre abierto
+// una vez ya hay uno firmado (riesgo real: generar otro de más sale dinero de
+// verdad en Docuten). `documentoId` permite abrir directamente su vista previa.
+export type ContratoExclusividadEstado = {
+  firmado: boolean;
+  documentoId: string | null;
+};
+
+export const getContratoExclusividadEstado = createServerFn({ method: "GET" })
+  .validator((d: { propertyId: string }) => {
+    if (!d?.propertyId) throw new Error("Inmueble requerido");
+    return d;
+  })
+  .handler(async ({ data }): Promise<ContratoExclusividadEstado> => {
+    await requirePermission("contacts.portal_invite");
+    const supa = getSupa();
+    const { data: tx } = await supa
+      .from("transacciones_docuten")
+      .select("estado, envelope_id")
+      .eq("property_id", data.propertyId)
+      .eq("tipo_documento", "CONTRATO_EXCLUSIVIDAD")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!tx || tx.estado !== "signed") return { firmado: false, documentoId: null };
+
+    const { data: doc } = await supa
+      .from("documentos")
+      .select("id")
+      .eq("docuten_envelope_id", tx.envelope_id as string)
+      .maybeSingle();
+
+    return { firmado: true, documentoId: (doc?.id as string | undefined) ?? null };
+  });
+
 export const listAgentes = createServerFn({ method: "GET" }).handler(async () => {
   await requirePermission("contacts.read");
   const supa = getSupa();

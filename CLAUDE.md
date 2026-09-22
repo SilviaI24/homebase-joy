@@ -126,6 +126,36 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Vista previa de documentos + progreso de onboarding en la ficha del
+  inmueble, y bloqueo de "Generar contrato" tras firmar — 22 sep 2026.**
+  Encontrado justo después de la primera firma real completa: el PDF firmado
+  vive en la tabla `documentos` (onboarding del Portal), que nunca se cruzaba
+  con la pestaña "Documentos" de la ficha del inmueble (esa pestaña solo lee
+  `properties.documentos`, una lista manual de URLs — dos sistemas de
+  documentos totalmente separados). Añadido:
+  - `DocumentosOnboardingPanel.tsx` en la pestaña "Documentos" — lista de
+    solo lectura de la tabla `documentos` para este inmueble (aprobar/
+    rechazar sigue viviendo solo en la ficha de cliente, donde está ligado
+    a la activación del acceso).
+  - **Vista previa real del documento** (`DocumentoPreviewDialog.tsx`,
+    reutilizado en 3 sitios: este panel nuevo, el "Ver contrato firmado" del
+    panel de contrato, y la lista de documentos que ya existía en
+    `RevisionPropietarioPanel` de la ficha de cliente — antes esa lista
+    mostraba el nombre del documento sin forma de verlo, así que aprobar era
+    a ciegas). Nuevas funciones `getDocumentoOnboardingUrl` (signed URL,
+    bucket `client-documents`, 120s TTL, mismo patrón que
+    `getPropertyDocumentUrl`) y `listDocumentosOnboarding`.
+  - `PropietariosOnboardingPanel.tsx` en la ficha del inmueble — reutiliza
+    tal cual `RevisionPropietarioPanel` (ahora exportado desde
+    `ClientesPanel.tsx`) por cada propietario vinculado, sin duplicar la
+    lógica de progreso/aprobación/activación.
+  - `getContratoExclusividadEstado`: "Generar contrato" pasa a "Ver contrato
+    firmado" (abre la vista previa) en cuanto hay uno con `estado='signed'`
+    en `transacciones_docuten` — evita regenerar uno nuevo por error (coste
+    real en Docuten). Queda un enlace secundario discreto "Generar uno
+    nuevo" para el caso raro de tener que rehacerlo a propósito.
+  Verificado: tsc/eslint limpios, 160/160 tests, build OK. No verificado
+  visualmente en la app real — requiere login.
 - **Fila de la pestaña "Histórico" de Cartera no navegaba a la ficha — 22
   sep 2026.** Detectado probando el inmueble de prueba de Docuten (ver
   siguiente entrada): a diferencia de `InmuebleCard` (pestañas Venta/Alquiler,

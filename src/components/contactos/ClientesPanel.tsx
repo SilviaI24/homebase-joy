@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { SafeImage } from "@/components/SafeImage";
 import { Progress } from "@/components/ui/progress";
+import { DocumentoPreviewDialog } from "@/components/DocumentoPreviewDialog";
 import {
   CanalChip,
   Transcripcion,
@@ -122,7 +123,10 @@ const DOCUMENTOS_OBLIGATORIOS: { categoria: string; condicion?: string }[] = [
 // intacto como camino secundario. Solo aparece si el contacto ya tiene
 // acceso al portal (fila en `propietarios`) — antes de eso no hay nada
 // que revisar.
-function RevisionPropietarioPanel({ contactId }: { contactId: string }) {
+// Exportado (22 sep 2026) para reutilizarlo tal cual desde la ficha del
+// inmueble, uno por propietario vinculado — misma lógica de negocio, sin
+// duplicarla.
+export function RevisionPropietarioPanel({ contactId }: { contactId: string }) {
   const qc = useQueryClient();
   const getRevisionFn = useServerFn(getRevisionPropietario);
   const guardarDatosFn = useServerFn(guardarDatosFirmaPropietario);
@@ -134,6 +138,7 @@ function RevisionPropietarioPanel({ contactId }: { contactId: string }) {
     queryFn: () => getRevisionFn({ data: { contactId } }),
   });
 
+  const [previewDocId, setPreviewDocId] = useState<string | null>(null);
   const [dni, setDni] = useState("");
   const [domicilio, setDomicilio] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -247,7 +252,13 @@ function RevisionPropietarioPanel({ contactId }: { contactId: string }) {
               key={doc.id}
               className="flex items-center justify-between gap-2 text-xs border border-border rounded-md px-2.5 py-1.5"
             >
-              <span className="truncate">{doc.nombre}</span>
+              <button
+                type="button"
+                onClick={() => setPreviewDocId(doc.id)}
+                className="truncate text-left text-primary hover:underline"
+              >
+                {doc.nombre}
+              </button>
               {doc.estado === "aprobado" ? (
                 <span className="text-success shrink-0">Aprobado</span>
               ) : doc.estado === "rechazado" ? (
@@ -296,6 +307,11 @@ function RevisionPropietarioPanel({ contactId }: { contactId: string }) {
           {activarMutation.isPending ? "Activando…" : "Activar acceso completo"}
         </button>
       )}
+
+      <DocumentoPreviewDialog
+        documentoId={previewDocId}
+        onOpenChange={(open) => !open && setPreviewDocId(null)}
+      />
     </div>
   );
 }

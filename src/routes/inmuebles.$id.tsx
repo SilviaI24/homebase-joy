@@ -13,6 +13,7 @@ import { SectionTabs } from "@/components/SectionTabs";
 import { RouteError } from "@/components/RouteError";
 
 import { DocumentosPanel } from "@/components/inmueble-detail/DocumentosPanel";
+import { DocumentosOnboardingPanel } from "@/components/inmueble-detail/DocumentosOnboardingPanel";
 import { ManagementPanel } from "@/components/inmueble-detail/ManagementPanel";
 import {
   TiempoMercadoPanel,
@@ -544,11 +545,14 @@ function DetailView({
 
           {/* Tab: Documentos */}
           {tab === "documentos" && (
-            <DocumentosPanel
-              documentos={documentos}
-              onChange={setDocumentos}
-              detailReady={detailReady}
-            />
+            <div className="space-y-4">
+              <DocumentosOnboardingPanel propertyId={id} />
+              <DocumentosPanel
+                documentos={documentos}
+                onChange={setDocumentos}
+                detailReady={detailReady}
+              />
+            </div>
           )}
 
           {/* Tab: Detalles — Características */}
