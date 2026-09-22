@@ -558,13 +558,12 @@ export const listLeads = createServerFn({ method: "GET" })
         )
         .eq("ciclo_vida", "Lead")
         .in("id", contactIds)
-        // Filtro estricto del Kanban por comercial (decisión de David, 21
-        // sep 2026): oculto hasta que las 3 condiciones se cumplan a la vez
-        // -- asignado (ya filtrado arriba vía contact_agents), cualificado
-        // (trabajado ya no es NULL/"Pendiente" -- Contactado o Descartado
-        // ambos cuentan, para no ocultar un lead ya descartado que estaba
-        // visible) y con tipo de interés indicado.
-        .not("trabajado", "is", null)
+        // Filtro estricto del Kanban por comercial (decisión de David, 21-22
+        // sep 2026): "cualificado" no es un campo propio -- es la conjunción
+        // de asignado (ya filtrado arriba vía contact_agents) + interés
+        // indicado. trabajado no entra en esta condición: sigue siendo solo
+        // el estado de la cola de llamadas (Pendiente/Contactado/Descartado)
+        // dentro del propio Kanban, no un requisito para verlo.
         .not("tipo_interes", "is", null)
         .order("created_at", { ascending: false })
         .range(from, from + PAGE - 1);

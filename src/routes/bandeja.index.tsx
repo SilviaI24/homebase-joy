@@ -273,9 +273,8 @@ function BandejaPage() {
   async function setTipoInteres(id: string, tipo: TipoInteres) {
     const prev = tipoInteresLocal[id];
     setTipoInteresLocal((p) => ({ ...p, [id]: tipo }));
-    // El RPC también fija trabajado="Contactado" (ver comentario en
-    // marcarTipoInteresLead) — reflejamos eso aquí igual que hace route().
-    setCualificados((p) => new Set(p).add(id));
+    // No toca trabajado/isCualified: marcar interés es independiente de la
+    // cola de llamadas (ver comentario en marcarTipoInteresLead).
     try {
       await tipoInteresFn({ data: { contactId: id, tipoInteres: tipo } });
       queryClient.invalidateQueries({ queryKey: ["leads"] });

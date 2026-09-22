@@ -88,9 +88,12 @@ export type TipoInteres = (typeof TIPOS_INTERES)[number];
 
 // Etiqueta de triage previa a la cualificación oficial (el flujo de arriba,
 // que exige comercial para Comprador/Inquilino) -- sin gates, se puede fijar
-// en cualquier momento desde la Bandeja. Marca trabajado="Contactado" a la
-// vez (ver comentario junto al RPC): es la definición de "cualificado" que
-// ya usa el resto del pipeline.
+// en cualquier momento desde la Bandeja. No toca trabajado ni ciclo_vida:
+// "cualificado" (a efectos del filtro estricto del Kanban de Leads, ver
+// listLeads) es la conjunción de asignado + interés indicado, no un campo
+// propio -- trabajado sigue siendo solo el estado de la cola de llamadas del
+// comercial (decisión de David, 22 sep 2026, tras probar en vivo que fijarlo
+// aquí sacaba el lead de "Pendientes" antes de que nadie lo hubiera llamado).
 export const marcarTipoInteresLead = createServerFn({ method: "POST" })
   .validator((d: { contactId: string; tipoInteres: TipoInteres }) => {
     if (!d?.contactId) throw new Error("contactId requerido");
