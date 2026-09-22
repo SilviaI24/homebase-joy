@@ -305,3 +305,175 @@ export const activarPropietarioCrm = createServerFn({ method: "POST" })
     });
     return { ok: true, emailEnviado: !notifyError };
   });
+
+// Generar contrato de exclusividad desde la ficha del inmueble — 21 sep 2026.
+// El comercial revisa/edita nombre-DNI-domicilio de cada propietario y la
+// comisión/duración/cláusulas en una vista previa del PDF real antes de dar
+// acceso al Portal, en vez de rellenar un formulario a ciegas sin ver el
+// documento (ContratoExclusividadPanel, que sigue existiendo para correcciones
+// puntuales fuera de este flujo).
+
+export type PreviewContratoOwner = { nombre: string; dni: string; domicilio: string };
+
+export type PreviewContratoPayload = {
+  propertyId: string;
+  owners: PreviewContratoOwner[];
+  duracionMeses: number;
+  comisionPct: number;
+  clausulasAdicionales: string;
+};
+
+// El PDF de vista previa lo genera la misma Edge Function que genera el PDF
+// real (portal-iniciar-firma, en elsol-client-hub — mismo proyecto Supabase,
+// dos repos), en modo "preview": sin JWT de propietario (no hay ninguno
+// logueado en este punto), autenticado con un secreto compartido, y sin
+// crear transacción en Docuten ni escribir nada en la base.
+export const previewContratoExclusividad = createServerFn({ method: "POST" })
+  .validator((d: PreviewContratoPayload) => {
+    if (!d?.propertyId) throw new Error("Inmueble requerido");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    await requirePermission("contacts.portal_invite");
+    const supa = getSupa();
+
+    const internalSecret = process.env.CRM_INTERNAL_SECRET;
+    if (!internalSecret) {
+      throw new Error(
+        "CRM_INTERNAL_SECRET no configurada — pide a David que la añada a .env.local",
+      );
+    }
+
+    const { data: result, error } = await supa.functions.invoke("portal-iniciar-firma", {
+      headers: { "x-crm-internal-secret": internalSecret },
+      body: {
+        mode: "preview",
+        property_id: data.propertyId,
+        overrides: {
+          owners: data.owners,
+          duracionMeses: data.duracionMeses,
+          comisionPct: data.comisionPct,
+          clausulasAdicionales: data.clausulasAdicionales,
+        },
+      },
+    });
+    if (error) throw new Error(error.message || "No se pudo generar la vista previa");
+    return { pdfBase64: (result as { pdf_base64: string }).pdf_base64 };
+  });
+
+export type GenerarContratoOwner = {
+  propietarioId: string;
+  contactId: string | null;
+  dni: string;
+  domicilio: string;
+};
+
+export type GenerarContratoPayload = {
+  propertyId: string;
+  duracionMeses: number;
+  comisionPct: number;
+  clausulasAdicionales: string;
+  propietarios: GenerarContratoOwner[];
+};
+
+export type GenerarContratoResultado = {
+  propietarioId: string;
+  inviteSent: boolean;
+  error?: string;
+};
+
+// Guarda los datos ya confirmados en la vista previa (comisión/duración/
+// cláusulas del inmueble + DNI/domicilio de cada propietario) y da acceso al
+// Portal a todos los propietarios vinculados de una vez — antes eran dos
+// pasos manuales separados (rellenar ContratoExclusividadPanel y luego "Dar
+// acceso al portal" contacto por contacto desde su ficha).
+export const generarContratoYDarAccesoPortal = createServerFn({ method: "POST" })
+  .validator((d: GenerarContratoPayload) => {
+    if (!d?.propertyId) throw new Error("Inmueble requerido");
+    if (!d?.duracionMeses || d.duracionMeses <= 0) throw new Error("Duración inválida");
+    if (d?.comisionPct == null || d.comisionPct < 0) throw new Error("Comisión inválida");
+    if (!d?.propietarios?.length) throw new Error("Sin propietarios vinculados a este inmueble");
+    for (const p of d.propietarios) {
+      if (!p.dni?.trim() || !p.domicilio?.trim()) {
+        throw new Error("Falta DNI o domicilio de algún propietario");
+      }
+    }
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const { crm } = await requirePermission("contacts.portal_invite");
+    const supa = getSupa();
+
+    const { error: propError } = await supa
+      .from("properties")
+      .update({
+        duracion_exclusividad_meses: data.duracionMeses,
+        comision_exclusividad_pct: data.comisionPct,
+        clausulas_adicionales: data.clausulasAdicionales,
+      })
+      .eq("id", data.propertyId);
+    if (propError) throw new Error(propError.message);
+
+    for (const p of data.propietarios) {
+      const { error } = await supa.rpc("crm_actualizar_datos_firma_propietario", {
+        p_actor_id: crm.userId,
+        p_propietario_id: p.propietarioId,
+        p_dni: p.dni.trim(),
+        p_domicilio: p.domicilio.trim(),
+      });
+      if (error) throw new Error(`Guardando datos de firma: ${error.message}`);
+    }
+
+    const portalUrl = process.env.PORTAL_URL;
+    const resultados: GenerarContratoResultado[] = [];
+
+    for (const p of data.propietarios) {
+      if (!p.contactId) {
+        resultados.push({
+          propietarioId: p.propietarioId,
+          inviteSent: false,
+          error: "Sin contacto vinculado",
+        });
+        continue;
+      }
+      try {
+        const { data: rows, error } = await supa.rpc("crm_invitar_propietario_portal", {
+          p_actor_id: crm.userId,
+          p_contact_id: p.contactId,
+          p_property_id: data.propertyId,
+        });
+        if (error) throw new Error(error.message);
+        const row = (rows as Array<{ out_email: string; out_nombre: string }> | null)?.[0];
+        if (!row) throw new Error("No se pudo crear el acceso de propietario");
+
+        if (!portalUrl) {
+          resultados.push({
+            propietarioId: p.propietarioId,
+            inviteSent: false,
+            error: "PORTAL_URL no configurada",
+          });
+          continue;
+        }
+        const { error: inviteError } = await supa.auth.admin.inviteUserByEmail(row.out_email, {
+          redirectTo: `${portalUrl}/reset-password?invite=1`,
+          data: { nombre: row.out_nombre, invited_as: "propietario" },
+        });
+        // Mismo criterio que invitarPropietarioPortal: si ya tenía cuenta, no
+        // es un fallo, solo no recibe un email nuevo.
+        const yaRegistrado = Boolean(inviteError?.message?.includes("already been registered"));
+        resultados.push({
+          propietarioId: p.propietarioId,
+          inviteSent: !yaRegistrado,
+          error: inviteError && !yaRegistrado ? inviteError.message : undefined,
+        });
+      } catch (e) {
+        resultados.push({
+          propietarioId: p.propietarioId,
+          inviteSent: false,
+          error: e instanceof Error ? e.message : "Error desconocido",
+        });
+      }
+    }
+
+    return { ok: true, resultados };
+  });

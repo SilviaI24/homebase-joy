@@ -126,6 +126,57 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Fila de la pestaña "Histórico" de Cartera no navegaba a la ficha — 22
+  sep 2026.** Detectado probando el inmueble de prueba de Docuten (ver
+  siguiente entrada): a diferencia de `InmuebleCard` (pestañas Venta/Alquiler,
+  envuelta en `<Link>`), las filas de `HistoricoTab` (`cartera.index.tsx`,
+  estatus Vendido/Alquilado/Baja) eran `<tr>` planas sin `onClick` ni
+  navegación — el listado se veía pero no era clicable, bug preexistente sin
+  relación con el inmueble de prueba. Corregido con el mismo patrón accesible
+  que ya usa `ClienteRow` (Contactos): `role="button"`, `tabIndex`, `onClick`
+  + `onKeyDown` (Enter/Espacio) navegando a `/inmuebles/$id`. Verificado:
+  tsc/eslint limpios, 160/160 tests, build OK.
+- **Bug de datos encontrado y corregido — 21 sep 2026: 143 inmuebles reales
+  mal vinculados a un propietario de prueba.** Origen (explicado por David):
+  pidió en una sesión anterior poder ver el Portal "tal como lo vería un
+  cliente final" con acceso a todo — se implementó vinculando su propio
+  usuario de auth (el mismo con el que hace login como ADMIN en el CRM,
+  `ai@elsolgrupo.com`) como propietario de **todos** los inmuebles de la
+  cartera en `propietario_inmueble`, en vez de una vista de admin propiamente
+  dicha. Efecto real: de las 144 filas totales de esa tabla, 143 apuntaban a
+  ese propietario de prueba — casi ningún inmueble real tenía su propietario
+  auténtico registrado ahí (tabla usada por `listPropietariosInmueble`,
+  `portal-iniciar-firma` y el propio Portal — no confundir con `contact_roles`,
+  que es la que alimenta el panel "Propietario" de la ficha del CRM y no tenía
+  este problema). Sin datos huérfanos que limpiar de paso (verificado:
+  0 `documentos`/`transacciones_docuten` del usuario de prueba en esos
+  inmuebles reales). Corregido: borradas las 143 filas mal vinculadas,
+  dejando solo la única real que había. El propietario de prueba (contacto
+  "David Jimenez", `propietarios.id = f168963f-2f68-4a8a-b6c2-31bc44f92160`,
+  con Portal ya activo desde antes) se reutilizó y se vinculó **solo** a un
+  inmueble nuevo creado expresamente para pruebas (`properties.id =
+  9385c414-1bb2-47b0-b04d-ad7a98fd40af`, calle "PRUEBA INTERNA — Piso de
+  prueba Docuten", `estatus='Baja'` y sin `airtable_id` para que
+  `sync-properties` nunca lo toque ni aparezca publicado).
+- **Selector de propietario en la ficha del inmueble — 21 sep 2026.**
+  `PropietarioPanel.tsx` era de solo lectura: si el inmueble no tenía
+  propietario vinculado en `contact_roles`, no había ninguna forma de
+  asignarlo desde ahí (síntoma que llevó a encontrar el bug de arriba). Nuevo
+  `AsociarPropietarioButton.tsx` (mismo patrón que `AsociarInmuebleButton.tsx`,
+  su espejo desde la ficha de contacto — Popover + búsqueda server-side vía
+  `searchClientesPickerQuery` + `asociarLeadAInmueble`), montado en el
+  header del panel.
+- **David — variable de entorno pendiente de añadir:** `CRM_INTERNAL_SECRET`
+  en `.env.local` (cualquier cadena aleatoria, con el mismo valor puesto
+  también en Supabase Dashboard → Edge Functions → Secrets de la función
+  `portal-iniciar-firma` en elsol-client-hub). La usa
+  `previewContratoExclusividad` (`src/lib/mutations-cliente.functions.ts`)
+  para autenticar la llamada a esa Edge Function en modo vista previa desde
+  el nuevo diálogo "Generar contrato" de la ficha del inmueble
+  (`GenerarContratoDialog.tsx`, 21 sep 2026). Sin ella, el diálogo falla al
+  pedir la vista previa del PDF. Ver el `CLAUDE.md` de `elsol-client-hub`,
+  sección "Flujo 'Generar contrato' desde la ficha del inmueble", para el
+  detalle completo de este flujo.
 - **David — variable de entorno pendiente de añadir:** `PORTAL_URL` en
   `.env.local` (URL base real de `elsol-client-hub` en producción). La usa
   `invitarPropietarioPortal` (`src/lib/mutations-cliente.functions.ts`) para

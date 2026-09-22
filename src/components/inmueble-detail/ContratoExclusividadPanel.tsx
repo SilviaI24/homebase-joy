@@ -17,6 +17,7 @@ import {
   type PropietarioInmueble,
 } from "@/lib/inmuebles.functions";
 import { guardarDatosFirmaPropietario } from "@/lib/mutations-cliente.functions";
+import { GenerarContratoDialog } from "./GenerarContratoDialog";
 
 function PropietarioFirmaRow({ propietario }: { propietario: PropietarioInmueble }) {
   const guardarFn = useServerFn(guardarDatosFirmaPropietario);
@@ -112,9 +113,34 @@ export function ContratoExclusividadPanel({
     comision !== (comisionExclusividadPct?.toString() ?? "") ||
     clausulas !== clausulasAdicionales;
 
+  const [generarOpen, setGenerarOpen] = useState(false);
+
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-4">
-      <h3 className="font-display text-base font-semibold">Datos del contrato de exclusividad</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-display text-base font-semibold">Datos del contrato de exclusividad</h3>
+        <button
+          type="button"
+          onClick={() => setGenerarOpen(true)}
+          className="text-xs font-semibold rounded-md px-2.5 py-1.5 bg-primary text-primary-foreground hover:opacity-90"
+        >
+          Generar contrato
+        </button>
+      </div>
+
+      <GenerarContratoDialog
+        open={generarOpen}
+        onOpenChange={setGenerarOpen}
+        propertyId={propertyId}
+        propietarios={data?.propietarios ?? []}
+        duracionInicial={duracionExclusividadMeses}
+        comisionInicial={comisionExclusividadPct}
+        clausulasIniciales={clausulasAdicionales}
+        onCompleted={() => {
+          qc.invalidateQueries({ queryKey: ["propietarios-inmueble", propertyId] });
+          qc.invalidateQueries({ queryKey: ["inmueble", propertyId] });
+        }}
+      />
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">

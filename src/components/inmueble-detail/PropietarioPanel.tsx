@@ -2,6 +2,7 @@
 // `inmueble`/`detailReady` — sin closures compartidas con el resto del form.
 import { Phone, Mail } from "lucide-react";
 import type { InmuebleDetalle } from "@/lib/inmuebles.functions";
+import { AsociarPropietarioButton } from "./AsociarPropietarioButton";
 
 function Field({
   label,
@@ -35,7 +36,10 @@ export function PropietarioPanel({
 }) {
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-      <h3 className="font-display text-base font-semibold mb-4">Propietario</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-display text-base font-semibold">Propietario</h3>
+        <AsociarPropietarioButton propertyId={inmueble.id} />
+      </div>
       <Field label="Nombre" value={inmueble.propietario} />
       <Field
         label="Teléfono"

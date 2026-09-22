@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
@@ -752,6 +752,7 @@ function AlquilerTab() {
 function HistoricoTab() {
   const rawSearch = Route.useSearch();
   const navigate = Route.useNavigate();
+  const goToInmueble = useNavigate();
   const page = rawSearch.page ?? 1;
   const q = rawSearch.q ?? "";
 
@@ -810,7 +811,16 @@ function HistoricoTab() {
               inmuebles.map((inm) => (
                 <tr
                   key={inm.id}
-                  className="border-b border-border hover:bg-muted/40 transition-colors"
+                  onClick={() => goToInmueble({ to: "/inmuebles/$id", params: { id: inm.id } })}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      goToInmueble({ to: "/inmuebles/$id", params: { id: inm.id } });
+                    }
+                  }}
+                  className="border-b border-border hover:bg-muted/40 transition-colors cursor-pointer"
                 >
                   <td className="py-3 pl-4 pr-2">
                     <div className="font-medium text-sm truncate max-w-[250px]">
