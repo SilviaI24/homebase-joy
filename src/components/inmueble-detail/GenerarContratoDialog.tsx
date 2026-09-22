@@ -39,6 +39,7 @@ type EditableOwner = {
   nombre: string;
   dni: string;
   domicilio: string;
+  telefono: string;
 };
 
 export function GenerarContratoDialog({
@@ -81,6 +82,7 @@ export function GenerarContratoDialog({
         nombre: p.nombre,
         dni: p.dni,
         domicilio: p.domicilio,
+        telefono: p.telefono,
       })),
     );
     setDuracion(duracionInicial ?? DURACION_DEFECTO);
@@ -131,6 +133,7 @@ export function GenerarContratoDialog({
               contactId: o.contactId,
               dni: o.dni,
               domicilio: o.domicilio,
+              telefono: o.telefono,
             }),
           ),
         },
@@ -175,7 +178,7 @@ export function GenerarContratoDialog({
               <DialogTitle>Generar contrato de exclusividad</DialogTitle>
               <DialogDescription>
                 ¿Usar los datos de los propietarios asociados a este inmueble (nombre, DNI,
-                domicilio) para el contrato?
+                domicilio, teléfono) para el contrato?
               </DialogDescription>
             </DialogHeader>
             {owners.length === 0 && (
@@ -267,7 +270,7 @@ export function GenerarContratoDialog({
                       className="space-y-1.5 py-2 border-b border-border/40 last:border-0"
                     >
                       <div className="text-sm font-medium">{o.nombre}</div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <input
                           value={o.dni}
                           onChange={(e) =>
@@ -288,6 +291,18 @@ export function GenerarContratoDialog({
                             )
                           }
                           placeholder="Domicilio"
+                          className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
+                        />
+                        <input
+                          value={o.telefono}
+                          onChange={(e) =>
+                            setOwners((prev) =>
+                              prev.map((p, j) =>
+                                j === i ? { ...p, telefono: e.target.value } : p,
+                              ),
+                            )
+                          }
+                          placeholder="Teléfono (firma OTP)"
                           className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
                         />
                       </div>

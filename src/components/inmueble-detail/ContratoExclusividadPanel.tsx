@@ -23,19 +23,24 @@ function PropietarioFirmaRow({ propietario }: { propietario: PropietarioInmueble
   const guardarFn = useServerFn(guardarDatosFirmaPropietario);
   const [dni, setDni] = useState(propietario.dni);
   const [domicilio, setDomicilio] = useState(propietario.domicilio);
+  const [telefono, setTelefono] = useState(propietario.telefono);
 
   const mutation = useMutation({
-    mutationFn: () => guardarFn({ data: { propietarioId: propietario.id, dni, domicilio } }),
+    mutationFn: () =>
+      guardarFn({ data: { propietarioId: propietario.id, dni, domicilio, telefono } }),
     onSuccess: () => toast.success(`Datos de firma guardados — ${propietario.nombre}`),
     onError: (e: Error) => toast.error(e.message || "No se pudo guardar"),
   });
 
-  const dirty = dni !== propietario.dni || domicilio !== propietario.domicilio;
+  const dirty =
+    dni !== propietario.dni ||
+    domicilio !== propietario.domicilio ||
+    telefono !== propietario.telefono;
 
   return (
     <div className="space-y-1.5 py-2 border-b border-border/40 last:border-0">
       <div className="text-sm font-medium">{propietario.nombre}</div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <input
           value={dni}
           onChange={(e) => setDni(e.target.value)}
@@ -46,6 +51,12 @@ function PropietarioFirmaRow({ propietario }: { propietario: PropietarioInmueble
           value={domicilio}
           onChange={(e) => setDomicilio(e.target.value)}
           placeholder="Domicilio"
+          className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
+        />
+        <input
+          value={telefono}
+          onChange={(e) => setTelefono(e.target.value)}
+          placeholder="Teléfono (firma OTP)"
           className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
         />
       </div>

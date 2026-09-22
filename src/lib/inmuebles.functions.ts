@@ -571,6 +571,7 @@ export type PropietarioInmueble = {
   nombre: string;
   dni: string;
   domicilio: string;
+  telefono: string;
   contactId: string | null;
 };
 
@@ -599,7 +600,7 @@ export const listPropietariosInmueble = createServerFn({ method: "GET" })
 
     const { data: rows, error: err2 } = await supa
       .from("propietarios")
-      .select("id, nombre, dni, domicilio, contact_id")
+      .select("id, nombre, dni, domicilio, telefono, contact_id")
       .in("id", ids)
       .order("nombre");
     if (err2) throw new Error(err2.message);
@@ -609,6 +610,7 @@ export const listPropietariosInmueble = createServerFn({ method: "GET" })
       nombre: (r.nombre as string) ?? "",
       dni: (r.dni as string) ?? "",
       domicilio: (r.domicilio as string) ?? "",
+      telefono: (r.telefono as string) ?? "",
       contactId: (r.contact_id as string | null) ?? null,
     }));
     return { propietarios };

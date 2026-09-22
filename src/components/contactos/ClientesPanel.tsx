@@ -136,16 +136,18 @@ function RevisionPropietarioPanel({ contactId }: { contactId: string }) {
 
   const [dni, setDni] = useState("");
   const [domicilio, setDomicilio] = useState("");
+  const [telefono, setTelefono] = useState("");
   useEffect(() => {
     setDni(data?.dni ?? "");
     setDomicilio(data?.domicilio ?? "");
+    setTelefono(data?.telefono ?? "");
   }, [data]);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["revision-propietario", contactId] });
 
   const guardarMutation = useMutation({
     mutationFn: () =>
-      guardarDatosFn({ data: { propietarioId: data!.propietarioId, dni, domicilio } }),
+      guardarDatosFn({ data: { propietarioId: data!.propietarioId, dni, domicilio, telefono } }),
     onSuccess: () => {
       toast.success("Datos guardados");
       invalidate();
@@ -209,7 +211,7 @@ function RevisionPropietarioPanel({ contactId }: { contactId: string }) {
         <Progress value={totalCount ? (doneCount / totalCount) * 100 : 0} className="h-1.5" />
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <input
           value={dni}
           onChange={(e) => setDni(e.target.value)}
@@ -222,6 +224,12 @@ function RevisionPropietarioPanel({ contactId }: { contactId: string }) {
           placeholder="Domicilio"
           className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
         />
+        <input
+          value={telefono}
+          onChange={(e) => setTelefono(e.target.value)}
+          placeholder="Teléfono (firma OTP)"
+          className="text-xs border border-border rounded-md px-2 py-1.5 bg-background text-foreground"
+        />
       </div>
       <button
         type="button"
@@ -229,7 +237,7 @@ function RevisionPropietarioPanel({ contactId }: { contactId: string }) {
         onClick={() => guardarMutation.mutate()}
         className="text-xs text-foreground hover:text-primary border border-dashed border-border rounded-md px-2.5 py-1.5 disabled:opacity-50"
       >
-        Guardar DNI / domicilio
+        Guardar DNI / domicilio / teléfono
       </button>
 
       {data.docs.length > 0 && (

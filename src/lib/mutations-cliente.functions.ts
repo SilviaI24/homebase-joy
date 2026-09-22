@@ -163,6 +163,7 @@ export type RevisionPropietarioData = {
   email: string | null;
   dni: string | null;
   domicilio: string | null;
+  telefono: string | null;
   estadoOnboarding: string;
   casosEspeciales: string[];
   docs: RevisionPropietarioDoc[];
@@ -180,7 +181,7 @@ export const getRevisionPropietario = createServerFn({ method: "POST" })
 
     const { data: propietario } = await supa
       .from("propietarios")
-      .select("id, nombre, email, dni, domicilio, estado_onboarding, casos_especiales")
+      .select("id, nombre, email, dni, domicilio, telefono, estado_onboarding, casos_especiales")
       .eq("contact_id", data.contactId)
       .maybeSingle();
     if (!propietario) return null;
@@ -216,6 +217,7 @@ export const getRevisionPropietario = createServerFn({ method: "POST" })
       email: propietario.email,
       dni: propietario.dni,
       domicilio: propietario.domicilio,
+      telefono: propietario.telefono,
       estadoOnboarding: propietario.estado_onboarding as string,
       casosEspeciales: (propietario.casos_especiales ?? []) as string[],
       docs: (docsRes.data ?? []) as RevisionPropietarioDoc[],
@@ -225,12 +227,22 @@ export const getRevisionPropietario = createServerFn({ method: "POST" })
     } satisfies RevisionPropietarioData;
   });
 
-export type GuardarDatosFirmaPayload = { propietarioId: string; dni: string; domicilio: string };
+export type GuardarDatosFirmaPayload = {
+  propietarioId: string;
+  dni: string;
+  domicilio: string;
+  telefono: string;
+};
 
+// El teléfono es obligatorio para la firma real en Docuten (signature_type
+// "OTP" se envía por SMS) — descubierto probando en producción el 22 sep
+// 2026, hasta entonces no se pedía en ningún punto del flujo.
 export const guardarDatosFirmaPropietario = createServerFn({ method: "POST" })
   .validator((d: GuardarDatosFirmaPayload) => {
     if (!d?.propietarioId) throw new Error("Propietario requerido");
-    if (!d?.dni?.trim() || !d?.domicilio?.trim()) throw new Error("DNI y domicilio requeridos");
+    if (!d?.dni?.trim() || !d?.domicilio?.trim() || !d?.telefono?.trim()) {
+      throw new Error("DNI, domicilio y teléfono requeridos");
+    }
     return d;
   })
   .handler(async ({ data }) => {
@@ -241,6 +253,7 @@ export const guardarDatosFirmaPropietario = createServerFn({ method: "POST" })
       p_propietario_id: data.propietarioId,
       p_dni: data.dni.trim(),
       p_domicilio: data.domicilio.trim(),
+      p_telefono: data.telefono.trim(),
     });
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -366,6 +379,7 @@ export type GenerarContratoOwner = {
   contactId: string | null;
   dni: string;
   domicilio: string;
+  telefono: string;
 };
 
 export type GenerarContratoPayload = {
@@ -394,8 +408,8 @@ export const generarContratoYDarAccesoPortal = createServerFn({ method: "POST" }
     if (d?.comisionPct == null || d.comisionPct < 0) throw new Error("Comisión inválida");
     if (!d?.propietarios?.length) throw new Error("Sin propietarios vinculados a este inmueble");
     for (const p of d.propietarios) {
-      if (!p.dni?.trim() || !p.domicilio?.trim()) {
-        throw new Error("Falta DNI o domicilio de algún propietario");
+      if (!p.dni?.trim() || !p.domicilio?.trim() || !p.telefono?.trim()) {
+        throw new Error("Falta DNI, domicilio o teléfono de algún propietario");
       }
     }
     return d;
@@ -420,6 +434,7 @@ export const generarContratoYDarAccesoPortal = createServerFn({ method: "POST" }
         p_propietario_id: p.propietarioId,
         p_dni: p.dni.trim(),
         p_domicilio: p.domicilio.trim(),
+        p_telefono: p.telefono.trim(),
       });
       if (error) throw new Error(`Guardando datos de firma: ${error.message}`);
     }
