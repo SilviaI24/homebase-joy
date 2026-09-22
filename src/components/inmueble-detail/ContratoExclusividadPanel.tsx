@@ -246,10 +246,7 @@ export function ContratoExclusividadPanel({
         </div>
 
         {dialogos}
-        <PropietariosOnboardingPanel
-          propietarios={data?.propietarios ?? []}
-          propertyId={propertyId}
-        />
+        <PropietariosOnboardingPanel propietarios={data?.propietarios ?? []} />
       </>
     );
   }
@@ -338,10 +335,7 @@ export function ContratoExclusividadPanel({
         </div>
       </div>
 
-      <PropietariosOnboardingPanel
-        propietarios={data?.propietarios ?? []}
-        propertyId={propertyId}
-      />
+      <PropietariosOnboardingPanel propietarios={data?.propietarios ?? []} />
     </>
   );
 }

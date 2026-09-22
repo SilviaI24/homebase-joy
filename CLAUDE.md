@@ -174,6 +174,14 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
     (`contact_roles`) y el enlace de Portal (`propietario_inmueble`) para
     ese inmueble concreto, sin tocar la ficha de `propietarios` ni su acceso
     al Portal (puede seguir vinculado a otros inmuebles).
+  - **Cuarta pasada, mismo día:** David vio la duplicidad al probarlo — el
+    panel "Propietario" de arriba de la ficha (Nombre/Teléfono/Email) y el de
+    "Onboarding del propietario" decían ambos "quién es el propietario". Se
+    movió "vinculado/Desvincular" al panel de arriba (`PropietarioPanel.tsx`,
+    nuevo `VinculadosList` — misma queryKey `propietarios-inmueble` que
+    `ContratoExclusividadPanel`, comparten caché de React Query sin duplicar
+    la petición), y se quitó del todo del panel de onboarding, que ahora solo
+    muestra el progreso/documentos/activación, sin repetir de quién se trata.
   Verificado: tsc/eslint limpios, 160/160 tests, build OK. No verificado
   visualmente en la app real — requiere login.
 - **Fila de la pestaña "Histórico" de Cartera no navegaba a la ficha — 22
