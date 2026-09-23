@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { FileText } from "lucide-react";
+import { FileText, FileCheck, FolderOpen, UserCheck } from "lucide-react";
 import { listDocumentosOnboarding } from "@/lib/inmuebles.functions";
 import { DocumentoPreviewDialog } from "@/components/DocumentoPreviewDialog";
 
@@ -18,6 +18,24 @@ const ESTADO_LABEL: Record<string, { label: string; className: string }> = {
   pendiente: { label: "Pendiente", className: "text-muted-foreground" },
   revision: { label: "En revisión", className: "text-muted-foreground" },
   firmado: { label: "Firmado", className: "text-success" },
+};
+
+// Mismo `categoria` que la tabla `documentos` del Portal — replica el
+// icono/color de `categoriaConfig` en Documentos.tsx (elsol-client-hub) para
+// que un documento se vea igual en las dos apps (23 sep 2026, antes siempre
+// el mismo FileText gris aquí sin usar la categoría ya disponible).
+const CATEGORIA_STYLE: Record<string, { icon: typeof FileText; color: string }> = {
+  contrato: { icon: FileCheck, color: "text-success bg-success/10" },
+  escritura: { icon: FolderOpen, color: "text-info bg-info/10" },
+  nota_encargo: { icon: FileCheck, color: "text-success bg-success/10" },
+  dni: { icon: UserCheck, color: "text-violet-600 bg-violet-50 dark:bg-violet-900/20" },
+  certificado: { icon: FileCheck, color: "text-warning bg-warning/10" },
+  informe_mercado: { icon: FileText, color: "text-info bg-info/10" },
+  nota_simple: { icon: FileText, color: "text-violet-600 bg-violet-50 dark:bg-violet-900/20" },
+  oferta_recibida: { icon: FileCheck, color: "text-success bg-success/10" },
+  certificado_energetico: { icon: FileCheck, color: "text-warning bg-warning/10" },
+  contrato_arras: { icon: FileCheck, color: "text-success bg-success/10" },
+  otro: { icon: FileText, color: "text-muted-foreground bg-muted" },
 };
 
 export function DocumentosOnboardingPanel({ propertyId }: { propertyId: string }) {
@@ -41,6 +59,8 @@ export function DocumentosOnboardingPanel({ propertyId }: { propertyId: string }
       <div className="divide-y divide-border">
         {documentos.map((doc) => {
           const estado = ESTADO_LABEL[doc.estado] ?? ESTADO_LABEL.pendiente;
+          const { icon: CatIcon, color: catColor } =
+            CATEGORIA_STYLE[doc.categoria ?? "otro"] ?? CATEGORIA_STYLE.otro;
           return (
             <button
               key={doc.id}
@@ -49,7 +69,11 @@ export function DocumentosOnboardingPanel({ propertyId }: { propertyId: string }
               className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left text-sm hover:bg-muted/40 transition-colors"
             >
               <span className="flex items-center gap-2 min-w-0">
-                <FileText className="size-4 shrink-0 text-muted-foreground" />
+                <span
+                  className={`inline-flex items-center justify-center size-6 rounded-md shrink-0 ${catColor}`}
+                >
+                  <CatIcon className="size-3.5" />
+                </span>
                 <span className="truncate">{doc.nombre}</span>
               </span>
               <span className={`text-xs shrink-0 ${estado.className}`}>{estado.label}</span>

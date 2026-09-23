@@ -1,14 +1,40 @@
 // M-03: extraído de src/routes/inmuebles.$id.tsx.
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { FileText, Plus, Loader2, ExternalLink, Trash2 } from "lucide-react";
+import {
+  FileText,
+  FileCheck,
+  Image,
+  Ruler,
+  FileQuestion,
+  Plus,
+  Loader2,
+  ExternalLink,
+  Trash2,
+} from "lucide-react";
 import { getPropertyDocumentUrl, type Documento } from "@/lib/inmuebles.functions";
 import { SkeletonLine } from "./SkeletonLine";
 
 const DOC_TYPES = ["PDF", "Contrato", "Foto", "Plano", "Otro"];
 
-function docIcon(_type: string) {
-  return <FileText className="size-4 shrink-0 text-muted-foreground" />;
+// Un icono/color por tipo (antes siempre el mismo FileText gris, sin usar
+// el propio `type` ya clasificado — mismo criterio que categoriaConfig en
+// Documentos.tsx del Portal, 23 sep 2026).
+const DOC_TYPE_STYLE: Record<string, { icon: typeof FileText; color: string }> = {
+  PDF: { icon: FileText, color: "text-muted-foreground bg-muted" },
+  Contrato: { icon: FileCheck, color: "text-success bg-success/10" },
+  Foto: { icon: Image, color: "text-brand-green bg-brand-green/10" },
+  Plano: { icon: Ruler, color: "text-info bg-info/10" },
+  Otro: { icon: FileQuestion, color: "text-muted-foreground bg-muted" },
+};
+
+function docIcon(type: string) {
+  const { icon: Icon, color } = DOC_TYPE_STYLE[type] ?? DOC_TYPE_STYLE.Otro;
+  return (
+    <span className={`inline-flex items-center justify-center size-7 rounded-lg shrink-0 ${color}`}>
+      <Icon className="size-3.5" />
+    </span>
+  );
 }
 
 function extractFilename(url: string): string {
