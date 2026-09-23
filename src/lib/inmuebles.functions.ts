@@ -189,9 +189,29 @@ function s(v: string | null | undefined): string {
   return v ?? "";
 }
 
+// La portada no es "el primer elemento físico del array": es la de menor
+// `orden`. Antes de esto, un reordenado manual en el CRM o un array mal
+// reconstruido por la sync de Airtable (huecos/duplicados) cambiaba la
+// portada aunque `orden` siguiera siendo correcto — con esto, el criterio es
+// explícito y no depende de que la posición física del array esté bien.
+function ordenarImagenes(
+  imgs: Array<{ url: string; filename: string; orden?: number | null }>,
+): Array<{ url: string; filename: string; orden?: number | null }> {
+  return imgs
+    .filter((img) => img?.url)
+    .map((img, i) => ({ img, i }))
+    .sort((a, b) => {
+      const ordenA = a.img.orden ?? Number.MAX_SAFE_INTEGER;
+      const ordenB = b.img.orden ?? Number.MAX_SAFE_INTEGER;
+      if (ordenA !== ordenB) return ordenA - ordenB;
+      return a.i - b.i; // estable: sin `orden`, se respeta el orden físico
+    })
+    .map(({ img }) => img);
+}
+
 function mapBase(row: SupabasePropertyRow): Inmueble {
-  const imgs = row.imagenes ?? [];
-  const img0 = imgs.find((img) => img?.url)?.url ?? null;
+  const imgs = ordenarImagenes(row.imagenes ?? []);
+  const img0 = imgs[0]?.url ?? null;
   const agente = row.agents;
   return {
     id: row.id,
@@ -229,7 +249,7 @@ function mapDetalle(
   interesados: Array<{ id: string; nombre: string; telefono: string }> = [],
 ): InmuebleDetalle {
   const base = mapBase(row);
-  const imgs = row.imagenes ?? [];
+  const imgs = ordenarImagenes(row.imagenes ?? []);
   const imgsAll = imgs.map((i) => i.url);
   const imgsAtt = imgs.map((i) => ({ id: i.url, url: i.url }));
   const agente = row.agents;

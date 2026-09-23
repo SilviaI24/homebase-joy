@@ -69,12 +69,22 @@ npx supabase db push --dry-run
 ## Automatizaciones
 
 - **sync-properties:** Edge Function desplegada exclusivamente desde
-  `elsol-client-hub/supabase/functions/sync-properties/index.ts` (v32).
+  `elsol-client-hub/supabase/functions/sync-properties/index.ts` (v33, 23 sep
+  2026 — antes v32; ojo, el propio `CLAUDE.md` de elsol-client-hub sigue
+  citando "v25" en varios sitios, desactualizado).
   **No se despliega desde homebase-joy.** No existe copia local de esta función.
 
   **Modos** (parámetro `mode` en el body):
-  - `meta` — sync incremental de las últimas 25 h (cron diario 19:00 UTC)
-  - `images` — subida de imágenes de propiedades Activo (cron diario 19:30 UTC)
+  - `meta` — sync incremental de las últimas 25 h (cron **cada hora**, subido
+    desde 1×/día el 23 sep 2026: un inmueble marcado Reservado en Airtable
+    podía seguir viéndose disponible en la web casi 24h. Ver
+    `20260923120218_acelerar_cron_sync_properties_meta.sql`)
+  - `images` — subida de imágenes de propiedades Activo (cron diario 19:30
+    UTC). Emparejamiento por nombre de archivo con cola por ocurrencia
+    (Airtable no da id de adjunto utilizable en esta base — `asset_id` nunca
+    se puebla) + guardarraíl "la portada nunca es un plano/PDF si hay foto
+    real" (`esPortadaElegible`), 23 sep 2026 — ver auditoría de orden de
+    imágenes.
   - `meta_full` — sync completo paginado con cursor (cron domingos 18:00 y 18:30 UTC)
 
   **Autenticación:** el header `x-cron-secret` se valida mediante RPC
@@ -125,6 +135,68 @@ No asumir que "esto es solo del CRM" o "esto es solo del Portal" exime de
 copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
+
+- **Auditoría del pipeline Airtable → ESGI → web pública (portada de fotos +
+  inmuebles reservados visibles) — 23 sep 2026.** Origen: la oficina reportó
+  fotos de portada erróneas (planos/baños en vez de la foto principal) y
+  reservados que seguían viéndose disponibles en `elsolgrupo.com`. Auditado
+  todo el recorrido (Airtable → `sync-properties` → `properties` → vista
+  `properties_public` → web WordPress, esta última fuera de nuestro repo) y
+  corregido lo que está de nuestro lado:
+  - **Latencia de estatus/publicación:** el cron `sync-properties`
+    (mode=meta), el único que toca `estatus`/`publicacion`, corría 1×/día
+    (19:00 UTC) — un cambio a "Reservado" en Airtable podía tardar casi 24h
+    en reflejarse. Subido a cada hora
+    (`20260923120218_acelerar_cron_sync_properties_meta.sql`). La web (según
+    confirman sus mantenedores) cachea/refresca 1×/día, así que el peor caso
+    total sigue acotado por su lado, no por el nuestro — pendiente de que
+    ellos decidan si aprietan también su refresco.
+  - **`properties_public` sin filtro:** la vista no tenía `WHERE` — exponía
+    TODOS los inmuebles (Reservado/Vendido/Baja incluidos) a `anon`,
+    confiando por completo en que la web aplicase correctamente su propio
+    filtro (`estatus=Activo AND publicacion=Publicado`, contrato confirmado
+    por su equipo). Ahora filtra en origen
+    (`20260923120424_filtrar_properties_public_activo_publicado.sql`) —
+    defensa en profundidad, no depende de que su filtro no tenga nunca un bug
+    ni de cuándo refresquen su caché.
+  - **Portada de fotos incorrecta, causa raíz confirmada con datos reales:**
+    `asset_id` (pensado para emparejar cada adjunto de Airtable de forma
+    robusta) está en `null` en el 100% de los inmuebles Activo con fotos
+    (52/52) — Airtable no devuelve un id de adjunto utilizable en esta base,
+    así que el emparejamiento legacy por nombre de archivo es la única vía
+    real. Ese emparejamiento usaba un único "ganador" por nombre normalizado:
+    cuando dos adjuntos del mismo inmueble compartían nombre (reportajes con
+    nomenclatura genérica de cámara, re-subidas), el array de `imagenes`
+    salía con duplicados y huecos (caso real encontrado: Plaza de Villamanín,
+    34 entradas para solo 17 archivos únicos). `runImages()`
+    (`sync-properties/index.ts`, ahora v33) pasa a emparejar por una cola por
+    nombre (1:1 por ocurrencia, no un único ganador), y añade un guardarraíl
+    pragmático mientras Airtable siga vivo: la portada nunca es un PDF ni un
+    archivo tipo plano/floor/planta si hay al menos una foto real disponible
+    (`esPortadaElegible`). En el CRM, `mapBase()`/`mapDetalle()`
+    (`inmuebles.functions.ts`) dejan de tomar "el primer elemento físico del
+    array" como portada y pasan a ordenar explícitamente por `orden` — para
+    que el reordenado manual del CRM (`ImagenesReorder`) sea fiable cuando
+    Airtable deje de ser la fuente de verdad.
+  - **Hallazgo de higiene, sin relación con lo anterior:** `sync-properties/index.ts`
+    tenía ~150 líneas de cambios sin commitear en el working tree que sí
+    estaban desplegadas en producción (v32 real vs. versión anterior en git)
+    — alguien desplegó directamente sin pasar por git. Reconciliado en el
+    mismo commit que estos fixes, para que el repo vuelva a reflejar lo que
+    corre de verdad.
+  - Todo esto es temporal a propósito: cuando se retire Airtable (semanas
+    vista), se apagan los 4 cron jobs de `sync-properties` y el CRM pasa a
+    ser el único escritor de `imagenes`/`estatus`/`publicacion` — el
+    guardarraíl de portada y el emparejamiento por cola dejan de ser
+    necesarios en ese momento (el problema de origen, Airtable, desaparece).
+  Verificado: tsc limpio, eslint limpio (0 errores nuevos; los `any`
+  preexistentes de `supabase/functions/` son deuda ya documentada, sin
+  relación con este cambio), 80/80 tests, en homebase-joy. El cambio de
+  `sync-properties`/vista se verificó directamente contra producción
+  (`properties_public` pasó de devolver 5.973 filas a exactamente las 46
+  Activo+Publicado reales). No desplegado/probado aún contra Airtable real
+  tras el fix de duplicados — se autoverificará en el próximo cron `images`
+  (diario, 19:30 UTC) al reescribir el manifiesto de cada inmueble afectado.
 
 - **Vista previa de documentos + progreso de onboarding en la ficha del
   inmueble, y bloqueo de "Generar contrato" tras firmar — 22 sep 2026.**
