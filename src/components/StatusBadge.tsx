@@ -19,6 +19,22 @@ const ESTATUS_CLS: Record<EstatusInmueble, string> = {
   Prospección: "bg-muted text-muted-foreground",
 };
 
+// Franja de color por estatus en tarjetas de Cartera (feedback de David,
+// 23 sep 2026: el mismo significado semántico de ESTATUS_CLS, ya usado en
+// el badge de texto, no se veía en ningún otro sitio de la tarjeta).
+const ESTATUS_ACCENT_CLS: Record<EstatusInmueble, string> = {
+  Activo: "border-l-success",
+  Reservado: "border-l-warning",
+  Vendido: "border-l-info",
+  Alquilado: "border-l-brand-green",
+  Baja: "border-l-destructive",
+  Prospección: "border-l-border",
+};
+
+export function estatusAccentClass(estatus: EstatusInmueble | string): string {
+  return ESTATUS_ACCENT_CLS[estatus as EstatusInmueble] ?? "border-l-border";
+}
+
 const CANAL_CLS: Record<string, string> = {
   WhatsApp: "bg-[#25D366]/10 text-[#128C7E]",
   Email: "bg-info/10 text-info",

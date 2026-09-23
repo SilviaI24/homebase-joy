@@ -83,7 +83,7 @@ const navItems: NavItem[] = [
   { to: "/agenda", label: "Agenda", icon: CalendarDays, capability: "visits.read" },
   { to: "/contactos", label: "Contactos", icon: Users, capability: "contacts.read" },
   { to: "/cartera", label: "Cartera", icon: Building2, capability: "properties.read" },
-  { to: "/comerciales", label: "Comerciales", icon: UserCog, capability: "contacts.read" },
+  { to: "/comerciales", label: "Gestión", icon: UserCog, capability: "contacts.read" },
   { to: "/permisos", label: "Permisos", icon: ShieldCheck, capability: "permissions.manage" },
   { to: "/perfil", label: "Mi perfil", icon: UserCircle },
 ];
@@ -100,7 +100,7 @@ const mobileNav: NavItem[] = [
 ];
 
 const mobileMoreNav: NavItem[] = [
-  { to: "/comerciales", label: "Comerciales", icon: UserCog, capability: "contacts.read" },
+  { to: "/comerciales", label: "Gestión", icon: UserCog, capability: "contacts.read" },
   { to: "/permisos", label: "Permisos", icon: ShieldCheck, capability: "permissions.manage" },
   { to: "/perfil", label: "Mi perfil", icon: UserCircle },
 ];
@@ -358,8 +358,8 @@ function SilviaFloat({ enabled }: { enabled: boolean }) {
         title="SilvIA"
         className={`fixed bottom-20 right-4 md:bottom-6 md:right-6 z-40 size-12 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 ${
           open
-            ? "bg-sidebar text-gold border border-gold/40 scale-95"
-            : "gold-shimmer text-[oklch(0.12_0.025_165)] hover:scale-105"
+            ? "bg-sidebar text-ai border border-ai/40 scale-95"
+            : "ai-glow text-white hover:scale-105"
         }`}
       >
         {open ? <X className="size-5" /> : <Sparkles className="size-5" />}
@@ -373,11 +373,11 @@ function SilviaFloat({ enabled }: { enabled: boolean }) {
         >
           {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border bg-sidebar/80 backdrop-blur-sm shrink-0">
-            <div className="size-7 rounded-full gold-shimmer flex items-center justify-center shrink-0">
-              <Sparkles className="size-3.5" style={{ color: "oklch(0.12 0.025 165)" }} />
+            <div className="size-7 rounded-full ai-glow flex items-center justify-center shrink-0">
+              <Sparkles className="size-3.5 text-white" />
             </div>
             <div>
-              <div className="text-[13px] font-semibold text-gold leading-tight">SilvIA</div>
+              <div className="text-[13px] font-semibold text-ai leading-tight">SilvIA</div>
               <div className="text-xs text-muted-foreground leading-none">IA · El Sol Grupo</div>
             </div>
             {msgs.length > 0 && (
@@ -408,7 +408,7 @@ function SilviaFloat({ enabled }: { enabled: boolean }) {
                 <div
                   className={`max-w-[85%] rounded-2xl px-3 py-2 text-[12px] leading-relaxed whitespace-pre-wrap ${
                     m.role === "user"
-                      ? "bg-gold/20 text-foreground rounded-br-sm"
+                      ? "bg-ai/15 text-foreground rounded-br-sm"
                       : "bg-muted text-foreground rounded-bl-sm"
                   }`}
                 >
@@ -465,9 +465,9 @@ function SilviaFloat({ enabled }: { enabled: boolean }) {
               <button
                 onClick={send}
                 disabled={loading || !input.trim()}
-                className="size-9 rounded-xl bg-gold/90 hover:bg-gold flex items-center justify-center shrink-0 disabled:opacity-40 transition-all"
+                className="size-9 rounded-xl bg-ai/90 hover:bg-ai flex items-center justify-center shrink-0 disabled:opacity-40 transition-all"
               >
-                <Send className="size-3.5" style={{ color: "oklch(0.12 0.025 165)" }} />
+                <Send className="size-3.5 text-white" />
               </button>
             </div>
           </div>
@@ -480,11 +480,16 @@ function SilviaFloat({ enabled }: { enabled: boolean }) {
 // ── Nav link class ─────────────────────────────────────────────────────────────
 
 const LINK_CLS =
-  "nav-link group flex items-center gap-2.5 px-3 py-[7px] text-sm rounded-lg " +
-  "text-sidebar-foreground/45 " +
+  "nav-link group relative flex items-center gap-2.5 px-3 py-[7px] text-sm rounded-lg " +
+  "text-sidebar-foreground/65 " +
   "hover:bg-sidebar-accent/60 hover:text-sidebar-foreground/85 " +
   "transition-all duration-150 " +
-  "[&.active]:text-gold [&.active]:font-medium [&.active]:bg-sidebar-accent/50";
+  "[&.active]:text-gold [&.active]:font-medium [&.active]:bg-sidebar-accent/50 " +
+  // Franja de color en el ítem activo (feedback de David, 23 sep 2026: el
+  // sidebar se sentía "plano", sin más señal que el color del texto).
+  "[&.active]:before:content-[''] [&.active]:before:absolute " +
+  "[&.active]:before:left-0 [&.active]:before:top-1.5 [&.active]:before:bottom-1.5 " +
+  "[&.active]:before:w-[3px] [&.active]:before:rounded-r-full [&.active]:before:bg-gold";
 
 // ── AppShell ──────────────────────────────────────────────────────────────────
 

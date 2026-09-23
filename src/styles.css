@@ -56,6 +56,15 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
+  --color-ai: var(--ai);
+  --color-ai-foreground: var(--ai-foreground);
+  --color-ai-soft: var(--ai-soft);
+  --color-avatar-1: var(--avatar-1);
+  --color-avatar-2: var(--avatar-2);
+  --color-avatar-3: var(--avatar-3);
+  --color-avatar-4: var(--avatar-4);
+  --color-avatar-5: var(--avatar-5);
+  --color-avatar-6: var(--avatar-6);
   --color-cream: var(--cream);
   --color-alert: var(--alert);
   --color-alert-foreground: var(--alert-foreground);
@@ -135,6 +144,28 @@
      (requiere login) -- solo por cálculo WCAG + tsc/eslint/tests/build. */
   --gold: oklch(0.58 0.163 70.7);
   --gold-foreground: oklch(0.14 0.025 165);
+
+  /* IA / SilvIA — acento propio, 23 sep 2026 (feedback de David: SilvIA
+     usaba el mismo naranja que cualquier CTA de marca, sin ninguna señal de
+     "esto es el asistente IA"). Familia violeta/índigo, deliberadamente
+     fuera de la paleta de marca (naranja) y de los tokens semánticos
+     (success/warning/info/destructive) para no competir con ese
+     significado -- solo se usa en el botón flotante de SilvIA y su chat. */
+  --ai: oklch(0.58 0.19 274);
+  --ai-foreground: oklch(0.99 0 0);
+  --ai-soft: oklch(0.94 0.03 274);
+
+  /* Avatares de iniciales — color determinista por nombre, 23 sep 2026
+     (antes todos los avatares eran el mismo gris `bg-muted`). Hues elegidos
+     lejos de los tokens semánticos/de marca (naranja 70.7, éxito 148,
+     aviso 75, info 220, destructivo 27, ai 274) para no insinuar estado. */
+  --avatar-1: oklch(0.55 0.14 130);
+  --avatar-2: oklch(0.55 0.14 170);
+  --avatar-3: oklch(0.55 0.14 210);
+  --avatar-4: oklch(0.55 0.14 250);
+  --avatar-5: oklch(0.55 0.14 300);
+  --avatar-6: oklch(0.55 0.14 340);
+
   --cream: oklch(0.97 0.008 80);
 
   --alert: oklch(0.58 0.19 10);
@@ -348,6 +379,19 @@
       oklch(0.65 0.163 70.7) 0%,
       oklch(0.72 0.18 65) 50%,
       oklch(0.65 0.163 70.7) 100%
+    );
+    background-size: 200% 200%;
+    animation: shimmer 3s ease-in-out infinite;
+  }
+  /* Shimmer propio de SilvIA (violeta/índigo) — mismo mecanismo que
+     .gold-shimmer, para que el botón de la IA se lea como un elemento con
+     su propia identidad, no como el acento de marca. */
+  .ai-glow {
+    background: linear-gradient(
+      135deg,
+      oklch(0.58 0.19 274) 0%,
+      oklch(0.66 0.17 268) 50%,
+      oklch(0.58 0.19 274) 100%
     );
     background-size: 200% 200%;
     animation: shimmer 3s ease-in-out infinite;

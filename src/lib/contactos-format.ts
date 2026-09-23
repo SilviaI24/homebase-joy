@@ -223,6 +223,27 @@ export function initials(nombre: string): string {
     .toUpperCase();
 }
 
+const AVATAR_COLORS = [
+  "bg-avatar-1",
+  "bg-avatar-2",
+  "bg-avatar-3",
+  "bg-avatar-4",
+  "bg-avatar-5",
+  "bg-avatar-6",
+];
+
+// Color determinista por nombre para avatares de iniciales (feedback de
+// David, 23 sep 2026: todos los avatares eran el mismo gris `bg-muted`).
+// Mismo nombre → siempre el mismo color, sin necesidad de ningún campo
+// nuevo en base de datos.
+export function avatarColorClass(nombre: string): string {
+  let hash = 0;
+  for (let i = 0; i < nombre.length; i++) {
+    hash = (hash * 31 + nombre.charCodeAt(i)) >>> 0;
+  }
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
 // ── Duplicados tab (M-05) ───────────────────────────────────────────────────────
 
 export function eligeSupervivientePorDefecto(grupo: GrupoDuplicado): string {

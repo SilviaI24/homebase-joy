@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { AppShell } from "@/components/AppShell";
 import { SectionTabs } from "@/components/SectionTabs";
-import { EstatusInmuebleBadge } from "@/components/StatusBadge";
+import { EstatusInmuebleBadge, estatusAccentClass } from "@/components/StatusBadge";
 import { RouteError } from "@/components/RouteError";
 import { SafeImage } from "@/components/SafeImage";
 import { Pagination } from "@/components/pagination/Pagination";
@@ -76,9 +76,13 @@ function formatFecha(iso: string): string {
 
 type CarteraTab = "captacion" | "venta" | "alquiler" | "historico";
 
+// Venta primero (feedback de David, 23 sep 2026): Captación son inmuebles
+// todavía en documentación, sin fotos reales necesariamente — abrir ahí por
+// defecto hacía parecer la Cartera "un desastre" cuando en realidad es el
+// estado normal de un inmueble sin publicar aún.
 const TAB_CONFIG: Array<{ key: CarteraTab; label: string }> = [
-  { key: "captacion", label: "Captación" },
   { key: "venta", label: "Venta" },
+  { key: "captacion", label: "Captación" },
   { key: "alquiler", label: "Alquiler" },
   { key: "historico", label: "Histórico" },
 ];
@@ -103,7 +107,7 @@ export const Route = createFileRoute("/cartera/")({
     ],
   }),
   loader: ({ context, location }) => {
-    const tab = (location.search as { tab?: string }).tab ?? "captacion";
+    const tab = (location.search as { tab?: string }).tab ?? "venta";
     if (tab === "captacion") {
       return Promise.all([
         context.queryClient.ensureQueryData(prospectoQuery),
@@ -124,7 +128,7 @@ export const Route = createFileRoute("/cartera/")({
 function CarteraPage() {
   const rawSearch = Route.useSearch();
   const navigate = Route.useNavigate();
-  const tab = rawSearch.tab ?? "captacion";
+  const tab = rawSearch.tab ?? "venta";
 
   function setTab(t: CarteraTab) {
     navigate({ search: () => ({ tab: t, page: 1 }) });
@@ -550,7 +554,7 @@ function InmuebleCard({ inm }: { inm: Inmueble }) {
     <Link
       to="/inmuebles/$id"
       params={{ id: inm.id }}
-      className="group flex flex-col rounded-xl border border-border bg-card overflow-hidden hover:border-foreground/30 hover:shadow-sm transition-all"
+      className={`group flex flex-col rounded-xl border border-l-[3px] ${estatusAccentClass(inm.estatus)} border-border bg-card overflow-hidden hover:border-foreground/30 hover:shadow-sm transition-all`}
     >
       <div className="aspect-[4/3] bg-muted overflow-hidden">
         <SafeImage src={inm.imagen} alt={inm.calle || inm.ref} />
@@ -699,7 +703,7 @@ function AlquilerTab() {
             key={inm.id}
             to="/inmuebles/$id"
             params={{ id: inm.id }}
-            className="group flex flex-col rounded-xl border border-border bg-card overflow-hidden hover:border-foreground/30 hover:shadow-sm transition-all"
+            className={`group flex flex-col rounded-xl border border-l-[3px] ${estatusAccentClass(inm.estatus)} border-border bg-card overflow-hidden hover:border-foreground/30 hover:shadow-sm transition-all`}
           >
             <div className="aspect-[4/3] bg-muted overflow-hidden">
               <SafeImage src={inm.imagen} alt={inm.calle || inm.ref} />

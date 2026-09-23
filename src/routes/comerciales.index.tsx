@@ -11,7 +11,7 @@ import {
 export const Route = createFileRoute("/comerciales/")({
   head: () => ({
     meta: [
-      { title: "Comerciales · El Sol Grupo CRM" },
+      { title: "Gestión · El Sol Grupo CRM" },
       { name: "description", content: "Centro de operaciones del equipo comercial." },
     ],
   }),
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/comerciales/")({
       context.queryClient.ensureQueryData(visitasQuery),
     ]),
   errorComponent: ({ error }) => (
-    <AppShell title="Comerciales">
+    <AppShell title="Gestión">
       <RouteError error={error} />
     </AppShell>
   ),

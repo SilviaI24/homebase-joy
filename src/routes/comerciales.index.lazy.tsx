@@ -281,7 +281,7 @@ function ComercialesPage() {
   }, [searchQ, searchInmData, visitas]);
 
   return (
-    <AppShell title="Comerciales">
+    <AppShell title="Gestión">
       {/* Barra de control: selector + búsqueda + acciones */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <AgenteSelector value={selectedAgente} onChange={setSelectedAgente} agentes={agentes} />

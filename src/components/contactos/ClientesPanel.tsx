@@ -38,7 +38,7 @@ import {
   actualizarEstadoDocumentoPropietario,
   activarPropietarioCrm,
 } from "@/lib/mutations-cliente.functions";
-import { SEG_META, formatFechaCorta, initials } from "@/lib/contactos-format";
+import { SEG_META, formatFechaCorta, initials, avatarColorClass } from "@/lib/contactos-format";
 import { ActividadSeguimiento } from "@/components/contactos/ActividadSeguimiento";
 
 // Botón "Dar acceso al portal": solo tiene sentido si el contacto es
@@ -347,7 +347,9 @@ export function ClienteRow({ c, onClick }: { c: ClienteRowType; onClick: () => v
     >
       <td className="py-3 pl-4 pr-2">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground group-hover:bg-background transition-colors">
+          <span
+            className={`flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white transition-colors ${avatarColorClass(c.nombre)}`}
+          >
             {initials(c.nombre) || "?"}
           </span>
           <div className="min-w-0">
@@ -421,7 +423,9 @@ export function ClienteDetallePanel({ id }: { id: string }) {
   return (
     <div className="space-y-5 p-1">
       <div className="flex items-center gap-3">
-        <span className="flex size-12 items-center justify-center rounded-full bg-muted text-base font-semibold">
+        <span
+          className={`flex size-12 items-center justify-center rounded-full text-base font-semibold text-white ${avatarColorClass(cliente.nombre)}`}
+        >
           {initials(cliente.nombre) || "?"}
         </span>
         <div>

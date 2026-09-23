@@ -33,6 +33,7 @@ import {
   inferEstado,
   formatFechaCorta,
   initials,
+  avatarColorClass,
 } from "@/lib/contactos-format";
 
 const PAGE_SIZE = 50;
@@ -551,7 +552,9 @@ function SimpleContactsTab({ etapa }: { etapa: string }) {
                     >
                       <td className="py-3 pl-4 pr-2">
                         <div className="flex items-center gap-2.5">
-                          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                          <span
+                            className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${avatarColorClass(c.nombre)}`}
+                          >
                             {initials(c.nombre) || "?"}
                           </span>
                           <span className="text-sm font-medium truncate max-w-[180px]">
