@@ -29,8 +29,8 @@ export function InteresadosPanel({
         {inmueble.interesados.map((p) => (
           <div key={p.id} className="flex items-center justify-between gap-2 text-sm">
             <Link
-              to="/clientes"
-              search={{ id: p.id }}
+              to="/contactos"
+              search={{ tab: "clientes", id: p.id }}
               className="font-medium text-foreground hover:underline truncate"
             >
               {p.nombre || "Sin nombre"}

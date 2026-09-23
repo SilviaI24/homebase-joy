@@ -52,6 +52,7 @@ function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
+          <img src="/logo-elsol.svg" alt="El Sol Grupo" className="mx-auto mb-4 h-10 w-auto" />
           <h1 className="text-2xl font-bold tracking-tight text-foreground">El Sol Grupo CRM</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {mode === "login" ? "Accede con tu cuenta" : "Recuperar contraseña"}

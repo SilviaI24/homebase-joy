@@ -13,19 +13,13 @@ import { Route as RestablecerContrasenaRouteImport } from './routes/restablecer-
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VisitasIndexRouteImport } from './routes/visitas.index'
-import { Route as SilviaIndexRouteImport } from './routes/silvia.index'
-import { Route as ProspectosIndexRouteImport } from './routes/prospectos.index'
 import { Route as PermisosIndexRouteImport } from './routes/permisos.index'
 import { Route as PerfilIndexRouteImport } from './routes/perfil.index'
-import { Route as MisLeadsIndexRouteImport } from './routes/mis-leads.index'
 import { Route as InmueblesIndexRouteImport } from './routes/inmuebles.index'
-import { Route as EstadisticasIndexRouteImport } from './routes/estadisticas.index'
 import { Route as ContactosIndexRouteImport } from './routes/contactos.index'
 import { Route as ComercialesIndexRouteImport } from './routes/comerciales.index'
-import { Route as ClientesIndexRouteImport } from './routes/clientes.index'
 import { Route as CarteraIndexRouteImport } from './routes/cartera.index'
 import { Route as BandejaIndexRouteImport } from './routes/bandeja.index'
-import { Route as AlquileresIndexRouteImport } from './routes/alquileres.index'
 import { Route as AgendaIndexRouteImport } from './routes/agenda.index'
 import { Route as InmueblesIdRouteImport } from './routes/inmuebles.$id'
 import { Route as ApiGoogleCalendarConnectRouteImport } from './routes/api.google-calendar.connect'
@@ -51,16 +45,6 @@ const VisitasIndexRoute = VisitasIndexRouteImport.update({
   path: '/visitas/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SilviaIndexRoute = SilviaIndexRouteImport.update({
-  id: '/silvia/',
-  path: '/silvia/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProspectosIndexRoute = ProspectosIndexRouteImport.update({
-  id: '/prospectos/',
-  path: '/prospectos/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const PermisosIndexRoute = PermisosIndexRouteImport.update({
   id: '/permisos/',
   path: '/permisos/',
@@ -71,19 +55,9 @@ const PerfilIndexRoute = PerfilIndexRouteImport.update({
   path: '/perfil/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MisLeadsIndexRoute = MisLeadsIndexRouteImport.update({
-  id: '/mis-leads/',
-  path: '/mis-leads/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const InmueblesIndexRoute = InmueblesIndexRouteImport.update({
   id: '/inmuebles/',
   path: '/inmuebles/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EstadisticasIndexRoute = EstadisticasIndexRouteImport.update({
-  id: '/estadisticas/',
-  path: '/estadisticas/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactosIndexRoute = ContactosIndexRouteImport.update({
@@ -98,11 +72,6 @@ const ComercialesIndexRoute = ComercialesIndexRouteImport.update({
 } as any).lazy(() =>
   import('./routes/comerciales.index.lazy').then((d) => d.Route),
 )
-const ClientesIndexRoute = ClientesIndexRouteImport.update({
-  id: '/clientes/',
-  path: '/clientes/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CarteraIndexRoute = CarteraIndexRouteImport.update({
   id: '/cartera/',
   path: '/cartera/',
@@ -111,11 +80,6 @@ const CarteraIndexRoute = CarteraIndexRouteImport.update({
 const BandejaIndexRoute = BandejaIndexRouteImport.update({
   id: '/bandeja/',
   path: '/bandeja/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AlquileresIndexRoute = AlquileresIndexRouteImport.update({
-  id: '/alquileres/',
-  path: '/alquileres/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgendaIndexRoute = AgendaIndexRouteImport.update({
@@ -147,19 +111,13 @@ export interface FileRoutesByFullPath {
   '/restablecer-contrasena': typeof RestablecerContrasenaRoute
   '/inmuebles/$id': typeof InmueblesIdRoute
   '/agenda/': typeof AgendaIndexRoute
-  '/alquileres/': typeof AlquileresIndexRoute
   '/bandeja/': typeof BandejaIndexRoute
   '/cartera/': typeof CarteraIndexRoute
-  '/clientes/': typeof ClientesIndexRoute
   '/comerciales/': typeof ComercialesIndexRoute
   '/contactos/': typeof ContactosIndexRoute
-  '/estadisticas/': typeof EstadisticasIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
-  '/mis-leads/': typeof MisLeadsIndexRoute
   '/perfil/': typeof PerfilIndexRoute
   '/permisos/': typeof PermisosIndexRoute
-  '/prospectos/': typeof ProspectosIndexRoute
-  '/silvia/': typeof SilviaIndexRoute
   '/visitas/': typeof VisitasIndexRoute
   '/api/google-calendar/callback': typeof ApiGoogleCalendarCallbackRoute
   '/api/google-calendar/connect': typeof ApiGoogleCalendarConnectRoute
@@ -170,19 +128,13 @@ export interface FileRoutesByTo {
   '/restablecer-contrasena': typeof RestablecerContrasenaRoute
   '/inmuebles/$id': typeof InmueblesIdRoute
   '/agenda': typeof AgendaIndexRoute
-  '/alquileres': typeof AlquileresIndexRoute
   '/bandeja': typeof BandejaIndexRoute
   '/cartera': typeof CarteraIndexRoute
-  '/clientes': typeof ClientesIndexRoute
   '/comerciales': typeof ComercialesIndexRoute
   '/contactos': typeof ContactosIndexRoute
-  '/estadisticas': typeof EstadisticasIndexRoute
   '/inmuebles': typeof InmueblesIndexRoute
-  '/mis-leads': typeof MisLeadsIndexRoute
   '/perfil': typeof PerfilIndexRoute
   '/permisos': typeof PermisosIndexRoute
-  '/prospectos': typeof ProspectosIndexRoute
-  '/silvia': typeof SilviaIndexRoute
   '/visitas': typeof VisitasIndexRoute
   '/api/google-calendar/callback': typeof ApiGoogleCalendarCallbackRoute
   '/api/google-calendar/connect': typeof ApiGoogleCalendarConnectRoute
@@ -194,19 +146,13 @@ export interface FileRoutesById {
   '/restablecer-contrasena': typeof RestablecerContrasenaRoute
   '/inmuebles/$id': typeof InmueblesIdRoute
   '/agenda/': typeof AgendaIndexRoute
-  '/alquileres/': typeof AlquileresIndexRoute
   '/bandeja/': typeof BandejaIndexRoute
   '/cartera/': typeof CarteraIndexRoute
-  '/clientes/': typeof ClientesIndexRoute
   '/comerciales/': typeof ComercialesIndexRoute
   '/contactos/': typeof ContactosIndexRoute
-  '/estadisticas/': typeof EstadisticasIndexRoute
   '/inmuebles/': typeof InmueblesIndexRoute
-  '/mis-leads/': typeof MisLeadsIndexRoute
   '/perfil/': typeof PerfilIndexRoute
   '/permisos/': typeof PermisosIndexRoute
-  '/prospectos/': typeof ProspectosIndexRoute
-  '/silvia/': typeof SilviaIndexRoute
   '/visitas/': typeof VisitasIndexRoute
   '/api/google-calendar/callback': typeof ApiGoogleCalendarCallbackRoute
   '/api/google-calendar/connect': typeof ApiGoogleCalendarConnectRoute
@@ -219,19 +165,13 @@ export interface FileRouteTypes {
     | '/restablecer-contrasena'
     | '/inmuebles/$id'
     | '/agenda/'
-    | '/alquileres/'
     | '/bandeja/'
     | '/cartera/'
-    | '/clientes/'
     | '/comerciales/'
     | '/contactos/'
-    | '/estadisticas/'
     | '/inmuebles/'
-    | '/mis-leads/'
     | '/perfil/'
     | '/permisos/'
-    | '/prospectos/'
-    | '/silvia/'
     | '/visitas/'
     | '/api/google-calendar/callback'
     | '/api/google-calendar/connect'
@@ -242,19 +182,13 @@ export interface FileRouteTypes {
     | '/restablecer-contrasena'
     | '/inmuebles/$id'
     | '/agenda'
-    | '/alquileres'
     | '/bandeja'
     | '/cartera'
-    | '/clientes'
     | '/comerciales'
     | '/contactos'
-    | '/estadisticas'
     | '/inmuebles'
-    | '/mis-leads'
     | '/perfil'
     | '/permisos'
-    | '/prospectos'
-    | '/silvia'
     | '/visitas'
     | '/api/google-calendar/callback'
     | '/api/google-calendar/connect'
@@ -265,19 +199,13 @@ export interface FileRouteTypes {
     | '/restablecer-contrasena'
     | '/inmuebles/$id'
     | '/agenda/'
-    | '/alquileres/'
     | '/bandeja/'
     | '/cartera/'
-    | '/clientes/'
     | '/comerciales/'
     | '/contactos/'
-    | '/estadisticas/'
     | '/inmuebles/'
-    | '/mis-leads/'
     | '/perfil/'
     | '/permisos/'
-    | '/prospectos/'
-    | '/silvia/'
     | '/visitas/'
     | '/api/google-calendar/callback'
     | '/api/google-calendar/connect'
@@ -289,19 +217,13 @@ export interface RootRouteChildren {
   RestablecerContrasenaRoute: typeof RestablecerContrasenaRoute
   InmueblesIdRoute: typeof InmueblesIdRoute
   AgendaIndexRoute: typeof AgendaIndexRoute
-  AlquileresIndexRoute: typeof AlquileresIndexRoute
   BandejaIndexRoute: typeof BandejaIndexRoute
   CarteraIndexRoute: typeof CarteraIndexRoute
-  ClientesIndexRoute: typeof ClientesIndexRoute
   ComercialesIndexRoute: typeof ComercialesIndexRoute
   ContactosIndexRoute: typeof ContactosIndexRoute
-  EstadisticasIndexRoute: typeof EstadisticasIndexRoute
   InmueblesIndexRoute: typeof InmueblesIndexRoute
-  MisLeadsIndexRoute: typeof MisLeadsIndexRoute
   PerfilIndexRoute: typeof PerfilIndexRoute
   PermisosIndexRoute: typeof PermisosIndexRoute
-  ProspectosIndexRoute: typeof ProspectosIndexRoute
-  SilviaIndexRoute: typeof SilviaIndexRoute
   VisitasIndexRoute: typeof VisitasIndexRoute
   ApiGoogleCalendarCallbackRoute: typeof ApiGoogleCalendarCallbackRoute
   ApiGoogleCalendarConnectRoute: typeof ApiGoogleCalendarConnectRoute
@@ -337,20 +259,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VisitasIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/silvia/': {
-      id: '/silvia/'
-      path: '/silvia'
-      fullPath: '/silvia/'
-      preLoaderRoute: typeof SilviaIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/prospectos/': {
-      id: '/prospectos/'
-      path: '/prospectos'
-      fullPath: '/prospectos/'
-      preLoaderRoute: typeof ProspectosIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/permisos/': {
       id: '/permisos/'
       path: '/permisos'
@@ -365,25 +273,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PerfilIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/mis-leads/': {
-      id: '/mis-leads/'
-      path: '/mis-leads'
-      fullPath: '/mis-leads/'
-      preLoaderRoute: typeof MisLeadsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/inmuebles/': {
       id: '/inmuebles/'
       path: '/inmuebles'
       fullPath: '/inmuebles/'
       preLoaderRoute: typeof InmueblesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estadisticas/': {
-      id: '/estadisticas/'
-      path: '/estadisticas'
-      fullPath: '/estadisticas/'
-      preLoaderRoute: typeof EstadisticasIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contactos/': {
@@ -400,13 +294,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ComercialesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/clientes/': {
-      id: '/clientes/'
-      path: '/clientes'
-      fullPath: '/clientes/'
-      preLoaderRoute: typeof ClientesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/cartera/': {
       id: '/cartera/'
       path: '/cartera'
@@ -419,13 +306,6 @@ declare module '@tanstack/react-router' {
       path: '/bandeja'
       fullPath: '/bandeja/'
       preLoaderRoute: typeof BandejaIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/alquileres/': {
-      id: '/alquileres/'
-      path: '/alquileres'
-      fullPath: '/alquileres/'
-      preLoaderRoute: typeof AlquileresIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agenda/': {
@@ -465,19 +345,13 @@ const rootRouteChildren: RootRouteChildren = {
   RestablecerContrasenaRoute: RestablecerContrasenaRoute,
   InmueblesIdRoute: InmueblesIdRoute,
   AgendaIndexRoute: AgendaIndexRoute,
-  AlquileresIndexRoute: AlquileresIndexRoute,
   BandejaIndexRoute: BandejaIndexRoute,
   CarteraIndexRoute: CarteraIndexRoute,
-  ClientesIndexRoute: ClientesIndexRoute,
   ComercialesIndexRoute: ComercialesIndexRoute,
   ContactosIndexRoute: ContactosIndexRoute,
-  EstadisticasIndexRoute: EstadisticasIndexRoute,
   InmueblesIndexRoute: InmueblesIndexRoute,
-  MisLeadsIndexRoute: MisLeadsIndexRoute,
   PerfilIndexRoute: PerfilIndexRoute,
   PermisosIndexRoute: PermisosIndexRoute,
-  ProspectosIndexRoute: ProspectosIndexRoute,
-  SilviaIndexRoute: SilviaIndexRoute,
   VisitasIndexRoute: VisitasIndexRoute,
   ApiGoogleCalendarCallbackRoute: ApiGoogleCalendarCallbackRoute,
   ApiGoogleCalendarConnectRoute: ApiGoogleCalendarConnectRoute,

@@ -435,8 +435,8 @@ function Dashboard() {
                 {cliTotal}
               </div>
               <Link
-                to="/clientes"
-                search={{ id: undefined }}
+                to="/contactos"
+                search={{ tab: "clientes", id: undefined }}
                 className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors"
               >
                 Ver todos <ArrowRight className="size-2.5" />
@@ -466,7 +466,8 @@ function Dashboard() {
                 {stats.prospectosPendientes}
               </div>
               <Link
-                to="/prospectos"
+                to="/cartera"
+                search={{ tab: "captacion" }}
                 className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors"
               >
                 Revisar <ArrowRight className="size-2.5" />
@@ -526,7 +527,8 @@ function Dashboard() {
       {/* ── ROW 2.5: Pipeline ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
         <Link
-          to="/mis-leads"
+          to="/contactos"
+          search={{ tab: "leads" }}
           className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group"
         >
           <div className="flex items-center justify-between">
@@ -546,8 +548,8 @@ function Dashboard() {
           </div>
         </Link>
         <Link
-          to="/clientes"
-          search={{ id: undefined }}
+          to="/contactos"
+          search={{ tab: "clientes", id: undefined }}
           className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group"
         >
           <div className="flex items-center justify-between">
@@ -619,7 +621,7 @@ function Dashboard() {
           <VisitasAnalytics data={visitasAnalytics} />
         </Suspense>
         <Link
-          to="/silvia"
+          to="/bandeja"
           className="rounded-2xl border border-gold/25 bg-gradient-to-br from-gold/10 to-transparent p-5 flex flex-col justify-between hover:border-gold/50 hover:shadow-lg transition-all group"
         >
           <div className="size-11 rounded-xl bg-gradient-to-br from-gold to-amber-300 flex items-center justify-center shadow-md">

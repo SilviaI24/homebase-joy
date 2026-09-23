@@ -356,8 +356,8 @@ export function AgenteCardHub({ card }: { card: AgenteHub }) {
             <Building2 className="size-3" /> Inmuebles
           </Link>
           <Link
-            to="/mis-leads"
-            search={{ agente: card.id }}
+            to="/contactos"
+            search={{ tab: "leads", agente: card.id }}
             className="flex items-center justify-center gap-1 h-8 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
           >
             <Users className="size-3" /> Leads

@@ -208,7 +208,7 @@ export const getNotifications = createServerFn({ method: "GET" }).handler(
         prioridad: "info",
         titulo: nombre,
         detalle: `Nuevo lead · ${canal}`,
-        href: "/mis-leads",
+        href: "/contactos?tab=leads",
       });
     }
 

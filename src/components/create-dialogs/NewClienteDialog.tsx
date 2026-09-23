@@ -215,8 +215,8 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
                   ))}
                 </ul>
                 <Link
-                  to="/clientes"
-                  search={{ id: undefined }}
+                  to="/contactos"
+                  search={{ tab: "clientes", id: undefined }}
                   className="font-medium underline hover:no-underline"
                 >
                   Ver contactos

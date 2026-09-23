@@ -104,9 +104,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       // Font stylesheet moved to RootShell as non-blocking preload
-      // Favicon: monograma "ES" ya usado en AppShell (UX-07). La paleta/tipografía
-      // de marca completa (naranja #E8820C, tokens marfil/carbón) queda pendiente
-      // de valores exactos de marca — no se adivina aquí.
+      // Favicon: monograma "ES" ya usado en AppShell (UX-07).
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
     ],
   }),
@@ -128,7 +126,7 @@ function RootShell({ children }: { children: ReactNode }) {
         />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
         />
       </head>
       <body>

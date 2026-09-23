@@ -256,27 +256,25 @@ export function ScoreBadge({ score }: { score: number }) {
   );
 }
 
-// Superficie marfil (paleta de marca, 9 sep 2026): este es, de los tres
-// paneles de insights, el que más urgencia comunica ("más calientes" = actuar
-// ya) — se distingue por color, no solo por icono. Los otros dos
-// (SinSeguimientoPanel/SinAsignarPanel) se quedan en --card a propósito, para
-// no diluir el énfasis convirtiéndolo en el estilo por defecto de los tres.
-// Contraste verificado por cálculo antes de aplicar (mismo método que el
-// resto de la paleta): texto principal 17.1:1, texto secundario 4.7:1 sobre
-// marfil — ambos pasan AA. El icono dorado (2.96:1) y el badge "Sin
-// asignar" (2.39:1) quedan por debajo del mínimo de UI no textual, pero ya
-// lo estaban sobre --card antes de este cambio (3.43:1 y 2.75:1
-// respectivamente) — no es una regresión introducida aquí, es deuda
-// preexistente fuera del alcance de este cambio.
+// Tinte gold (23 sep 2026, sustituye la superficie "marfil" retirada — esa
+// paleta crema era inventada, sin base en la marca real de elsolgrupo.com,
+// que usa fondo blanco): este es, de los tres paneles de insights, el que
+// más urgencia comunica ("más calientes" = actuar ya) — se distingue por
+// color, no solo por icono. Los otros dos (SinSeguimientoPanel/
+// SinAsignarPanel) se quedan en --card a propósito, para no diluir el
+// énfasis convirtiéndolo en el estilo por defecto de los tres. Mismo
+// propósito de énfasis que antes, ahora con un tinte del propio --gold en
+// vez de un color de marca inventado.
 export function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
   return (
-    <div className="rounded-2xl border border-carbon/10 bg-marfil overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-carbon/10">
+    <div className="rounded-2xl border border-gold/20 bg-gold/5 overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-gold/20">
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <Flame className="size-4 text-[var(--gold)]" /> Leads más calientes
         </h3>
         <Link
-          to="/mis-leads"
+          to="/contactos"
+          search={{ tab: "leads" }}
           className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
         >
           Ver todos <ArrowRight className="size-3" />
@@ -287,13 +285,13 @@ export function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
           Sin leads con score alto.
         </div>
       ) : (
-        <ul className="divide-y divide-carbon/10">
+        <ul className="divide-y divide-border">
           {leads.map((lead) => (
             <li key={lead.id}>
               <Link
-                to="/clientes"
-                search={{ id: lead.id }}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-carbon/10 transition-colors"
+                to="/contactos"
+                search={{ tab: "clientes", id: lead.id }}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-gold/10 transition-colors"
               >
                 <ScoreBadge score={lead.score} />
                 <div className="min-w-0 flex-1">
@@ -329,7 +327,8 @@ export function SinSeguimientoPanel({ leads }: { leads: LeadInsight[] }) {
           <BellOff className="size-4 text-destructive" /> Sin seguimiento · +30 días
         </h3>
         <Link
-          to="/mis-leads"
+          to="/contactos"
+          search={{ tab: "leads" }}
           className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
         >
           Ver todos <ArrowRight className="size-3" />
@@ -344,8 +343,8 @@ export function SinSeguimientoPanel({ leads }: { leads: LeadInsight[] }) {
           {leads.map((lead) => (
             <li key={lead.id}>
               <Link
-                to="/clientes"
-                search={{ id: lead.id }}
+                to="/contactos"
+                search={{ tab: "clientes", id: lead.id }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
               >
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive text-xs font-bold tabular-nums">
@@ -395,8 +394,8 @@ export function SinAsignarPanel({ leads }: { leads: LeadInsight[] }) {
           {leads.map((lead) => (
             <li key={lead.id}>
               <Link
-                to="/clientes"
-                search={{ id: lead.id }}
+                to="/contactos"
+                search={{ tab: "clientes", id: lead.id }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
               >
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-warning/10 text-warning">

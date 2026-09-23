@@ -11,7 +11,7 @@ import {
 export const Route = createFileRoute("/comerciales/")({
   head: () => ({
     meta: [
-      { title: "Hub · El Sol Grupo CRM" },
+      { title: "Comerciales · El Sol Grupo CRM" },
       { name: "description", content: "Centro de operaciones del equipo comercial." },
     ],
   }),

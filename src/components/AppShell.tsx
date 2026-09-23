@@ -83,7 +83,7 @@ const navItems: NavItem[] = [
   { to: "/agenda", label: "Agenda", icon: CalendarDays, capability: "visits.read" },
   { to: "/contactos", label: "Contactos", icon: Users, capability: "contacts.read" },
   { to: "/cartera", label: "Cartera", icon: Building2, capability: "properties.read" },
-  { to: "/comerciales", label: "Equipo", icon: UserCog, capability: "contacts.read" },
+  { to: "/comerciales", label: "Comerciales", icon: UserCog, capability: "contacts.read" },
   { to: "/permisos", label: "Permisos", icon: ShieldCheck, capability: "permissions.manage" },
   { to: "/perfil", label: "Mi perfil", icon: UserCircle },
 ];
@@ -100,7 +100,7 @@ const mobileNav: NavItem[] = [
 ];
 
 const mobileMoreNav: NavItem[] = [
-  { to: "/comerciales", label: "Equipo", icon: UserCog, capability: "contacts.read" },
+  { to: "/comerciales", label: "Comerciales", icon: UserCog, capability: "contacts.read" },
   { to: "/permisos", label: "Permisos", icon: ShieldCheck, capability: "permissions.manage" },
   { to: "/perfil", label: "Mi perfil", icon: UserCircle },
 ];
@@ -292,7 +292,7 @@ function SilviaFloat({ enabled }: { enabled: boolean }) {
     if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs, open]);
 
-  if (!enabled || pathname.startsWith("/silvia") || pathname.startsWith("/bandeja")) return null;
+  if (!enabled || pathname.startsWith("/bandeja")) return null;
 
   async function send() {
     const msg = input.trim();
@@ -506,12 +506,7 @@ function SidebarContent({
       {/* Logo */}
       <div className="px-4 py-4 border-b border-sidebar-border shrink-0">
         <div className="flex items-center gap-3">
-          <div
-            className="size-8 rounded-xl gold-shimmer flex items-center justify-center text-[0.8rem] font-display font-bold shadow-md"
-            style={{ color: "oklch(0.12 0.025 165)" }}
-          >
-            ES
-          </div>
+          <img src="/favicon.svg" alt="El Sol Grupo" className="size-8 shrink-0" />
           <div>
             <div className="font-display font-semibold tracking-tight text-[13px] text-gold leading-tight">
               El Sol Grupo
