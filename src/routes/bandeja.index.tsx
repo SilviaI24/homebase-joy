@@ -295,7 +295,7 @@ function BandejaPage() {
       {/* Header con stats */}
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent text-white shadow">
+          <div className="flex size-10 items-center justify-center rounded-lg ai-glow text-white shadow">
             <Sparkles className="size-5" />
           </div>
           <div>

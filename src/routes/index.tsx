@@ -406,7 +406,7 @@ function Dashboard() {
           >
             <div
               className="text-xs uppercase tracking-[0.22em] font-medium mb-3"
-              style={{ opacity: 0.45 }}
+              style={{ opacity: 0.7 }}
             >
               Cartera activa
             </div>
@@ -414,14 +414,14 @@ function Dashboard() {
               <div className="text-[2.75rem] font-display font-bold tabular-nums leading-none">
                 {stats.activos}
               </div>
-              <div className="text-xs mt-1.5" style={{ opacity: 0.45 }}>
+              <div className="text-xs mt-1.5" style={{ opacity: 0.7 }}>
                 {stats.reservados} reservados · {moneyShort(stats.valorCartera)}
               </div>
             </div>
             <Link
               to="/inmuebles"
               className="mt-3 text-xs font-medium inline-flex items-center gap-1 transition-opacity hover:opacity-100"
-              style={{ opacity: 0.4 }}
+              style={{ opacity: 0.65 }}
             >
               Ver cartera <ArrowRight className="size-3" />
             </Link>
@@ -622,10 +622,10 @@ function Dashboard() {
         </Suspense>
         <Link
           to="/bandeja"
-          className="rounded-2xl border border-gold/25 bg-gradient-to-br from-gold/10 to-transparent p-5 flex flex-col justify-between hover:border-gold/50 hover:shadow-lg transition-all group"
+          className="rounded-2xl border border-ai/25 bg-gradient-to-br from-ai/10 to-transparent p-5 flex flex-col justify-between hover:border-ai/50 hover:shadow-lg transition-all group"
         >
-          <div className="size-11 rounded-xl bg-gradient-to-br from-gold to-amber-300 flex items-center justify-center shadow-md">
-            <Sparkles className="size-5 text-gold-foreground" />
+          <div className="size-11 rounded-xl ai-glow flex items-center justify-center shadow-md">
+            <Sparkles className="size-5 text-white" />
           </div>
           <div className="mt-4">
             <div className="text-base font-semibold tracking-tight">SilvIA</div>
@@ -634,7 +634,7 @@ function Dashboard() {
             </div>
             <div className="text-xs text-muted-foreground mt-1">Gestionados por IA</div>
           </div>
-          <div className="mt-5 inline-flex items-center gap-1 text-xs font-medium text-gold group-hover:gap-2 transition-all">
+          <div className="mt-5 inline-flex items-center gap-1 text-xs font-medium text-ai group-hover:gap-2 transition-all">
             Revisar leads <ArrowRight className="size-3" />
           </div>
         </Link>

@@ -118,31 +118,31 @@
         tres fuentes independientes de "cuál es el logo real" apuntando al
         mismo ámbar, frente a una única variable CSS que podía ser un acento
         secundario. Corregido a #F6A118 (oklch hue 70.7°, chroma 0.163).
-     La luminosidad de cada token no se toca, viene de la auditoría de
-     contraste WCAG previa (comentario debajo) que sigue vigente.
-     --gold oscurecido de L=0.65 a L=0.58 el 14 sep 2026 (mismo tipo de
-     auditoría que --warning, ver ese comentario más abajo): el icono Flame
-     de LeadsCalientesPanel (text-[var(--gold)] sobre --marfil) daba 2.96:1,
-     y el mismo patrón bg-gold/15 text-gold (StatusBadge "Cliente", contador
-     de KPI en DashboardPanels, badges en permisos.index.tsx) daba 2.53-2.88:1
-     sobre marfil/card -- ambos por debajo del mínimo de UI no textual (3:1).
-     A L=0.58: icono vs marfil 3.93:1 (antes 2.96), badge-tint vs marfil
-     3.25:1 y vs card 3.71:1 (antes 2.53/2.88), texto grande (KPIs) vs card
-     4.55:1 (antes 3.43).
-     --gold también es texto de navegación sobre --sidebar (fondo oscuro casi
-     negro, fijo): ahí bajar la luminosidad reduce el contraste en vez de
-     subirlo -- de 5.90:1 a 4.45:1, sigue sobrando con margen. Igual con
-     bg-gold sólido + --gold-foreground (badges, AppShell): de 5.78:1 a
-     4.36:1, también con margen sobre el mínimo de UI/large-text.
-     --ring no se toca aunque comparte hoy el mismo valor literal: es un
-     token distinto (anillo de foco), no un consumidor de marca reportado
-     en esta auditoría.
-     Modo oscuro sin tocar: ya daba 6.4-6.7:1 contra sus propios fondos. Mismo
-     gap conocido que --warning: en tema oscuro, --gold sobre --marfil (fijo)
-     queda en 2.64:1 -- consecuencia de que marfil/carbón no cambian con el
-     tema, no compete a este fix. No verificado visualmente en la app real
-     (requiere login) -- solo por cálculo WCAG + tsc/eslint/tests/build. */
-  --gold: oklch(0.58 0.163 70.7);
+     --gold (más abajo) tenía todavía L=0.58 de un oscurecimiento del 14 sep
+     pensado para el hue ANTERIOR (52°) -- a 70.7° ese mismo L=0.58 renderiza
+     #B46400, que David describió como "marrón, nada que ver con nuestro
+     branding" (23 sep 2026, feedback directo mirando la app en producción).
+     Subido a L=0.65 (igual que --ring/--chart-2/--sidebar-primary/-ring, ya
+     estaban ahí) -> #CC7900, ámbar reconocible en vez de marrón.
+     Contraste con este L, recalculado en el hue nuevo: texto sólido vs
+     --card 3.33:1 (antes 4.40:1 a L=0.58), badge-tint (bg-gold/15 text-gold,
+     StatusBadge "Cliente", KPIs, permisos.index.tsx) 2.98:1 (antes 3.89:1) --
+     por debajo del mínimo de texto normal (4.5:1) y muy al límite del de
+     UI/texto grande (3:1). Decisión explícita de David: prioridad al color
+     de marca real sobre ese margen de contraste en estos usos concretos
+     (badges cortos en negrita, no texto de lectura corrida) -- gap conocido
+     y aceptado, no un descuido. --gold también es texto sobre --sidebar
+     (fondo oscuro fijo): con L=0.65 el contraste ahí sube (más luminosidad
+     favorece más, no menos, contra un fondo casi negro), sigue sobrando con
+     margen amplio. --ring no se toca aunque comparta valor literal: es un
+     token distinto (anillo de foco), no un consumidor de marca.
+     Modo oscuro sin tocar (L=0.68 ya daba un ámbar correcto, no marrón --
+     contra fondos oscuros la misma luminosidad relativa se percibe más
+     clara/dorada, no necesitaba este ajuste). No verificado visualmente en
+     la app real con sesión propia -- solo por cálculo + tsc/eslint/tests/build,
+     más las capturas de producción que compartió David para confirmar el
+     problema original. */
+  --gold: oklch(0.65 0.163 70.7);
   --gold-foreground: oklch(0.14 0.025 165);
 
   /* IA / SilvIA — acento propio, 23 sep 2026 (feedback de David: SilvIA

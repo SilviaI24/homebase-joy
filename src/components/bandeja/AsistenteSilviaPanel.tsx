@@ -74,7 +74,7 @@ export function AsistenteSilviaPanel() {
                   className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
                 >
                   <div
-                    className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold mt-0.5 ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-gradient-to-br from-primary/20 to-accent/30 text-primary"}`}
+                    className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold mt-0.5 ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-ai/15 text-ai"}`}
                   >
                     {msg.role === "user" ? (
                       <User2 className="size-3.5" />
@@ -91,7 +91,7 @@ export function AsistenteSilviaPanel() {
               ))}
               {chatLoading && (
                 <div className="flex gap-2">
-                  <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-accent/30 text-primary mt-0.5">
+                  <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-ai/15 text-ai mt-0.5">
                     <Sparkles className="size-3.5" />
                   </div>
                   <div className="rounded-lg px-3 py-2 bg-muted">

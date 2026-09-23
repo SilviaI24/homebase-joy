@@ -31,6 +31,7 @@ import type { ConversacionIa } from "@/lib/clientes-conversaciones.functions";
 import type { TipoInteres } from "@/lib/mutations-seguimiento.functions";
 import { cleanRef } from "@/lib/format";
 import { formatFecha, moneyShort } from "@/lib/bandeja-format";
+import { avatarColorClass } from "@/lib/contactos-format";
 
 const TIPO_INTERES_OPCIONES: Array<{ value: TipoInteres; label: string; icon: typeof Home }> = [
   { value: "Compra", label: "Compra", icon: Search },
@@ -94,7 +95,9 @@ export function ConversationCard({
       {/* Header tarjeta */}
       <header className="flex items-start justify-between gap-3 p-4">
         <div className="flex items-start gap-3 min-w-0 flex-1">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-accent/30 text-primary text-sm font-semibold">
+          <div
+            className={`flex size-9 shrink-0 items-center justify-center rounded-full text-white text-sm font-semibold ${avatarColorClass(c.nombre)}`}
+          >
             {c.nombre.charAt(0).toUpperCase() || "?"}
           </div>
           <div className="min-w-0 flex-1">
