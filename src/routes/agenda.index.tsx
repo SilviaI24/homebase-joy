@@ -1,16 +1,18 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useSuspenseQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { RouteError } from "@/components/RouteError";
-import { visitasQuery, seguimientosQuery, agentesQuery } from "@/lib/queries";
+import { visitasQuery, seguimientosQuery, agentesQuery, citasGoogleMesQuery } from "@/lib/queries";
 import { updateVisitaEstado } from "@/lib/mutations.functions";
 import type { VisitaFull } from "@/lib/visitas.functions";
 import { EditVisitaDialog } from "@/components/visitas/EditVisitaDialog";
 import { CalendarioVisitas } from "@/components/visitas/CalendarioVisitas";
+import { CitaGoogleCard, RechazoBadge } from "@/components/visitas/CitaGoogle";
+import type { CitaGoogle } from "@/lib/google-calendar.functions";
 import { NewVisitaDialog } from "@/components/CreateDialogs";
 import {
   Calendar,
@@ -179,6 +181,12 @@ function VisitasTab() {
   // aunque los datos reales no hayan cambiado.
   const visitas = useMemo(() => data.visitas ?? [], [data.visitas]);
 
+  // Citas que solo existen en Google Calendar. useQuery (no suspense) a
+  // propósito: la Agenda se pinta con las visitas del CRM aunque Google
+  // tarde o falle, y las citas aparecen al llegar.
+  const googleQ = useQuery(citasGoogleMesQuery(mesActual));
+  const google = googleQ.data;
+
   function navMes(dir: -1 | 1) {
     const [y, m] = mesActual.split("-").map(Number);
     const dt = new Date(y, m - 1 + dir, 1);
@@ -228,16 +236,32 @@ function VisitasTab() {
       });
   }, [visitas, mesActual, estadoFiltro, agenteFiltro, q]);
 
+  // Las citas de Google no tienen estado de visita: solo se muestran con el
+  // filtro "Todas" (con "Realizada"/"Cancelada" no tendría sentido mezclarlas).
+  const citasFiltradas = useMemo(() => {
+    if (estadoFiltro !== "Todas") return [];
+    const ql = q.trim().toLowerCase();
+    return (google?.citas ?? []).filter((c) => {
+      if (agenteFiltro !== "Todos" && c.agenteId !== agenteFiltro) return false;
+      if (ql) {
+        const haystack = [c.titulo, c.ubicacion ?? "", c.agenteNombre].join(" ").toLowerCase();
+        if (!haystack.includes(ql)) return false;
+      }
+      return true;
+    });
+  }, [google?.citas, estadoFiltro, agenteFiltro, q]);
+
   // Group by date
   const byDia = useMemo(() => {
-    const map = new Map<string, VisitaFull[]>();
-    for (const v of visitasFiltradas) {
-      const dia = (v.fecha ?? "").slice(0, 10);
-      if (!map.has(dia)) map.set(dia, []);
-      map.get(dia)!.push(v);
-    }
+    const map = new Map<string, { visitas: VisitaFull[]; citas: CitaGoogle[] }>();
+    const get = (dia: string) => {
+      if (!map.has(dia)) map.set(dia, { visitas: [], citas: [] });
+      return map.get(dia)!;
+    };
+    for (const v of visitasFiltradas) get((v.fecha ?? "").slice(0, 10)).visitas.push(v);
+    for (const c of citasFiltradas) get(c.dia).citas.push(c);
     return [...map.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
-  }, [visitasFiltradas]);
+  }, [visitasFiltradas, citasFiltradas]);
 
   const totals = useMemo(() => {
     const t = { Programada: 0, Realizada: 0, Cancelada: 0 };
@@ -329,8 +353,16 @@ function VisitasTab() {
         <NewVisitaDialog />
       </div>
 
+      <GoogleCalendarAviso
+        cargando={googleQ.isLoading}
+        conectados={google?.agentesConectados ?? null}
+        conError={google?.agentesConError ?? []}
+      />
+
       {/* KPI tiles */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div
+        className={`grid gap-3 mb-6 ${google?.agentesConectados ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}
+      >
         {Object.entries(totals).map(([estado, count]) => {
           const m = ESTADO_META[estado];
           if (!m) return null;
@@ -350,10 +382,31 @@ function VisitasTab() {
             </div>
           );
         })}
+        {!!google?.agentesConectados && (
+          // El indicador que empuja hacia el CRM: cuántas citas del mes siguen
+          // sin inmueble/cliente asociado porque solo existen en Google.
+          <div
+            className="rounded-xl border border-dashed border-info/50 bg-card p-4 flex items-center gap-3"
+            title="Citas del mes que solo están en Google Calendar. Regístralas como visita para vincularlas a un inmueble y un cliente."
+          >
+            <div className="rounded-lg p-2 text-info bg-info/10">
+              <CalendarDays className="size-5" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold tabular-nums">{citasFiltradas.length}</div>
+              <div className="text-xs text-muted-foreground">Sin registrar (Google)</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {vista === "calendario" && (
-        <CalendarioVisitas mesActual={mesActual} visitas={visitasFiltradas} />
+        <CalendarioVisitas
+          mesActual={mesActual}
+          visitas={visitasFiltradas}
+          citasGoogle={citasFiltradas}
+          rechazosVisitas={google?.rechazosVisitas}
+        />
       )}
 
       {/* Lista de visitas agrupadas por día */}
@@ -364,20 +417,29 @@ function VisitasTab() {
         </div>
       ) : vista === "lista" ? (
         <div className="space-y-6">
-          {byDia.map(([dia, visitasDia]) => (
+          {byDia.map(([dia, { visitas: visitasDia, citas: citasDia }]) => (
             <div key={dia}>
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground capitalize">
                   {formatFechaMes(dia)}
                 </span>
                 <span className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground">
-                  {visitasDia.length}
+                  {visitasDia.length + citasDia.length}
                 </span>
                 <hr className="flex-1 border-border" />
               </div>
               <div className="space-y-2">
                 {visitasDia.map((v) => (
-                  <VisitaCard key={v.id} visita={v} />
+                  <VisitaCard
+                    key={v.id}
+                    visita={v}
+                    rechazadoPor={
+                      (v.googleEventId && google?.rechazosVisitas[v.googleEventId]) || []
+                    }
+                  />
+                ))}
+                {citasDia.map((c) => (
+                  <CitaGoogleCard key={`g-${c.agenteId}-${c.id}`} cita={c} />
                 ))}
               </div>
             </div>
@@ -388,7 +450,54 @@ function VisitasTab() {
   );
 }
 
-function VisitaCard({ visita: v }: { visita: VisitaFull }) {
+// Estado de la lectura de Google Calendar en la Agenda. Sin nadie conectado,
+// invita a conectar (la Agenda no puede mostrar lo que no ve); con errores,
+// dice de quién, para que un mes "vacío" no se confunda con un mes sin citas.
+function GoogleCalendarAviso({
+  cargando,
+  conectados,
+  conError,
+}: {
+  cargando: boolean;
+  conectados: number | null;
+  conError: string[];
+}) {
+  if (cargando || conectados === null) return null;
+  if (conectados === 0) {
+    return (
+      <div className="mb-5 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm flex flex-wrap items-center gap-2">
+        <AlertCircle className="size-4 text-muted-foreground shrink-0" />
+        <span className="text-muted-foreground">
+          Ningún comercial tiene Google Calendar conectado: aquí solo se ven las visitas creadas en
+          el CRM.
+        </span>
+        <Link to="/perfil" className="font-medium text-primary hover:underline">
+          Conectar mi calendario
+        </Link>
+      </div>
+    );
+  }
+  if (conError.length > 0) {
+    return (
+      <div className="mb-5 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm flex items-center gap-2">
+        <AlertCircle className="size-4 text-warning shrink-0" />
+        <span>
+          No se pudieron leer las citas de Google de: {conError.join(", ")}. Puede que tengan que
+          volver a conectar su calendario desde su Perfil.
+        </span>
+      </div>
+    );
+  }
+  return null;
+}
+
+function VisitaCard({
+  visita: v,
+  rechazadoPor = [],
+}: {
+  visita: VisitaFull;
+  rechazadoPor?: string[];
+}) {
   const qc = useQueryClient();
   const estadoFn = useServerFn(updateVisitaEstado);
 
@@ -404,7 +513,11 @@ function VisitaCard({ visita: v }: { visita: VisitaFull }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 flex flex-wrap items-start gap-4">
       {/* Estado */}
-      <div className="pt-0.5">{estadoBadge(v.estado)}</div>
+      <div className="pt-0.5 flex flex-col items-start gap-1">
+        {estadoBadge(v.estado)}
+        {/* Una visita ya anulada no necesita el aviso: no hay nada que hacer. */}
+        {v.estado !== "Cancelada" && <RechazoBadge nombres={rechazadoPor} />}
+      </div>
 
       {/* Inmuebles */}
       <div className="flex-1 min-w-[180px]">

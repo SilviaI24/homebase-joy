@@ -5,6 +5,8 @@
 // siempre lo mismo.
 import { EditVisitaDialog } from "@/components/visitas/EditVisitaDialog";
 import type { VisitaFull } from "@/lib/visitas.functions";
+import type { CitaGoogle } from "@/lib/google-calendar.functions";
+import { CitaGoogleChip, RechazoIcono } from "@/components/visitas/CitaGoogle";
 
 const ESTADO_DOT: Record<string, string> = {
   Programada: "bg-warning",
@@ -54,22 +56,40 @@ function construirCeldas(mesActual: string): Celda[] {
   return celdas;
 }
 
+type ItemDia =
+  | { tipo: "visita"; v: VisitaFull; orden: string }
+  | { tipo: "google"; c: CitaGoogle; orden: string };
+
 export function CalendarioVisitas({
   mesActual,
   visitas,
+  citasGoogle = [],
+  rechazosVisitas = {},
 }: {
   mesActual: string;
   visitas: VisitaFull[];
+  // Citas que solo existen en Google Calendar -- se pintan en la misma
+  // cuadrícula, con estilo distinto (ver CitaGoogleChip).
+  citasGoogle?: CitaGoogle[];
+  // google_event_id -> invitados que han rechazado (ver listCitasGoogleMes).
+  rechazosVisitas?: Record<string, string[]>;
 }) {
-  const porDia = new Map<string, VisitaFull[]>();
+  const porDia = new Map<string, ItemDia[]>();
+  const push = (dia: string, item: ItemDia) => {
+    if (!porDia.has(dia)) porDia.set(dia, []);
+    porDia.get(dia)!.push(item);
+  };
   for (const v of visitas) {
     const dia = (v.fecha ?? "").slice(0, 10);
     if (!dia) continue;
-    if (!porDia.has(dia)) porDia.set(dia, []);
-    porDia.get(dia)!.push(v);
+    push(dia, { tipo: "visita", v, orden: v.fecha ?? "" });
+  }
+  for (const c of citasGoogle) {
+    // Día completo primero, antes que cualquier cita con hora.
+    push(c.dia, { tipo: "google", c, orden: c.todoElDia ? "" : new Date(c.inicio).toISOString() });
   }
   for (const lista of porDia.values()) {
-    lista.sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? ""));
+    lista.sort((a, b) => a.orden.localeCompare(b.orden));
   }
 
   const celdas = construirCeldas(mesActual);
@@ -110,27 +130,40 @@ export function CalendarioVisitas({
                 {c.dia}
               </div>
               <div className="space-y-1">
-                {visitasDia.slice(0, MAX_VISIBLE).map((v) => (
-                  <EditVisitaDialog
-                    key={v.id}
-                    visita={v}
-                    trigger={
-                      <button
-                        type="button"
-                        className="w-full flex items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] leading-tight hover:bg-accent transition-colors"
-                        title={tituloVisita(v)}
-                      >
-                        <span
-                          className={`size-1.5 rounded-full shrink-0 ${ESTADO_DOT[v.estado] ?? "bg-muted-foreground"}`}
-                        />
-                        <span className="text-muted-foreground tabular-nums shrink-0">
-                          {horaCorta(v.fecha)}
-                        </span>
-                        <span className="truncate">{tituloVisita(v)}</span>
-                      </button>
-                    }
-                  />
-                ))}
+                {visitasDia.slice(0, MAX_VISIBLE).map((item) => {
+                  if (item.tipo === "google") {
+                    return (
+                      <CitaGoogleChip key={`g-${item.c.agenteId}-${item.c.id}`} cita={item.c} />
+                    );
+                  }
+                  const v = item.v;
+                  return (
+                    <EditVisitaDialog
+                      key={v.id}
+                      visita={v}
+                      trigger={
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] leading-tight hover:bg-accent transition-colors"
+                          title={tituloVisita(v)}
+                        >
+                          <span
+                            className={`size-1.5 rounded-full shrink-0 ${ESTADO_DOT[v.estado] ?? "bg-muted-foreground"}`}
+                          />
+                          <span className="text-muted-foreground tabular-nums shrink-0">
+                            {horaCorta(v.fecha)}
+                          </span>
+                          <span className="truncate">{tituloVisita(v)}</span>
+                          {v.estado !== "Cancelada" && (
+                            <RechazoIcono
+                              nombres={(v.googleEventId && rechazosVisitas[v.googleEventId]) || []}
+                            />
+                          )}
+                        </button>
+                      }
+                    />
+                  );
+                })}
                 {visitasDia.length > MAX_VISIBLE && (
                   <div className="px-1 text-[11px] text-muted-foreground">
                     +{visitasDia.length - MAX_VISIBLE} más

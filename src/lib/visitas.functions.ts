@@ -18,6 +18,10 @@ export type VisitaFull = {
   clientesTelefonos: string[];
   agentesIds: string[];
   agentesMails: string[];
+  // Evento de Google Calendar enlazado (creado desde el CRM o registrado
+  // desde una cita de Google) -- la Agenda lo usa para avisar si un invitado
+  // ha rechazado la cita.
+  googleEventId: string | null;
 };
 
 const ESTADOS_VISITA = ["Programada", "Realizada", "Cancelada"] as const;
@@ -40,6 +44,7 @@ type VisitaQueryRow = {
   } | null;
   contacts: { id: string; nombre: string | null; telefono: string | null } | null;
   agents: { id: string; email: string | null } | null;
+  google_event_id: string | null;
 };
 
 export const listVisitas = createServerFn({ method: "GET" }).handler(async () => {
@@ -53,7 +58,7 @@ export const listVisitas = createServerFn({ method: "GET" }).handler(async () =>
     .from("visits")
     .select(
       `
-      id, fecha, estado, notas,
+      id, fecha, estado, notas, google_event_id,
       properties(id, calle, numero, barrio),
       contacts(id, nombre, telefono),
       agents(id, email)
@@ -84,6 +89,7 @@ export const listVisitas = createServerFn({ method: "GET" }).handler(async () =>
     clientesTelefonos: r.contacts ? [r.contacts.telefono ?? ""] : [],
     agentesIds: r.agents ? [r.agents.id] : [],
     agentesMails: r.agents ? [r.agents.email ?? ""] : [],
+    googleEventId: r.google_event_id ?? null,
   }));
 
   return { visitas };

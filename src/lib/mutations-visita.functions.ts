@@ -18,6 +18,10 @@ export type CreateVisitaPayload = {
   inmueblesIds: string[];
   clientesIds?: string[];
   agentesIds?: string[];
+  // "Registrar como visita" desde una cita que solo existe en Google Calendar
+  // (Agenda, 23 sep 2026): la visita se enlaza a ese evento en vez de crear
+  // otro nuevo en Google -- si no, el comercial vería la cita duplicada.
+  googleEvento?: { agenteId: string; eventId: string };
 };
 
 // Validación de "estado de visita permitido", compartida por createVisita y
@@ -79,7 +83,21 @@ export const createVisita = createServerFn({ method: "POST" })
     const ag = arrOpt(data.agentesIds);
     const notas = com ? toSentenceCase(com) : null;
     const contactId = cli?.length ? cli[0] : null;
-    const agenteId = ag?.length ? ag[0] : null;
+    const googleEvento = data.googleEvento?.eventId ? data.googleEvento : null;
+    // El evento vive en el calendario de un agente concreto: la visita tiene
+    // que quedar asignada a él para que editarla/anularla después actualice
+    // ese mismo evento (updateVisita/deleteVisita usan el agente de la visita).
+    const agenteId = googleEvento?.agenteId ?? (ag?.length ? ag[0] : null);
+
+    if (googleEvento) {
+      const { data: yaEnlazada } = await supa
+        .from("visits")
+        .select("id")
+        .eq("google_event_id", googleEvento.eventId)
+        .limit(1)
+        .maybeSingle();
+      if (yaEnlazada) throw new Error("Esta cita de Google ya está registrada como visita");
+    }
 
     // El diálogo permite seleccionar varios inmuebles a la vez ("Seleccionados:
     // N"), pero cada fila de `visits` es un inmueble por visita — antes solo
@@ -87,7 +105,7 @@ export const createVisita = createServerFn({ method: "POST" })
     // (auditoría 12 sep 2026). Se crea una visita por inmueble seleccionado,
     // con el mismo cliente/agente/fecha/notas en todas.
     const ids: string[] = [];
-    for (const propertyId of data.inmueblesIds) {
+    for (const [i, propertyId] of data.inmueblesIds.entries()) {
       // H-05: vía RPC para que el actor real quede en audit_log.usuario_id.
       const { data: visitaId, error } = await supa.rpc("crm_crear_visita", {
         p_fecha: data.fecha,
@@ -100,6 +118,18 @@ export const createVisita = createServerFn({ method: "POST" })
       });
       if (error) throw new Error(error.message);
       ids.push(visitaId as string);
+
+      // Cita que ya existía en Google: se enlaza a la primera visita (una
+      // cita = un evento); si se eligieron más inmuebles, el resto sigue el
+      // camino normal y crea su propio evento.
+      if (googleEvento && i === 0) {
+        const { error: errLink } = await supa
+          .from("visits")
+          .update({ google_event_id: googleEvento.eventId })
+          .eq("id", visitaId as string);
+        if (errLink) throw new Error(errLink.message);
+        continue;
+      }
 
       // Google Calendar: empuje único CRM -> Google, best-effort (nunca
       // bloquea ni falla la creación de la visita si el agente no tiene

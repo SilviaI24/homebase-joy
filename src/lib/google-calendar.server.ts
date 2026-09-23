@@ -239,3 +239,116 @@ export async function eliminarEventoGoogle(agentId: string, eventId: string): Pr
     console.error("eliminarEventoGoogle:", e);
   }
 }
+
+// ── Lectura Google -> CRM (23 sep 2026) ──────────────────────────────────────
+// El equipo sigue agendando en Google Calendar, así que la Agenda del CRM
+// también muestra las citas que existen solo en Google. Es SOLO lectura: el
+// CRM nunca modifica ni borra un evento que no haya creado él (o que el
+// comercial no haya "registrado como visita" explícitamente). El scope
+// calendar.events que ya se pedía incluye leer eventos -- no hace falta que
+// nadie vuelva a conectar su cuenta.
+
+export type EventoGoogle = {
+  id: string;
+  titulo: string;
+  inicio: string; // ISO con hora, o YYYY-MM-DD si es de día completo
+  fin: string | null;
+  todoElDia: boolean;
+  ubicacion: string | null;
+  descripcion: string | null;
+  // Evento marcado como privado/confidencial en Google: el CRM solo muestra
+  // "Ocupado", nunca su título ni su contenido.
+  privado: boolean;
+  enlace: string | null;
+  // Invitados (el cliente, normalmente) que han rechazado la cita. Solo
+  // personas: las salas/recursos no cuentan, ni el propio comercial (sus
+  // propios rechazos ya se descartan del todo). En una cita privada no se
+  // dan nombres, solo "Un invitado".
+  rechazadoPor: string[];
+};
+
+type GoogleEventRaw = {
+  id: string;
+  status?: string;
+  summary?: string;
+  description?: string;
+  location?: string;
+  visibility?: string;
+  htmlLink?: string;
+  start?: { dateTime?: string; date?: string };
+  end?: { dateTime?: string; date?: string };
+  attendees?: Array<{
+    self?: boolean;
+    resource?: boolean;
+    responseStatus?: string;
+    email?: string;
+    displayName?: string;
+  }>;
+};
+
+// Máximo de páginas de 250 eventos por agente y rango -- un mes normal cabe
+// en una, esto solo evita un bucle infinito ante una respuesta anómala.
+const MAX_PAGINAS_EVENTOS = 4;
+
+export async function listarEventosGoogle(
+  agentId: string,
+  timeMinISO: string,
+  timeMaxISO: string,
+): Promise<EventoGoogle[] | null> {
+  const token = await getValidAccessToken(agentId);
+  if (!token) return null;
+
+  const eventos: EventoGoogle[] = [];
+  let pageToken: string | undefined;
+  try {
+    for (let pagina = 0; pagina < MAX_PAGINAS_EVENTOS; pagina++) {
+      const params = new URLSearchParams({
+        timeMin: timeMinISO,
+        timeMax: timeMaxISO,
+        singleEvents: "true", // expande los eventos recurrentes en ocurrencias
+        orderBy: "startTime",
+        maxResults: "250",
+      });
+      if (pageToken) params.set("pageToken", pageToken);
+      const res = await fetch(`${GOOGLE_EVENTS_URL}?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        console.error("listarEventosGoogle:", await res.text());
+        return null;
+      }
+      const data = (await res.json()) as { items?: GoogleEventRaw[]; nextPageToken?: string };
+      for (const e of data.items ?? []) {
+        if (e.status === "cancelled") continue;
+        // Invitaciones que el comercial ha rechazado: no es una cita suya.
+        if (e.attendees?.some((a) => a.self && a.responseStatus === "declined")) continue;
+        const inicio = e.start?.dateTime ?? e.start?.date;
+        if (!inicio) continue;
+        const privado = e.visibility === "private" || e.visibility === "confidential";
+        const rechazadoPor = (e.attendees ?? [])
+          .filter((a) => !a.self && !a.resource && a.responseStatus === "declined")
+          .map((a) =>
+            privado ? "Un invitado" : a.displayName?.trim() || a.email || "Un invitado",
+          );
+        eventos.push({
+          id: e.id,
+          titulo: privado ? "Ocupado" : e.summary?.trim() || "(sin título)",
+          inicio,
+          fin: e.end?.dateTime ?? e.end?.date ?? null,
+          todoElDia: !e.start?.dateTime,
+          ubicacion: privado ? null : (e.location ?? null),
+          descripcion: privado ? null : (e.description ?? null),
+          privado,
+          enlace: e.htmlLink ?? null,
+          rechazadoPor,
+        });
+      }
+      pageToken = data.nextPageToken;
+      if (!pageToken) break;
+    }
+  } catch (e) {
+    console.error("listarEventosGoogle:", e);
+    return null;
+  }
+  return eventos;
+}

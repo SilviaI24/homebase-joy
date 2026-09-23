@@ -20,13 +20,29 @@ import { createVisita, type CreateVisitaPayload } from "@/lib/mutations.function
 import { agentesQuery, searchInmueblesQuery, searchClientesPickerQuery } from "@/lib/queries";
 import { Field, MoreSection, MultiSelect, NewButton } from "@/components/create-dialogs/shared";
 
+// Fecha ISO -> valor de <input type="datetime-local"> (hora local, sin zona).
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function NewVisitaDialog({
   defaultInmuebleId,
   defaultClienteId,
+  defaultFecha,
+  defaultAgenteId,
+  defaultComentarios,
+  googleEvento,
   trigger,
 }: {
   defaultInmuebleId?: string;
   defaultClienteId?: string;
+  // Prefill desde una cita de Google ("Registrar como visita" en la Agenda).
+  defaultFecha?: string;
+  defaultAgenteId?: string;
+  defaultComentarios?: string;
+  googleEvento?: { agenteId: string; eventId: string };
   trigger?: ReactNode;
 }) {
   const qc = useQueryClient();
@@ -34,10 +50,15 @@ export function NewVisitaDialog({
   const [open, setOpen] = useState(false);
   const agentes = useQuery({ ...agentesQuery, enabled: open });
   const [form, setForm] = useState<CreateVisitaPayload>({
-    fecha: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+    fecha: defaultFecha
+      ? toDatetimeLocal(defaultFecha)
+      : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
     estado: "Programada",
     inmueblesIds: defaultInmuebleId ? [defaultInmuebleId] : [],
     clientesIds: defaultClienteId ? [defaultClienteId] : [],
+    agentesIds: defaultAgenteId ? [defaultAgenteId] : undefined,
+    comentarios: defaultComentarios,
+    googleEvento,
   });
   const [inmFilter, setInmFilter] = useState("");
   const [cliFilter, setCliFilter] = useState("");
@@ -46,8 +67,9 @@ export function NewVisitaDialog({
     mutationFn: (payload: CreateVisitaPayload) =>
       fn({ data: { ...payload, fecha: new Date(payload.fecha).toISOString() } }),
     onSuccess: () => {
-      toast.success("Visita creada");
+      toast.success(googleEvento ? "Cita registrada como visita" : "Visita creada");
       qc.invalidateQueries({ queryKey: ["visitas-all"] });
+      qc.invalidateQueries({ queryKey: ["citas-google"] });
       qc.invalidateQueries({ queryKey: ["visitas-by-inmueble"] });
       setOpen(false);
     },
@@ -87,8 +109,12 @@ export function NewVisitaDialog({
       )}
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Nueva visita</DialogTitle>
-          <DialogDescription>Se guardará y aparecerá en el calendario.</DialogDescription>
+          <DialogTitle>{googleEvento ? "Registrar como visita" : "Nueva visita"}</DialogTitle>
+          <DialogDescription>
+            {googleEvento
+              ? "Vincula esta cita de Google Calendar a un inmueble y un cliente. La cita no se duplica en Google."
+              : "Se guardará y aparecerá en el calendario."}
+          </DialogDescription>
         </DialogHeader>
         <form
           onSubmit={(e) => {
@@ -183,7 +209,7 @@ export function NewVisitaDialog({
             </Button>
             <Button type="submit" disabled={mut.isPending}>
               {mut.isPending && <Loader2 className="size-4 animate-spin mr-1.5" />}
-              Crear visita
+              {googleEvento ? "Registrar visita" : "Crear visita"}
             </Button>
           </DialogFooter>
         </form>
