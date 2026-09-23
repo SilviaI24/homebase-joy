@@ -18,6 +18,7 @@ import {
   Line,
 } from "recharts";
 import { AppShell } from "@/components/AppShell";
+import { HeaderStats } from "@/components/HeaderStats";
 import { RouteError } from "@/components/RouteError";
 import { moneyShort, moneyFull, fmtMes } from "@/lib/dashboard-format";
 import {
@@ -305,6 +306,8 @@ function Dashboard() {
       title="Dashboard"
       subtitle={`${stats.activos} activos · ${cliTotal} clientes · ${visStats.proximas} visitas próximas`}
     >
+      <HeaderStats />
+
       {/* ── ROW 1: Hero ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
         <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 flex flex-col min-h-[200px]">

@@ -136,6 +136,99 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Mini-dashboard en cabecera (Fase 0) + linea_actividad instrumentada
+  (Fase 1) — 23 sep 2026.** Origen: David pidió un widget con contactos por
+  canal, leads recientes y propiedad más demandada, "preparado para machine
+  learning y posibilidades futuras". Antes de diseñar nada se auditó qué
+  infraestructura de datos ya existía — hallazgo clave: `linea_actividad`
+  (property_id/contact_id/operation_id/actor_id/tipo_evento/metadata) ya
+  existe, construida para el feed de actividad en tiempo real del Portal
+  (ESGI phase 2), pero el CRM nunca escribía en ella — el feed "Actividad
+  reciente" de Comerciales (`listInmueblesActividadReciente`) reconstruye la
+  actividad a mano comparando fechas de `properties`, un heurístico propio en
+  vez de leer la tabla que ya está hecha para esto. Propuesta completa
+  (con mockup y justificación de cada decisión) en un Artifact compartido con
+  David antes de tocar código.
+  - **Fase 0 (hecha):** `dashboard_header_stats()` — función SQL dedicada
+    (no reutiliza `dashboard_contactos_stats()` a propósito: esa calcula
+    pipeline+agentes+12 meses de series, mucho más caro de lo que necesita
+    un widget montado en 3 páginas). Devuelve contactos por canal, leads
+    30d/90d (sin porcentaje de variación: el periodo 90-180 días incluye un
+    volcado histórico masivo que distorsiona cualquier comparación hasta el
+    absurdo) y la propiedad Activo/Reservado con más interesados+visitas de
+    los últimos 90 días. Nuevo componente `HeaderStats.tsx`, montado en
+    Dashboard, Contactos y Cartera (decisión explícita de David: "también en
+    contactos, cartera").
+  - **Fase 1 (empezada):** 5 eventos de mayor valor para un futuro modelo,
+    instrumentados en las RPC ya existentes (`crm_crear_cliente` → lead
+    creado, `crm_crear_visita` → visita agendada, `crm_actualizar_visita_estado`
+    → visita realizada/cancelada, `crm_actualizar_inmueble` → inmueble
+    reservado, `cerrar_operacion_crm` → operación cerrada). Reutiliza el
+    CHECK de `tipo_evento` que ya existe (`'visita'`, `'cambio_estado'`,
+    `'contacto'`...) en vez de ampliarlo — el matiz de cada evento concreto
+    va en `descripcion`/`metadata`, para no tener que coordinar un cambio de
+    constraint compartido con `elsol-client-hub` solo por esto. El feed de
+    "Actividad reciente" de Comerciales **no se ha migrado todavía** a leer
+    de `linea_actividad` — sigue en su heurístico actual hasta que haya
+    suficiente historial real acumulado (ver Fase 2). Migración:
+    `20260923150000_fase0_header_stats_fase1_linea_actividad.sql`, copiada
+    también a `elsol-client-hub` (regla de migraciones compartidas).
+  - **Fase 2 (proyectada, no construida — deliberadamente):** con 17 filas
+    en `linea_actividad` el día de este cambio, no hay nada que entrenar
+    todavía — mismo criterio que ya se aplica en
+    `REGLA_CALIDAD_METRICAS_AGREGADAS_2026-08-20.md` (no publicar lo que el
+    dato de origen no sostiene). El plan, para cuando haya 3-6 meses de
+    volumen real:
+    1. Migrar el feed de "Actividad reciente" de Comerciales a leer de
+       `linea_actividad` en vez de su heurístico actual.
+    2. **Score de lead v2**: sustituir el heurístico rule-based actual de
+       `getLeadInsightsFn` (regex de canal + franjas de días sin contacto)
+       por un modelo entrenado sobre conversión real Lead→Cliente, usando
+       `linea_actividad` como historial de eventos por contacto.
+    3. **Predicción de "tiempo hasta reservarse/venderse"** por tipo/zona,
+       con `estadisticas_barrio` como variable de contexto (precio de
+       mercado de la zona) y los eventos `visita`/`cambio_estado` de
+       `linea_actividad` como serie temporal de entrada.
+    4. **Alerta de demanda anómala** ("esta zona tiene N× los interesados
+       habituales") — extensión directa de `dashboard_header_stats()`,
+       comparando la ventana de 90 días contra su propio histórico una vez
+       haya suficientes ventanas completas para definir "habitual".
+    Umbral explícito antes de construir cualquiera de los 4: mínimo de
+    muestra documentado con datos reales (mismo criterio que la regla de
+    métricas agregadas), no una fecha de calendario.
+  Verificado: `dashboard_header_stats()` probado contra producción antes de
+  montar el frontend (devuelve datos reales, no placeholder). tsc/eslint
+  limpios, 160/160 tests, build OK. No verificado visualmente en la app real
+  (requiere login).
+
+- **Google Calendar → Agenda del CRM (lectura) — 23 sep 2026.** Decisión de
+  David: el equipo sigue agendando en Google Calendar, pero el objetivo es que
+  acabe trabajando en el CRM. La integración CRM → Google (15 sep, commit
+  `01a68b2`) nunca se activó: **faltan `GOOGLE_CALENDAR_CLIENT_ID`/
+  `_CLIENT_SECRET`/`_REDIRECT_URI` en Vercel y `.env.local`** (0 agentes
+  conectados, verificado en producción). Añadido el sentido contrario, solo
+  lectura: `listCitasGoogleMes` (`google-calendar.functions.ts`) lee el
+  calendario principal de cada agente conectado para el mes visible y la
+  Agenda (`/agenda`) las muestra junto a las visitas con estilo discontinuo
+  ("Solo en Google"), excluyendo las que ya son visita (`visits.google_event_id`),
+  las canceladas y las invitaciones rechazadas; las privadas/confidenciales
+  salen como "Ocupado" sin detalle. Sin scope nuevo (`calendar.events` ya
+  permite leer). **Puente hacia el CRM:** cada cita tiene "Registrar como
+  visita" (`NewVisitaDialog` con `googleEvento`) → `createVisita` enlaza la
+  visita al evento existente en vez de crear otro en Google (sin duplicados),
+  forzando como agente al dueño del calendario. KPI "Sin registrar (Google)"
+  en la Agenda para ver cuánto trabajo sigue fuera del CRM. No se modifica
+  nunca un evento de Google que el CRM no haya creado o enlazado.
+  **Aviso de rechazo del invitado (mismo día):** si un invitado de la cita
+  (normalmente el cliente; no salas/recursos, no el propio comercial) la
+  rechaza en Google, la Agenda lo marca ("Rechazada por …") tanto en citas
+  "Solo en Google" como en visitas del CRM ya enlazadas (`rechazosVisitas`,
+  vía el nuevo `VisitaFull.googleEventId`) — registrar la cita no pierde el
+  aviso. No aplica a visitas creadas desde el CRM: ese evento no invita al
+  cliente (`eventBody` sin `attendees`). Verificado: tsc/eslint limpios,
+  160/160 tests, build OK. **No verificado en pantalla** (requiere login y
+  credenciales de Google aún sin crear).
+
 - **Auditoría del pipeline Airtable → ESGI → web pública (portada de fotos +
   inmuebles reservados visibles) — 23 sep 2026.** Origen: la oficina reportó
   fotos de portada erróneas (planos/baños en vez de la foto principal) y

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { AppShell } from "@/components/AppShell";
+import { HeaderStats } from "@/components/HeaderStats";
 import { SectionTabs } from "@/components/SectionTabs";
 import { EstatusInmuebleBadge, estatusAccentClass } from "@/components/StatusBadge";
 import { RouteError } from "@/components/RouteError";
@@ -136,6 +137,8 @@ function CarteraPage() {
 
   return (
     <AppShell title="Cartera">
+      <HeaderStats />
+
       <SectionTabs tabs={TAB_CONFIG} value={tab} onChange={setTab} />
 
       {tab === "captacion" && <CaptacionTab />}

@@ -19,6 +19,7 @@ import {
   getClienteById,
   listContactosPage,
   getDashboardContactCounts,
+  getHeaderStats,
 } from "@/lib/clientes.functions";
 import { listConversacionesIaPage } from "@/lib/clientes-conversaciones.functions";
 import { listVisitas } from "@/lib/visitas.functions";
@@ -32,7 +33,7 @@ import type { SearchClientesPickerParams } from "@/lib/seguimiento.functions";
 import { listOperaciones } from "@/lib/operaciones.functions";
 import { getStatsData } from "@/lib/clientes.functions";
 import { getMyRole } from "@/lib/role.functions";
-import { getGoogleCalendarStatus } from "@/lib/google-calendar.functions";
+import { getGoogleCalendarStatus, listCitasGoogleMes } from "@/lib/google-calendar.functions";
 
 export const agentesQuery = queryOptions({
   queryKey: ["agentes"],
@@ -69,6 +70,15 @@ export const comerciablesInmueblesQuery = queryOptions({
 export const actividadInmueblesQuery = queryOptions({
   queryKey: ["actividad-inmuebles"],
   queryFn: () => listInmueblesActividadReciente(),
+  staleTime: 2 * 60 * 1000,
+  gcTime: 15 * 60 * 1000,
+});
+
+// Mini-dashboard de cabecera (Dashboard/Contactos/Cartera) — ver
+// dashboard_header_stats() en la migración de Fase 0, 23 sep 2026.
+export const headerStatsQuery = queryOptions({
+  queryKey: ["header-stats"],
+  queryFn: () => getHeaderStats(),
   staleTime: 2 * 60 * 1000,
   gcTime: 15 * 60 * 1000,
 });
@@ -194,6 +204,17 @@ export const googleCalendarStatusQuery = queryOptions({
   staleTime: 60 * 1000,
   gcTime: 5 * 60 * 1000,
 });
+
+// Citas que solo existen en Google Calendar, para mezclarlas con las visitas
+// en la Agenda. staleTime corto: el equipo agenda en Google a lo largo del
+// día y la Agenda tiene que reflejarlo sin esperar a recargar la página.
+export const citasGoogleMesQuery = (mes: string) =>
+  queryOptions({
+    queryKey: ["citas-google", mes],
+    queryFn: () => listCitasGoogleMes({ data: { mes } }),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+  });
 
 // ── Paginated query factories ─────────────────────────────────────────────────
 

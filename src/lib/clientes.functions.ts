@@ -884,6 +884,39 @@ export const getStatsData = createServerFn({ method: "GET" }).handler(async () =
   return data as StatsData;
 });
 
+// ── Mini-dashboard de cabecera (propuesta "Métricas en cabecera", 23 sep
+// 2026, Fase 0) — función dedicada y deliberadamente distinta de
+// dashboard_contactos_stats(): esta se monta en 3 páginas (Dashboard,
+// Contactos, Cartera) y no necesita pipeline/agentes/12 meses de series, solo
+// los 4 números del widget. Contactos por canal, leads 30/90 días y la
+// propiedad con más interesados+visitas recientes -- todo con datos que ya
+// existían, sin tabla nueva. Sin porcentaje de variación en el tipo: el
+// periodo anterior real (90-180 días) incluye un volcado histórico masivo de
+// contactos que distorsiona cualquier "vs. periodo anterior" hasta rozar el
+// absurdo -- se devuelven los recuentos crudos y el propio componente decide
+// si tiene sentido mostrar una comparación, no esta función.
+export type HeaderStats = {
+  canales: Record<string, number>;
+  leads30d: number;
+  leads90d: number;
+  propiedadDemandada: {
+    id: string;
+    direccion: string | null;
+    localidad: string | null;
+    ref: string | null;
+    interesados: number;
+    visitas: number;
+  } | null;
+};
+
+export const getHeaderStats = createServerFn({ method: "GET" }).handler(async () => {
+  await requirePermissions("contacts.read");
+  const supa = getSupa();
+  const { data, error } = await supa.rpc("dashboard_header_stats");
+  if (error) throw new Error(`getHeaderStats: ${error.message}`);
+  return data as HeaderStats;
+});
+
 // ── Lead Insights (Meta scoring rule-based) ───────────────────────────────────
 
 export type LeadInsight = {

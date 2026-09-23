@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { UserCog, Search, Mail, Users, Inbox, LayoutList, Columns3, RotateCcw } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { HeaderStats } from "@/components/HeaderStats";
 import { SectionTabs } from "@/components/SectionTabs";
 import { RouteError } from "@/components/RouteError";
 import { NewClienteDialog } from "@/components/CreateDialogs";
@@ -102,6 +103,8 @@ function ContactosPage() {
 
   return (
     <AppShell title="Contactos">
+      <HeaderStats />
+
       <SectionTabs tabs={TAB_CONFIG} value={tab} onChange={setTab} />
 
       {tab === "leads" && <LeadsTab />}
