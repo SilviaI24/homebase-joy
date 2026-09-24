@@ -67,7 +67,7 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
     mutationFn: (payload: CreateClientePayload) => fn({ data: payload }),
     onSuccess: () => {
       toast.success("Cliente creado");
-      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["clientes-stats"] });
       qc.invalidateQueries({ queryKey: ["clientes"] });
       setOpen(false);
       setForm({ nombre: "", fecha: new Date().toISOString().slice(0, 10) });
@@ -214,11 +214,7 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
                     <li key={d.id}>{d.nombre || "Sin nombre"}</li>
                   ))}
                 </ul>
-                <Link
-                  to="/contactos"
-                  search={{ tab: "clientes", id: undefined }}
-                  className="font-medium underline hover:no-underline"
-                >
+                <Link to="/contactos" className="font-medium underline hover:no-underline">
                   Ver contactos
                 </Link>
               </div>

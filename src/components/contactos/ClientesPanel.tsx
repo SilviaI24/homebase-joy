@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   Archive,
   KeyRound,
+  BadgeCheck,
 } from "lucide-react";
 import { SafeImage } from "@/components/SafeImage";
 import { Progress } from "@/components/ui/progress";
@@ -364,12 +365,24 @@ export function ClienteRow({ c, onClick }: { c: ClienteRowType; onClick: () => v
         {c.telefono || "—"}
       </td>
       <td className="py-3 px-2">
-        <span
-          className={`inline-flex items-center gap-1 text-xs border rounded-full px-2.5 py-1 font-medium ${segCfg.chip}`}
-        >
-          <Icon className="size-3" />
-          {segCfg.label.replace("s", "")}
-        </span>
+        {c.esCliente ? (
+          <span className="inline-flex items-center gap-1 text-xs border rounded-full px-2.5 py-1 font-medium bg-success/15 text-success border-success/20">
+            <BadgeCheck className="size-3" />
+            Cliente
+          </span>
+        ) : c.etapa === "Prospecto" ? (
+          <span className="inline-flex items-center gap-1 text-xs border rounded-full px-2.5 py-1 font-medium bg-warning/10 text-warning border-warning/30">
+            <Icon className="size-3" />
+            En captación
+          </span>
+        ) : (
+          <span
+            className={`inline-flex items-center gap-1 text-xs border rounded-full px-2.5 py-1 font-medium ${segCfg.chip}`}
+          >
+            <Icon className="size-3" />
+            {segCfg.singular}
+          </span>
+        )}
       </td>
       <td className="py-3 px-2 text-xs text-muted-foreground whitespace-nowrap">
         {formatFechaCorta(c.fecha)}
@@ -435,7 +448,7 @@ export function ClienteDetallePanel({ id }: { id: string }) {
               className={`inline-flex items-center gap-1 text-xs border rounded-full px-2.5 py-1 font-medium ${segCfg.chip}`}
             >
               <segCfg.icon className="size-3" />
-              {segCfg.label.replace("s", "")}
+              {segCfg.singular}
             </span>
             {hasSilviaConversation(cliente) && <CanalChip canal={canal} />}
           </div>

@@ -28,7 +28,7 @@ export function AsignarLeadButton({
     mutationFn: (ids: string[]) => fn({ data: { clienteId, agentesIds: ids } }),
     onSuccess: () => {
       toast.success("Lead asignado");
-      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["clientes-stats"] });
       qc.invalidateQueries({ queryKey: ["clientes"] });
       setOpen(false);
     },

@@ -15,7 +15,7 @@ import {
   Euro,
   ArrowRight,
   UserCheck,
-  Archive,
+  Ban,
   Home,
   KeyRound,
   Search,
@@ -26,12 +26,24 @@ import { Link } from "@tanstack/react-router";
 import { CanalChip, Transcripcion, type Canal } from "@/components/silvia/conversation";
 import { AsignarLeadButton } from "@/components/AsignarLeadButton";
 import { MencionadoCard } from "@/components/bandeja/MencionadoCard";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { Inmueble } from "@/lib/inmuebles.functions";
 import type { ConversacionIa } from "@/lib/clientes-conversaciones.functions";
 import type { TipoInteres } from "@/lib/mutations-seguimiento.functions";
 import { cleanRef } from "@/lib/format";
 import { formatFecha, moneyShort } from "@/lib/bandeja-format";
-import { avatarColorClass } from "@/lib/contactos-format";
+import {
+  avatarColorClass,
+  MOTIVOS_DESCARTE,
+  motivoDescarteLabel,
+  type MotivoDescarte,
+} from "@/lib/contactos-format";
 
 const TIPO_INTERES_OPCIONES: Array<{ value: TipoInteres; label: string; icon: typeof Home }> = [
   { value: "Compra", label: "Compra", icon: Search },
@@ -44,14 +56,14 @@ export function ConversationCard({
   canal,
   mencionados,
   isOpen,
-  isArchived,
+  isDescartado,
   isCualified,
   routingActive,
   replyOpenActive,
   replyText,
   replySendingActive,
   onToggleExpand,
-  onArchivar,
+  onDescartar,
   onStartRouting,
   onCancelRouting,
   onRoute,
@@ -65,14 +77,14 @@ export function ConversationCard({
   canal: Canal;
   mencionados: Inmueble[];
   isOpen: boolean;
-  isArchived: boolean;
+  isDescartado: boolean;
   isCualified: boolean;
   routingActive: boolean;
   replyOpenActive: boolean;
   replyText: string;
   replySendingActive: boolean;
   onToggleExpand: () => void;
-  onArchivar: () => void;
+  onDescartar: (motivo: MotivoDescarte) => void;
   onStartRouting: () => void;
   onCancelRouting: () => void;
   onRoute: (tipo: "captacion" | "compra" | "alquiler") => void;
@@ -85,7 +97,7 @@ export function ConversationCard({
   return (
     <article
       className={`rounded-lg border bg-card transition-colors ${
-        isArchived
+        isDescartado
           ? "border-border opacity-60"
           : isCualified
             ? "border-success/40"
@@ -109,9 +121,10 @@ export function ConversationCard({
                   <UserCheck className="size-3" /> Cualificado
                 </span>
               )}
-              {isArchived && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
-                  <Archive className="size-3" /> Archivado
+              {isDescartado && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive bg-destructive/10 px-2 py-1 rounded">
+                  <Ban className="size-3" /> Descartado
+                  {c.motivoDescarte && ` · ${motivoDescarteLabel(c.motivoDescarte)}`}
                 </span>
               )}
             </div>
@@ -395,13 +408,27 @@ export function ConversationCard({
               {replyOpenActive ? "Cerrar respuesta" : "Responder por WhatsApp"}
             </button>
           )}
-          {c.etapa === "Lead" && !isArchived && (
-            <button
-              onClick={onArchivar}
-              className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-            >
-              <Archive className="size-3" /> Archivar
-            </button>
+          {(c.etapa === "Lead" || c.etapa === "Prospecto") && !isDescartado && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 cursor-pointer transition-colors"
+                >
+                  <Ban className="size-3" /> Descartar
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  ¿Por qué se descarta?
+                </DropdownMenuLabel>
+                {MOTIVOS_DESCARTE.map((m) => (
+                  <DropdownMenuItem key={m.value} onSelect={() => onDescartar(m.value)}>
+                    {m.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </footer>

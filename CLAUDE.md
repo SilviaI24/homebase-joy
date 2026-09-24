@@ -136,6 +136,46 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Circuito del lead, Fase 1 — 24 sep 2026.** Propuesta aprobada por David
+  (Artifact "Del lead al cliente"): la Bandeja es la entrada única de leads y
+  de ella solo se sale **cualificado** (pasa a Contactos) o **descartado con
+  motivo**. Contexto que la motivó, medido en producción: los leads reales
+  siguen entrando en Airtable desde la única importación de julio (27 leads
+  nuevos en el CRM jul–sep); los 23 del formulario web (`canal_origen='Web'`)
+  sí estaban en el CRM pero la Bandeja no los mostraba; 0 descartados; los
+  1.180 "Cliente" eran en realidad 618 propietarios, 526 interesados en compra
+  y 72 en alquiler, ninguno con operación.
+  - Bandeja: "Web" en `BANDEJA_CANALES` y en el filtro de canal. "Archivar" →
+    **"Descartar"** con motivo de una lista cerrada (`MOTIVOS_DESCARTE` en
+    `contactos-format.ts`; códigos estables en `contacts.motivo_descarte`,
+    con CHECK, más `descartado_at`). RPC `crm_descartar_lead` (solo
+    Lead/Prospecto; escribe `ciclo_vida`/`trabajado='Descartado'` y un evento
+    `lead_descartado` en `linea_actividad` — la etiqueta negativa que
+    necesita un futuro modelo). Pestaña "Archivados" → "Descartados".
+  - Contactos: sin pestaña de Leads (retirados `listLeads`, `leadsQueryOpts`,
+    `LeadsBoard.tsx` y sus helpers). Pestañas por interés: **Interesados
+    compra / Interesados alquiler / Propietarios** (incluye `Prospecto` como
+    "En captación"), Descartados, Histórico, Duplicados. Recuentos por rol
+    real (una persona con dos roles cuenta en las dos pestañas, igual que
+    aparece en las dos listas). "Cliente" pasa a ser un distintivo: solo con
+    un rol `estado='Cerrado'` (operación cerrada). `ciclo_vida='Cliente'` NO
+    se renombra en BD — solo significa "tiene rol comercial".
+  - Restaurar (`crm_restaurar_contacto_historico`) también deshace un
+    descarte (limpia motivo/trabajado, evento `lead_restaurado`).
+  - Enlaces antiguos a `?tab=leads` apuntan a `/bandeja`; `?tab=clientes`
+    cae en la pestaña por defecto (`.catch` en el esquema de búsqueda).
+  - De paso: `dashboard_header_stats()` (Fase 0 del 23 sep) es `SECURITY
+    DEFINER` y quedó ejecutable por `anon` — cerrado a `service_role`. Y el
+    archivo de esa migración se llamaba `20260923150000` pero la BD la
+    registró como `20260923145251`: renombrado en ambos repos.
+  Migración `20260924080757_bandeja_descartar_lead_con_motivo.sql` (copiada a
+  elsol-client-hub). RPC probadas contra producción en transacción revertida
+  (descartar, doble descarte rechazado, motivo inválido rechazado,
+  restaurar). tsc/eslint limpios, 168/168 tests, build OK. **No verificado en
+  pantalla** (requiere login). Fases 2–4 (campo "fuente", puesta al día desde
+  Airtable con fecha de corte, lector de silvia@, ML sobre el CSV de
+  conversaciones) pendientes de las decisiones del Artifact.
+
 - **Mini-dashboard en cabecera (Fase 0) + linea_actividad instrumentada
   (Fase 1) — 23 sep 2026.** Origen: David pidió un widget con contactos por
   canal, leads recientes y propiedad más demandada, "preparado para machine

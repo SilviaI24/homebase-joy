@@ -8,6 +8,7 @@ import {
   Sparkles,
   Mail,
   History,
+  MousePointerClick,
 } from "lucide-react";
 import type { Cliente } from "@/lib/clientes.functions";
 
@@ -18,7 +19,7 @@ import type { Cliente } from "@/lib/clientes.functions";
 // tipo) cubre solo los que necesitan su propio chip visual hoy — el resto
 // cae en "Otro", que ya no debería aparecer en la práctica salvo un dato
 // futuro sin mapear.
-export type Canal = "WhatsApp" | "Voz" | "Email" | "Legado" | "Idealista" | "Otro";
+export type Canal = "WhatsApp" | "Voz" | "Email" | "Web" | "Legado" | "Idealista" | "Otro";
 
 type ConversationChannelSource = Pick<
   Cliente,
@@ -30,6 +31,7 @@ export function inferCanal(c: ConversationChannelSource): Canal {
   if (origen === "WhatsApp") return "WhatsApp";
   if (origen === "Voz") return "Voz";
   if (origen === "Email") return "Email";
+  if (origen === "Web") return "Web";
   if (origen === "Legado") return "Legado";
   if (origen === "Idealista") return "Idealista";
   return "Otro";
@@ -52,6 +54,10 @@ const CANAL_MAP: Record<Canal, { cls: string; icon: typeof Phone }> = {
   Email: {
     cls: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
     icon: Mail,
+  },
+  Web: {
+    cls: "bg-info/15 text-info",
+    icon: MousePointerClick,
   },
   Legado: {
     cls: "bg-slate-500/15 text-slate-600 dark:text-slate-400",

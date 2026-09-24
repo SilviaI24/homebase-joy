@@ -12,7 +12,6 @@ import {
 } from "@/lib/inmuebles.functions";
 import {
   listClientes,
-  listLeads,
   getLeadInsightsFn,
   listClientesPage,
   getClientesStats,
@@ -110,18 +109,6 @@ export const clientesQueryOpts = queryOptions({
   staleTime: 5 * 60 * 1000,
   gcTime: 30 * 60 * 1000,
 });
-
-// Kanban de Leads de Contactos: por comercial, no la empresa entera (ver
-// comentario en listLeads). agenteId vacío devuelve una lista vacía sin
-// consultar la base de datos.
-export function leadsQueryOpts(agenteId: string) {
-  return queryOptions({
-    queryKey: ["leads", agenteId],
-    queryFn: () => listLeads({ data: { agenteId } }),
-    staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-  });
-}
 
 export const dashboardContactCountsQuery = queryOptions({
   queryKey: ["dashboard-contact-counts"],
@@ -245,7 +232,7 @@ export function clientesPageQuery(params: {
   });
 }
 
-/** Global KPI counts for clientes (segmento totals). Cached 5 min. */
+/** Recuentos de las pestañas de Contactos (por interés + descartados/histórico). */
 export const clientesStatsQuery = queryOptions({
   queryKey: ["clientes-stats"],
   queryFn: () => getClientesStats(),

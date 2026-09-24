@@ -507,80 +507,6 @@ export const listClientes = createServerFn({ method: "GET" }).handler(async () =
   return { clientes };
 });
 
-// ── Leads query (only ciclo_vida='Lead', no matching) ─────────────────────────
-
-// El Kanban de Leads de Contactos es por comercial: se abre siempre con un
-// agenteId concreto (el elegido, el guardado en localStorage, o el primero
-// de la lista). Antes esta función traía TODOS los Leads de la empresa —
-// 2.808 filas hoy, con joins completos — para que el Kanban se quedara,
-// tras filtrar en el navegador, con como mucho un puñado por agente (9 en
-// el peor caso actual; el 99.6% de los Leads no tiene ningún agente
-// asignado). Filtrar por agente aquí, en SQL, evita traer y procesar todo
-// lo que se iba a descartar (auditoría 12 sep 2026).
-export const listLeads = createServerFn({ method: "GET" })
-  .validator((d: { agenteId?: string }) => ({
-    agenteId: typeof d?.agenteId === "string" ? d.agenteId : "",
-  }))
-  .handler(async ({ data }): Promise<{ clientes: Cliente[] }> => {
-    await requirePermissions("contacts.read", "contact_roles.read", "properties.read");
-    if (!data.agenteId) return { clientes: [] };
-    const supa = getSupa();
-
-    // Resolver primero qué contactos tiene asignados este agente. No se usa
-    // contact_agents!inner en la query principal porque eso recortaría el
-    // array embebido a solo la fila que hace match — AsignarLeadButton
-    // necesita ver TODOS los agentes ya asignados a cada lead, no solo este.
-    const { data: assigned, error: assignedError } = await supa
-      .from("contact_agents")
-      .select("contact_id")
-      .eq("agent_id", data.agenteId);
-    if (assignedError) throw new Error(assignedError.message);
-    const contactIds = (assigned ?? []).map((r) => r.contact_id);
-    if (contactIds.length === 0) return { clientes: [] };
-
-    const allContacts: ContactQueryRow[] = [];
-    let from = 0;
-    const PAGE = 1000;
-    while (true) {
-      const { data: rows, error } = await supa
-        .from("contacts")
-        .select(
-          `
-        id, nombre, email, telefono, dni, profesion, ciclo_vida, duplicados,
-        motivo, solicitud, conversaciones, observaciones, feedback, canal_origen,
-        seccion, trabajado, tipo_interes, categoria, contrato_trabajo, mascota,
-        avalista, attachments, created_at,
-        contact_roles(tipo, property_id,
-          properties(id, ref, calle, numero, barrio, localidad, tipo, es_alquiler,
-            estatus, precio, precio_final, imagenes, habitaciones, metros_construidos)),
-        contact_agents(agent_id, agents(id, nombre, email))
-      `,
-        )
-        .eq("ciclo_vida", "Lead")
-        .in("id", contactIds)
-        // Filtro estricto del Kanban por comercial (decisión de David, 21-22
-        // sep 2026): "cualificado" no es un campo propio -- es la conjunción
-        // de asignado (ya filtrado arriba vía contact_agents) + interés
-        // indicado. trabajado no entra en esta condición: sigue siendo solo
-        // el estado de la cola de llamadas (Pendiente/Contactado/Descartado)
-        // dentro del propio Kanban, no un requisito para verlo.
-        .not("tipo_interes", "is", null)
-        .order("created_at", { ascending: false })
-        .range(from, from + PAGE - 1);
-      if (error) throw new Error(error.message);
-      // Ver comentario equivalente en listClientes: cast por el mismo motivo.
-      allContacts.push(...((rows ?? []) as unknown as ContactQueryRow[]));
-      if ((rows ?? []).length < PAGE) break;
-      from += PAGE;
-    }
-
-    // Sin matchCtx: los Leads no calculan matching (matches=[] / preferencias
-    // vacías), igual que antes de unificar con listClientes/getClienteById.
-    const clientes: Cliente[] = allContacts.map((r) => buildCliente(r));
-
-    return { clientes };
-  });
-
 // ── Pagination helpers ────────────────────────────────────────────────────────
 
 // Lightweight row shape for paginated contact list (no full property joins or matching)
@@ -598,46 +524,64 @@ export type ClienteRow = {
   diasDesdeAlta: number | null;
   agentesIds: string[];
   hasSilvia: boolean;
+  // "Cliente" en sentido estricto: tiene al menos un rol con la operación
+  // cerrada (cerrar_operacion_crm pone contact_roles.estado='Cerrado'). El
+  // valor ciclo_vida='Cliente' solo significa "tiene un rol comercial".
+  esCliente: boolean;
 };
 
-// Internal helper: compute segmento counts for all ciclo_vida='Cliente' contacts.
-// Uses a lightweight query (just contact_id + tipo from contact_roles).
-async function computeSegmentoCounts(
-  supa: ReturnType<typeof getSupa>,
-): Promise<{ Propietario: number; Comprador: number; Inquilino: number; total: number }> {
-  // Paginado igual que listClientes: sin esto, en cuanto los "Cliente" pasen
-  // del tope de filas de PostgREST (1.000 por defecto), los KPI de
-  // Propietario/Comprador/Inquilino/total se quedan cortos sin ningún error
-  // visible (auditoría 12 sep 2026).
-  type Row = { id: string; contact_roles: Array<{ tipo: string }> | null };
-  const rows: Row[] = [];
-  const PAGE = 1000;
-  for (let from = 0; ; from += PAGE) {
-    const { data } = await supa
-      .from("contacts")
-      .select("id, contact_roles(tipo)")
-      .eq("ciclo_vida", "Cliente")
-      .range(from, from + PAGE - 1);
-    const page = (data ?? []) as unknown as Row[];
-    rows.push(...page);
-    if (page.length < PAGE) break;
-  }
+// Pestañas de Contactos por interés (circuito del lead, 24 sep 2026): una
+// persona con dos roles cuenta en las dos pestañas, igual que aparece en las
+// dos listas -- antes el KPI contaba solo el segmento "prioritario" y no
+// cuadraba con el total de la lista filtrada.
+export const CONTACTO_CICLOS_ACTIVOS = ["Cliente", "Prospecto"] as const;
+export const SEG_ROLE_TIPOS: Record<"Propietario" | "Comprador" | "Inquilino", string[]> = {
+  Propietario: ["Propietario", "Arrendador"],
+  Comprador: ["Comprador"],
+  Inquilino: ["Inquilino"],
+};
 
-  const counts = { Propietario: 0, Comprador: 0, Inquilino: 0, total: 0 };
-  for (const c of rows) {
-    const roles = c.contact_roles ?? [];
-    const { segmento } = deriveSegmento(roles as RoleRow[]);
-    if (segmento === "Propietario") counts.Propietario++;
-    else if (segmento === "Comprador") counts.Comprador++;
-    else if (segmento === "Inquilino") counts.Inquilino++;
-    if (segmento !== "Lead") counts.total++;
+export type ContactosTabCounts = {
+  Propietario: number;
+  Comprador: number;
+  Inquilino: number;
+  Descartado: number;
+  Historico: number;
+};
+
+async function computeContactosTabCounts(
+  supa: ReturnType<typeof getSupa>,
+): Promise<ContactosTabCounts> {
+  const porRol = (tipos: string[]) =>
+    supa
+      .from("contacts")
+      .select("id, contact_roles!inner(tipo)", { count: "exact", head: true })
+      .in("ciclo_vida", CONTACTO_CICLOS_ACTIVOS)
+      .in("contact_roles.tipo", tipos);
+  const porEtapa = (etapa: string) =>
+    supa.from("contacts").select("id", { count: "exact", head: true }).eq("ciclo_vida", etapa);
+  const [prop, comp, inq, desc, hist] = await Promise.all([
+    porRol(SEG_ROLE_TIPOS.Propietario),
+    porRol(SEG_ROLE_TIPOS.Comprador),
+    porRol(SEG_ROLE_TIPOS.Inquilino),
+    porEtapa("Descartado"),
+    porEtapa("Histórico"),
+  ]);
+  for (const r of [prop, comp, inq, desc, hist]) {
+    if (r.error) throw new Error("Error al contar contactos");
   }
-  return counts;
+  return {
+    Propietario: prop.count ?? 0,
+    Comprador: comp.count ?? 0,
+    Inquilino: inq.count ?? 0,
+    Descartado: desc.count ?? 0,
+    Historico: hist.count ?? 0,
+  };
 }
 
-// Paginated contact list (ciclo_vida='Cliente', commercial roles only).
-// Server-side filters: segmento (via !inner join on contact_roles.tipo), text search.
-// Returns lightweight ClienteRow array + total + segmento counts for KPI tiles.
+// Lista paginada de una pestaña de Contactos por interés: contactos con un rol
+// comercial del tipo pedido (ciclo_vida Cliente, o Prospecto para captación).
+// Filtro de rol vía !inner join sobre contact_roles.tipo + búsqueda de texto.
 export const listClientesPage = createServerFn({ method: "GET" })
   .validator((d: { page?: number; pageSize?: number; seg?: string; q?: string }) => {
     const page = Math.max(1, Number(d?.page) || 1);
@@ -646,129 +590,111 @@ export const listClientesPage = createServerFn({ method: "GET" })
     const q = typeof d?.q === "string" ? d.q.trim() : "";
     return { page, pageSize, seg, q };
   })
-  .handler(
-    async ({
-      data,
-    }): Promise<{
-      clientes: ClienteRow[];
-      total: number;
-      segmentoCounts: { Propietario: number; Comprador: number; Inquilino: number; total: number };
-    }> => {
-      await requirePermissions("contacts.read", "contact_roles.read");
-      const supa = getSupa();
-      const from = (data.page - 1) * data.pageSize;
-      const to = from + data.pageSize - 1;
+  .handler(async ({ data }): Promise<{ clientes: ClienteRow[]; total: number }> => {
+    await requirePermissions("contacts.read", "contact_roles.read");
+    const supa = getSupa();
+    const from = (data.page - 1) * data.pageSize;
+    const to = from + data.pageSize - 1;
 
-      // Determine role tipo filter based on segmento
-      const TODOS_TIPOS = ["Propietario", "Arrendador", "Comprador", "Inquilino"];
-      const tipoFilter =
-        data.seg === "Propietario"
-          ? ["Propietario", "Arrendador"]
-          : data.seg === "Comprador"
-            ? ["Comprador"]
-            : data.seg === "Inquilino"
-              ? ["Inquilino"]
-              : TODOS_TIPOS;
+    const tipoFilter = Object.hasOwn(SEG_ROLE_TIPOS, data.seg)
+      ? SEG_ROLE_TIPOS[data.seg as keyof typeof SEG_ROLE_TIPOS]
+      : Object.values(SEG_ROLE_TIPOS).flat();
 
-      // Use !inner join so only contacts WITH matching roles are returned.
-      // The returned contact_roles array includes only the filtered role tipos.
-      let query = supa
-        .from("contacts")
-        .select(
-          `id, nombre, email, telefono, ciclo_vida, canal_origen, created_at,
-           contact_roles!inner(tipo, property_id, properties(id, estatus)),
+    // Use !inner join so only contacts WITH matching roles are returned.
+    // The returned contact_roles array includes only the filtered role tipos.
+    let query = supa
+      .from("contacts")
+      .select(
+        `id, nombre, email, telefono, ciclo_vida, canal_origen, created_at,
+           contact_roles!inner(tipo, estado, property_id, properties(id, estatus)),
            contact_agents(agent_id)`,
-          { count: "exact" },
-        )
-        .eq("ciclo_vida", "Cliente")
-        .in("contact_roles.tipo", tipoFilter)
-        .order("created_at", { ascending: false });
+        { count: "exact" },
+      )
+      .in("ciclo_vida", CONTACTO_CICLOS_ACTIVOS)
+      .in("contact_roles.tipo", tipoFilter)
+      .order("created_at", { ascending: false });
 
-      if (data.q) {
-        const needle = escapeSearchTerm(data.q);
-        query = query.or(
-          `nombre.ilike.%${needle}%,email.ilike.%${needle}%,telefono.ilike.%${needle}%`,
-        );
-      }
+    if (data.q) {
+      const needle = escapeSearchTerm(data.q);
+      query = query.or(
+        `nombre.ilike.%${needle}%,email.ilike.%${needle}%,telefono.ilike.%${needle}%`,
+      );
+    }
 
-      const { data: rows, error, count } = await query.range(from, to);
-      if (error) throw new Error("Error al cargar contactos");
+    const { data: rows, error, count } = await query.range(from, to);
+    if (error) throw new Error("Error al cargar contactos");
 
-      // Supabase-js sin tipos de Database generados infiere las relaciones
-      // anidadas como array por defecto; en runtime son FK many-to-one
-      // (objeto único) — se corrige con el cast explícito. `properties` aquí
-      // solo trae (id, estatus), no el PropertyRowShape completo.
-      type ClientesPageQueryRow = {
-        id: string;
-        nombre: string | null;
-        email: string | null;
-        telefono: string | null;
-        ciclo_vida: string | null;
-        canal_origen: string | null;
-        created_at: string | null;
-        contact_roles: Array<{
-          tipo: string;
-          property_id: string | null;
-          properties: { id: string; estatus: string } | null;
-        }> | null;
-        contact_agents: Array<{ agent_id: string | null }> | null;
+    // Supabase-js sin tipos de Database generados infiere las relaciones
+    // anidadas como array por defecto; en runtime son FK many-to-one
+    // (objeto único) — se corrige con el cast explícito. `properties` aquí
+    // solo trae (id, estatus), no el PropertyRowShape completo.
+    type ClientesPageQueryRow = {
+      id: string;
+      nombre: string | null;
+      email: string | null;
+      telefono: string | null;
+      ciclo_vida: string | null;
+      canal_origen: string | null;
+      created_at: string | null;
+      contact_roles: Array<{
+        tipo: string;
+        estado: string | null;
+        property_id: string | null;
+        properties: { id: string; estatus: string } | null;
+      }> | null;
+      contact_agents: Array<{ agent_id: string | null }> | null;
+    };
+    const clientRows = (rows ?? []) as unknown as ClientesPageQueryRow[];
+
+    const clientes: ClienteRow[] = clientRows.map((r) => {
+      const roles = r.contact_roles ?? [];
+      const agentAssignments = r.contact_agents ?? [];
+      const { segmento } = deriveSegmento(roles);
+
+      const linkedProps = roles.filter((rl) => rl.properties);
+      const inmueblesActivosCount = linkedProps.filter(
+        (rl) =>
+          rl.properties &&
+          !INACTIVE_ESTATUS.has((rl.properties as unknown as { estatus: string }).estatus),
+      ).length;
+      const inmueblesHistoricoCount = linkedProps.filter(
+        (rl) =>
+          rl.properties &&
+          CLOSED_ESTATUS.has((rl.properties as unknown as { estatus: string }).estatus),
+      ).length;
+
+      const fechaMs = r.created_at ? new Date(r.created_at).getTime() : 0;
+      const origen = (r.canal_origen ?? "").toLowerCase();
+      const hasSilvia = origen === "silvia-whatsapp" || origen === "silvia-voz";
+
+      return {
+        id: r.id,
+        nombre: toTitleCase(s(r.nombre)),
+        email: s(r.email),
+        telefono: s(r.telefono),
+        canalOrigen: s(r.canal_origen),
+        fecha: r.created_at ? r.created_at.slice(0, 10) : null,
+        segmento,
+        etapa: (r.ciclo_vida ?? "Lead") as Etapa,
+        inmueblesActivosCount,
+        inmueblesHistoricoCount,
+        diasDesdeAlta: fechaMs ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000)) : null,
+        agentesIds: agentAssignments
+          .map((a) => a.agent_id)
+          .filter((id): id is string => Boolean(id)),
+        hasSilvia,
+        esCliente: roles.some((rl) => rl.estado === "Cerrado"),
       };
-      const clientRows = (rows ?? []) as unknown as ClientesPageQueryRow[];
+    });
 
-      const clientes: ClienteRow[] = clientRows.map((r) => {
-        const roles = r.contact_roles ?? [];
-        const agentAssignments = r.contact_agents ?? [];
-        const { segmento } = deriveSegmento(roles);
-
-        const linkedProps = roles.filter((rl) => rl.properties);
-        const inmueblesActivosCount = linkedProps.filter(
-          (rl) =>
-            rl.properties &&
-            !INACTIVE_ESTATUS.has((rl.properties as unknown as { estatus: string }).estatus),
-        ).length;
-        const inmueblesHistoricoCount = linkedProps.filter(
-          (rl) =>
-            rl.properties &&
-            CLOSED_ESTATUS.has((rl.properties as unknown as { estatus: string }).estatus),
-        ).length;
-
-        const fechaMs = r.created_at ? new Date(r.created_at).getTime() : 0;
-        const origen = (r.canal_origen ?? "").toLowerCase();
-        const hasSilvia = origen === "silvia-whatsapp" || origen === "silvia-voz";
-
-        return {
-          id: r.id,
-          nombre: toTitleCase(s(r.nombre)),
-          email: s(r.email),
-          telefono: s(r.telefono),
-          canalOrigen: s(r.canal_origen),
-          fecha: r.created_at ? r.created_at.slice(0, 10) : null,
-          segmento,
-          etapa: (r.ciclo_vida ?? "Lead") as Etapa,
-          inmueblesActivosCount,
-          inmueblesHistoricoCount,
-          diasDesdeAlta: fechaMs
-            ? Math.max(0, Math.floor((Date.now() - fechaMs) / 86400000))
-            : null,
-          agentesIds: agentAssignments
-            .map((a) => a.agent_id)
-            .filter((id): id is string => Boolean(id)),
-          hasSilvia,
-        };
-      });
-
-      // Compute KPI counts (separate lightweight query for global accuracy)
-      const segmentoCounts = await computeSegmentoCounts(supa);
-
-      return { clientes, total: count ?? 0, segmentoCounts };
-    },
-  );
+    return { clientes, total: count ?? 0 };
+  });
 
 // Stats for KPI tiles (cached separately to avoid recomputing on every page change).
 export const getClientesStats = createServerFn({ method: "GET" }).handler(async () => {
   await requirePermissions("contacts.read", "contact_roles.read");
   const supa = getSupa();
-  return computeSegmentoCounts(supa);
+  return computeContactosTabCounts(supa);
 });
 
 // Contadores del Dashboard ("N clientes", "N leads"). Antes el Dashboard
@@ -1069,6 +995,8 @@ export type ClienteRowSimple = {
   etapa: Etapa;
   diasDesdeAlta: number | null;
   agentesIds: string[];
+  motivoDescarte: string | null;
+  descartadoAt: string | null;
 };
 
 export const listContactosPage = createServerFn({ method: "GET" })
@@ -1089,12 +1017,16 @@ export const listContactosPage = createServerFn({ method: "GET" })
       .from("contacts")
       .select(
         `id, nombre, email, telefono, ciclo_vida, canal_origen, created_at,
+           motivo_descarte, descartado_at,
            contact_roles(tipo, property_id),
            contact_agents(agent_id)`,
         { count: "exact" },
       )
       .eq("ciclo_vida", data.etapa)
-      .order("created_at", { ascending: false });
+      .order(data.etapa === "Descartado" ? "descartado_at" : "created_at", {
+        ascending: false,
+        nullsFirst: false,
+      });
 
     if (data.q) {
       const needle = escapeSearchTerm(data.q);
@@ -1114,6 +1046,8 @@ export const listContactosPage = createServerFn({ method: "GET" })
       ciclo_vida: string | null;
       canal_origen: string | null;
       created_at: string | null;
+      motivo_descarte: string | null;
+      descartado_at: string | null;
       contact_roles: Array<{ tipo: string; property_id: string | null }> | null;
       contact_agents: Array<{ agent_id: string | null }> | null;
     };
@@ -1137,6 +1071,8 @@ export const listContactosPage = createServerFn({ method: "GET" })
         agentesIds: agentAssignments
           .map((a) => a.agent_id)
           .filter((id): id is string => Boolean(id)),
+        motivoDescarte: r.motivo_descarte,
+        descartadoAt: r.descartado_at,
       };
     });
 

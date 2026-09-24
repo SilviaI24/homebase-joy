@@ -4,6 +4,7 @@ import { getSupa } from "./supabase.server";
 import { toSentenceCase } from "./format";
 import { requirePermission, requirePermissions } from "@/lib/crm-auth.server";
 import { strOpt, tipoCicloVida } from "./mutations-shared";
+import { MOTIVOS_DESCARTE, type MotivoDescarte } from "./contactos-format";
 
 export const ESTADOS_SEGUIMIENTO = ["Pendiente", "Contactado", "Descartado"] as const;
 export type EstadoSeguimiento = (typeof ESTADOS_SEGUIMIENTO)[number];
@@ -106,6 +107,26 @@ export const marcarTipoInteresLead = createServerFn({ method: "POST" })
     const { error } = await supa.rpc("crm_marcar_tipo_interes_lead", {
       p_contact_id: data.contactId,
       p_tipo_interes: data.tipoInteres,
+      p_actor_id: crm.userId,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const descartarLead = createServerFn({ method: "POST" })
+  .validator((d: { contactId: string; motivo: MotivoDescarte }) => {
+    if (!d?.contactId) throw new Error("contactId requerido");
+    if (!MOTIVOS_DESCARTE.some((m) => m.value === d?.motivo)) {
+      throw new Error("Motivo de descarte no válido");
+    }
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const { crm } = await requirePermission("contacts.update");
+    const supa = getSupa();
+    const { error } = await supa.rpc("crm_descartar_lead", {
+      p_contact_id: data.contactId,
+      p_motivo: data.motivo,
       p_actor_id: crm.userId,
     });
     if (error) throw new Error(error.message);

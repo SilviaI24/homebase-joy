@@ -23,16 +23,17 @@ export type ConversacionIa = Pick<
   | "etapa"
   | "agentesIds"
   | "matches"
->;
+> & { motivoDescarte: string | null };
 
-// Bandeja de IA: conserva las conversaciones de los agentes de WhatsApp y voz
-// aunque el contacto deje de ser Lead. `contacts.canal_origen` es la fuente
-// canónica — desde la normalización del 14 sep 2026 (ver migración
-// normalizar_trabajado_y_canal_origen_bandeja) ya no hace falta adivinar por
-// texto: todo lo que pertenece a esta bandeja tiene canal_origen en
-// BANDEJA_CANALES, sin excepción.
-const BANDEJA_CANALES = ["WhatsApp", "Voz", "Email", "Legado"] as const;
-const ESTADO_TABS = ["Pendientes", "Cualificados", "Archivados", "Antiguos", "Todos"] as const;
+// Bandeja: la entrada única de leads (circuito aprobado por David, 24 sep
+// 2026). Conserva las conversaciones aunque el contacto deje de ser Lead.
+// `contacts.canal_origen` es la fuente canónica desde la normalización del
+// 14 sep 2026 (migración normalizar_trabajado_y_canal_origen_bandeja). "Web"
+// son los formularios de elsolgrupo.com (Edge Function web-lead): ya
+// entraban al CRM, pero hasta el 24 sep la Bandeja no los mostraba.
+const BANDEJA_CANALES = ["WhatsApp", "Voz", "Email", "Web", "Legado"] as const;
+const CANAL_FILTROS = ["Todos", "WhatsApp", "Voz", "Email", "Web"] as const;
+const ESTADO_TABS = ["Pendientes", "Cualificados", "Descartados", "Antiguos", "Todos"] as const;
 const VENTANA_PENDIENTES_DIAS = 30;
 
 type ConversacionIaQueryRow = {
@@ -50,6 +51,7 @@ type ConversacionIaQueryRow = {
   categoria: string[] | null;
   trabajado: string | null;
   tipo_interes: string | null;
+  motivo_descarte: string | null;
   contact_agents: Array<{ agent_id: string | null }> | null;
 };
 
@@ -65,7 +67,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         ? (d!.tab as string)
         : "Pendientes";
       const q = typeof d?.q === "string" ? d.q.trim() : "";
-      const canal = ["Todos", "WhatsApp", "Voz", "Email"].includes(d?.canal ?? "")
+      const canal = CANAL_FILTROS.includes((d?.canal ?? "") as (typeof CANAL_FILTROS)[number])
         ? (d!.canal as string)
         : "Todos";
       return { page, pageSize, tab, q, canal };
@@ -92,7 +94,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         .select(
           `id, nombre, email, telefono, ciclo_vida, canal_origen, created_at,
            motivo, solicitud, conversaciones, seccion, categoria, trabajado, tipo_interes,
-           contact_agents(agent_id)`,
+           motivo_descarte, contact_agents(agent_id)`,
           { count: "exact" },
         )
         .in("canal_origen", BANDEJA_CANALES)
@@ -100,7 +102,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
 
       // Canal filter: cada botón es un valor exacto (ya normalizado, sin
       // ambigüedad de mayúsculas ni heurística de texto).
-      if (data.canal === "WhatsApp" || data.canal === "Voz" || data.canal === "Email") {
+      if (data.canal !== "Todos") {
         query = query.eq("canal_origen", data.canal);
       }
       // "Todos" → sin filtro adicional de canal (incluye Legado)
@@ -108,7 +110,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
       // Tab filter: trabajado + ventana de recencia.
       if (data.tab === "Cualificados") {
         query = query.eq("trabajado", "Contactado");
-      } else if (data.tab === "Archivados") {
+      } else if (data.tab === "Descartados") {
         query = query.eq("trabajado", "Descartado");
       } else if (data.tab === "Pendientes") {
         query = query.is("trabajado", null).gte("created_at", corte);
@@ -135,7 +137,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
           .select("id", { count: "exact", head: true })
           .in("canal_origen", BANDEJA_CANALES);
 
-      const [{ data: rows, error, count }, todosRes, cualRes, archRes, pendRes, antiguosRes] =
+      const [{ data: rows, error, count }, todosRes, cualRes, descRes, pendRes, antiguosRes] =
         await Promise.all([
           query.range(from, to),
           baseCount(),
@@ -162,6 +164,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         categoria: Array.isArray(row.categoria) ? row.categoria : [],
         trabajado: toTitleCase(s(row.trabajado)),
         tipoInteres: row.tipo_interes,
+        motivoDescarte: row.motivo_descarte,
         etapa: (row.ciclo_vida ?? "Lead") as Etapa,
         agentesIds: (row.contact_agents ?? [])
           .map((a) => a.agent_id)
@@ -175,7 +178,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         tabCounts: {
           Todos: todosRes.count ?? 0,
           Cualificados: cualRes.count ?? 0,
-          Archivados: archRes.count ?? 0,
+          Descartados: descRes.count ?? 0,
           Pendientes: pendRes.count ?? 0,
           Antiguos: antiguosRes.count ?? 0,
         },

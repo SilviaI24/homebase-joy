@@ -30,7 +30,7 @@ export function InteresadosPanel({
           <div key={p.id} className="flex items-center justify-between gap-2 text-sm">
             <Link
               to="/contactos"
-              search={{ tab: "clientes", id: p.id }}
+              search={{ id: p.id }}
               className="font-medium text-foreground hover:underline truncate"
             >
               {p.nombre || "Sin nombre"}
