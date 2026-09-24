@@ -439,7 +439,6 @@ function Dashboard() {
               </div>
               <Link
                 to="/contactos"
-                search={{ tab: "clientes", id: undefined }}
                 className="mt-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 transition-colors"
               >
                 Ver todos <ArrowRight className="size-2.5" />
@@ -530,8 +529,7 @@ function Dashboard() {
       {/* ── ROW 2.5: Pipeline ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
         <Link
-          to="/contactos"
-          search={{ tab: "leads" }}
+          to="/bandeja"
           className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group"
         >
           <div className="flex items-center justify-between">
@@ -552,7 +550,6 @@ function Dashboard() {
         </Link>
         <Link
           to="/contactos"
-          search={{ tab: "clientes", id: undefined }}
           className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 hover:border-foreground/20 transition-colors group"
         >
           <div className="flex items-center justify-between">

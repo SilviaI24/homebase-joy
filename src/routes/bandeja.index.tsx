@@ -11,8 +11,10 @@ import {
   updateClienteSeguimiento,
   sendWhatsAppReply,
   marcarTipoInteresLead,
+  descartarLead,
   type TipoInteres,
 } from "@/lib/mutations.functions";
+import type { MotivoDescarte } from "@/lib/contactos-format";
 import {
   comercialStatus,
   compileInmueblePatterns,
@@ -25,17 +27,20 @@ import { AsistenteSilviaPanel } from "@/components/bandeja/AsistenteSilviaPanel"
 import { ConversationCard } from "@/components/bandeja/ConversationCard";
 
 const PAGE_SIZE = 50;
+const ESTADO_TABS = ["Pendientes", "Cualificados", "Descartados", "Antiguos", "Todos"] as const;
+type EstadoTab = (typeof ESTADO_TABS)[number];
+const CANAL_FILTROS = ["Todos", "Web", "WhatsApp", "Voz", "Email"] as const;
 
 export const Route = createFileRoute("/bandeja/")({
   validateSearch: (
     s: Record<string, unknown>,
   ): { page?: number; tab?: string; q?: string; canal?: string } => ({
     page: typeof s.page === "number" && s.page >= 1 ? Math.floor(s.page) : undefined,
-    tab: ["Pendientes", "Cualificados", "Archivados", "Antiguos", "Todos"].includes(s.tab as string)
+    tab: (ESTADO_TABS as readonly string[]).includes(s.tab as string)
       ? (s.tab as string)
       : undefined,
     q: typeof s.q === "string" ? s.q : undefined,
-    canal: ["Todos", "WhatsApp", "Voz", "Email"].includes(s.canal as string)
+    canal: (CANAL_FILTROS as readonly string[]).includes(s.canal as string)
       ? (s.canal as string)
       : undefined,
   }),
@@ -44,8 +49,7 @@ export const Route = createFileRoute("/bandeja/")({
       { title: "Bandeja operativa · El Sol Grupo CRM" },
       {
         name: "description",
-        content:
-          "Bandeja operativa de conversaciones gestionadas por SilvIA (WhatsApp, voz y email).",
+        content: "Bandeja de entrada de leads: web, WhatsApp, voz y email, gestionados por SilvIA.",
       },
     ],
   }),
@@ -64,9 +68,6 @@ export const Route = createFileRoute("/bandeja/")({
     </AppShell>
   ),
 });
-
-const ESTADO_TABS = ["Pendientes", "Cualificados", "Archivados", "Antiguos", "Todos"] as const;
-type EstadoTab = (typeof ESTADO_TABS)[number];
 
 function BandejaPage() {
   const rawSearch = Route.useSearch();
@@ -100,7 +101,7 @@ function BandejaPage() {
   const tabCounts = pageData?.tabCounts ?? {
     Pendientes: 0,
     Cualificados: 0,
-    Archivados: 0,
+    Descartados: 0,
     Antiguos: 0,
     Todos: 0,
   };
@@ -109,12 +110,13 @@ function BandejaPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   // Optimistic local state: server is source of truth after invalidation.
-  const [archivados, setArchivados] = useState<Set<string>>(new Set());
+  const [descartados, setDescartados] = useState<Set<string>>(new Set());
   const [cualificados, setCualificados] = useState<Set<string>>(new Set());
   const [routing, setRouting] = useState<string | null>(null);
   const seguimientoFn = useServerFn(updateClienteSeguimiento);
   const [tipoInteresLocal, setTipoInteresLocal] = useState<Record<string, TipoInteres>>({});
   const tipoInteresFn = useServerFn(marcarTipoInteresLead);
+  const descartarFn = useServerFn(descartarLead);
 
   // WhatsApp reply state
   const [replyOpen, setReplyOpen] = useState<Set<string>>(new Set());
@@ -223,31 +225,32 @@ function BandejaPage() {
       return next;
     });
   }
-  async function archivar(id: string) {
-    setArchivados((p) => new Set(p).add(id));
+  async function descartar(id: string, motivo: MotivoDescarte) {
+    setDescartados((p) => new Set(p).add(id));
     setCualificados((p) => {
       const n = new Set(p);
       n.delete(id);
       return n;
     });
     try {
-      await seguimientoFn({ data: { clienteId: id, tipo: "Anular prospección" } });
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      await descartarFn({ data: { contactId: id, motivo } });
+      toast.success("Lead descartado. Puedes restaurarlo desde Contactos → Descartados.");
       queryClient.invalidateQueries({ queryKey: ["ia-conversations-page"] });
+      queryClient.invalidateQueries({ queryKey: ["contactos-page"] });
     } catch (error) {
-      setArchivados((p) => {
+      setDescartados((p) => {
         const n = new Set(p);
         n.delete(id);
         return n;
       });
-      toast.error(error instanceof Error ? error.message : "No se pudo archivar");
+      toast.error(error instanceof Error ? error.message : "No se pudo descartar");
     }
   }
 
   async function route(id: string, tipo: "captacion" | "compra" | "alquiler") {
     setRouting(null);
     setCualificados((p) => new Set(p).add(id));
-    setArchivados((p) => {
+    setDescartados((p) => {
       const n = new Set(p);
       n.delete(id);
       return n;
@@ -256,7 +259,7 @@ function BandejaPage() {
       tipo === "captacion" ? "Prospecciones" : tipo === "compra" ? "Comprador" : "Inquilino";
     try {
       await seguimientoFn({ data: { clienteId: id, tipo: tipoMapped, estado: "Contactado" } });
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["clientes-stats"] });
       queryClient.invalidateQueries({ queryKey: ["clientes-page"] });
       queryClient.invalidateQueries({ queryKey: ["ia-conversations-page"] });
       if (tipo === "captacion") queryClient.invalidateQueries({ queryKey: ["prospectos"] });
@@ -277,7 +280,7 @@ function BandejaPage() {
     // cola de llamadas (ver comentario en marcarTipoInteresLead).
     try {
       await tipoInteresFn({ data: { contactId: id, tipoInteres: tipo } });
-      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["clientes-stats"] });
       queryClient.invalidateQueries({ queryKey: ["ia-conversations-page"] });
     } catch (e: unknown) {
       setTipoInteresLocal((p) => {
@@ -301,7 +304,7 @@ function BandejaPage() {
           <div>
             <div className="text-sm font-medium">Bandeja operativa</div>
             <div className="text-xs text-muted-foreground">
-              Conversaciones de WhatsApp, voz y email gestionadas por SilvIA
+              Todos los leads entrantes: web, WhatsApp, voz y email
             </div>
           </div>
         </div>
@@ -342,7 +345,7 @@ function BandejaPage() {
           ))}
         </div>
         <div className="inline-flex rounded-lg border border-border p-1 bg-card">
-          {(["Todos", "WhatsApp", "Voz", "Email"] as const).map((c) => (
+          {CANAL_FILTROS.map((c) => (
             <button
               key={c}
               onClick={() => changeCanalFilter(c)}
@@ -376,7 +379,8 @@ function BandejaPage() {
       ) : (
         <div className="space-y-3">
           {leads.map(({ cliente: c, canal, mencionados }) => {
-            const isArchived = archivados.has(c.id) || c.trabajado?.toLowerCase() === "descartado";
+            const isDescartado =
+              descartados.has(c.id) || c.trabajado?.toLowerCase() === "descartado";
             const isCualified =
               cualificados.has(c.id) || c.trabajado?.toLowerCase() === "contactado";
             return (
@@ -386,14 +390,14 @@ function BandejaPage() {
                 canal={canal}
                 mencionados={mencionados}
                 isOpen={expanded.has(c.id)}
-                isArchived={isArchived}
+                isDescartado={isDescartado}
                 isCualified={isCualified}
                 routingActive={routing === c.id}
                 replyOpenActive={replyOpen.has(c.id)}
                 replyText={replyTexts[c.id] ?? ""}
                 replySendingActive={replySending === c.id}
                 onToggleExpand={() => toggleExpand(c.id)}
-                onArchivar={() => archivar(c.id)}
+                onDescartar={(motivo) => descartar(c.id, motivo)}
                 onStartRouting={() => setRouting(c.id)}
                 onCancelRouting={() => setRouting(null)}
                 onRoute={(tipo) => route(c.id, tipo)}
@@ -403,7 +407,7 @@ function BandejaPage() {
                 onSetTipoInteres={(tipo) => setTipoInteres(c.id, tipo)}
                 onVinculado={() => {
                   queryClient.invalidateQueries({ queryKey: ["ia-conversations-page"] });
-                  queryClient.invalidateQueries({ queryKey: ["leads"] });
+                  queryClient.invalidateQueries({ queryKey: ["clientes-stats"] });
                   queryClient.invalidateQueries({ queryKey: ["clientes-page"] });
                 }}
               />

@@ -65,7 +65,7 @@ export function MencionadoCard({
     try {
       await fn({ data: { contactId, propertyId: inm.id, tipo } });
       setDone(true);
-      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["clientes-stats"] });
       qc.invalidateQueries({ queryKey: ["clientes"] });
       onVinculado();
       toast.success(`${clienteNombre || "Contacto"} vinculado como ${tipo}`);

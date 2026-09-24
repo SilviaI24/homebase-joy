@@ -273,8 +273,7 @@ export function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
           <Flame className="size-4 text-[var(--gold)]" /> Leads más calientes
         </h3>
         <Link
-          to="/contactos"
-          search={{ tab: "leads" }}
+          to="/bandeja"
           className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
         >
           Ver todos <ArrowRight className="size-3" />
@@ -290,7 +289,7 @@ export function LeadsCalientesPanel({ leads }: { leads: LeadInsight[] }) {
             <li key={lead.id}>
               <Link
                 to="/contactos"
-                search={{ tab: "clientes", id: lead.id }}
+                search={{ id: lead.id }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-gold/10 transition-colors"
               >
                 <ScoreBadge score={lead.score} />
@@ -327,8 +326,7 @@ export function SinSeguimientoPanel({ leads }: { leads: LeadInsight[] }) {
           <BellOff className="size-4 text-destructive" /> Sin seguimiento · +30 días
         </h3>
         <Link
-          to="/contactos"
-          search={{ tab: "leads" }}
+          to="/bandeja"
           className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
         >
           Ver todos <ArrowRight className="size-3" />
@@ -344,7 +342,7 @@ export function SinSeguimientoPanel({ leads }: { leads: LeadInsight[] }) {
             <li key={lead.id}>
               <Link
                 to="/contactos"
-                search={{ tab: "clientes", id: lead.id }}
+                search={{ id: lead.id }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
               >
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive text-xs font-bold tabular-nums">
@@ -395,7 +393,7 @@ export function SinAsignarPanel({ leads }: { leads: LeadInsight[] }) {
             <li key={lead.id}>
               <Link
                 to="/contactos"
-                search={{ tab: "clientes", id: lead.id }}
+                search={{ id: lead.id }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
               >
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-warning/10 text-warning">

@@ -35,7 +35,7 @@ export function AsociarInmuebleButton({ contactId }: { contactId: string }) {
     mutationFn: () => fn({ data: { contactId, propertyId: selectedId!, tipo } }),
     onSuccess: () => {
       toast.success("Inmueble asociado — el contacto pasa a Clientes");
-      qc.invalidateQueries({ queryKey: ["leads"] });
+      qc.invalidateQueries({ queryKey: ["clientes-stats"] });
       qc.invalidateQueries({ queryKey: ["clientes"] });
       setOpen(false);
       setQ("");
