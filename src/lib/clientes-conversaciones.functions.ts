@@ -24,7 +24,12 @@ export type ConversacionIa = Pick<
   | "etapa"
   | "agentesIds"
   | "matches"
-> & { motivoDescarte: string | null; fuente: string | null };
+> & {
+  motivoDescarte: string | null;
+  fuente: string | null;
+  pideLlamada: boolean;
+  numConversaciones: number;
+};
 
 // Bandeja: la entrada única de leads (circuito aprobado por David, 24 sep
 // 2026). Conserva las conversaciones aunque el contacto deje de ser Lead.
@@ -55,6 +60,9 @@ type ConversacionIaQueryRow = {
   tipo_interes: string | null;
   motivo_descarte: string | null;
   fuente: string | null;
+  pide_llamada: boolean | null;
+  ultimo_contacto_at: string | null;
+  num_conversaciones: Array<{ count: number }> | null;
   contact_agents: Array<{ agent_id: string | null }> | null;
 };
 
@@ -107,11 +115,11 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         .select(
           `id, nombre, email, telefono, ciclo_vida, canal_origen, created_at,
            motivo, solicitud, conversaciones, seccion, categoria, trabajado, tipo_interes,
-           motivo_descarte, fuente, contact_agents(agent_id)`,
+           motivo_descarte, fuente, pide_llamada, ultimo_contacto_at,
+           num_conversaciones:conversaciones(count), contact_agents(agent_id)`,
           { count: "exact" },
         )
-        .in("canal_origen", BANDEJA_CANALES)
-        .order("created_at", { ascending: false });
+        .in("canal_origen", BANDEJA_CANALES);
 
       // Canal filter: cada botón es un valor exacto (ya normalizado, sin
       // ambigüedad de mayúsculas ni heurística de texto).
@@ -126,16 +134,24 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         query = query.eq("fuente", data.fuente);
       }
 
-      // Tab filter: trabajado + ventana de recencia.
+      // Tab filter: trabajado + ventana de recencia. La recencia es la del
+      // ÚLTIMO contacto (ultimo_contacto_at, lo mantiene un trigger desde
+      // conversaciones), no la fecha de alta: un lead antiguo que vuelve a
+      // llamar tiene que volver a verse en Pendientes.
       if (data.tab === "Cualificados") {
         query = query.eq("trabajado", "Contactado");
       } else if (data.tab === "Descartados") {
         query = query.eq("trabajado", "Descartado");
       } else if (data.tab === "Pendientes") {
-        query = query.is("trabajado", null).gte("created_at", corte);
+        query = query.is("trabajado", null).gte("ultimo_contacto_at", corte);
       } else if (data.tab === "Antiguos") {
-        query = query.is("trabajado", null).lt("created_at", corte);
+        query = query.is("trabajado", null).lt("ultimo_contacto_at", corte);
       }
+      // Quien pidió que le devuelvan la llamada va primero en Pendientes.
+      if (data.tab === "Pendientes") {
+        query = query.order("pide_llamada", { ascending: false });
+      }
+      query = query.order("ultimo_contacto_at", { ascending: false, nullsFirst: false });
       // "Todos" → sin filtro de trabajado
 
       // Apply search filter
@@ -156,15 +172,23 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
           .select("id", { count: "exact", head: true })
           .in("canal_origen", BANDEJA_CANALES);
 
-      const [{ data: rows, error, count }, todosRes, cualRes, descRes, pendRes, antiguosRes] =
-        await Promise.all([
-          query.range(from, to),
-          baseCount(),
-          baseCount().eq("trabajado", "Contactado"),
-          baseCount().eq("trabajado", "Descartado"),
-          baseCount().is("trabajado", null).gte("created_at", corte),
-          baseCount().is("trabajado", null).lt("created_at", corte),
-        ]);
+      const [
+        { data: rows, error, count },
+        todosRes,
+        cualRes,
+        descRes,
+        pendRes,
+        antiguosRes,
+        llamadaRes,
+      ] = await Promise.all([
+        query.range(from, to),
+        baseCount(),
+        baseCount().eq("trabajado", "Contactado"),
+        baseCount().eq("trabajado", "Descartado"),
+        baseCount().is("trabajado", null).gte("ultimo_contacto_at", corte),
+        baseCount().is("trabajado", null).lt("ultimo_contacto_at", corte),
+        baseCount().is("trabajado", null).eq("pide_llamada", true),
+      ]);
       if (error) throw new Error("Error al cargar conversaciones");
 
       const typedRows = (rows ?? []) as unknown as ConversacionIaQueryRow[];
@@ -175,7 +199,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         email: s(row.email),
         telefono: s(row.telefono),
         canalOrigen: s(row.canal_origen),
-        fecha: row.created_at ? row.created_at.slice(0, 10) : null,
+        fecha: (row.ultimo_contacto_at ?? row.created_at)?.slice(0, 10) ?? null,
         motivo: toSentenceCase(s(row.motivo)),
         solicitud: toSentenceCase(s(row.solicitud)),
         seccion: toTitleCase(s(row.seccion)),
@@ -185,6 +209,8 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         tipoInteres: row.tipo_interes,
         motivoDescarte: row.motivo_descarte,
         fuente: row.fuente,
+        pideLlamada: Boolean(row.pide_llamada),
+        numConversaciones: row.num_conversaciones?.[0]?.count ?? 0,
         etapa: (row.ciclo_vida ?? "Lead") as Etapa,
         agentesIds: (row.contact_agents ?? [])
           .map((a) => a.agent_id)
@@ -201,6 +227,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
           Descartados: descRes.count ?? 0,
           Pendientes: pendRes.count ?? 0,
           Antiguos: antiguosRes.count ?? 0,
+          PidenLlamada: llamadaRes.count ?? 0,
         },
       };
     },

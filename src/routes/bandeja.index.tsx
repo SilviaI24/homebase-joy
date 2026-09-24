@@ -111,6 +111,7 @@ function BandejaPage() {
     Descartados: 0,
     Antiguos: 0,
     Todos: 0,
+    PidenLlamada: 0,
   };
 
   const queryClient = useQueryClient();
@@ -343,6 +344,10 @@ function BandejaPage() {
           <div className="rounded-md border border-border bg-card px-3 py-2">
             <div className="text-muted-foreground">Pendientes</div>
             <div className="text-lg font-semibold text-foreground">{tabCounts.Pendientes}</div>
+          </div>
+          <div className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2">
+            <div className="text-muted-foreground">Piden que les llamen</div>
+            <div className="text-lg font-semibold text-warning">{tabCounts.PidenLlamada}</div>
           </div>
           <div className="rounded-md border border-border bg-card px-3 py-2">
             <div className="text-muted-foreground">Cualificados</div>

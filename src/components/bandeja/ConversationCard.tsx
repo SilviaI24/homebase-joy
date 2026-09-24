@@ -4,6 +4,8 @@
 // respuesta WhatsApp) vive en BandejaPage.
 import {
   Phone,
+  PhoneCall,
+  Repeat,
   Mail,
   CalendarDays,
   Tag,
@@ -155,6 +157,19 @@ export function ConversationCard({
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
+              {c.pideLlamada && !isCualified && !isDescartado && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-warning bg-warning/10 border border-warning/30 px-2 py-1 rounded">
+                  <PhoneCall className="size-3" /> Pide que le llamen
+                </span>
+              )}
+              {c.numConversaciones > 1 && (
+                <span
+                  className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded"
+                  title="Número de conversaciones registradas con esta persona"
+                >
+                  <Repeat className="size-3" /> Ha contactado {c.numConversaciones} veces
+                </span>
+              )}
               {isCualified && (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-success bg-success/10 px-2 py-1 rounded">
                   <UserCheck className="size-3" /> Cualificado

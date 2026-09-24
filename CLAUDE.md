@@ -172,10 +172,36 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
     las conversaciones unidas por fecha. Resultado de la simulación desde
     2026-06-01: 1.215 contactos a crear, 95 omitidos por existir ya en el
     CRM, 10 sin teléfono ni email.
-  - **Redirigir SilvIA al CRM — sin empezar.** El 90% de los leads nuevos
-    en Airtable los crea el usuario "Artificial Intelligence" (una
-    integración); la cuenta de Make conectada a esta sesión no tiene acceso
-    al equipo 1698831, así que no se ha podido ver qué escenario es.
+  - **Conversaciones del último mes + "Pide que le llamen" — 24 sep 2026.**
+    David decidió NO recuperar el histórico completo de llamadas: la
+    estadística de mar–ago queda como línea base en su doc "Análisis de
+    conversaciones IA — Fase 4, Paso A", y se importaron solo los últimos
+    30 días del export de Airtable (201 conversaciones, 199 enlazadas por
+    teléfono a 141 contactos, `metadata.origen='export_airtable_2026-09-24'`).
+    La columna SI/NO sin cabecera del export = "el cliente pide que le
+    vuelvan a llamar" (confirmado por David) → `conversaciones.pide_llamada`.
+    Migración `20260924092055_conversaciones_pide_llamada_y_ultimo_contacto.sql`:
+    `contacts.ultimo_contacto_at` y `contacts.pide_llamada`, mantenidos por
+    trigger desde `conversaciones` (la marca sigue a la conversación MÁS
+    RECIENTE del contacto, comparando con sus otras conversaciones y no con
+    `created_at`). La Bandeja calcula Pendientes/Antiguos y ordena por
+    `ultimo_contacto_at` (antes `created_at`: un lead antiguo que volvía a
+    llamar quedaba enterrado), pone primero a quien pide llamada, y muestra
+    "Pide que le llamen" / "Ha contactado N veces". 138 contactos `Legado`
+    con conversación pasaron a su canal real (Voz/WhatsApp). Resultado:
+    36 contactos piden llamada y siguen sin gestionar. **No se reabre**
+    `trabajado` automáticamente cuando alguien ya gestionado vuelve a
+    llamar — decisión pendiente para cuando SilvIA escriba en vivo.
+  - **Redirigir SilvIA al CRM — investigado, sin cambiar nada.** David
+    compartió el escenario público "Silvia - 03.1 WhatsApp Assistant"
+    (Make): disparador WhatsApp Business → busca el hilo en la base de
+    Airtable de conversaciones (`appMWg6qgfwtSrlkE`, tabla WhatsAppContext
+    `tbltXq3iDscN4EcHF`) → si no hay hilo, busca el lead en Clientes
+    (`appJHlqz7fFFjJWF1`/`tbl4N1uR3A3XMwsqZ`) → asistente de OpenAI →
+    responde por WhatsApp → crea/actualiza el hilo en WhatsAppContext. **No
+    crea leads en Clientes**: los crea otro escenario (probablemente el de
+    voz, 93% del volumen). Falta ver ese. Cualquier cambio en Make (equipo
+    1698831) requiere aprobación explícita de David.
 
 - **Valorador: `canal_origen` roto desde el 14 sep 2026 + inmuebles de la
   web sin propietario — 24 sep 2026.** La migración
