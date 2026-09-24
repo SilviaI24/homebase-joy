@@ -354,9 +354,14 @@ type ProspectoQueryRow = {
   }> | null;
 };
 
+// Vocabulario actual de contacts_canal_origen_check (sin prefijo "SilvIA-"
+// desde 20260914163755); los valores antiguos se mantienen por si quedara
+// alguna fila o llamada sin migrar.
 function canalGroup(origen: string | null): ProspectoCanal {
   if (!origen) return "Directo";
-  if (origen === "Valorador-Web" || origen === "SilvIA-Valorador") return "Web";
+  if (origen === "Valorador" || origen === "Valorador-Web" || origen === "SilvIA-Valorador")
+    return "Web";
+  if (origen === "WhatsApp" || origen === "Voz" || origen === "Email") return "SilvIA";
   if (origen.startsWith("SilvIA-")) return "SilvIA";
   return "Directo";
 }

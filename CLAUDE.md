@@ -136,6 +136,31 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Valorador: `canal_origen` roto desde el 14 sep 2026 + inmuebles de la
+  web sin propietario — 24 sep 2026.** La migración
+  `20260914163755_normalizar_trabajado_y_canal_origen_bandeja.sql` quitó el
+  prefijo "SilvIA-" del CHECK `contacts_canal_origen_check`, pero
+  `supabase/functions/valorador/index.ts` seguía escribiendo
+  `"SilvIA-Valorador"` (y `canalGroup` en `inmuebles.functions.ts` solo
+  reconocía los nombres con prefijo). Corregido a `"Valorador"` en ambos
+  sitios. La versión desplegada (v15, 19 ago) además escribe
+  `publicacion: "PROSPECTO"`, rechazado por el CHECK desde el 15 sep — falla
+  ya al insertar el inmueble. **Pendiente de desplegar, con aprobación de
+  David**, desde este repo (el valorador se despliega a mano desde
+  homebase-joy, no desde el CI de elsol-client-hub):
+  `npx supabase functions deploy valorador --project-ref fyrfkbcabmitbfuqeccq --no-verify-jwt`.
+  Sin impacto real hasta hoy: 0 invocaciones de `valorador` en los logs
+  entre el 14 y el 24 sep (la última, un test de diagnóstico del 12 sep que
+  funcionó), así que no hay inmuebles huérfanos por fallos de la función.
+  **Hallazgo aparte, sin tocar:** 139 inmuebles `estatus='Prospección'` sin
+  `airtable_id` ni `contact_roles` (10–24 sep, y siguen entrando) los crea
+  directamente la web WordPress (`POST /rest/v1/properties` con clave de
+  servicio), solo con metros y precio — sin calle, sin localidad, y sin
+  crear contacto ni vínculo de propietario, así que los datos del lead no
+  llegan a Supabase. Es la integración de la agencia de la web, no el
+  valorador. Decisión pendiente de David/agencia: que la web llame a
+  `valorador` en vez de escribir en la tabla, o que envíe también el
+  contacto. No se ha modificado ni borrado ninguna de esas filas.
 - **Mini-dashboard en cabecera (Fase 0) + linea_actividad instrumentada
   (Fase 1) — 23 sep 2026.** Origen: David pidió un widget con contactos por
   canal, leads recientes y propiedad más demandada, "preparado para machine
