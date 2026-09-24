@@ -45,6 +45,8 @@ import {
   avatarColorClass,
   FUENTES,
   MOTIVOS_DESCARTE,
+  evaluarEncajeAlquiler,
+  respuestaCorta,
   motivoDescarteLabel,
   type Fuente,
   type MotivoDescarte,
@@ -240,6 +242,12 @@ export function ConversationCard({
             );
           })}
         </div>
+      )}
+
+      {/* Encaje para alquiler: sustituye al filtrado que el comercial hacía
+          con el formulario de Airtable (los datos los pregunta SilvIA). */}
+      {(c.tipoInteres === "Alquiler" || /alquiler/i.test(c.seccion)) && (
+        <EncajeAlquilerFila requisitos={c.requisitosAlquiler} />
       )}
 
       {/* Datos extraídos */}
@@ -487,5 +495,43 @@ export function ConversationCard({
         </div>
       </footer>
     </article>
+  );
+}
+
+const ENCAJE_META = {
+  cumple: { label: "Cumple requisitos", cls: "bg-success/10 text-success border-success/30" },
+  no_cumple: {
+    label: "Sin contrato ni avalista",
+    cls: "bg-destructive/10 text-destructive border-destructive/30",
+  },
+  faltan_datos: { label: "Faltan datos", cls: "bg-muted text-muted-foreground border-border" },
+} as const;
+
+function EncajeAlquilerFila({
+  requisitos: r,
+}: {
+  requisitos: ConversacionIa["requisitosAlquiler"];
+}) {
+  const meta = ENCAJE_META[evaluarEncajeAlquiler(r)];
+  const datos: Array<[string, string]> = [
+    ["Contrato", respuestaCorta(r.contrato)],
+    ["Avalista", respuestaCorta(r.avalista)],
+    ["Mascota", respuestaCorta(r.mascota)],
+  ];
+  if (r.profesion.trim()) datos.push(["Profesión", r.profesion.trim()]);
+  return (
+    <div className="px-4 pb-3 flex flex-wrap items-center gap-1.5">
+      <span
+        className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border ${meta.cls}`}
+        title="Cumple si tiene contrato de trabajo o avalista. La mascota se muestra pero no descarta."
+      >
+        {meta.label}
+      </span>
+      {datos.map(([k, v]) => (
+        <span key={k} className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground/80">{k}:</span> {v}
+        </span>
+      ))}
+    </div>
   );
 }

@@ -29,6 +29,16 @@ export type ConversacionIa = Pick<
   fuente: string | null;
   pideLlamada: boolean;
   numConversaciones: number;
+  requisitosAlquiler: RequisitosAlquiler;
+};
+
+// Lo que antes pedía el formulario de Airtable de alquiler; ahora lo pregunta
+// SilvIA en la conversación y lo guarda en la ficha (whatsapp-silvia).
+export type RequisitosAlquiler = {
+  contrato: string;
+  avalista: string;
+  mascota: string;
+  profesion: string;
 };
 
 // Bandeja: la entrada única de leads (circuito aprobado por David, 24 sep
@@ -63,6 +73,11 @@ type ConversacionIaQueryRow = {
   pide_llamada: boolean | null;
   ultimo_contacto_at: string | null;
   num_conversaciones: Array<{ count: number }> | null;
+  ultima_conv: Array<{ resumen: string | null; transcripcion: string | null }> | null;
+  contrato_trabajo: string | null;
+  avalista: string | null;
+  mascota: string | null;
+  profesion: string | null;
   contact_agents: Array<{ agent_id: string | null }> | null;
 };
 
@@ -116,10 +131,18 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
           `id, nombre, email, telefono, ciclo_vida, canal_origen, created_at,
            motivo, solicitud, conversaciones, seccion, categoria, trabajado, tipo_interes,
            motivo_descarte, fuente, pide_llamada, ultimo_contacto_at,
-           num_conversaciones:conversaciones(count), contact_agents(agent_id)`,
+           contrato_trabajo, avalista, mascota, profesion,
+           num_conversaciones:conversaciones(count),
+           ultima_conv:conversaciones(resumen, transcripcion),
+           contact_agents(agent_id)`,
           { count: "exact" },
         )
-        .in("canal_origen", BANDEJA_CANALES);
+        .in("canal_origen", BANDEJA_CANALES)
+        // Solo la conversación más reciente: su resumen y transcripción son
+        // lo que se muestra en la tarjeta (antes, solo el texto aplanado que
+        // vino de Airtable).
+        .order("fecha", { referencedTable: "ultima_conv", ascending: false })
+        .limit(1, { referencedTable: "ultima_conv" });
 
       // Canal filter: cada botón es un valor exacto (ya normalizado, sin
       // ambigüedad de mayúsculas ni heurística de texto).
@@ -193,30 +216,39 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
 
       const typedRows = (rows ?? []) as unknown as ConversacionIaQueryRow[];
 
-      const clientes: ConversacionIa[] = typedRows.map((row) => ({
-        id: row.id,
-        nombre: toTitleCase(s(row.nombre)),
-        email: s(row.email),
-        telefono: s(row.telefono),
-        canalOrigen: s(row.canal_origen),
-        fecha: (row.ultimo_contacto_at ?? row.created_at)?.slice(0, 10) ?? null,
-        motivo: toSentenceCase(s(row.motivo)),
-        solicitud: toSentenceCase(s(row.solicitud)),
-        seccion: toTitleCase(s(row.seccion)),
-        conversaciones: toSentenceCase(s(row.conversaciones)),
-        categoria: Array.isArray(row.categoria) ? row.categoria : [],
-        trabajado: toTitleCase(s(row.trabajado)),
-        tipoInteres: row.tipo_interes,
-        motivoDescarte: row.motivo_descarte,
-        fuente: row.fuente,
-        pideLlamada: Boolean(row.pide_llamada),
-        numConversaciones: row.num_conversaciones?.[0]?.count ?? 0,
-        etapa: (row.ciclo_vida ?? "Lead") as Etapa,
-        agentesIds: (row.contact_agents ?? [])
-          .map((a) => a.agent_id)
-          .filter((id): id is string => Boolean(id)),
-        matches: [],
-      }));
+      const clientes: ConversacionIa[] = typedRows.map((row) => {
+        const ultima = row.ultima_conv?.[0];
+        return {
+          id: row.id,
+          nombre: toTitleCase(s(row.nombre)),
+          email: s(row.email),
+          telefono: s(row.telefono),
+          canalOrigen: s(row.canal_origen),
+          fecha: (row.ultimo_contacto_at ?? row.created_at)?.slice(0, 10) ?? null,
+          motivo: toSentenceCase(s(row.motivo) || s(ultima?.resumen)),
+          solicitud: toSentenceCase(s(row.solicitud)),
+          seccion: toTitleCase(s(row.seccion)),
+          conversaciones: s(ultima?.transcripcion) || toSentenceCase(s(row.conversaciones)),
+          categoria: Array.isArray(row.categoria) ? row.categoria : [],
+          trabajado: toTitleCase(s(row.trabajado)),
+          tipoInteres: row.tipo_interes,
+          motivoDescarte: row.motivo_descarte,
+          fuente: row.fuente,
+          pideLlamada: Boolean(row.pide_llamada),
+          numConversaciones: row.num_conversaciones?.[0]?.count ?? 0,
+          requisitosAlquiler: {
+            contrato: s(row.contrato_trabajo),
+            avalista: s(row.avalista),
+            mascota: s(row.mascota),
+            profesion: s(row.profesion),
+          },
+          etapa: (row.ciclo_vida ?? "Lead") as Etapa,
+          agentesIds: (row.contact_agents ?? [])
+            .map((a) => a.agent_id)
+            .filter((id): id is string => Boolean(id)),
+          matches: [],
+        };
+      });
 
       return {
         clientes,

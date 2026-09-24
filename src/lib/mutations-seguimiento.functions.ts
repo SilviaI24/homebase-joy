@@ -225,6 +225,8 @@ export const checkDuplicates = createServerFn({ method: "GET" })
     return { duplicates: Array.from(byId.values()).slice(0, 3) };
   });
 
+const SILVIA_PAUSA_HORAS = 12;
+
 export const sendWhatsAppReply = createServerFn({ method: "POST" })
   .validator((d: { contactId: string; message: string }) => {
     if (!d?.contactId?.trim()) throw new Error("Contacto requerido");
@@ -298,6 +300,43 @@ export const sendWhatsAppReply = createServerFn({ method: "POST" })
     });
     if (logError) {
       console.error("crm_crear_seguimiento (whatsapp):", logError.message);
+    }
+
+    // Una persona ha tomado la conversación: SilvIA (whatsapp-silvia) se calla
+    // con este contacto durante SILVIA_PAUSA_HORAS para no pisarse con ella, y
+    // el mensaje queda en el mismo hilo que ve SilvIA. Igual que arriba, un
+    // fallo aquí no deshace un mensaje ya enviado.
+    const ahora = new Date();
+    const { data: conv } = await supa
+      .from("conversaciones")
+      .select("id")
+      .eq("contact_id", data.contactId)
+      .eq("canal", "WhatsApp")
+      .gte("updated_at", new Date(ahora.getTime() - 24 * 3600 * 1000).toISOString())
+      .order("fecha", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const [{ error: msgError }, { error: pausaError }] = await Promise.all([
+      supa.from("whatsapp_mensajes").insert({
+        wamid: body.messages?.[0]?.id ?? null,
+        contact_id: data.contactId,
+        conversacion_id: conv?.id ?? null,
+        direccion: "saliente",
+        autor: "comercial",
+        texto: data.message,
+        estado_envio: "enviado",
+      }),
+      supa
+        .from("contacts")
+        .update({
+          silvia_pausada_hasta: new Date(
+            ahora.getTime() + SILVIA_PAUSA_HORAS * 3600 * 1000,
+          ).toISOString(),
+        })
+        .eq("id", data.contactId),
+    ]);
+    if (msgError || pausaError) {
+      console.error("whatsapp manual (hilo/pausa):", msgError?.message ?? pausaError?.message);
     }
 
     return { ok: true, messageId: body.messages?.[0]?.id };

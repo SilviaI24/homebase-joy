@@ -132,3 +132,30 @@ export function eligeSupervivientePorDefecto(grupo: GrupoDuplicado): string {
     (b.createdAt ?? "").localeCompare(a.createdAt ?? ""),
   )[0].id;
 }
+
+// ── Encaje de un interesado en alquiler ─────────────────────────────────────────
+
+// Sustituye al filtrado que el comercial hacía leyendo el formulario de
+// Airtable. Regla deliberadamente simple y visible: cumple si tiene contrato
+// de trabajo o avalista. La mascota se muestra, pero no descarta: depende de
+// cada propietario. Los valores vienen como texto libre ("Si", "Sí, es un
+// pensionado", "no"...), por eso se mira solo cómo empiezan.
+export type EncajeAlquiler = "cumple" | "no_cumple" | "faltan_datos";
+
+// Sin \b: en JS no trata "í" como letra, y "Sí," no casaría.
+const esSi = (v: string) => /^s[ií](?![\p{L}\d])/iu.test(v.trim());
+const esNo = (v: string) => /^no(?![\p{L}\d])/iu.test(v.trim());
+
+export function evaluarEncajeAlquiler(r: { contrato: string; avalista: string }): EncajeAlquiler {
+  if (esSi(r.contrato) || esSi(r.avalista)) return "cumple";
+  if (esNo(r.contrato) && esNo(r.avalista)) return "no_cumple";
+  return "faltan_datos";
+}
+
+export function respuestaCorta(v: string): string {
+  const t = v.trim();
+  if (!t) return "—";
+  if (esSi(t)) return t.length <= 3 ? "Sí" : t;
+  if (esNo(t)) return "No";
+  return t;
+}

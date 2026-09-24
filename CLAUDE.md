@@ -192,6 +192,50 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
     36 contactos piden llamada y siguen sin gestionar. **No se reabre**
     `trabajado` automáticamente cuando alguien ya gestionado vuelve a
     llamar — decisión pendiente para cuando SilvIA escriba en vivo.
+  - **SilvIA de WhatsApp dentro del CRM — 24 sep 2026, desplegada en
+    SIMULACIÓN, sin conectar a Meta todavía.** David decidió evitar Make
+    ("podemos evitar make?"); el escenario 03.1 llevaba roto desde que
+    OpenAI retiró Assistants. Edge Function `supabase/functions/whatsapp-silvia`
+    (README con secretos, activación en Meta y marcha atrás), migración
+    `20260924101815_whatsapp_silvia_mensajes_y_busqueda.sql`
+    (`whatsapp_mensajes`, `contacts.whatsapp_baja`/`silvia_pausada_hasta`,
+    `crm_contacto_por_telefono`, `silvia_buscar_inmuebles` — solo Activo+
+    PUBLICADO y Reservado, lo que deja fuera las filas de prueba). Usa el
+    prompt guardado de OpenAI `pmpt_69b7d28a…` (proyecto de SilvIA, clave
+    `OPENAI_API_KEY_SILVIA`, modelo gpt-5.6-terra) + vector store
+    "Inmuebles" `vs_6979d300…` + 2 herramientas propias. Probado con una
+    conversación simulada de 2 turnos (sin enviar, sin escribir): encuentra
+    el inmueble en vivo y marca "pide llamada". `sendWhatsAppReply` (Bandeja)
+    guarda el mensaje del comercial en el hilo y pausa a SilvIA 12 h.
+    **Hallazgo:** el vector store tiene 139 archivos con copias diarias del
+    mismo inmueble (alguna automatización los sube sin borrar los viejos) —
+    riesgo de precios/estado antiguos. **Confirmado en la primera prueba
+    real (mismo día):** SilvIA ofreció el dúplex AT1073 de Santa Lucía,
+    alquilado desde el 1 sep, sacado del vector store → se QUITÓ
+    `file_search` del agente; `buscar_inmueble` es la única fuente
+    (migración `20260924105516_silvia_buscar_inmuebles_operacion_y_descripcion.sql`:
+    filtro venta/alquiler, listar sin texto, descripción).
+    **Conexión con Meta:** la app de Meta "Silvia 1" (del token del CRM) no
+    estaba suscrita a la cuenta de WhatsApp Business "ESGI" — solo lo estaba
+    "Make for Business Messaging" —, así que el webhook no recibía nada.
+    Suscrita el 24 sep con aprobación de David (Make sigue suscrita). El
+    `WABA_PHONE_NUMBER_ID` de `.env.local` contenía el id de la CUENTA
+    (3826656114309909) y no el del número (997090670161317); el secreto de
+    Supabase ya tenía el bueno. Primera prueba de extremo a extremo OK en
+    simulación. **Formulario de alquiler → conversación (decisión de David,
+    24 sep 2026):** el prompt mandaba un formulario de Airtable para que el
+    comercial de alquiler filtrase (mucha demanda, poca oferta; solo ~50
+    contactos lo completaron nunca). Ahora `contextoCrm()` (logic.ts) le
+    indica no enviar formularios y preguntar ella los mismos datos
+    (inmueble, nombre, email, contrato, profesión, mascota, avalista), que
+    `registrar_datos_lead` guarda en los campos que ya existían en
+    `contacts`. La Bandeja muestra la conversación más reciente de
+    `conversaciones` y, para alquiler, una etiqueta de encaje
+    (`evaluarEncajeAlquiler`: cumple con contrato O avalista; la mascota se
+    muestra pero no descarta). Probado con una conversación simulada de 4
+    turnos. Pendiente: quitar la línea del formulario también del prompt en
+    el playground (hoy la instrucción del CRM la anula) y activar con
+    `WHATSAPP_SILVIA_MODO=activo`.
   - **Redirigir SilvIA al CRM — investigado, sin cambiar nada.** David
     compartió el escenario público "Silvia - 03.1 WhatsApp Assistant"
     (Make): disparador WhatsApp Business → busca el hilo en la base de
