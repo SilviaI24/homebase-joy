@@ -3,7 +3,7 @@
  *
  * Recibe los datos del formulario valorador de la web y los guarda en Supabase:
  *   - Propiedad  → tabla `properties`  (estatus = "Prospección", sin verificar)
- *   - Propietario → tabla `contacts`   (ciclo_vida = "Prospecto", canal_origen = "SilvIA-Valorador")
+ *   - Propietario → tabla `contacts`   (ciclo_vida = "Prospecto", canal_origen = "Valorador")
  *   - Vinculación → tabla `contact_roles` (tipo = "Propietario")
  *
  * Acepta nombres de campo en formato Airtable (español) o snake_case normalizado.
@@ -193,10 +193,14 @@ Deno.serve(async (req) => {
           email: email || "",
           motivo: motivo,
           ciclo_vida: "Prospecto",
-          // Valor válido del CHECK contacts_canal_origen_check — la versión
-          // anterior usaba "Valorador-Web", que no existe en el constraint y
-          // hacía fallar el alta del contacto (el inmueble quedaba huérfano).
-          canal_origen: "SilvIA-Valorador",
+          // Tiene que ser un valor de contacts_canal_origen_check, o el alta
+          // del contacto falla y la compensación de abajo deshace también el
+          // inmueble (el envío se pierde entero). Historial: "Valorador-Web"
+          // nunca fue válido; "SilvIA-Valorador" lo fue hasta la migración
+          // 20260914163755_normalizar_trabajado_y_canal_origen_bandeja.sql,
+          // que quitó el prefijo "SilvIA-" del vocabulario. Si el CHECK
+          // vuelve a cambiar, actualizar también este valor.
+          canal_origen: "Valorador",
         })
         .select("id")
         .single();

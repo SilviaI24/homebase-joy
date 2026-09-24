@@ -81,6 +81,7 @@ O en snake_case:
 | `properties` | `publicacion` | sin valor especial (se retiró `"PROSPECTO"` del catálogo, sep 2026); `estatus='Prospección'` ya deja el inmueble visible en Cartera > Captación pendiente de revisión |
 | `properties` | `es_alquiler` | `false` |
 | `contacts` | `ciclo_vida` | `"Prospecto"` |
+| `contacts` | `canal_origen` | `"Valorador"` (valor de `contacts_canal_origen_check`; era `"SilvIA-Valorador"` hasta la migración del 14 sep 2026 que quitó el prefijo) |
 | `contact_roles` | `tipo` | `"Propietario"` |
 
 ## Actualizar después de cambios
