@@ -145,10 +145,14 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   reconocía los nombres con prefijo). Corregido a `"Valorador"` en ambos
   sitios. La versión desplegada (v15, 19 ago) además escribe
   `publicacion: "PROSPECTO"`, rechazado por el CHECK desde el 15 sep — falla
-  ya al insertar el inmueble. **Pendiente de desplegar, con aprobación de
-  David**, desde este repo (el valorador se despliega a mano desde
-  homebase-joy, no desde el CI de elsol-client-hub):
-  `npx supabase functions deploy valorador --project-ref fyrfkbcabmitbfuqeccq --no-verify-jwt`.
+  ya al insertar el inmueble. **Desplegado como v16 el 24 sep 2026**, con
+  aprobación de David, desde la rama del PR #3 antes de su merge (el
+  valorador se despliega a mano desde homebase-joy, no desde el CI de
+  elsol-client-hub):
+  `npx supabase functions deploy valorador --project-ref fyrfkbcabmitbfuqeccq --no-verify-jwt --use-api`.
+  Verificado: código desplegado = repo, `verify_jwt=false`, y las 3
+  inserciones (properties/contacts con `'Valorador'`/contact_roles)
+  pasan los CHECK reales en una transacción revertida (0 filas escritas).
   Sin impacto real hasta hoy: 0 invocaciones de `valorador` en los logs
   entre el 14 y el 24 sep (la última, un test de diagnóstico del 12 sep que
   funcionó), así que no hay inmuebles huérfanos por fallos de la función.
