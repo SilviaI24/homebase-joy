@@ -136,6 +136,47 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Circuito del lead, Fase 2 — 24 sep 2026 (parcial).** Migración
+  `20260924084205_fase2_fuente_lead_y_pipeline_interesados.sql` (copiada a
+  elsol-client-hub).
+  - **`contacts.fuente`** (de DÓNDE vino: Web/Idealista/Fotocasa/Habitaclia/
+    Valorador/Referido/Oficina/Otro; NULL = desconocida), separado de
+    `canal_origen` (por DÓNDE se habla). Sin heurística de texto: solo se
+    rellenó donde `canal_origen` ya era una fuente (23 Web). Trigger
+    `contacts_fuente_por_defecto` la rellena al insertar desde ese mismo
+    mapeo, para que web-lead/valorador no tengan que redesplegarse. En la
+    Bandeja: chip editable por tarjeta (RPC `crm_marcar_fuente_lead`) y
+    filtro por fuente.
+  - **Pipeline de interesados** (Contactos → Interesados compra/alquiler →
+    vista "Pipeline"): `crm_pipeline_interesados(p_tipo)`. Etapa DERIVADA de
+    lo registrado (cierre > oferta > visita no cancelada > contactado/
+    seguimiento > cualificado), nadie mueve tarjetas a mano. Comercial =
+    asignado al contacto → del rol → del inmueble vinculado (heredado, idea
+    de David del 22 sep). Hoy: compra 526 (494 sin comercial), alquiler 72
+    (19 sin comercial) — el pipeline se llenará con el circuito nuevo.
+  - **Puesta al día desde Airtable — APLICADA el 24 sep 2026** con
+    aprobación de David: +1.215 contactos (4.160 → 5.375), 0 duplicados
+    nuevos por teléfono, 112 a Pendientes de la Bandeja. Inversión y
+    Rústica → `tipo_interes='Compra'` (David: son compra pero departamentos
+    distintos — el departamento queda en `contacts.seccion`, copiado tal
+    cual). La lista de marzo NO se importa (decisión de David: lista
+    antigua). Script `scripts/airtable-puesta-al-dia.mjs` (simula por
+    defecto, `--apply` para escribir; idempotente: omite airtable_id y
+    teléfonos ya presentes) — volver a lanzarlo el día del corte para
+    recoger los últimos días. Hallazgos de la auditoría previa: Airtable Clientes tiene 8.319 registros, 4.192 no
+    están en el CRM: 1.589 de jun–sep (leads reales, casi todos con
+    conversación) y 2.599 cargados de golpe el 16 mar sin conversación ni
+    sección (parecen una lista de teléfonos, no leads — sin importar a la
+    espera de David). Airtable crea un registro NUEVO cada vez que la misma
+    persona vuelve a escribir: el script los fusiona por teléfono (270) con
+    las conversaciones unidas por fecha. Resultado de la simulación desde
+    2026-06-01: 1.215 contactos a crear, 95 omitidos por existir ya en el
+    CRM, 10 sin teléfono ni email.
+  - **Redirigir SilvIA al CRM — sin empezar.** El 90% de los leads nuevos
+    en Airtable los crea el usuario "Artificial Intelligence" (una
+    integración); la cuenta de Make conectada a esta sesión no tiene acceso
+    al equipo 1698831, así que no se ha podido ver qué escenario es.
+
 - **Valorador: `canal_origen` roto desde el 14 sep 2026 + inmuebles de la
   web sin propietario — 24 sep 2026.** La migración
   `20260914163755_normalizar_trabajado_y_canal_origen_bandeja.sql` quitó el

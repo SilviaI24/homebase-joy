@@ -32,4 +32,5 @@ export {
   type TipoInteres,
   marcarTipoInteresLead,
   descartarLead,
+  marcarFuenteLead,
 } from "./mutations-seguimiento.functions";

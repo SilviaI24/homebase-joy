@@ -12,9 +12,10 @@ import {
   sendWhatsAppReply,
   marcarTipoInteresLead,
   descartarLead,
+  marcarFuenteLead,
   type TipoInteres,
 } from "@/lib/mutations.functions";
-import type { MotivoDescarte } from "@/lib/contactos-format";
+import { FUENTES, type Fuente, type MotivoDescarte } from "@/lib/contactos-format";
 import {
   comercialStatus,
   compileInmueblePatterns,
@@ -30,11 +31,12 @@ const PAGE_SIZE = 50;
 const ESTADO_TABS = ["Pendientes", "Cualificados", "Descartados", "Antiguos", "Todos"] as const;
 type EstadoTab = (typeof ESTADO_TABS)[number];
 const CANAL_FILTROS = ["Todos", "Web", "WhatsApp", "Voz", "Email"] as const;
+const FUENTE_FILTROS = ["Todas", "Sin fuente", ...FUENTES] as const;
 
 export const Route = createFileRoute("/bandeja/")({
   validateSearch: (
     s: Record<string, unknown>,
-  ): { page?: number; tab?: string; q?: string; canal?: string } => ({
+  ): { page?: number; tab?: string; q?: string; canal?: string; fuente?: string } => ({
     page: typeof s.page === "number" && s.page >= 1 ? Math.floor(s.page) : undefined,
     tab: (ESTADO_TABS as readonly string[]).includes(s.tab as string)
       ? (s.tab as string)
@@ -42,6 +44,9 @@ export const Route = createFileRoute("/bandeja/")({
     q: typeof s.q === "string" ? s.q : undefined,
     canal: (CANAL_FILTROS as readonly string[]).includes(s.canal as string)
       ? (s.canal as string)
+      : undefined,
+    fuente: (FUENTE_FILTROS as readonly string[]).includes(s.fuente as string)
+      ? (s.fuente as string)
       : undefined,
   }),
   head: () => ({
@@ -79,6 +84,7 @@ function BandejaPage() {
     tab: rawSearch.tab ?? "Pendientes",
     q: rawSearch.q ?? "",
     canal: rawSearch.canal ?? "Todos",
+    fuente: rawSearch.fuente ?? "Todas",
   };
 
   const { data: pageData, isFetching } = useQuery(
@@ -88,6 +94,7 @@ function BandejaPage() {
       tab: search.tab,
       q: search.q,
       canal: search.canal,
+      fuente: search.fuente,
     }),
   );
 
@@ -117,6 +124,8 @@ function BandejaPage() {
   const [tipoInteresLocal, setTipoInteresLocal] = useState<Record<string, TipoInteres>>({});
   const tipoInteresFn = useServerFn(marcarTipoInteresLead);
   const descartarFn = useServerFn(descartarLead);
+  const fuenteFn = useServerFn(marcarFuenteLead);
+  const [fuenteLocal, setFuenteLocal] = useState<Record<string, Fuente | null>>({});
 
   // WhatsApp reply state
   const [replyOpen, setReplyOpen] = useState<Set<string>>(new Set());
@@ -165,6 +174,10 @@ function BandejaPage() {
 
   function changeCanalFilter(c: string) {
     navigate({ search: (prev) => ({ ...prev, canal: c, page: 1 }) });
+  }
+
+  function changeFuenteFilter(f: string) {
+    navigate({ search: (prev) => ({ ...prev, fuente: f, page: 1 }) });
   }
 
   function changeQ(q: string) {
@@ -273,6 +286,24 @@ function BandejaPage() {
     }
   }
 
+  async function setFuente(id: string, fuente: Fuente | null) {
+    const had = id in fuenteLocal;
+    const prev = fuenteLocal[id];
+    setFuenteLocal((p) => ({ ...p, [id]: fuente }));
+    try {
+      await fuenteFn({ data: { contactId: id, fuente } });
+      queryClient.invalidateQueries({ queryKey: ["ia-conversations-page"] });
+    } catch (e: unknown) {
+      setFuenteLocal((p) => {
+        const n = { ...p };
+        if (had) n[id] = prev;
+        else delete n[id];
+        return n;
+      });
+      toast.error(e instanceof Error ? e.message : "No se pudo guardar la fuente");
+    }
+  }
+
   async function setTipoInteres(id: string, tipo: TipoInteres) {
     const prev = tipoInteresLocal[id];
     setTipoInteresLocal((p) => ({ ...p, [id]: tipo }));
@@ -359,6 +390,18 @@ function BandejaPage() {
             </button>
           ))}
         </div>
+        <select
+          value={search.fuente}
+          onChange={(e) => changeFuenteFilter(e.target.value)}
+          aria-label="Filtrar por fuente"
+          className="h-9 rounded-md border border-input bg-card px-2 text-xs font-medium outline-none focus:ring-2 focus:ring-ring"
+        >
+          {FUENTE_FILTROS.map((f) => (
+            <option key={f} value={f}>
+              {f === "Todas" ? "Todas las fuentes" : f}
+            </option>
+          ))}
+        </select>
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
@@ -386,7 +429,11 @@ function BandejaPage() {
             return (
               <ConversationCard
                 key={c.id}
-                cliente={{ ...c, tipoInteres: tipoInteresLocal[c.id] ?? c.tipoInteres }}
+                cliente={{
+                  ...c,
+                  tipoInteres: tipoInteresLocal[c.id] ?? c.tipoInteres,
+                  fuente: c.id in fuenteLocal ? fuenteLocal[c.id] : c.fuente,
+                }}
                 canal={canal}
                 mencionados={mencionados}
                 isOpen={expanded.has(c.id)}
@@ -405,6 +452,7 @@ function BandejaPage() {
                 onReplyTextChange={(v) => setReplyTexts((p) => ({ ...p, [c.id]: v }))}
                 onSendReply={() => sendReply(c.id)}
                 onSetTipoInteres={(tipo) => setTipoInteres(c.id, tipo)}
+                onSetFuente={(f) => setFuente(c.id, f)}
                 onVinculado={() => {
                   queryClient.invalidateQueries({ queryKey: ["ia-conversations-page"] });
                   queryClient.invalidateQueries({ queryKey: ["clientes-stats"] });

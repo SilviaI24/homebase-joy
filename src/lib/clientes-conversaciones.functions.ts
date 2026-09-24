@@ -4,6 +4,7 @@ import { toTitleCase, toSentenceCase, escapeSearchTerm } from "./format";
 import { requirePermission } from "@/lib/crm-auth.server";
 import { s } from "./clientes-format";
 import type { Cliente, Etapa } from "./clientes.functions";
+import { FUENTES } from "./contactos-format";
 
 export type ConversacionIa = Pick<
   Cliente,
@@ -23,7 +24,7 @@ export type ConversacionIa = Pick<
   | "etapa"
   | "agentesIds"
   | "matches"
-> & { motivoDescarte: string | null };
+> & { motivoDescarte: string | null; fuente: string | null };
 
 // Bandeja: la entrada única de leads (circuito aprobado por David, 24 sep
 // 2026). Conserva las conversaciones aunque el contacto deje de ser Lead.
@@ -33,6 +34,7 @@ export type ConversacionIa = Pick<
 // entraban al CRM, pero hasta el 24 sep la Bandeja no los mostraba.
 const BANDEJA_CANALES = ["WhatsApp", "Voz", "Email", "Web", "Legado"] as const;
 const CANAL_FILTROS = ["Todos", "WhatsApp", "Voz", "Email", "Web"] as const;
+const FUENTE_FILTROS = ["Todas", "Sin fuente", ...FUENTES] as const;
 const ESTADO_TABS = ["Pendientes", "Cualificados", "Descartados", "Antiguos", "Todos"] as const;
 const VENTANA_PENDIENTES_DIAS = 30;
 
@@ -52,6 +54,7 @@ type ConversacionIaQueryRow = {
   trabajado: string | null;
   tipo_interes: string | null;
   motivo_descarte: string | null;
+  fuente: string | null;
   contact_agents: Array<{ agent_id: string | null }> | null;
 };
 
@@ -60,7 +63,14 @@ type ConversacionIaQueryRow = {
 // canal filter refina por canal_origen exacto.
 export const listConversacionesIaPage = createServerFn({ method: "GET" })
   .validator(
-    (d: { page?: number; pageSize?: number; tab?: string; q?: string; canal?: string }) => {
+    (d: {
+      page?: number;
+      pageSize?: number;
+      tab?: string;
+      q?: string;
+      canal?: string;
+      fuente?: string;
+    }) => {
       const page = Math.max(1, Number(d?.page) || 1);
       const pageSize = Math.min(200, Math.max(1, Number(d?.pageSize) || 50));
       const tab = ESTADO_TABS.includes((d?.tab ?? "") as (typeof ESTADO_TABS)[number])
@@ -70,7 +80,10 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
       const canal = CANAL_FILTROS.includes((d?.canal ?? "") as (typeof CANAL_FILTROS)[number])
         ? (d!.canal as string)
         : "Todos";
-      return { page, pageSize, tab, q, canal };
+      const fuente = FUENTE_FILTROS.includes((d?.fuente ?? "") as (typeof FUENTE_FILTROS)[number])
+        ? (d!.fuente as string)
+        : "Todas";
+      return { page, pageSize, tab, q, canal, fuente };
     },
   )
   .handler(
@@ -94,7 +107,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         .select(
           `id, nombre, email, telefono, ciclo_vida, canal_origen, created_at,
            motivo, solicitud, conversaciones, seccion, categoria, trabajado, tipo_interes,
-           motivo_descarte, contact_agents(agent_id)`,
+           motivo_descarte, fuente, contact_agents(agent_id)`,
           { count: "exact" },
         )
         .in("canal_origen", BANDEJA_CANALES)
@@ -106,6 +119,12 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         query = query.eq("canal_origen", data.canal);
       }
       // "Todos" → sin filtro adicional de canal (incluye Legado)
+
+      if (data.fuente === "Sin fuente") {
+        query = query.is("fuente", null);
+      } else if (data.fuente !== "Todas") {
+        query = query.eq("fuente", data.fuente);
+      }
 
       // Tab filter: trabajado + ventana de recencia.
       if (data.tab === "Cualificados") {
@@ -165,6 +184,7 @@ export const listConversacionesIaPage = createServerFn({ method: "GET" })
         trabajado: toTitleCase(s(row.trabajado)),
         tipoInteres: row.tipo_interes,
         motivoDescarte: row.motivo_descarte,
+        fuente: row.fuente,
         etapa: (row.ciclo_vida ?? "Lead") as Etapa,
         agentesIds: (row.contact_agents ?? [])
           .map((a) => a.agent_id)

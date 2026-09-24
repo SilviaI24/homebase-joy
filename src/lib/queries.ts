@@ -15,6 +15,7 @@ import {
   getLeadInsightsFn,
   listClientesPage,
   getClientesStats,
+  getPipelineInteresados,
   getClienteById,
   listContactosPage,
   getDashboardContactCounts,
@@ -232,6 +233,15 @@ export function clientesPageQuery(params: {
   });
 }
 
+export function pipelineInteresadosQuery(tipo: "Comprador" | "Inquilino") {
+  return queryOptions({
+    queryKey: ["pipeline-interesados", tipo],
+    queryFn: () => getPipelineInteresados({ data: { tipo } }),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+}
+
 /** Recuentos de las pestañas de Contactos (por interés + descartados/histórico). */
 export const clientesStatsQuery = queryOptions({
   queryKey: ["clientes-stats"],
@@ -274,6 +284,7 @@ export function iaConversationsPageQuery(params: {
   tab?: string;
   q?: string;
   canal?: string;
+  fuente?: string;
 }) {
   return queryOptions({
     queryKey: ["ia-conversations-page", params],

@@ -29,6 +29,27 @@ export function motivoDescarteLabel(value: string | null | undefined): string | 
   return MOTIVOS_DESCARTE.find((m) => m.value === value)?.label ?? value;
 }
 
+// ── Fuente del lead ─────────────────────────────────────────────────────────────
+
+// De dónde vino el lead (distinto del canal por el que se habla con él).
+// Debe coincidir con contacts_fuente_check (migración 20260924084205).
+export const FUENTES = [
+  "Web",
+  "Idealista",
+  "Fotocasa",
+  "Habitaclia",
+  "Valorador",
+  "Referido",
+  "Oficina",
+  "Otro",
+] as const;
+export type Fuente = (typeof FUENTES)[number];
+
+// ── Pipeline de interesados ─────────────────────────────────────────────────────
+
+export const PIPELINE_ETAPAS = ["Cualificado", "Contactado", "Visita", "Oferta", "Cierre"] as const;
+export type PipelineEtapa = (typeof PIPELINE_ETAPAS)[number];
+
 // ── Clientes / Histórico / Descartado tabs ─────────────────────────────────────
 
 export const SEG_META: Record<

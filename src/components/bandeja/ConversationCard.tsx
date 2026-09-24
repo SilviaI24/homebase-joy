@@ -31,6 +31,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Inmueble } from "@/lib/inmuebles.functions";
@@ -40,8 +41,10 @@ import { cleanRef } from "@/lib/format";
 import { formatFecha, moneyShort } from "@/lib/bandeja-format";
 import {
   avatarColorClass,
+  FUENTES,
   MOTIVOS_DESCARTE,
   motivoDescarteLabel,
+  type Fuente,
   type MotivoDescarte,
 } from "@/lib/contactos-format";
 
@@ -72,6 +75,7 @@ export function ConversationCard({
   onSendReply,
   onVinculado,
   onSetTipoInteres,
+  onSetFuente,
 }: {
   cliente: ConversacionIa;
   canal: Canal;
@@ -93,6 +97,7 @@ export function ConversationCard({
   onSendReply: () => void;
   onVinculado: () => void;
   onSetTipoInteres: (tipo: TipoInteres) => void;
+  onSetFuente: (fuente: Fuente | null) => void;
 }) {
   return (
     <article
@@ -116,6 +121,40 @@ export function ConversationCard({
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-sm truncate">{c.nombre || "Sin nombre"}</span>
               <CanalChip canal={canal} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    title="De dónde vino este lead"
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium cursor-pointer transition-colors ${
+                      c.fuente
+                        ? "bg-gold/15 text-foreground hover:bg-gold/25"
+                        : "border border-dashed border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {c.fuente ? `Fuente: ${c.fuente}` : "¿Fuente?"}
+                    <ChevronDown className="size-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">
+                    ¿De dónde vino?
+                  </DropdownMenuLabel>
+                  {FUENTES.map((f) => (
+                    <DropdownMenuItem key={f} onSelect={() => onSetFuente(f)}>
+                      {f}
+                    </DropdownMenuItem>
+                  ))}
+                  {c.fuente && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => onSetFuente(null)}>
+                        No lo sé
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               {isCualified && (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-success bg-success/10 px-2 py-1 rounded">
                   <UserCheck className="size-3" /> Cualificado

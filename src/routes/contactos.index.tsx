@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Search, Users, RotateCcw } from "lucide-react";
+import { Search, Users, RotateCcw, LayoutList, Columns3 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { HeaderStats } from "@/components/HeaderStats";
 import { SectionTabs } from "@/components/SectionTabs";
@@ -13,6 +13,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Pagination } from "@/components/pagination/Pagination";
 import { ClienteRow, ClienteDetallePanel } from "@/components/contactos/ClientesPanel";
 import { DuplicadosTab } from "@/components/contactos/DuplicadosPanel";
+import { PipelineInteresados } from "@/components/contactos/PipelineInteresados";
 import { clientesPageQuery, clientesStatsQuery, contactosPageQuery } from "@/lib/queries";
 import type { ContactosTabCounts, Segmento } from "@/lib/clientes.functions";
 import { restaurarContactoDeHistorico } from "@/lib/clientes-ciclo-vida.functions";
@@ -77,6 +78,7 @@ function tabConfig(counts: ContactosTabCounts | undefined) {
 // defecto en vez de una página de error.
 const searchSchema = z.object({
   tab: z.enum(TABS).optional().catch(undefined),
+  vista: z.enum(["lista", "pipeline"]).optional().catch(undefined),
   page: z.number().min(1).optional(),
   q: z.string().optional(),
   id: z.string().optional(),
@@ -149,10 +151,13 @@ function InteresTab({ seg }: { seg: "Comprador" | "Inquilino" | "Propietario" })
   const page = rawSearch.page ?? 1;
   const q = rawSearch.q ?? "";
   const selectedId = rawSearch.id ?? null;
+  const tienePipeline = seg === "Comprador" || seg === "Inquilino";
+  const vista = tienePipeline ? (rawSearch.vista ?? "lista") : "lista";
 
-  const { data: pageData, isFetching } = useQuery(
-    clientesPageQuery({ page, pageSize: PAGE_SIZE, seg, q }),
-  );
+  const { data: pageData, isFetching } = useQuery({
+    ...clientesPageQuery({ page, pageSize: PAGE_SIZE, seg, q }),
+    enabled: vista === "lista",
+  });
 
   const clientes = pageData?.clientes ?? [];
   const total = pageData?.total ?? 0;
@@ -169,10 +174,57 @@ function InteresTab({ seg }: { seg: "Comprador" | "Inquilino" | "Propietario" })
   function closeDetail() {
     navigate({ search: (prev) => ({ ...prev, id: undefined }) });
   }
+  function setVista(v: "lista" | "pipeline") {
+    navigate({ search: (prev) => ({ ...prev, vista: v, page: 1 }) });
+  }
+
+  const detalle = (
+    <Sheet open={Boolean(selectedId)} onOpenChange={(open) => !open && closeDetail()}>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        {selectedId && <ClienteDetallePanel id={selectedId} />}
+      </SheetContent>
+    </Sheet>
+  );
+
+  const selectorVista = tienePipeline && (
+    <div
+      className="inline-flex rounded-md border border-border overflow-hidden"
+      role="group"
+      aria-label="Vista"
+    >
+      <button
+        type="button"
+        onClick={() => setVista("lista")}
+        aria-pressed={vista === "lista"}
+        className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 transition-colors ${vista === "lista" ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground"}`}
+      >
+        <LayoutList className="size-3.5" /> Lista
+      </button>
+      <button
+        type="button"
+        onClick={() => setVista("pipeline")}
+        aria-pressed={vista === "pipeline"}
+        className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 border-l border-border transition-colors ${vista === "pipeline" ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground"}`}
+      >
+        <Columns3 className="size-3.5" /> Pipeline
+      </button>
+    </div>
+  );
+
+  if (vista === "pipeline") {
+    return (
+      <div>
+        <div className="mb-4 flex justify-end">{selectorVista}</div>
+        <PipelineInteresados tipo={seg as "Comprador" | "Inquilino"} onOpen={openDetail} />
+        {detalle}
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
+        {selectorVista}
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <input
@@ -228,11 +280,7 @@ function InteresTab({ seg }: { seg: "Comprador" | "Inquilino" | "Propietario" })
         />
       </div>
 
-      <Sheet open={Boolean(selectedId)} onOpenChange={(open) => !open && closeDetail()}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          {selectedId && <ClienteDetallePanel id={selectedId} />}
-        </SheetContent>
-      </Sheet>
+      {detalle}
     </div>
   );
 }

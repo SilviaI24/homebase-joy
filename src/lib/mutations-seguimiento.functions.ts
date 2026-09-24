@@ -4,7 +4,7 @@ import { getSupa } from "./supabase.server";
 import { toSentenceCase } from "./format";
 import { requirePermission, requirePermissions } from "@/lib/crm-auth.server";
 import { strOpt, tipoCicloVida } from "./mutations-shared";
-import { MOTIVOS_DESCARTE, type MotivoDescarte } from "./contactos-format";
+import { FUENTES, MOTIVOS_DESCARTE, type Fuente, type MotivoDescarte } from "./contactos-format";
 
 export const ESTADOS_SEGUIMIENTO = ["Pendiente", "Contactado", "Descartado"] as const;
 export type EstadoSeguimiento = (typeof ESTADOS_SEGUIMIENTO)[number];
@@ -127,6 +127,25 @@ export const descartarLead = createServerFn({ method: "POST" })
     const { error } = await supa.rpc("crm_descartar_lead", {
       p_contact_id: data.contactId,
       p_motivo: data.motivo,
+      p_actor_id: crm.userId,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// null = "no sabemos de dónde vino" (se puede corregir una fuente mal puesta).
+export const marcarFuenteLead = createServerFn({ method: "POST" })
+  .validator((d: { contactId: string; fuente: Fuente | null }) => {
+    if (!d?.contactId) throw new Error("contactId requerido");
+    if (d.fuente !== null && !FUENTES.includes(d.fuente)) throw new Error("Fuente no válida");
+    return d;
+  })
+  .handler(async ({ data }) => {
+    const { crm } = await requirePermission("contacts.update");
+    const supa = getSupa();
+    const { error } = await supa.rpc("crm_marcar_fuente_lead", {
+      p_contact_id: data.contactId,
+      p_fuente: data.fuente,
       p_actor_id: crm.userId,
     });
     if (error) throw new Error(error.message);

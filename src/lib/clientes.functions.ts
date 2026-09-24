@@ -4,6 +4,7 @@ import { getCategoria, isAlquiler, type Categoria } from "./inmuebles.functions"
 import { toTitleCase, toTitleCaseArr, toSentenceCase, escapeSearchTerm } from "./format";
 import { requirePermission, requirePermissions } from "@/lib/crm-auth.server";
 import { s } from "./clientes-format";
+import type { PipelineEtapa } from "./contactos-format";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -578,6 +579,58 @@ async function computeContactosTabCounts(
     Historico: hist.count ?? 0,
   };
 }
+
+// Pipeline de interesados (Fase 2 del circuito del lead): la etapa y el
+// comercial se derivan en SQL (crm_pipeline_interesados) de lo ya registrado
+// -- ver el comentario de la función en la migración 20260924084205.
+export type PipelineInteresado = {
+  id: string;
+  nombre: string;
+  telefono: string;
+  etapa: PipelineEtapa;
+  agenteId: string | null;
+  agenteOrigen: "asignado" | "rol" | "inmueble" | null;
+  propertyId: string | null;
+  inmueble: string | null;
+  ultimaFecha: string | null;
+};
+
+export const getPipelineInteresados = createServerFn({ method: "GET" })
+  .validator((d: { tipo: "Comprador" | "Inquilino" }) => {
+    if (d?.tipo !== "Comprador" && d?.tipo !== "Inquilino") throw new Error("Tipo no válido");
+    return d;
+  })
+  .handler(async ({ data }): Promise<{ interesados: PipelineInteresado[] }> => {
+    await requirePermissions("contacts.read", "contact_roles.read");
+    const supa = getSupa();
+    const { data: rows, error } = await supa.rpc("crm_pipeline_interesados", { p_tipo: data.tipo });
+    if (error) throw new Error("Error al cargar el pipeline");
+    type Row = {
+      contact_id: string;
+      nombre: string | null;
+      telefono: string | null;
+      etapa: PipelineEtapa;
+      agente_id: string | null;
+      agente_origen: PipelineInteresado["agenteOrigen"];
+      property_id: string | null;
+      inmueble: string | null;
+      ultima_fecha: string | null;
+    };
+    const interesados = ((rows ?? []) as Row[])
+      .map((r) => ({
+        id: r.contact_id,
+        nombre: toTitleCase(s(r.nombre)),
+        telefono: s(r.telefono),
+        etapa: r.etapa,
+        agenteId: r.agente_id,
+        agenteOrigen: r.agente_origen,
+        propertyId: r.property_id,
+        inmueble: r.inmueble ? toTitleCase(r.inmueble) : null,
+        ultimaFecha: r.ultima_fecha,
+      }))
+      .sort((a, b) => (b.ultimaFecha ?? "").localeCompare(a.ultimaFecha ?? ""));
+    return { interesados };
+  });
 
 // Lista paginada de una pestaña de Contactos por interés: contactos con un rol
 // comercial del tipo pedido (ciclo_vida Cliente, o Prospecto para captación).
