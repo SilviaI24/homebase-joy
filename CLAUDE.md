@@ -233,9 +233,26 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
     `conversaciones` y, para alquiler, una etiqueta de encaje
     (`evaluarEncajeAlquiler`: cumple con contrato O avalista; la mascota se
     muestra pero no descarta). Probado con una conversación simulada de 4
-    turnos. Pendiente: quitar la línea del formulario también del prompt en
-    el playground (hoy la instrucción del CRM la anula) y activar con
-    `WHATSAPP_SILVIA_MODO=activo`.
+    turnos. Envío ACTIVADO por David el 24 sep 2026.
+    **Valoraciones (David: "de lo más importante; respetar literalmente
+    todas las líneas de precio y zonas"):** la fuente es
+    "VALORACION POR METRO CUADRADO.txt" del vector store de SilvIA (15
+    barrios de Gijón con €/m², tablas 30–300 m², +30.000 € ascensor,
+    +50.000 € ascensor y exterior). Sus 924 líneas cuadran sin excepción
+    con m² × €/m² + suplemento, así que se guardó en `valoracion_barrios` y
+    la cifra la calcula `silvia_valorar_vivienda()` (rango ±10% del prompt
+    original), no el modelo. Contrastada contra las 924 líneas: 0
+    diferencias. Barrio fuera de la tabla o metros fuera de 30–300 → sin
+    cifra (nunca el barrio "más parecido"). Migraciones
+    `20260924143248_silvia_valoracion_barrios.sql` y
+    `20260924143640_silvia_valorar_vivienda_ignora_gijon.sql`. Si cambian
+    los precios, se actualiza esa tabla (no el vector store). La Ventana A
+    del `PROMPT.md` conserva literalmente las reglas y frases originales.
+    `PROMPT.md` pegado en el playground por David el 25 sep 2026 (versión 3
+    del prompt guardado, mismo id; la API usa siempre la versión actual, sin
+    cambio de código) y verificado con una conversación simulada de
+    valoración y otra de alquiler. Pendiente de David: confirmar 4 lecturas
+    del archivo (ver comentario de la migración).
   - **Redirigir SilvIA al CRM — investigado, sin cambiar nada.** David
     compartió el escenario público "Silvia - 03.1 WhatsApp Assistant"
     (Make): disparador WhatsApp Business → busca el hilo en la base de
@@ -406,7 +423,19 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   vía el nuevo `VisitaFull.googleEventId`) — registrar la cita no pierde el
   aviso. No aplica a visitas creadas desde el CRM: ese evento no invita al
   cliente (`eventBody` sin `attendees`). Verificado: tsc/eslint limpios,
-  160/160 tests, build OK. **No verificado en pantalla** (requiere login y
+  160/160 tests, build OK.
+  **Invitación al cliente (preparada, DESACTIVADA):** con
+  `GOOGLE_CALENDAR_INVITAR_CLIENTES=true`, las visitas Programadas y futuras
+  con cliente con email invitan al cliente (Google envía el correo desde la
+  cuenta del comercial). El evento pasa entonces a texto de cara al cliente
+  (`src/lib/visita-invitacion.ts`: sin notas internas ni nombre del cliente
+  en el título — un evento no tiene versión por invitado); sin invitación,
+  el texto interno de siempre. Solo se avisa al cliente si cambia hora,
+  lugar, título o invitado (no por editar notas). Los eventos creados en
+  Google y registrados como visita (sin marca `crm_origen`) solo sincronizan
+  la hora: el CRM no toca su texto ni sus invitados. Pendiente de que David
+  apruebe el correo (vista previa en Artifact) y decida tú/usted, teléfono
+  de contacto y duración. **No verificado en pantalla** (requiere login y
   credenciales de Google aún sin crear).
 
 - **Auditoría del pipeline Airtable → ESGI → web pública (portada de fotos +

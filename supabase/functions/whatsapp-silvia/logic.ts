@@ -207,6 +207,24 @@ export const HERRAMIENTAS_SILVIA = [
   },
   {
     type: "function",
+    name: "valorar_vivienda",
+    description:
+      "Calcula la orientación de precio de venta de una vivienda en Gijón con los datos de mercado de El Sol. Es la ÚNICA fuente de cifras de valoración: no des nunca un precio o rango que no venga de aquí.",
+    parameters: {
+      type: "object",
+      properties: {
+        barrio: { type: "string", description: "Barrio de Gijón tal como lo ha dicho el cliente" },
+        metros: { type: "number", description: "Metros cuadrados aproximados" },
+        ascensor: { type: "boolean", description: "Si el edificio tiene ascensor" },
+        exterior: { type: "boolean", description: "Si la vivienda es exterior" },
+      },
+      required: ["barrio", "metros", "ascensor", "exterior"],
+      additionalProperties: false,
+    },
+    strict: true,
+  },
+  {
+    type: "function",
     name: "registrar_datos_lead",
     description:
       "Guarda en el CRM lo que has sabido del cliente. Llámala cada vez que sepas algún dato nuevo (nombre, qué busca, si pide que le llamen, o los datos de alquiler). Deja en null lo que no sepas.",
@@ -264,6 +282,19 @@ export const HERRAMIENTAS_SILVIA = [
   },
 ];
 
+// Frases fijas del prompt de SilvIA que deben salir palabra por palabra
+// (David, 25 sep 2026: en la primera prueba con el prompt nuevo, la frase
+// patrimonial salió resumida). Un test comprueba que siguen idénticas en
+// PROMPT.md, para que no se desincronicen si se edita uno de los dos.
+export const FRASES_LITERALES = [
+  "Hola, soy Silvia de El Sol Grupo. Esta conversación será procesada para ofrecerte un servicio personalizado.",
+  "Gracias por confiar en nosotros para gestionar tu propiedad. Sabemos que vender una vivienda es una decisión importante, no solo en lo económico, también porque forma parte de tu patrimonio y de tu vida.",
+  "Nosotros trabajamos valoraciones con precisión solo en Gijón, porque es donde tenemos datos reales de mercado.",
+  "Es una orientación muy real con datos actuales de mercado, pero hasta ver la vivienda en persona no podemos afinar del todo porque influyen detalles muy concretos.",
+  "En El Sol trabajamos con datos reales de mercado para que puedas tomar decisiones con información fiable.",
+  "Un especialista de El Sol te preparará una orientación ajustada a tu vivienda y se pondrá en contacto contigo.",
+];
+
 // Reglas del CRM: van en CADA turno, no solo en el primero. En la primera
 // prueba real una conversación que venía de antes de añadirlas mandó el
 // formulario de Airtable, porque su hilo de OpenAI no las contenía.
@@ -274,6 +305,9 @@ export const REGLAS_CRM = [
   "- Si busca alquiler, pregúntale tú, con naturalidad y como mucho dos cosas por mensaje, lo que el comercial necesita para valorar su solicitud: qué inmueble le interesa, nombre y apellidos, email, si tiene contrato de trabajo, profesión, si tiene mascota y si dispone de avalista en caso de ser necesario. Guarda cada dato con registrar_datos_lead en cuanto lo sepas.",
   "- Cuando tengas los datos, dile que el comercial responsable revisará su solicitud y contactará con él. No prometas visitas ni plazos.",
   "- No pidas el teléfono: ya lo tienes.",
+  "- Frases fijas: cuando corresponda usar una de estas frases, escríbela EXACTAMENTE así, palabra por palabra, sin resumirla, acortarla ni cambiar ninguna palabra (solo puedes pasar de tú a usted si el cliente te trata de usted):",
+  ...FRASES_LITERALES.map((f) => `  «${f}»`),
+  "- Valoraciones (vender/valorar): la cifra la calcula SIEMPRE valorar_vivienda, nunca tú. Antes de llamarla necesitas calle y barrio (sin calle y barrio no hay orientación de precio), metros, si tiene ascensor y si es exterior. Da exactamente el rango que devuelve (rango_min y rango_max), con 'lo habitual', 'lo normal' o 'suele moverse entre'; puedes expresarlo en miles. Después de dar cifras añade siempre: 'Es una orientación muy real con datos actuales de mercado, pero hasta ver la vivienda en persona no podemos afinar del todo porque influyen detalles muy concretos.' Si valorar_vivienda no devuelve ok, no des ninguna cifra ni la estimes tú, y no expliques el motivo: di que un especialista le preparará una orientación ajustada a esa vivienda. Nunca expliques de dónde salen los precios por barrio ni que hay un cálculo automático.",
 ].join("\n");
 
 // Lo que ya se sabe del contacto, solo al abrir una conversación (igual que

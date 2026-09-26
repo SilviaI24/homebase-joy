@@ -186,6 +186,20 @@ async function ejecutarHerramienta(
       nota: (data ?? []).length ? undefined : "No encontrado en la cartera disponible",
     };
   }
+  if (nombre === "valorar_vivienda") {
+    const { data, error } = await supa.rpc("silvia_valorar_vivienda", {
+      p_barrio: String(args.barrio ?? ""),
+      p_metros: Number(args.metros),
+      p_ascensor: args.ascensor === true,
+      p_exterior: args.exterior === true,
+    });
+    if (error)
+      return {
+        ok: false,
+        indicacion: "No des ninguna cifra; un especialista preparará la orientación.",
+      };
+    return data;
+  }
   if (nombre === "registrar_datos_lead") {
     const patch: Record<string, unknown> = {};
     const nombreCliente = typeof args.nombre === "string" ? args.nombre.trim() : "";

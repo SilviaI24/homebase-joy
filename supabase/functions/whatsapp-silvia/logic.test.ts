@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createHmac } from "node:crypto";
+import { readFileSync } from "node:fs";
 import {
+  FRASES_LITERALES,
+  REGLAS_CRM,
   aFormatoWhatsApp,
   esPeticionDeBaja,
   extraerMensajes,
@@ -148,5 +151,17 @@ describe("aFormatoWhatsApp", () => {
       "Ficha\nVer la ficha: https://elsolgrupo.com/x",
     );
     expect(aFormatoWhatsApp("Disponible【4:0†fuente】.")).toBe("Disponible.");
+  });
+});
+
+describe("FRASES_LITERALES", () => {
+  const prompt = readFileSync(new URL("./PROMPT.md", import.meta.url), "utf8");
+
+  it.each(FRASES_LITERALES)("aparece idéntica en PROMPT.md: %s", (frase) => {
+    expect(prompt).toContain(frase);
+  });
+
+  it("todas van en las reglas que se envían en cada turno", () => {
+    for (const f of FRASES_LITERALES) expect(REGLAS_CRM).toContain(f);
   });
 });
