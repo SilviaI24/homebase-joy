@@ -7,10 +7,12 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { SectionTabs } from "@/components/SectionTabs";
 import { RouteError } from "@/components/RouteError";
+import { invalidarInmuebles } from "@/lib/queries";
 
 import { DocumentosPanel } from "@/components/inmueble-detail/DocumentosPanel";
 import { DocumentosOnboardingPanel } from "@/components/inmueble-detail/DocumentosOnboardingPanel";
@@ -169,12 +171,13 @@ function InmuebleDetail() {
       detailReady={detailReady}
       onAfterSave={async () => {
         await qc.invalidateQueries({ queryKey: ["inmueble", id] });
-        await qc.invalidateQueries({ queryKey: ["inmuebles"] });
+        // ["inmuebles"] no corresponde a ninguna query (P5, 26 sep 2026).
+        invalidarInmuebles(qc);
         router.invalidate();
       }}
       onDelete={async () => {
         await deleteFn({ data: { id } });
-        await qc.invalidateQueries({ queryKey: ["inmuebles"] });
+        invalidarInmuebles(qc);
         router.navigate({ to: "/inmuebles" });
       }}
       mutationFn={(payload) => updateFn({ data: payload })}
@@ -199,7 +202,11 @@ function DetailView({
   id: string;
 }) {
   const [estatus, setEstatus] = useState(inmueble.estatus || "Activo");
-  const [publicacion, setPublicacion] = useState(inmueble.publicacion || "SUBIR");
+  // P2 (auditoría de altas, 26 sep 2026): antes `|| "SUBIR"`. Un inmueble con
+  // publicacion='' (valor válido del CHECK: aún sin decidir) quedaba "sucio"
+  // nada más abrir la ficha y el autosave escribía SUBIR a los 2 s, sin que
+  // nadie tocase nada (visto en audit_log). Abrir la ficha no escribe nunca.
+  const [publicacion, setPublicacion] = useState(inmueble.publicacion ?? "");
   const [precio, setPrecio] = useState<string>(inmueble.precio?.toString() ?? "");
   const [precioFinal, setPrecioFinal] = useState<string>(inmueble.precioFinal?.toString() ?? "");
   const [agentesIds, setAgentesIds] = useState<string[]>(inmueble.agentesIds);
@@ -344,9 +351,12 @@ function DetailView({
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2500);
     },
-    onError: () => {
+    onError: (e: Error) => {
       isSavingRef.current = false;
       setSaveStatus("error");
+      // P4: el servidor devuelve mensajes legibles (p. ej. "Habitaciones debe
+      // ser un número entero"); sin esto solo se veía "Error al guardar".
+      if (e?.message) toast.error(e.message);
     },
   });
 
@@ -361,15 +371,22 @@ function DetailView({
   const buildPayload = (includeManual: boolean): Parameters<typeof updateInmueble>[0]["data"] => {
     const base: Parameters<typeof updateInmueble>[0]["data"] = {
       id,
-      publicacion,
+      // Solo si cambió: updateInmueble exige properties.publish en cuanto
+      // llega `publicacion`, así que mandarlo siempre impedía a quien no
+      // tiene ese permiso autoguardar cualquier otro campo.
+      ...(publicacion !== inmueble.publicacion ? { publicacion } : {}),
       precio: precio === "" ? null : Number(precio),
       agentesIds,
       observaciones,
       descripcion,
       ...(imagesDirty ? { imagenesAttachmentIds: imagenesOrder.map((a) => a.id) } : {}),
-      habitaciones,
-      banos,
-      superficie,
+      // Igual que publicacion: solo si cambiaron. El servidor ahora lee estos
+      // campos en formato español (P4), y la ficha los muestra con
+      // String(número) — un 28.538 guardado se releería como 28538 si se
+      // reenviase sin tocar al autoguardar otro campo.
+      ...(habitaciones !== inmueble.habitaciones ? { habitaciones } : {}),
+      ...(banos !== inmueble.banos ? { banos } : {}),
+      ...(superficie !== inmueble.superficie ? { superficie } : {}),
       planta,
       estado,
       anoConstruccion,

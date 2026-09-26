@@ -47,8 +47,11 @@ export type RequisitosAlquiler = {
 // 14 sep 2026 (migración normalizar_trabajado_y_canal_origen_bandeja). "Web"
 // son los formularios de elsolgrupo.com (Edge Function web-lead): ya
 // entraban al CRM, pero hasta el 24 sep la Bandeja no los mostraba.
-const BANDEJA_CANALES = ["WhatsApp", "Voz", "Email", "Web", "Legado"] as const;
-const CANAL_FILTROS = ["Todos", "WhatsApp", "Voz", "Email", "Web"] as const;
+// "Presencial" (26 sep 2026): los Leads dados de alta a mano desde la oficina
+// (diálogo "Nuevo cliente") — sin él, un alta manual no aparecía en ningún
+// sitio.
+const BANDEJA_CANALES = ["WhatsApp", "Voz", "Email", "Web", "Presencial", "Legado"] as const;
+const CANAL_FILTROS = ["Todos", "WhatsApp", "Voz", "Email", "Web", "Presencial"] as const;
 const FUENTE_FILTROS = ["Todas", "Sin fuente", ...FUENTES] as const;
 const ESTADO_TABS = ["Pendientes", "Cualificados", "Descartados", "Antiguos", "Todos"] as const;
 const VENTANA_PENDIENTES_DIAS = 30;

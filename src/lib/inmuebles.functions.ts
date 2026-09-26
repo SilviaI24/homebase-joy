@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSupa } from "./supabase.server";
+import { numeroEsCampo } from "./numero-es";
 import { toTitleCase, toTitleCaseArr, toSentenceCase, escapeSearchTerm } from "./format";
 import { hasPermission, requirePermission, requirePermissions } from "@/lib/crm-auth.server";
 
@@ -979,11 +980,16 @@ export const updateInmueble = createServerFn({ method: "POST" })
     if (data.observacionesPropietario !== undefined)
       up.observaciones_propietario = data.observacionesPropietario;
     if (data.descripcion !== undefined) up.descripcion = data.descripcion;
+    // P4 (auditoría de altas, 26 sep 2026): antes Number() leía "1.200" como
+    // 1,2, vaciaba el campo con "85 m2" y mandaba "2.5" habitaciones a una
+    // columna integer. numeroEsCampo entiende el formato español y devuelve
+    // un error legible; vacío sigue significando "borrar el dato" (null).
     if (data.habitaciones !== undefined)
-      up.habitaciones = data.habitaciones ? Number(data.habitaciones) || null : null;
-    if (data.banos !== undefined) up.banos = data.banos ? Number(data.banos) || null : null;
+      up.habitaciones = numeroEsCampo(data.habitaciones, "Habitaciones", { entero: true }) ?? null;
+    if (data.banos !== undefined)
+      up.banos = numeroEsCampo(data.banos, "Baños", { entero: true }) ?? null;
     if (data.superficie !== undefined)
-      up.metros_construidos = data.superficie ? Number(data.superficie) || null : null;
+      up.metros_construidos = numeroEsCampo(data.superficie, "Superficie") ?? null;
     if (data.planta !== undefined) up.piso = data.planta ?? "";
     if (data.estado !== undefined) up.estado = data.estado ?? "";
     if (data.anoConstruccion !== undefined) up.ano_construccion = data.anoConstruccion ?? "";

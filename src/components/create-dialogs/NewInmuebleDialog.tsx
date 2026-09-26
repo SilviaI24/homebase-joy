@@ -1,5 +1,5 @@
 // M-03: extraído de src/components/CreateDialogs.tsx.
-import { useState, useRef, type ReactNode } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { createInmueble, type CreateInmueblePayload } from "@/lib/mutations.functions";
 import { uploadPropertyAttachment } from "@/lib/inmuebles.functions";
-import { agentesQuery, searchClientesPickerQuery } from "@/lib/queries";
+import { agentesQuery, invalidarInmuebles, searchClientesPickerQuery } from "@/lib/queries";
 import { Field, MoreSection, MultiSelect, NewButton } from "@/components/create-dialogs/shared";
 import { NewClienteDialog } from "@/components/create-dialogs/NewClienteDialog";
 import {
@@ -124,7 +124,15 @@ function PropietarioBlock({
     <div className="sm:col-span-2 mt-3 rounded-lg border border-border bg-muted/30 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-semibold">Propietario</h4>
+        {/* P1 (auditoría de altas, 26 sep 2026): este diálogo vive dentro del
+            <form> del inmueble. Aunque Radix lo pinte en un portal, en React
+            el submit burbujea por el árbol de componentes, así que "Crear
+            cliente" disparaba también el alta del inmueble a medio rellenar.
+            NewClienteDialog corta la propagación de su submit; aquí además
+            se preselecciona como propietario el contacto recién creado. */}
         <NewClienteDialog
+          defaultTipo="Propietario"
+          onCreated={(id) => onChange(selected.includes(id) ? selected : [...selected, id])}
           trigger={
             <Button type="button" size="sm" variant="outline" className="h-7 gap-1">
               <Plus className="size-3.5" /> Añadir cliente
@@ -174,11 +182,22 @@ function PropietarioBlock({
 
 // ─── File upload helpers ──────────────────────────────────────────────────────
 
+// Debe coincidir con ALLOWED_ATTACHMENT_MIME de uploadPropertyAttachment
+// (inmuebles.functions.ts): el servidor solo admite imágenes y PDF.
+const ADJUNTO_MIME_PERMITIDOS: readonly string[] = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+];
+
 type UploadedFile = {
   clientId: string;
   filename: string;
   url?: string;
   status: "uploading" | "done" | "error" | "link";
+  error?: string;
 };
 
 function fileToBase64(file: File): Promise<string> {
@@ -196,17 +215,26 @@ function FileUploadField({
   accept,
   isImage,
   onUrlsChange,
+  onBusyChange,
 }: {
   label: string;
   bucket: "property-images" | "property-docs";
   accept: string;
   isImage: boolean;
   onUrlsChange: (urls: string[]) => void;
+  // P8: el padre deshabilita "Crear" mientras haya subidas en curso — antes
+  // se podía crear el inmueble sin los archivos que aún estaban subiendo.
+  onBusyChange: (busy: boolean) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadFn = useServerFn(uploadPropertyAttachment);
   const [items, setItems] = useState<UploadedFile[]>([]);
   const [linkInput, setLinkInput] = useState("");
+
+  const busy = items.some((i) => i.status === "uploading");
+  useEffect(() => {
+    onBusyChange(busy);
+  }, [busy, onBusyChange]);
 
   const notify = (updated: UploadedFile[]) => {
     onUrlsChange(updated.filter((i) => i.url).map((i) => i.url!));
@@ -225,6 +253,12 @@ function FileUploadField({
       toUpload.map(async (file, i) => {
         const clientId = newItems[i].clientId;
         try {
+          // P8: mismo criterio que el servidor (ALLOWED_ATTACHMENT_MIME en
+          // uploadPropertyAttachment). Un .doc/.xls se rechaza aquí con un
+          // mensaje claro, sin subirlo para nada.
+          if (!ADJUNTO_MIME_PERMITIDOS.includes(file.type)) {
+            throw new Error("Tipo de archivo no permitido. Usa imágenes (JPG, PNG, WebP) o PDF.");
+          }
           const base64 = await fileToBase64(file);
           const result = await uploadFn({
             data: {
@@ -241,10 +275,14 @@ function FileUploadField({
             notify(updated);
             return updated;
           });
-        } catch {
+        } catch (e) {
+          // Antes el error se tragaba (solo un icono rojo): ahora se muestra
+          // el motivo junto al archivo y en un aviso.
+          const msg = e instanceof Error && e.message ? e.message : "No se pudo subir";
+          toast.error(`${file.name}: ${msg}`);
           setItems((prev) => {
             const updated = prev.map((x) =>
-              x.clientId === clientId ? { ...x, status: "error" as const } : x,
+              x.clientId === clientId ? { ...x, status: "error" as const, error: msg } : x,
             );
             notify(updated);
             return updated;
@@ -338,7 +376,10 @@ function FileUploadField({
                 <AlertCircle className="size-3.5 shrink-0 text-destructive" />
               )}
               {item.status === "link" && <Link2 className="size-3.5 shrink-0 text-primary" />}
-              <span className="flex-1 truncate text-foreground/80">{item.filename}</span>
+              <span className="flex-1 truncate text-foreground/80">
+                {item.filename}
+                {item.error && <span className="ml-1.5 text-destructive">— {item.error}</span>}
+              </span>
               <button
                 type="button"
                 onClick={() => remove(item.clientId)}
@@ -462,6 +503,9 @@ export function NewInmuebleDialog({
   const [observacionesPropietario, setObservacionesPropietario] = useState<string>("");
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [docUrls, setDocUrls] = useState<string[]>([]);
+  const [subiendoImagenes, setSubiendoImagenes] = useState(false);
+  const [subiendoDocs, setSubiendoDocs] = useState(false);
+  const subiendo = subiendoImagenes || subiendoDocs;
 
   const reset = () => {
     setTipo(null);
@@ -479,7 +523,9 @@ export function NewInmuebleDialog({
     mutationFn: (payload: CreateInmueblePayload) => fn({ data: payload }),
     onSuccess: () => {
       toast.success("Inmueble creado");
-      qc.invalidateQueries({ queryKey: ["all-inmuebles"] });
+      // P5: ["all-inmuebles"] ya no existía (M-01-bis) — Cartera no se
+      // refrescaba tras crear. invalidarInmuebles lista las claves reales.
+      invalidarInmuebles(qc);
       setOpen(false);
       reset();
     },
@@ -488,7 +534,7 @@ export function NewInmuebleDialog({
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tipo) return;
+    if (!tipo || subiendo) return;
     const payload: CreateInmueblePayload = {
       calle: values.calle ?? "",
       tipo,
@@ -622,17 +668,19 @@ export function NewInmuebleDialog({
             <FileUploadField
               label="Imágenes"
               bucket="property-images"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               isImage={true}
               onUrlsChange={setImageUrls}
+              onBusyChange={setSubiendoImagenes}
             />
 
             <FileUploadField
-              label="Documentación"
+              label="Documentación (PDF o imagen)"
               bucket="property-docs"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/jpeg,image/png,image/webp"
               isImage={false}
               onUrlsChange={setDocUrls}
+              onBusyChange={setSubiendoDocs}
             />
 
             <div className="sm:col-span-2">
@@ -664,9 +712,9 @@ export function NewInmuebleDialog({
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={mut.isPending}>
-                {mut.isPending && <Loader2 className="size-4 animate-spin mr-1.5" />}
-                Crear
+              <Button type="submit" disabled={mut.isPending || subiendo}>
+                {(mut.isPending || subiendo) && <Loader2 className="size-4 animate-spin mr-1.5" />}
+                {subiendo ? "Subiendo archivos…" : "Crear"}
               </Button>
             </DialogFooter>
           </form>

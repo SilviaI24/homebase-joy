@@ -45,6 +45,22 @@ export const FUENTES = [
 ] as const;
 export type Fuente = (typeof FUENTES)[number];
 
+// ── Canal del alta manual ───────────────────────────────────────────────────────
+
+// Canales que puede elegir la oficina al dar de alta un Lead a mano (diálogo
+// "Nuevo cliente"). Todos existen en contacts_canal_origen_check y están en
+// BANDEJA_CANALES, para que el lead entre por la Bandeja como cualquier otro
+// (circuito del lead: la Bandeja es la entrada única). "Presencial" es quien
+// viene a la oficina; el trigger contacts_fuente_por_defecto le pone fuente
+// "Oficina" si no se indica otra.
+export const CANALES_ALTA_MANUAL = [
+  { value: "Presencial", label: "Presencial (oficina)" },
+  { value: "Voz", label: "Llamada" },
+  { value: "WhatsApp", label: "WhatsApp" },
+  { value: "Email", label: "Email" },
+] as const;
+export type CanalAltaManual = (typeof CANALES_ALTA_MANUAL)[number]["value"];
+
 // ── Pipeline de interesados ─────────────────────────────────────────────────────
 
 export const PIPELINE_ETAPAS = ["Cualificado", "Contactado", "Visita", "Oferta", "Cierre"] as const;

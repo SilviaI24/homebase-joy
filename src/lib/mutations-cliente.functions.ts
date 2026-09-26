@@ -4,6 +4,8 @@ import { getSupa } from "./supabase.server";
 import { toTitleCase, toSentenceCase } from "./format";
 import { requirePermission, requirePermissions } from "@/lib/crm-auth.server";
 import { strOpt, arrOpt, tipoCicloVida } from "./mutations-shared";
+import { CANALES_ALTA_MANUAL, FUENTES } from "./contactos-format";
+import { TIPOS_INTERES } from "./mutations-seguimiento.functions";
 
 export type CreateClientePayload = {
   nombre: string;
@@ -22,17 +24,52 @@ export type CreateClientePayload = {
   avalista?: string;
   agentesIds?: string[];
   inmueblesIds?: string[];
+  // Circuito del lead (26 sep 2026, C1/C2): por dónde se habla con él, de
+  // dónde vino y qué busca. Solo se guardan si llegan; canal solo para Leads.
+  canalOrigen?: string;
+  fuente?: string;
+  tipoInteres?: string;
 };
 
 export const createCliente = createServerFn({ method: "POST" })
   .validator((d: CreateClientePayload) => {
     if (!d?.nombre || !d.nombre.trim()) throw new Error("Nombre requerido");
+    const canal = strOpt(d.canalOrigen);
+    if (canal && !CANALES_ALTA_MANUAL.some((c) => c.value === canal)) {
+      throw new Error("Canal no válido");
+    }
+    const fuente = strOpt(d.fuente);
+    if (fuente && !(FUENTES as readonly string[]).includes(fuente)) {
+      throw new Error("Fuente no válida");
+    }
+    const interes = strOpt(d.tipoInteres);
+    if (interes && !(TIPOS_INTERES as readonly string[]).includes(interes)) {
+      throw new Error("Tipo de interés no válido");
+    }
     return d;
   })
   .handler(async ({ data }) => {
-    const tipo = strOpt(data.tipo) ?? "Interesado Propiedades";
+    // Auditoría de altas (26 sep 2026, C1): antes el tipo vacío caía en
+    // "Interesado Propiedades" → ciclo_vida 'Cliente' SIN rol, y el contacto
+    // no salía en ninguna pestaña de Contactos (todas exigen rol) ni en la
+    // Bandeja. Sin tipo, lo coherente con el circuito del lead es un Lead que
+    // entra por la Bandeja y de ahí sale cualificado o descartado.
+    const tipo = strOpt(data.tipo) ?? "Lead";
     const cicloVida = tipoCicloVida(tipo);
     const creaRelacion = ["Propietario", "Comprador", "Inquilino"].includes(tipo);
+    // canal_origen solo para Leads: es lo que los mete en la Bandeja (que no
+    // filtra por ciclo_vida). Un Propietario/Comprador/Inquilino dado de alta
+    // ya con rol está cualificado, no debe aparecer como pendiente de llamar.
+    // Un Lead sin canal indicado es un alta de oficina → Presencial.
+    const canalOrigen = cicloVida === "Lead" ? (strOpt(data.canalOrigen) ?? "Presencial") : null;
+    // El interés se deduce del rol cuando lo hay (mismo vocabulario que
+    // contacts_tipo_interes_check); para un Lead, lo que marque la oficina.
+    const tipoInteres =
+      tipo === "Comprador"
+        ? "Compra"
+        : tipo === "Inquilino"
+          ? "Alquiler"
+          : (strOpt(data.tipoInteres) ?? null);
     const { crm } = creaRelacion
       ? await requirePermissions("contacts.create", "contact_roles.create")
       : await requirePermission("contacts.create");
@@ -69,6 +106,11 @@ export const createCliente = createServerFn({ method: "POST" })
       p_crea_relacion: creaRelacion,
       p_tipo_relacion: creaRelacion ? tipo : null,
       p_actor_id: crm.userId,
+      p_canal_origen: canalOrigen,
+      // NULL → el trigger contacts_fuente_por_defecto la deduce del canal
+      // (Presencial → Oficina).
+      p_fuente: strOpt(data.fuente) ?? null,
+      p_tipo_interes: tipoInteres,
     });
     if (error) throw new Error(error.message);
 
@@ -309,14 +351,26 @@ export const activarPropietarioCrm = createServerFn({ method: "POST" })
 
     if (!propietario?.email) return { ok: true, emailEnviado: false };
 
-    const { error: notifyError } = await supa.functions.invoke("notify-portal-activo", {
-      body: {
-        propietario_id: data.propietarioId,
-        propietario_email: propietario.email,
-        propietario_nombre: propietario.nombre,
+    // notify-portal-activo exige un admin del Portal o el secreto interno: la
+    // clave de servicio sola no es un usuario y daba 401 (el acceso se
+    // activaba pero el email nunca salía).
+    const internalSecret = process.env.CRM_INTERNAL_SECRET;
+    if (!internalSecret) return { ok: true, emailEnviado: false };
+    const { data: notifyResult, error: notifyError } = await supa.functions.invoke(
+      "notify-portal-activo",
+      {
+        headers: { "x-crm-internal-secret": internalSecret },
+        body: {
+          propietario_id: data.propietarioId,
+          propietario_email: propietario.email,
+          propietario_nombre: propietario.nombre,
+        },
       },
-    });
-    return { ok: true, emailEnviado: !notifyError };
+    );
+    // Sin RESEND_API_KEY la función responde 200 con skipped: true — eso no
+    // es un email enviado.
+    const skipped = (notifyResult as { skipped?: boolean } | null)?.skipped === true;
+    return { ok: true, emailEnviado: !notifyError && !skipped };
   });
 
 // Generar contrato de exclusividad desde la ficha del inmueble — 21 sep 2026.

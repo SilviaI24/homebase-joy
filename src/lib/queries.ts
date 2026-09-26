@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   listComerciablesInmuebles,
   listInmueblesActividadReciente,
@@ -34,6 +34,50 @@ import { listOperaciones } from "@/lib/operaciones.functions";
 import { getStatsData } from "@/lib/clientes.functions";
 import { getMyRole } from "@/lib/role.functions";
 import { getGoogleCalendarStatus, listCitasGoogleMes } from "@/lib/google-calendar.functions";
+
+// ── Invalidación tras altas ─────────────────────────────────────────────────────
+// P5/C4 (auditoría de altas, 26 sep 2026): los diálogos de alta invalidaban
+// claves que ya no existían (["all-inmuebles"], retirada en M-01-bis) o solo
+// una parte de las que muestran el dato (["clientes"] pero no
+// ["clientes-page"], el pipeline ni la Bandeja), y lo recién creado no
+// aparecía hasta recargar. Una sola lista por dominio, junto a las
+// definiciones de las queries, para que no vuelvan a desincronizarse.
+// invalidateQueries compara por prefijo: ["clientes-page"] cubre todas las
+// variantes con params.
+
+const CLAVES_CONTACTOS = [
+  "clientes",
+  "clientes-stats",
+  "clientes-page",
+  "contactos-page",
+  "pipeline-interesados",
+  "ia-conversations-page",
+  "clientes-picker-search",
+  "dashboard-contact-counts",
+  "header-stats",
+  "lead-insights",
+  "stats",
+] as const;
+
+const CLAVES_INMUEBLES = [
+  "inmuebles-page",
+  "inmuebles-search",
+  "comerciables-inmuebles",
+  "actividad-inmuebles",
+  "prospectos",
+  "dashboard-stats",
+  "header-stats",
+] as const;
+
+/** Tras crear/cambiar un contacto: todas las vistas que lo listan o cuentan. */
+export function invalidarContactos(qc: QueryClient) {
+  for (const k of CLAVES_CONTACTOS) void qc.invalidateQueries({ queryKey: [k] });
+}
+
+/** Tras crear/cambiar un inmueble: Cartera, buscadores y paneles. */
+export function invalidarInmuebles(qc: QueryClient) {
+  for (const k of CLAVES_INMUEBLES) void qc.invalidateQueries({ queryKey: [k] });
+}
 
 export const agentesQuery = queryOptions({
   queryKey: ["agentes"],

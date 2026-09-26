@@ -10,7 +10,13 @@ import { KpiCard } from "@/components/KpiCard";
 import { Input } from "@/components/ui/input";
 import { Banknote, TrendingUp, CheckCircle2, Clock, Plus, X, Building2 } from "lucide-react";
 
-import { operacionesQuery, agentesQuery, searchInmueblesQuery } from "@/lib/queries";
+import {
+  operacionesQuery,
+  agentesQuery,
+  searchInmueblesQuery,
+  invalidarContactos,
+  invalidarInmuebles,
+} from "@/lib/queries";
 import {
   createOperacion,
   closeOperacion,
@@ -133,12 +139,13 @@ export function OperacionesWorkspace() {
   const closeMut = useMutation({
     mutationFn: (id: string) => closeFn({ data: { id } }),
     onSuccess: (result) => {
-      void Promise.all([
-        qc.invalidateQueries({ queryKey: ["operaciones"] }),
-        qc.invalidateQueries({ queryKey: ["all-inmuebles"] }),
-        qc.invalidateQueries({ queryKey: ["clientes"] }),
-        qc.invalidateQueries({ queryKey: ["seguimientos"] }),
-      ]);
+      // P5: cerrar cambia el estatus del inmueble y el rol/ciclo de vida de
+      // los contactos — antes invalidaba ["all-inmuebles"], clave retirada
+      // en M-01-bis, y Cartera seguía mostrando el inmueble como disponible.
+      void qc.invalidateQueries({ queryKey: ["operaciones"] });
+      void qc.invalidateQueries({ queryKey: ["seguimientos"] });
+      invalidarInmuebles(qc);
+      invalidarContactos(qc);
       toast.success(result.alreadyClosed ? "La operación ya estaba cerrada" : "Operación cerrada");
     },
     onError: (e: Error) => {

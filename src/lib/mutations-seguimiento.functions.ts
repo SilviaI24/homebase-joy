@@ -204,23 +204,41 @@ export const checkDuplicates = createServerFn({ method: "GET" })
     };
     const cols = "id, nombre, email, telefono, ciclo_vida";
     const byId = new Map<string, DuplicadoRow>();
+    // C3 (auditoría de altas, 26 sep 2026): la comparación exacta no veía
+    // "Ana@Mail.com" frente a "ana@mail.com" ni "+34 600 11 22 33" frente a
+    // "600112233" — el aviso de duplicado no salía y se creaba el contacto
+    // repetido. Ahora se normalizan ambos lados.
     if (email) {
+      // ilike sin comodines = igualdad sin distinguir mayúsculas en el lado
+      // guardado (el introducido ya va en minúsculas). Se escapan % y _
+      // para que un email con "_" no actúe como comodín.
+      const patron = email.replace(/[\\%_]/g, (c) => `\\${c}`);
       const { data: rows } = await supa
         .from("contacts")
         .select(cols)
-        .eq("email", email)
+        .ilike("email", patron)
         .limit(3)
         .returns<DuplicadoRow[]>();
       for (const row of rows ?? []) byId.set(row.id, row);
     }
     if (telefono) {
-      const { data: rows } = await supa
-        .from("contacts")
-        .select(cols)
-        .eq("telefono", telefono)
-        .limit(3)
-        .returns<DuplicadoRow[]>();
-      for (const row of rows ?? []) byId.set(row.id, row);
+      // crm_contacto_por_telefono (la misma que usa SilvIA para reconocer a
+      // quien escribe) compara en SQL los 9 últimos dígitos de ambos lados:
+      // ignora espacios, guiones, paréntesis y el prefijo +34/0034. Devuelve
+      // el contacto más relevante (no descartado, más reciente); basta para
+      // el aviso. Exige al menos 9 dígitos, así que no salta con un número
+      // a medio escribir.
+      const { data: contactId } = await supa.rpc("crm_contacto_por_telefono", {
+        p_telefono: telefono,
+      });
+      if (typeof contactId === "string" && !byId.has(contactId)) {
+        const { data: row } = await supa
+          .from("contacts")
+          .select(cols)
+          .eq("id", contactId)
+          .maybeSingle<DuplicadoRow>();
+        if (row) byId.set(row.id, row);
+      }
     }
     return { duplicates: Array.from(byId.values()).slice(0, 3) };
   });

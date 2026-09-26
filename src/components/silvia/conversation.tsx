@@ -9,6 +9,7 @@ import {
   Mail,
   History,
   MousePointerClick,
+  Users,
 } from "lucide-react";
 import type { Cliente } from "@/lib/clientes.functions";
 
@@ -19,7 +20,15 @@ import type { Cliente } from "@/lib/clientes.functions";
 // tipo) cubre solo los que necesitan su propio chip visual hoy — el resto
 // cae en "Otro", que ya no debería aparecer en la práctica salvo un dato
 // futuro sin mapear.
-export type Canal = "WhatsApp" | "Voz" | "Email" | "Web" | "Legado" | "Idealista" | "Otro";
+export type Canal =
+  | "WhatsApp"
+  | "Voz"
+  | "Email"
+  | "Web"
+  | "Legado"
+  | "Idealista"
+  | "Presencial"
+  | "Otro";
 
 type ConversationChannelSource = Pick<
   Cliente,
@@ -34,6 +43,8 @@ export function inferCanal(c: ConversationChannelSource): Canal {
   if (origen === "Web") return "Web";
   if (origen === "Legado") return "Legado";
   if (origen === "Idealista") return "Idealista";
+  // Altas manuales de oficina (26 sep 2026): entran en la Bandeja.
+  if (origen === "Presencial") return "Presencial";
   return "Otro";
 }
 
@@ -66,6 +77,10 @@ const CANAL_MAP: Record<Canal, { cls: string; icon: typeof Phone }> = {
   Idealista: {
     cls: "bg-lime-200 text-lime-800 dark:bg-lime-500/20 dark:text-lime-300",
     icon: Globe,
+  },
+  Presencial: {
+    cls: "bg-success/10 text-success",
+    icon: Users,
   },
   Otro: {
     cls: "bg-slate-500/15 text-slate-600 dark:text-slate-400",

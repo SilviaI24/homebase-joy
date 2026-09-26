@@ -4,6 +4,7 @@ import { getSupa } from "./supabase.server";
 import { toTitleCase, toSentenceCase } from "./format";
 import { requirePermission, requirePermissions } from "@/lib/crm-auth.server";
 import { strOpt, numOpt, arrOpt } from "./mutations-shared";
+import { numeroEsCampo } from "./numero-es";
 
 export type CreateInmueblePayload = {
   calle: string;
@@ -26,9 +27,10 @@ export type CreateInmueblePayload = {
   agentesIds?: string[];
   propietariosIds?: string[];
   publicacion?: string;
-  plantas?: string;
   planta?: string;
-  tipoSuelo?: string;
+  // → properties.interior_exterior ("Sí" = exterior). Antes el formulario
+  // tenía un único campo "Planta interior/exterior" que acababa en `piso`.
+  interiorExterior?: string;
   calefaccion?: string;
   orientacion?: string;
   terraza?: string;
@@ -41,17 +43,29 @@ export type CreateInmueblePayload = {
   certificacionEnergetica?: string;
   llaves?: string;
   gastosComunidad?: string;
-  inquilinos?: string;
-  enlaceTours?: string;
+  // → properties."tipo_de_chalet (Chalets)" (nombre heredado de Airtable).
+  // P3 (auditoría de altas, 26 sep 2026): se retiraron del formulario
+  // tipoSuelo, plantas, inquilinos, enlaceTours, superficieEdificable,
+  // viaUrbana, salidaHumos, almacen y estancias — el servidor nunca los
+  // guardaba (no hay columna en `properties`) y se perdían en silencio.
   tipoChalet?: string;
-  superficieEdificable?: string;
-  viaUrbana?: string;
-  salidaHumos?: string;
-  almacen?: string;
-  estancias?: string;
   imagenesUrls?: string[];
   documentacionUrls?: string[];
 };
+
+// P11: el UNIQUE de `ref` devolvía el texto crudo de Postgres ("duplicate key
+// value violates unique constraint properties_ref_key").
+export function mensajeErrorInmueble(
+  error: { code?: string; message: string },
+  ref?: string,
+): string {
+  if (error.code === "23505" && error.message.includes("properties_ref_key")) {
+    return ref
+      ? `Ya existe un inmueble con la referencia "${ref}". Usa otra o déjala vacía.`
+      : "Ya existe un inmueble con esa referencia. Usa otra o déjala vacía.";
+  }
+  return error.message;
+}
 
 export const createInmueble = createServerFn({ method: "POST" })
   .validator((d: CreateInmueblePayload) => {
@@ -105,6 +119,8 @@ export const createInmueble = createServerFn({ method: "POST" })
     if (strOpt(data.observacionesPropietario))
       row.observaciones_propietario = toSentenceCase(data.observacionesPropietario!);
     if (strOpt(data.planta)) row.piso = data.planta;
+    if (strOpt(data.interiorExterior)) row.interior_exterior = data.interiorExterior;
+    if (strOpt(data.tipoChalet)) row["tipo_de_chalet (Chalets)"] = data.tipoChalet;
     if (strOpt(data.calefaccion)) row.calefaccion = data.calefaccion;
     if (strOpt(data.orientacion)) row.orientacion = data.orientacion;
     if (strOpt(data.terraza)) row.terraza = data.terraza;
@@ -122,11 +138,13 @@ export const createInmueble = createServerFn({ method: "POST" })
     const precio = numOpt(data.precio);
     if (precio !== undefined) row.precio = precio;
 
-    const hab = numOpt(data.habitaciones);
+    // P4: formato español ("1.200", "85 m2", "85,5") y enteros donde la
+    // columna es integer, con un error legible en vez del de Postgres.
+    const hab = numeroEsCampo(data.habitaciones, "Habitaciones", { entero: true });
     if (hab !== undefined) row.habitaciones = hab;
-    const ban = numOpt(data.banos);
+    const ban = numeroEsCampo(data.banos, "Baños", { entero: true });
     if (ban !== undefined) row.banos = ban;
-    const sup = numOpt(data.superficie);
+    const sup = numeroEsCampo(data.superficie, "Superficie");
     if (sup !== undefined) row.metros_construidos = sup;
 
     if (data.fechaInicio) row.fecha_inicio = data.fechaInicio;
@@ -161,7 +179,7 @@ export const createInmueble = createServerFn({ method: "POST" })
       p_es_alquiler: isAlq,
       p_actor_id: crm.userId,
     });
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(mensajeErrorInmueble(error, strOpt(data.ref)));
 
     return { id: propertyId as string };
   });

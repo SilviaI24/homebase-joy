@@ -88,6 +88,9 @@ export function ManagementPanel(props: {
             onChange={(e) => setPublicacion(e.target.value)}
             className="mt-1 w-full h-9 px-2 rounded-md border border-input bg-background text-sm"
           >
+            {/* '' = aún sin decidir (válido en properties_publicacion_check).
+                Sin esta opción el select no podía representarlo. */}
+            <option value="">—</option>
             {PUBLICACION_OPCIONES.map((s) => (
               <option key={s} value={s}>
                 {s}

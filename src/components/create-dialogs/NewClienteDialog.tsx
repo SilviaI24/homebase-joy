@@ -23,17 +23,35 @@ import {
 } from "@/lib/mutations.functions";
 import { SEGMENTOS } from "@/lib/clientes.functions";
 import { CATEGORIAS } from "@/lib/inmuebles.functions";
+import { CANALES_ALTA_MANUAL, FUENTES } from "@/lib/contactos-format";
+import { invalidarContactos } from "@/lib/queries";
 import { Field, MoreSection, NewButton } from "@/components/create-dialogs/shared";
 
-export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
+export function NewClienteDialog({
+  trigger,
+  defaultTipo = "Lead",
+  onCreated,
+}: {
+  trigger?: ReactNode;
+  // C1 (auditoría de altas, 26 sep 2026): antes el tipo empezaba vacío y el
+  // contacto quedaba 'Cliente' sin rol, invisible en Contactos y en la
+  // Bandeja. Por defecto es un Lead (entra por la Bandeja, circuito del
+  // lead); desde el bloque Propietario del alta de inmueble, "Propietario".
+  defaultTipo?: (typeof SEGMENTOS)[number];
+  onCreated?: (id: string) => void;
+}) {
   const qc = useQueryClient();
   const fn = useServerFn(createCliente);
   const checkDupFn = useServerFn(checkDuplicates);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<CreateClientePayload>({
+  const formInicial = (): CreateClientePayload => ({
     nombre: "",
     fecha: new Date().toISOString().slice(0, 10),
+    tipo: defaultTipo,
+    canalOrigen: "Presencial",
   });
+  const [form, setForm] = useState<CreateClientePayload>(formInicial);
+  const esLead = (form.tipo ?? "Lead") === "Lead";
   const [catSel, setCatSel] = useState<string[]>([]);
 
   // Debounced values for duplicate detection (400 ms)
@@ -65,12 +83,14 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
 
   const mut = useMutation({
     mutationFn: (payload: CreateClientePayload) => fn({ data: payload }),
-    onSuccess: () => {
-      toast.success("Cliente creado");
-      qc.invalidateQueries({ queryKey: ["clientes-stats"] });
-      qc.invalidateQueries({ queryKey: ["clientes"] });
+    onSuccess: ({ id }) => {
+      toast.success(esLead ? "Lead creado — lo verás en la Bandeja" : "Contacto creado");
+      // P5/C4: antes solo ["clientes"]/["clientes-stats"]; Contactos pagina con
+      // ["clientes-page"] y la Bandeja/pipeline tienen sus propias claves.
+      invalidarContactos(qc);
+      onCreated?.(id);
       setOpen(false);
-      setForm({ nombre: "", fecha: new Date().toISOString().slice(0, 10) });
+      setForm(formInicial());
       setCatSel([]);
     },
     onError: (e: Error) => toast.error(e.message || "No se pudo crear"),
@@ -87,7 +107,19 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            mut.mutate({ ...form, categoria: catSel });
+            // P1: este diálogo se usa dentro del <form> de NewInmuebleDialog.
+            // El portal de Radix saca el DOM, pero el evento sintético de React
+            // sigue burbujeando por el árbol de componentes hasta el onSubmit
+            // del inmueble, que se enviaba a la vez.
+            e.stopPropagation();
+            mut.mutate({
+              ...form,
+              categoria: catSel,
+              // Canal e interés solo tienen sentido para un Lead (ver
+              // createCliente); con rol, el interés se deduce del rol.
+              canalOrigen: esLead ? form.canalOrigen : undefined,
+              tipoInteres: esLead ? form.tipoInteres : undefined,
+            });
           }}
           className="grid gap-3 sm:grid-cols-2"
         >
@@ -115,18 +147,63 @@ export function NewClienteDialog({ trigger }: { trigger?: ReactNode }) {
           </Field>
           <Field label="Tipo de cliente">
             <select
-              value={form.tipo ?? ""}
+              value={form.tipo ?? "Lead"}
               onChange={(e) => setForm({ ...form, tipo: e.target.value })}
               className="h-9 px-3 rounded-md border border-input bg-background text-sm w-full"
             >
-              <option value="">—</option>
               {SEGMENTOS.map((t) => (
                 <option key={t} value={t}>
-                  {t}
+                  {t === "Lead" ? "Lead (pasa por la Bandeja)" : t}
                 </option>
               ))}
             </select>
           </Field>
+          {esLead && (
+            <Field label="Canal" hint="Por dónde ha contactado">
+              <select
+                value={form.canalOrigen ?? "Presencial"}
+                onChange={(e) => setForm({ ...form, canalOrigen: e.target.value })}
+                className="h-9 px-3 rounded-md border border-input bg-background text-sm w-full"
+              >
+                {CANALES_ALTA_MANUAL.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          <Field label="Fuente" hint="De dónde viene">
+            <select
+              value={form.fuente ?? ""}
+              onChange={(e) => setForm({ ...form, fuente: e.target.value || undefined })}
+              className="h-9 px-3 rounded-md border border-input bg-background text-sm w-full"
+            >
+              {/* Vacío: para un Lead presencial la BD pone "Oficina"
+                  (trigger contacts_fuente_por_defecto); en otro caso queda
+                  como desconocida, igual que en la Bandeja. */}
+              <option value="">{esLead ? "Automática según canal" : "Desconocida"}</option>
+              {FUENTES.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {esLead && (
+            <Field label="Busca">
+              <select
+                value={form.tipoInteres ?? ""}
+                onChange={(e) => setForm({ ...form, tipoInteres: e.target.value || undefined })}
+                className="h-9 px-3 rounded-md border border-input bg-background text-sm w-full"
+              >
+                <option value="">Sin indicar</option>
+                <option value="Compra">Comprar</option>
+                <option value="Alquiler">Alquilar</option>
+                <option value="Prospeccion">Vender / alquilar su inmueble</option>
+              </select>
+            </Field>
+          )}
           <Field label="Fecha">
             <Input
               type="date"

@@ -30,7 +30,7 @@ import { ConversationCard } from "@/components/bandeja/ConversationCard";
 const PAGE_SIZE = 50;
 const ESTADO_TABS = ["Pendientes", "Cualificados", "Descartados", "Antiguos", "Todos"] as const;
 type EstadoTab = (typeof ESTADO_TABS)[number];
-const CANAL_FILTROS = ["Todos", "Web", "WhatsApp", "Voz", "Email"] as const;
+const CANAL_FILTROS = ["Todos", "Web", "WhatsApp", "Voz", "Email", "Presencial"] as const;
 const FUENTE_FILTROS = ["Todas", "Sin fuente", ...FUENTES] as const;
 
 export const Route = createFileRoute("/bandeja/")({
