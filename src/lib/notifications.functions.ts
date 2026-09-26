@@ -100,12 +100,14 @@ export const getNotifications = createServerFn({ method: "GET" }).handler(
 
       // Documentos subidos por el propietario desde el Portal, pendientes de
       // revisión (los que sube el propio operario ya entran como
-      // estado='aprobado', no aparecen aquí).
+      // estado='aprobado', no aparecen aquí). Se filtra por property_id y no
+      // por contact_id: el Portal nunca rellena contact_id, así que con ese
+      // filtro la campana no mostraba ninguno (auditoría 25 sep 2026).
       supa
         .from("documentos")
-        .select("id, nombre, categoria, contact_id, created_at, contacts(nombre)")
+        .select("id, nombre, categoria, property_id, created_at, properties(calle, ref)")
         .in("estado", ["pendiente", "revision"])
-        .not("contact_id", "is", null)
+        .not("property_id", "is", null)
         .order("created_at", { ascending: false })
         .limit(10),
 
@@ -237,19 +239,21 @@ export const getNotifications = createServerFn({ method: "GET" }).handler(
       id: string;
       nombre: string | null;
       categoria: string | null;
-      contact_id: string | null;
+      property_id: string;
       created_at: string;
-      contacts: { nombre: string | null } | null;
+      properties: { calle: string | null; ref: string | null } | null;
     }>;
     for (const d of documentosRows) {
-      const cliente = d.contacts ? toTitleCase(d.contacts.nombre ?? "") : "Propietario";
+      const inmueble = d.properties
+        ? toTitleCase(d.properties.calle ?? "") || d.properties.ref || "Inmueble"
+        : "Inmueble";
       notifs.push({
         id: `documento-${d.id}`,
         tipo: "documento_portal",
         prioridad: "atencion",
         titulo: `Documento pendiente de revisión`,
-        detalle: `${cliente} · ${d.nombre ?? d.categoria ?? "Documento"}`,
-        href: d.contact_id ? `/contactos?id=${d.contact_id}` : "/contactos",
+        detalle: `${inmueble} · ${d.nombre ?? d.categoria ?? "Documento"}`,
+        href: `/inmuebles/${d.property_id}`,
       });
     }
 
