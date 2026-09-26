@@ -173,10 +173,16 @@ export const invitarPropietarioPortal = createServerFn({ method: "POST" })
     // bloqueante, ya tiene acceso, solo no recibe un email nuevo.
     const yaRegistrado = Boolean(inviteError?.message?.includes("already been registered"));
     if (inviteError && !yaRegistrado) {
+      // Fallo real de envío (p. ej. Supabase Auth sin SMTP propio, que solo
+      // entrega a miembros del equipo): se devuelve el motivo para que la
+      // pantalla no diga "ya tenía acceso" cuando la ficha existía de antes
+      // pero nadie ha recibido nada (auditoría 25 sep 2026).
+      console.error("invitarPropietarioPortal: inviteUserByEmail", inviteError);
       return {
         propietarioId: row.out_propietario_id,
         yaExistia: row.out_ya_existia,
         inviteSent: false,
+        errorEnvio: inviteError.message,
       };
     }
 
@@ -184,6 +190,7 @@ export const invitarPropietarioPortal = createServerFn({ method: "POST" })
       propietarioId: row.out_propietario_id,
       yaExistia: row.out_ya_existia,
       inviteSent: !yaRegistrado,
+      errorEnvio: null as string | null,
     };
   });
 

@@ -61,6 +61,8 @@ function DarAccesoPortalButton({
     onSuccess: (res) => {
       if (res.inviteSent) {
         toast.success("Invitación enviada — recibirá un email para activar su acceso al portal");
+      } else if (res.errorEnvio) {
+        toast.error(`No se pudo enviar el email de invitación: ${res.errorEnvio}`);
       } else if (res.yaExistia) {
         toast.success("Ya tenía acceso al portal — vinculado a este inmueble");
       } else {
