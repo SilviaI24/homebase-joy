@@ -136,6 +136,55 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
 
+- **Auditoría de entrega + correcciones — 25/26 sep 2026.** Auditados alta de
+  inmuebles, alta de contactos, alta en el Portal, onboarding/documentación,
+  firmas Docuten y el Portal completo. **Lección principal:** la única cuenta
+  de propietario de prueba es un usuario staff (`es_staff_crm()` = true), así
+  que la RLS nunca se había probado como la verá un propietario real — probar
+  siempre simulando un usuario sin rol staff (`set local role authenticated` +
+  `request.jwt.claims` con un auth.users/propietario creados en la misma
+  transacción y `ROLLBACK`).
+  - **Seguridad** (`20260926072317`): las `crm_*` SECURITY DEFINER que confían
+    en `p_actor_id` (activar propietario, aprobar documentos, datos de firma)
+    eran ejecutables por `anon` — revocado. Ninguna SECURITY DEFINER queda
+    ejecutable por anon; las 12 que puede ejecutar `authenticated` van atadas a
+    `auth.uid()`.
+  - **Portal** (`20260926072904`): vista `portal_properties` (el propietario
+    veía 0 inmuebles: `properties_public` es la vista de la web, solo
+    Activo+PUBLICADO); RPC `propietario_avanzar_onboarding`/
+    `_guardar_casos_especiales`/`_actualizar_perfil`/`_valorar_visita` (los
+    UPDATE directos afectaban a 0 filas sin error); `visits.notas` fuera del
+    alcance de `authenticated` (privilegio de columna); policies de
+    `documentos` endurecidas; dos policies `TO public` que llamaban a
+    `es_staff_crm()` rompían toda lectura anónima de `properties`.
+  - **Firmas** (`20260926075047` + Edge Functions, ver abajo): índice único en
+    `documentos.docuten_envelope_id`; `claim_propietario_invitation` exige
+    email confirmado.
+  - **Altas del CRM** (`20260926074819`, `20260926075204`): contacto sin tipo =
+    Lead con canal (Presencial) y entra en la Bandeja (antes 'Cliente' sin
+    rol, invisible); abrir una ficha con publicación '' ya no escribe SUBIR;
+    formato numérico español (`src/lib/numero-es.ts`); campos sin columna
+    retirados del alta; claves de React Query reales (`invalidarContactos`/
+    `invalidarInmuebles` en `queries.ts`); duplicados por teléfono normalizado.
+  - **Migraciones:** 18 archivos renombrados al timestamp registrado en la BD
+    y recuperada `20260912073352` en ambos repos — `db push` vuelve a
+    funcionar. `apply_migration` del MCP está bloqueado en estas sesiones;
+    la vía que funciona es `npx supabase db push` (siempre `--dry-run` antes).
+  - **Edge Functions del Portal commiteadas en elsol-client-hub pero SIN
+    desplegar** (push a main = despliegue, requiere OK de David):
+    docuten-webhook idempotente, enlace de firma por copropietario,
+    notify-portal-activo con `x-crm-internal-secret` (el CRM ya lo envía),
+    `verify_jwt=false` declarado en `config.toml` para todas, cabeceras de
+    seguridad en `vercel.json`.
+  - **Pendiente de David:** `RESEND_API_KEY` en los secretos de Supabase (sin
+    ella ningún email del Portal sale — todas las `notify-*` responden
+    `skipped`); revisar SMTP propio y "Confirm email" en Supabase Auth; crear
+    un propietario de prueba real sin rol staff y hacer una pasada en
+    pantalla; confirmar que `interior_exterior='Sí'` significa exterior.
+  - **Dato de uso:** desde el 23 sep 0 visitas, 0 contactos y 0 operaciones
+    creados desde el CRM (solo 3 ediciones de inmuebles) — `linea_actividad`
+    vacía por falta de uso, no por fallo de instrumentación.
+
 - **Circuito del lead, Fase 2 — 24 sep 2026 (parcial).** Migración
   `20260924084205_fase2_fuente_lead_y_pipeline_interesados.sql` (copiada a
   elsol-client-hub).
