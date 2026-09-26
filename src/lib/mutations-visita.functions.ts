@@ -2,14 +2,22 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupa } from "./supabase.server";
-import { toSentenceCase } from "./format";
+import { toSentenceCase, toTitleCase } from "./format";
 import { requirePermission } from "@/lib/crm-auth.server";
 import { strOpt, arrOpt } from "./mutations-shared";
 import {
   crearEventoGoogle,
   actualizarEventoGoogle,
   eliminarEventoGoogle,
+  type VisitaEventInput,
 } from "@/lib/google-calendar.server";
+import {
+  emailInvitable,
+  textoEventoCliente,
+  textoEventoInterno,
+  ubicacionVisita,
+  type DatosEventoVisita,
+} from "./visita-invitacion";
 
 export type CreateVisitaPayload = {
   fecha: string;
@@ -37,30 +45,78 @@ const ESTADO_VISITA_VALIDOS: Record<string, string> = {
 // duración en el formulario, así que se asume 1h para el evento de Google.
 const DURACION_EVENTO_MS = 60 * 60 * 1000;
 
-// Título/descripción del evento de Google a partir de los datos ya
-// normalizados de la visita -- una única lectura de inmueble+cliente,
-// reutilizada por createVisita y updateVisita.
+// Invitar al cliente a la cita de Google Calendar (Google le envía la
+// invitación por email desde la cuenta del comercial). Desactivado hasta
+// que David apruebe el texto del correo -- con la variable sin poner, el
+// comportamiento es exactamente el de antes (evento interno, sin invitados).
+function invitacionClienteActiva(): boolean {
+  return process.env.GOOGLE_CALENDAR_INVITAR_CLIENTES === "true";
+}
+
+// Evento de Google a partir de los datos ya normalizados de la visita -- una
+// única lectura de inmueble+cliente+agente, reutilizada por createVisita y
+// updateVisita. Con invitación activa y cliente con email, el texto pasa a
+// ser el de cara al cliente (sin notas internas, ver visita-invitacion.ts).
 async function construirEventoVisita(
   supa: SupabaseClient,
-  params: { propertyId: string; contactId: string | null; fecha: string; notas: string | null },
-) {
-  const [{ data: prop }, contactRow] = await Promise.all([
-    supa.from("properties").select("calle, numero, ref").eq("id", params.propertyId).maybeSingle(),
+  params: {
+    propertyId: string;
+    contactId: string | null;
+    agenteId: string | null;
+    fecha: string;
+    notas: string | null;
+    // Solo se invita a visitas Programadas y futuras: registrar una visita
+    // ya hecha no debe mandarle al cliente una invitación a algo pasado.
+    estado: string;
+  },
+): Promise<VisitaEventInput> {
+  const [{ data: prop }, contactRow, agentRow] = await Promise.all([
+    supa
+      .from("properties")
+      .select("calle, numero, ref, barrio, cp, localidad")
+      .eq("id", params.propertyId)
+      .maybeSingle(),
     params.contactId
-      ? supa.from("contacts").select("nombre").eq("id", params.contactId).maybeSingle()
+      ? supa.from("contacts").select("nombre, email").eq("id", params.contactId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    params.agenteId
+      ? supa.from("agents").select("nombre, email").eq("id", params.agenteId).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
   const direccion =
-    [prop?.calle, prop?.numero].filter(Boolean).join(" ").trim() || prop?.ref || "Inmueble";
-  const cliente = contactRow.data?.nombre ?? "";
-  const inicio = new Date(params.fecha);
+    toTitleCase([prop?.calle, prop?.numero].filter(Boolean).join(" ").trim()) ||
+    prop?.ref ||
+    "Inmueble";
+  const barrio = toTitleCase(prop?.barrio ?? "");
+  const localidad = toTitleCase(prop?.localidad ?? "");
+  const datos: DatosEventoVisita = {
+    direccion,
+    zona: barrio && localidad ? `${barrio} (${localidad})` : barrio || localidad,
+    cp: prop?.cp ?? "",
+    localidad,
+    clienteNombre: toTitleCase(contactRow.data?.nombre ?? ""),
+    agenteNombre: toTitleCase(agentRow.data?.nombre ?? ""),
+    agenteEmail: agentRow.data?.email ?? "",
+    notas: params.notas,
+  };
 
-  return {
-    titulo: `Visita: ${direccion}${cliente ? ` — ${cliente}` : ""}`,
-    descripcion: params.notas ?? undefined,
+  const inicio = new Date(params.fecha);
+  const base = {
+    ubicacion: ubicacionVisita(datos),
     inicioISO: inicio.toISOString(),
     finISO: new Date(inicio.getTime() + DURACION_EVENTO_MS).toISOString(),
+  };
+
+  if (!invitacionClienteActiva()) return { ...base, ...textoEventoInterno(datos) };
+
+  const email = emailInvitable(contactRow.data?.email);
+  const invitable = !!email && params.estado === "Programada" && inicio.getTime() > Date.now();
+  if (!invitable) return { ...base, ...textoEventoInterno(datos), invitado: null };
+  return {
+    ...base,
+    ...textoEventoCliente(datos),
+    invitado: { email, nombre: datos.clienteNombre },
   };
 }
 
@@ -138,8 +194,10 @@ export const createVisita = createServerFn({ method: "POST" })
         const evento = await construirEventoVisita(supa, {
           propertyId,
           contactId,
+          agenteId,
           fecha: data.fecha,
           notas,
+          estado: ESTADO_VISITA_VALIDOS[estadoRaw] ?? "Programada",
         });
         const googleEventId = await crearEventoGoogle(agenteId, evento);
         if (googleEventId) {
@@ -178,7 +236,7 @@ export const updateVisita = createServerFn({ method: "POST" })
 
     const { data: actual } = await supa
       .from("visits")
-      .select("agente_id, google_event_id")
+      .select("agente_id, google_event_id, estado")
       .eq("id", data.visitaId)
       .maybeSingle();
 
@@ -204,8 +262,10 @@ export const updateVisita = createServerFn({ method: "POST" })
       const evento = await construirEventoVisita(supa, {
         propertyId: data.inmuebleId,
         contactId: data.clienteId || null,
+        agenteId: nuevoAgenteId,
         fecha: data.fecha,
         notas: notasFinal,
+        estado: actual?.estado ?? "Programada",
       });
 
       if (eventoAnterior && agenteAnterior === nuevoAgenteId) {

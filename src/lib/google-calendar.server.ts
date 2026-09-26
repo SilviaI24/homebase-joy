@@ -165,16 +165,47 @@ export type VisitaEventInput = {
   ubicacion?: string;
   inicioISO: string;
   finISO: string;
+  // Cliente invitado a la cita (Google le manda la invitación por email):
+  // - undefined: no se toca la lista de invitados (invitación desactivada,
+  //   ver GOOGLE_CALENDAR_INVITAR_CLIENTES en mutations-visita).
+  // - null: sin invitado (si antes lo había, Google le avisa de que ya no).
+  invitado?: { email: string; nombre?: string } | null;
 };
+
+const TZ_OFICINA = "Europe/Madrid";
+// Marca en el propio evento de que lo creó el CRM. Solo a esos eventos se
+// les gestionan invitados y texto completo; un evento que el comercial creó
+// en Google y luego registró como visita conserva su título, descripción e
+// invitados (sus invitados podrían recibir un texto interno, si no).
+const MARCA_ORIGEN_CRM = "crm_origen";
 
 function eventBody(input: VisitaEventInput) {
   return {
     summary: input.titulo,
     description: input.descripcion || undefined,
     location: input.ubicacion || undefined,
-    start: { dateTime: input.inicioISO },
-    end: { dateTime: input.finISO },
+    // timeZone explícita: el email de invitación muestra la hora de Madrid
+    // y no la de la zona por defecto de la cuenta del invitado.
+    start: { dateTime: input.inicioISO, timeZone: TZ_OFICINA },
+    end: { dateTime: input.finISO, timeZone: TZ_OFICINA },
+    ...(input.invitado === undefined
+      ? {}
+      : {
+          attendees: input.invitado
+            ? [{ email: input.invitado.email, displayName: input.invitado.nombre || undefined }]
+            : [],
+          guestsCanInviteOthers: false,
+          guestsCanModify: false,
+        }),
   };
+}
+
+// sendUpdates=all -> Google manda el email de invitación/cambio/cancelación
+// a los invitados. Sin invitados no envía nada, así que es seguro también
+// en eventos sin cliente.
+function eventsUrl(eventId?: string, sendUpdates: "all" | "none" = "none") {
+  const base = eventId ? `${GOOGLE_EVENTS_URL}/${eventId}` : GOOGLE_EVENTS_URL;
+  return `${base}?sendUpdates=${sendUpdates}`;
 }
 
 export async function crearEventoGoogle(
@@ -184,10 +215,13 @@ export async function crearEventoGoogle(
   const token = await getValidAccessToken(agentId);
   if (!token) return null;
   try {
-    const res = await fetch(GOOGLE_EVENTS_URL, {
+    const res = await fetch(eventsUrl(undefined, input.invitado ? "all" : "none"), {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(eventBody(input)),
+      body: JSON.stringify({
+        ...eventBody(input),
+        extendedProperties: { private: { [MARCA_ORIGEN_CRM]: "1" } },
+      }),
     });
     if (!res.ok) {
       console.error("crearEventoGoogle:", await res.text());
@@ -201,6 +235,19 @@ export async function crearEventoGoogle(
   }
 }
 
+type EventoExistente = {
+  summary?: string;
+  location?: string;
+  start?: { dateTime?: string };
+  end?: { dateTime?: string };
+  attendees?: Array<{ email?: string; self?: boolean }>;
+  extendedProperties?: { private?: Record<string, string> };
+};
+
+function mismoInstante(a: string | undefined, b: string): boolean {
+  return !!a && new Date(a).getTime() === new Date(b).getTime();
+}
+
 export async function actualizarEventoGoogle(
   agentId: string,
   eventId: string,
@@ -209,10 +256,60 @@ export async function actualizarEventoGoogle(
   const token = await getValidAccessToken(agentId);
   if (!token) return false;
   try {
-    const res = await fetch(`${GOOGLE_EVENTS_URL}/${eventId}`, {
+    const getRes = await fetch(`${GOOGLE_EVENTS_URL}/${eventId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!getRes.ok) {
+      if (getRes.status !== 404 && getRes.status !== 410) {
+        console.error("actualizarEventoGoogle (get):", await getRes.text());
+      }
+      return false;
+    }
+    const actual = (await getRes.json()) as EventoExistente;
+    const origenCrm = actual.extendedProperties?.private?.[MARCA_ORIGEN_CRM] === "1";
+    const invitadosActuales = (actual.attendees ?? [])
+      .filter((a) => !a.self)
+      .map((a) => (a.email ?? "").toLowerCase());
+
+    const cambiaHora =
+      !mismoInstante(actual.start?.dateTime, input.inicioISO) ||
+      !mismoInstante(actual.end?.dateTime, input.finISO);
+
+    let body: Record<string, unknown>;
+    let avisar: boolean;
+    if (origenCrm) {
+      body = eventBody(input);
+      const invitadosNuevos =
+        input.invitado === undefined
+          ? invitadosActuales
+          : input.invitado
+            ? [input.invitado.email.toLowerCase()]
+            : [];
+      const cambiaInvitado = invitadosNuevos.join(",") !== invitadosActuales.join(",");
+      const hayInvitados = invitadosNuevos.length > 0 || invitadosActuales.length > 0;
+      // Solo se escribe al cliente si cambia algo que le importa (hora,
+      // lugar, título o si se le invita/desinvita) -- no por editar una
+      // nota interna de la visita.
+      avisar =
+        hayInvitados &&
+        (cambiaHora ||
+          cambiaInvitado ||
+          (actual.location ?? "") !== (input.ubicacion ?? "") ||
+          (actual.summary ?? "") !== input.titulo);
+    } else {
+      // Evento creado en Google y registrado como visita: solo se sincroniza
+      // la hora; título, descripción e invitados son del comercial.
+      body = {
+        start: { dateTime: input.inicioISO, timeZone: TZ_OFICINA },
+        end: { dateTime: input.finISO, timeZone: TZ_OFICINA },
+      };
+      avisar = cambiaHora && invitadosActuales.length > 0;
+    }
+
+    const res = await fetch(eventsUrl(eventId, avisar ? "all" : "none"), {
       method: "PATCH",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(eventBody(input)),
+      body: JSON.stringify(body),
     });
     if (!res.ok && res.status !== 404 && res.status !== 410) {
       console.error("actualizarEventoGoogle:", await res.text());
@@ -224,11 +321,28 @@ export async function actualizarEventoGoogle(
   }
 }
 
+// sendUpdates=all: si la visita tenía cliente invitado, Google le manda el
+// aviso de cancelación (una visita anulada no debe quedarse en su agenda).
+// Solo se borran eventos que creó el CRM: una cita creada en Google y
+// registrada como visita es del comercial (borrarla avisaría a todos sus
+// invitados), así que se deja tal cual y el llamante solo desenlaza la visita.
 export async function eliminarEventoGoogle(agentId: string, eventId: string): Promise<void> {
   const token = await getValidAccessToken(agentId);
   if (!token) return;
   try {
-    const res = await fetch(`${GOOGLE_EVENTS_URL}/${eventId}`, {
+    const getRes = await fetch(`${GOOGLE_EVENTS_URL}/${eventId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!getRes.ok) {
+      if (getRes.status !== 404 && getRes.status !== 410) {
+        console.error("eliminarEventoGoogle (get):", await getRes.text());
+      }
+      return;
+    }
+    const actual = (await getRes.json()) as EventoExistente;
+    if (actual.extendedProperties?.private?.[MARCA_ORIGEN_CRM] !== "1") return;
+
+    const res = await fetch(eventsUrl(eventId, "all"), {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
