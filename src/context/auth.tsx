@@ -19,7 +19,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      // getSession() solo lee lo guardado en el navegador, sin preguntar a
+      // Supabase. Si esa sesión se cerró en otro sitio (logout en otra
+      // pestaña, token revocado), el CRM creía que el usuario seguía dentro
+      // mientras el servidor rechazaba todo ("Session not found"): menú
+      // vacío y "No se pudo cargar esta sección" sin forma de salir (visto en
+      // real el 26 sep 2026). Se valida con getUser() y, si falla, se limpia
+      // la sesión local para volver a la pantalla de acceso.
+      if (session) {
+        const { error } = await supabase.auth.getUser();
+        // Solo si Supabase rechaza la sesión; un fallo de red no debe echar
+        // a nadie.
+        if (error && (error.status === 401 || error.status === 403)) {
+          await supabase.auth.signOut({ scope: "local" });
+          session = null;
+        }
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
