@@ -133,6 +133,23 @@ export type InvitarPropietarioPortalPayload = {
 // no lleva ese JWT — más simple reproducir aquí la única línea que hace
 // falta (inviteUserByEmail) que enmendar el Edge Function para un segundo
 // caso de uso.
+// Origen del Portal para el enlace de invitación, a prueba de errores al
+// pegar la variable en Vercel (espacio o salto de línea final, barra o ruta
+// de más): Supabase compara el redirectTo con la lista de Redirect URLs y, si
+// no encaja, manda al usuario a la Site URL — que es el CRM. Pasó en la
+// primera invitación real (30 sep 2026) con la lista bien configurada.
+// Devuelve null si falta o no es una URL válida.
+function portalOrigin(): string | null {
+  const raw = (process.env.PORTAL_URL ?? "").trim();
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    console.error(`PORTAL_URL no es una URL válida: ${JSON.stringify(raw)}`);
+    return null;
+  }
+}
+
 export const invitarPropietarioPortal = createServerFn({ method: "POST" })
   .validator((d: InvitarPropietarioPortalPayload) => {
     if (!d?.contactId) throw new Error("Contacto requerido");
@@ -159,9 +176,11 @@ export const invitarPropietarioPortal = createServerFn({ method: "POST" })
     )?.[0];
     if (!row) throw new Error("No se pudo crear el acceso de propietario");
 
-    const portalUrl = process.env.PORTAL_URL;
+    const portalUrl = portalOrigin();
     if (!portalUrl) {
-      throw new Error("PORTAL_URL no configurada — pide a David que la añada a .env.local");
+      throw new Error(
+        "PORTAL_URL no configurada o no válida en el servidor (Vercel → Environment Variables)",
+      );
     }
 
     const { error: inviteError } = await supa.auth.admin.inviteUserByEmail(row.out_email, {
@@ -191,6 +210,9 @@ export const invitarPropietarioPortal = createServerFn({ method: "POST" })
       yaExistia: row.out_ya_existia,
       inviteSent: !yaRegistrado,
       errorEnvio: null as string | null,
+      // Para mostrarlo en el aviso: se ve a dónde lleva el enlace sin abrir
+      // el email.
+      destino: new URL(portalUrl).host,
     };
   });
 
@@ -500,7 +522,7 @@ export const generarContratoYDarAccesoPortal = createServerFn({ method: "POST" }
       if (error) throw new Error(`Guardando datos de firma: ${error.message}`);
     }
 
-    const portalUrl = process.env.PORTAL_URL;
+    const portalUrl = portalOrigin();
     const resultados: GenerarContratoResultado[] = [];
 
     for (const p of data.propietarios) {
@@ -526,7 +548,7 @@ export const generarContratoYDarAccesoPortal = createServerFn({ method: "POST" }
           resultados.push({
             propietarioId: p.propietarioId,
             inviteSent: false,
-            error: "PORTAL_URL no configurada",
+            error: "PORTAL_URL no configurada o no válida",
           });
           continue;
         }
