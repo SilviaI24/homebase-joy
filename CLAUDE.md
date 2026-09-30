@@ -295,7 +295,19 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
     cifra (nunca el barrio "más parecido"). Migraciones
     `20260924143248_silvia_valoracion_barrios.sql` y
     `20260924143640_silvia_valorar_vivienda_ignora_gijon.sql`. Si cambian
-    los precios, se actualiza esa tabla (no el vector store). La Ventana A
+    los precios, se actualiza esa tabla (no el vector store).
+    **Tabla nueva de David — 30 sep 2026** (`20260930162335_silvia_valoracion_35_barrios_y_suplementos.sql`):
+    35 barrios (antes 15; "Centro" y "Periurbano" pasan a ser zonas) con
+    €/m² con decimales y suplementos POR BARRIO para ascensor, exterior,
+    reformado, garaje, trastero y piscina (antes +30k/+50k fijos). Reglas
+    aprobadas: suplementos se suman; ±10% solo sobre m²×€/m²; exterior suma
+    sin ascensor; garaje/trastero solo si van en la venta; piscina también
+    comunitaria; "centro"/"El Llano" → `barrio_ambiguo`, SilvIA pregunta y
+    repite con `barrio_confirmado`; 30–300 m². Contrastada con 560 casos
+    calculados desde la tabla pegada (0 diferencias) y una conversación
+    simulada. whatsapp-silvia redesplegada el mismo día. Pendiente de David:
+    pegar `PROMPT.md` en el playground y confirmar El Bibio - Les Mestes
+    (4.984,96 €/m², el más alto). La Ventana A
     del `PROMPT.md` conserva literalmente las reglas y frases originales.
     `PROMPT.md` pegado en el playground por David el 25 sep 2026 (versión 3
     del prompt guardado, mismo id; la API usa siempre la versión actual, sin

@@ -192,6 +192,11 @@ async function ejecutarHerramienta(
       p_metros: Number(args.metros),
       p_ascensor: args.ascensor === true,
       p_exterior: args.exterior === true,
+      p_reformado: args.reformado === true,
+      p_garaje: args.garaje === true,
+      p_trastero: args.trastero === true,
+      p_piscina: args.piscina === true,
+      p_barrio_confirmado: args.barrio_confirmado === true,
     });
     if (error)
       return {

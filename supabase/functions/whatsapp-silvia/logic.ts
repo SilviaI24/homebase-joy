@@ -213,12 +213,38 @@ export const HERRAMIENTAS_SILVIA = [
     parameters: {
       type: "object",
       properties: {
-        barrio: { type: "string", description: "Barrio de Gijón tal como lo ha dicho el cliente" },
+        barrio: {
+          type: "string",
+          description:
+            "Barrio de Gijón tal como lo ha dicho el cliente, o el nombre exacto de una de las opciones si la herramienta devolvió barrio_ambiguo",
+        },
+        barrio_confirmado: {
+          type: "boolean",
+          description:
+            "true solo si el cliente acaba de elegir el barrio entre las opciones que devolvió barrio_ambiguo",
+        },
         metros: { type: "number", description: "Metros cuadrados aproximados" },
         ascensor: { type: "boolean", description: "Si el edificio tiene ascensor" },
         exterior: { type: "boolean", description: "Si la vivienda es exterior" },
+        reformado: { type: "boolean", description: "Si la vivienda está reformada" },
+        garaje: { type: "boolean", description: "Si la venta incluye plaza de garaje" },
+        trastero: { type: "boolean", description: "Si la venta incluye trastero" },
+        piscina: {
+          type: "boolean",
+          description: "Si tiene piscina, propia o comunitaria",
+        },
       },
-      required: ["barrio", "metros", "ascensor", "exterior"],
+      required: [
+        "barrio",
+        "barrio_confirmado",
+        "metros",
+        "ascensor",
+        "exterior",
+        "reformado",
+        "garaje",
+        "trastero",
+        "piscina",
+      ],
       additionalProperties: false,
     },
     strict: true,
@@ -307,7 +333,7 @@ export const REGLAS_CRM = [
   "- No pidas el teléfono: ya lo tienes.",
   "- Frases fijas: cuando corresponda usar una de estas frases, escríbela EXACTAMENTE así, palabra por palabra, sin resumirla, acortarla ni cambiar ninguna palabra (solo puedes pasar de tú a usted si el cliente te trata de usted):",
   ...FRASES_LITERALES.map((f) => `  «${f}»`),
-  "- Valoraciones (vender/valorar): la cifra la calcula SIEMPRE valorar_vivienda, nunca tú. Antes de llamarla necesitas calle y barrio (sin calle y barrio no hay orientación de precio), metros, si tiene ascensor y si es exterior. Da exactamente el rango que devuelve (rango_min y rango_max), con 'lo habitual', 'lo normal' o 'suele moverse entre'; puedes expresarlo en miles. Después de dar cifras añade siempre: 'Es una orientación muy real con datos actuales de mercado, pero hasta ver la vivienda en persona no podemos afinar del todo porque influyen detalles muy concretos.' Si valorar_vivienda no devuelve ok, no des ninguna cifra ni la estimes tú, y no expliques el motivo: di que un especialista le preparará una orientación ajustada a esa vivienda. Nunca expliques de dónde salen los precios por barrio ni que hay un cálculo automático.",
+  "- Valoraciones (vender/valorar): la cifra la calcula SIEMPRE valorar_vivienda, nunca tú. Antes de llamarla necesitas calle y barrio (sin calle y barrio no hay orientación de precio), metros, si tiene ascensor, si es exterior, si está reformada, si la venta incluye garaje o trastero y si tiene piscina (propia o comunitaria); pregúntalo en ese orden, como mucho dos cosas por mensaje. Si devuelve barrio_ambiguo, pregunta en cuál de las opciones está la vivienda (sin dar precios) y vuelve a llamarla con ese nombre exacto y barrio_confirmado true. Da exactamente el rango que devuelve (rango_min y rango_max), con 'lo habitual', 'lo normal' o 'suele moverse entre'; puedes expresarlo en miles. Después de dar cifras añade siempre: 'Es una orientación muy real con datos actuales de mercado, pero hasta ver la vivienda en persona no podemos afinar del todo porque influyen detalles muy concretos.' Si valorar_vivienda no devuelve ok, no des ninguna cifra ni la estimes tú, y no expliques el motivo: di que un especialista le preparará una orientación ajustada a esa vivienda. Nunca expliques de dónde salen los precios por barrio ni que hay un cálculo automático.",
 ].join("\n");
 
 // Lo que ya se sabe del contacto, solo al abrir una conversación (igual que
