@@ -11,6 +11,7 @@ import {
   Building2,
   ChevronRight,
   Loader2,
+  Link2Off,
   ArrowUpRight,
   Archive,
   KeyRound,
@@ -25,7 +26,8 @@ import {
   inferCanal,
   hasSilviaConversation,
 } from "@/components/silvia/conversation";
-import { clienteDetailQuery } from "@/lib/queries";
+import { clienteDetailQuery, invalidarContactos } from "@/lib/queries";
+import { desvincularPropietarioInmueble } from "@/lib/inmuebles.functions";
 import type {
   ClienteRow as ClienteRowType,
   MiniInmueble,
@@ -404,6 +406,70 @@ export function ClienteRow({ c, onClick }: { c: ClienteRowType; onClick: () => v
   );
 }
 
+// Quitar el vínculo contacto↔inmueble desde la ficha del contacto (30 sep
+// 2026): antes no había forma de deshacer una asociación hecha por error ni
+// aquí ni, para propietarios sin Portal, en la ficha del inmueble.
+// Confirmación en línea, mismo patrón que "Desvincular" en PropietarioPanel.
+function DesvincularInmuebleButton({
+  contactId,
+  propertyId,
+}: {
+  contactId: string;
+  propertyId: string;
+}) {
+  const qc = useQueryClient();
+  const desvincularFn = useServerFn(desvincularPropietarioInmueble);
+  const [confirmando, setConfirmando] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: () => desvincularFn({ data: { propertyId, contactId } }),
+    onSuccess: async () => {
+      toast.success("Inmueble desvinculado de este contacto");
+      setConfirmando(false);
+      await qc.invalidateQueries({ queryKey: ["cliente-detail", contactId] });
+      qc.invalidateQueries({ queryKey: ["inmueble", propertyId] });
+      qc.invalidateQueries({ queryKey: ["vinculados-inmueble", propertyId] });
+      qc.invalidateQueries({ queryKey: ["propietarios-inmueble", propertyId] });
+      invalidarContactos(qc);
+    },
+    onError: (e: Error) => toast.error(e.message || "No se pudo desvincular"),
+  });
+
+  if (confirmando) {
+    return (
+      <div className="flex shrink-0 flex-col items-end gap-0.5 text-xs">
+        <button
+          type="button"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate()}
+          className="inline-flex items-center gap-1 font-semibold text-destructive hover:underline disabled:opacity-50"
+        >
+          {mutation.isPending && <Loader2 className="size-3 animate-spin" />}
+          Desvincular
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirmando(false)}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          Cancelar
+        </button>
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => setConfirmando(true)}
+      aria-label="Desvincular este inmueble del contacto"
+      title="Desvincular este inmueble del contacto"
+      className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive transition-colors"
+    >
+      <Link2Off className="size-4" />
+    </button>
+  );
+}
+
 export function ClienteDetallePanel({ id }: { id: string }) {
   const qc = useQueryClient();
   const archivarFn = useServerFn(actualizarCicloVida);
@@ -493,25 +559,27 @@ export function ClienteDetallePanel({ id }: { id: string }) {
           </div>
           <div className="space-y-2">
             {cliente.inmueblesVinculados.map((inm) => (
-              <Link
-                key={inm.id}
-                to="/inmuebles/$id"
-                params={{ id: inm.id }}
-                className="flex items-center gap-2 rounded-lg border border-border p-2 hover:border-foreground/30 transition-colors"
-              >
-                <div className="size-10 shrink-0 rounded bg-muted overflow-hidden">
-                  <SafeImage src={inm.imagen} alt={inm.ref} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium truncate">
-                    {inm.calle} {inm.numero}
+              <div key={inm.id} className="flex items-center gap-1.5">
+                <Link
+                  to="/inmuebles/$id"
+                  params={{ id: inm.id }}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border p-2 hover:border-foreground/30 transition-colors"
+                >
+                  <div className="size-10 shrink-0 rounded bg-muted overflow-hidden">
+                    <SafeImage src={inm.imagen} alt={inm.ref} />
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {inm.rolTipo} · {inm.estatus}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium truncate">
+                      {inm.calle} {inm.numero}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {inm.rolTipo} · {inm.estatus}
+                    </div>
                   </div>
-                </div>
-                <ArrowUpRight className="size-3.5 text-muted-foreground shrink-0" />
-              </Link>
+                  <ArrowUpRight className="size-3.5 text-muted-foreground shrink-0" />
+                </Link>
+                <DesvincularInmuebleButton contactId={cliente.id} propertyId={inm.id} />
+              </div>
             ))}
           </div>
         </div>

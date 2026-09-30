@@ -30,6 +30,7 @@ export function AsociarPropietarioButton({ propertyId }: { propertyId: string })
       toast.success("Propietario vinculado");
       qc.invalidateQueries({ queryKey: ["inmueble", propertyId] });
       qc.invalidateQueries({ queryKey: ["propietarios-inmueble", propertyId] });
+      qc.invalidateQueries({ queryKey: ["vinculados-inmueble", propertyId] });
       setOpen(false);
       setQ("");
       setSelectedId(null);

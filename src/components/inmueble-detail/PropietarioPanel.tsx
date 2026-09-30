@@ -6,10 +6,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Phone, Mail, Link2Off, Loader2 } from "lucide-react";
 import {
-  listPropietariosInmueble,
+  listVinculadosInmueble,
   desvincularPropietarioInmueble,
   type InmuebleDetalle,
 } from "@/lib/inmuebles.functions";
+import { invalidarContactos } from "@/lib/queries";
 import { AsociarPropietarioButton } from "./AsociarPropietarioButton";
 
 function Field({
@@ -37,41 +38,47 @@ function Field({
 
 // Único sitio de la ficha donde se ve/gestiona quién está vinculado como
 // propietario — 22 sep 2026, para no repetir "propietario vinculado: X" en
-// el panel de onboarding de más abajo, que ya lo daba por hecho.
+// el panel de onboarding de más abajo, que ya lo daba por hecho. Desde el 30
+// sep lista también los propietarios vinculados solo en el CRM (antes solo
+// los del Portal, así que la mayoría no se podían desvincular).
 function VinculadosList({ propertyId }: { propertyId: string }) {
   const qc = useQueryClient();
-  const listFn = useServerFn(listPropietariosInmueble);
+  const listFn = useServerFn(listVinculadosInmueble);
   const desvincularFn = useServerFn(desvincularPropietarioInmueble);
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
 
-  // Misma queryKey que ContratoExclusividadPanel — comparten caché, no
-  // duplica la petición de red.
   const { data } = useQuery({
-    queryKey: ["propietarios-inmueble", propertyId],
+    queryKey: ["vinculados-inmueble", propertyId],
     queryFn: () => listFn({ data: { propertyId } }),
   });
 
   const desvincularMutation = useMutation({
-    mutationFn: (vars: { propietarioId: string; contactId: string | null }) =>
+    mutationFn: (vars: { propietarioId: string | null; contactId: string | null }) =>
       desvincularFn({ data: { propertyId, ...vars } }),
     onSuccess: () => {
       toast.success("Propietario desvinculado de este inmueble");
       setConfirmandoId(null);
+      qc.invalidateQueries({ queryKey: ["vinculados-inmueble", propertyId] });
+      // Misma queryKey que ContratoExclusividadPanel (firmantes del contrato).
       qc.invalidateQueries({ queryKey: ["propietarios-inmueble", propertyId] });
       qc.invalidateQueries({ queryKey: ["inmueble", propertyId] });
+      invalidarContactos(qc);
     },
     onError: (e: Error) => toast.error(e.message || "No se pudo desvincular"),
   });
 
-  const propietarios = data?.propietarios ?? [];
+  const propietarios = (data?.vinculados ?? []).map((v) => ({
+    ...v,
+    key: v.contactId ?? v.propietarioId ?? v.nombre,
+  }));
   if (propietarios.length === 0) return null;
 
   return (
     <div className="pt-2 space-y-1.5">
       {propietarios.map((p) => (
-        <div key={p.id} className="flex items-center justify-between gap-2 text-xs">
+        <div key={p.key} className="flex items-center justify-between gap-2 text-xs">
           <span className="text-muted-foreground truncate">Vinculado: {p.nombre}</span>
-          {confirmandoId === p.id ? (
+          {confirmandoId === p.key ? (
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
@@ -84,7 +91,10 @@ function VinculadosList({ propertyId }: { propertyId: string }) {
                 type="button"
                 disabled={desvincularMutation.isPending}
                 onClick={() =>
-                  desvincularMutation.mutate({ propietarioId: p.id, contactId: p.contactId })
+                  desvincularMutation.mutate({
+                    propietarioId: p.propietarioId,
+                    contactId: p.contactId,
+                  })
                 }
                 className="inline-flex items-center gap-1 text-destructive font-semibold hover:underline disabled:opacity-50"
               >
@@ -95,7 +105,7 @@ function VinculadosList({ propertyId }: { propertyId: string }) {
           ) : (
             <button
               type="button"
-              onClick={() => setConfirmandoId(p.id)}
+              onClick={() => setConfirmandoId(p.key)}
               className="inline-flex items-center gap-1 text-muted-foreground hover:text-destructive transition-colors shrink-0"
             >
               <Link2Off className="size-3" /> Desvincular

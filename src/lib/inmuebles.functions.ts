@@ -791,36 +791,138 @@ export const rechazarContratoFirmado = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// Desvincular un propietario de un inmueble — 22 sep 2026, para el caso de
-// haber vinculado el contacto equivocado como propietario. Retira el rol
-// (contact_roles, lo que hace visible/editable "Propietario" en la ficha del
-// inmueble) y el enlace de Portal (propietario_inmueble, lo que hace que
-// vea este inmueble en su cartera). No borra la ficha de propietarios en sí
-// ni su cuenta del Portal — puede seguir vinculado a otros inmuebles.
-export const desvincularPropietarioInmueble = createServerFn({ method: "POST" })
-  .validator((d: { propertyId: string; propietarioId: string; contactId: string | null }) => {
+// Quién figura como propietario/arrendador de un inmueble, para el botón
+// "Desvincular" de la ficha (30 sep 2026). Antes la lista salía solo de
+// propietario_inmueble (propietarios con acceso al Portal), así que un
+// propietario vinculado solo en el CRM (contact_roles — la inmensa mayoría)
+// no se podía desvincular desde ningún sitio. Une las dos fuentes por
+// contacto.
+export type VinculadoInmueble = {
+  contactId: string | null;
+  propietarioId: string | null;
+  nombre: string;
+};
+
+export const listVinculadosInmueble = createServerFn({ method: "GET" })
+  .validator((d: { propertyId: string }) => {
     if (!d?.propertyId) throw new Error("Inmueble requerido");
-    if (!d?.propietarioId) throw new Error("Propietario requerido");
     return d;
   })
   .handler(async ({ data }) => {
-    await requirePermission("contacts.portal_invite");
+    await requirePermission("contact_roles.read");
     const supa = getSupa();
 
-    const { error: piError } = await supa
-      .from("propietario_inmueble")
-      .delete()
-      .eq("propietario_id", data.propietarioId)
-      .eq("property_id", data.propertyId);
-    if (piError) throw new Error(piError.message);
+    const [rolesRes, enlacesRes] = await Promise.all([
+      supa
+        .from("contact_roles")
+        .select("contact_id, contacts(nombre)")
+        .eq("property_id", data.propertyId)
+        .in("tipo", ["Propietario", "Arrendador"]),
+      supa
+        .from("propietario_inmueble")
+        .select("propietario_id, propietarios(nombre, contact_id)")
+        .eq("property_id", data.propertyId),
+    ]);
+    if (rolesRes.error) throw new Error(rolesRes.error.message);
+    if (enlacesRes.error) throw new Error(enlacesRes.error.message);
+
+    // supabase-js sin tipos generados infiere las relaciones embebidas como
+    // array; en runtime PostgREST devuelve un objeto (FK many-to-one).
+    const roles = (rolesRes.data ?? []) as unknown as Array<{
+      contact_id: string;
+      contacts: { nombre: string | null } | null;
+    }>;
+    const enlaces = (enlacesRes.data ?? []) as unknown as Array<{
+      propietario_id: string;
+      propietarios: { nombre: string | null; contact_id: string | null } | null;
+    }>;
+
+    const porContacto = new Map<string, VinculadoInmueble>();
+    for (const r of roles) {
+      porContacto.set(r.contact_id, {
+        contactId: r.contact_id,
+        propietarioId: null,
+        nombre: toTitleCase(r.contacts?.nombre ?? "") || "(sin nombre)",
+      });
+    }
+    const sinContacto: VinculadoInmueble[] = [];
+    for (const e of enlaces) {
+      const contactId = e.propietarios?.contact_id ?? null;
+      const existente = contactId ? porContacto.get(contactId) : undefined;
+      if (existente) {
+        existente.propietarioId = e.propietario_id;
+      } else {
+        const v: VinculadoInmueble = {
+          contactId,
+          propietarioId: e.propietario_id,
+          nombre: toTitleCase(e.propietarios?.nombre ?? "") || "(sin nombre)",
+        };
+        if (contactId) porContacto.set(contactId, v);
+        else sinContacto.push(v);
+      }
+    }
+    return { vinculados: [...porContacto.values(), ...sinContacto] };
+  });
+
+// Desvincular un contacto de un inmueble — 22 sep 2026 (solo propietarios
+// del Portal), ampliado el 30 sep 2026 a cualquier vínculo del CRM: se usa
+// desde la ficha del inmueble y desde la lista de inmuebles de la ficha del
+// contacto. Retira el rol (contact_roles, vía crm_gestionar_rol: deja el
+// actor en audit_log y recalcula ciclo_vida) y, si el contacto tiene ficha de
+// propietario, el enlace de Portal (propietario_inmueble: deja de ver este
+// inmueble en el Portal). No borra la ficha de propietarios ni su cuenta del
+// Portal — puede seguir vinculado a otros inmuebles.
+//
+// Permiso contact_roles.delete: hoy solo ADMIN (OPERATIVO no lo tiene en
+// crm_permisos_rol; se cambia desde la pantalla de Permisos si hace falta).
+export const desvincularPropietarioInmueble = createServerFn({ method: "POST" })
+  .validator(
+    (d: { propertyId: string; contactId: string | null; propietarioId?: string | null }) => {
+      if (!d?.propertyId) throw new Error("Inmueble requerido");
+      if (!d?.contactId && !d?.propietarioId) throw new Error("Contacto o propietario requerido");
+      return d;
+    },
+  )
+  .handler(async ({ data }) => {
+    let crm;
+    try {
+      ({ crm } = await requirePermission("contact_roles.delete"));
+    } catch (e) {
+      if ((e as { statusCode?: number }).statusCode === 403) {
+        throw new Error("Solo un administrador puede desvincular un inmueble de un contacto");
+      }
+      throw e;
+    }
+    const supa = getSupa();
+
+    // Enlaces de Portal: el propietario indicado y cualquier ficha de
+    // propietario de este contacto.
+    const propietarioIds = new Set<string>();
+    if (data.propietarioId) propietarioIds.add(data.propietarioId);
+    if (data.contactId) {
+      const { data: fichas, error } = await supa
+        .from("propietarios")
+        .select("id")
+        .eq("contact_id", data.contactId);
+      if (error) throw new Error(error.message);
+      for (const f of fichas ?? []) propietarioIds.add(f.id as string);
+    }
+    if (propietarioIds.size > 0) {
+      const { error: piError } = await supa
+        .from("propietario_inmueble")
+        .delete()
+        .eq("property_id", data.propertyId)
+        .in("propietario_id", [...propietarioIds]);
+      if (piError) throw new Error(piError.message);
+    }
 
     if (data.contactId) {
-      const { error: rolError } = await supa
-        .from("contact_roles")
-        .delete()
-        .eq("contact_id", data.contactId)
-        .eq("property_id", data.propertyId)
-        .in("tipo", ["Propietario", "Arrendador"]);
+      const { error: rolError } = await supa.rpc("crm_gestionar_rol", {
+        p_contact_id: data.contactId,
+        p_property_id: data.propertyId,
+        p_tipo: null,
+        p_actor_id: crm.userId,
+      });
       if (rolError) throw new Error(rolError.message);
     }
 
