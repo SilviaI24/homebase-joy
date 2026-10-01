@@ -1,4 +1,4 @@
-type CicloVida = "Lead" | "Prospecto" | "Cliente" | "Histórico" | "Descartado";
+type CicloVida = "Lead" | "Prospecto" | "Cliente" | "Histórico" | "Descartado" | "Suscriptor";
 type EstatusInmueble = "Activo" | "Reservado" | "Vendido" | "Alquilado" | "Baja" | "Prospección";
 type CanalType = "WhatsApp" | "Email" | "Tel" | "Presencial" | string;
 
@@ -8,6 +8,8 @@ const CICLO_VIDA_CLS: Record<CicloVida, string> = {
   Cliente: "bg-gold/15 text-[var(--gold)]",
   Histórico: "bg-success/10 text-success",
   Descartado: "bg-destructive/10 text-destructive",
+  // Solo recibe Soldata (migración 20261001163807): fuera de la Bandeja.
+  Suscriptor: "bg-muted text-muted-foreground",
 };
 
 const ESTATUS_CLS: Record<EstatusInmueble, string> = {

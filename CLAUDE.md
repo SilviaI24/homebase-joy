@@ -30,7 +30,7 @@ CRM inmobiliario para gestión de propiedades, contactos, leads y operaciones.
   archivo `<dominio>.functions.ts` original queda como barrel si tiene muchos
   consumidores (`export { x } from "./dominio-subdominio.functions"`), o se recorta
   directamente si sus pocos consumidores se pueden actualizar sin riesgo.
-- `ciclo_vida` CHECK: `('Lead', 'Prospecto', 'Cliente', 'Histórico', 'Descartado')` — nunca escribir `'Activo'` ni `'Reservado'`
+- `ciclo_vida` CHECK: `('Lead', 'Prospecto', 'Cliente', 'Histórico', 'Descartado', 'Suscriptor')` — nunca escribir `'Activo'` ni `'Reservado'`. `'Suscriptor'` = solo recibe Soldata (fuera de la Bandeja); no se asigna a mano
 - `properties.estatus` CHECK: `('Activo', 'Reservado', 'Vendido', 'Alquilado', 'Baja', 'Prospección')`
 - `properties.publicacion` CHECK: `('', 'PROSPECTO', 'SUBIR', 'PUBLICADO')`
 
@@ -135,6 +135,26 @@ No asumir que "esto es solo del CRM" o "esto es solo del Portal" exime de
 copiarlo — el historial de migraciones es del proyecto, no de la app.
 
 ## Pendiente
+
+- **Soldata (publicación mensual) — suscriptores en `contacts`, 1 oct 2026.**
+  La agencia de la web tiene su propio formulario y envía las altas con la
+  clave de servicio que ya usa, pero a `POST /rest/v1/rpc/soldata_suscribir`
+  (no insertando en `contacts`). Migración `20261001163807_soldata_suscriptores.sql`
+  (aplicada con `db push` y copiada a elsol-client-hub). Decisión de David:
+  fuera de la Bandeja; si marcan "quiero vender y que me contacten"
+  (`p_quiere_vender`) entran como lead web (`canal_origen='Web'`,
+  `tipo_interes='Prospeccion'`). Solo suscritos → `ciclo_vida='Suscriptor'`,
+  `canal_origen` NULL, `fuente='Soldata'` (fuente nueva, se conserva al pasar a
+  lead para medir captaciones). Busca duplicados por email y últimos 9 dígitos
+  del teléfono, nunca pisa fuente/canal de un contacto existente. Consentimiento
+  obligatorio; columnas `soldata_suscrito_at`/`_baja_at`/`_consentimiento_texto`/
+  `soldata_datos` (página, UTM, extra; primera y última). Baja:
+  `soldata_baja(p_email)`. Triggers: un Suscriptor que recibe un `contact_role`
+  (p. ej. web-lead) o una conversación pasa a Lead con su canal. Estadísticas de
+  canal: "Suscriptores", no "Sin canal" (David). Evento `contacto` en
+  `linea_actividad` por cada alta. Probado contra producción en transacción
+  revertida (9 casos). Solo ejecutable por service_role. Sin pestaña propia en
+  Contactos todavía.
 
 - **Auditoría de entrega + correcciones — 25/26 sep 2026.** Auditados alta de
   inmuebles, alta de contactos, alta en el Portal, onboarding/documentación,
