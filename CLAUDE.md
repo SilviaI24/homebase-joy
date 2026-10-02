@@ -153,8 +153,11 @@ copiarlo — el historial de migraciones es del proyecto, no de la app.
   (p. ej. web-lead) o una conversación pasa a Lead con su canal. Estadísticas de
   canal: "Suscriptores", no "Sin canal" (David). Evento `contacto` en
   `linea_actividad` por cada alta. Probado contra producción en transacción
-  revertida (9 casos). Solo ejecutable por service_role. Sin pestaña propia en
-  Contactos todavía.
+  revertida (9 casos). Solo ejecutable por service_role. Pestaña
+  "Suscriptores" en Contactos (2 oct 2026, solo lectura: todo contacto con
+  `soldata_suscrito_at`, cualquier etapa; el recuento excluye bajas) —
+  `src/lib/soldata.functions.ts` + `SuscriptoresPanel.tsx`. No verificada en
+  pantalla (requiere login).
 
 - **Auditoría de entrega + correcciones — 25/26 sep 2026.** Auditados alta de
   inmuebles, alta de contactos, alta en el Portal, onboarding/documentación,

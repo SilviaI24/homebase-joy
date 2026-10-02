@@ -548,6 +548,8 @@ export type ContactosTabCounts = {
   Inquilino: number;
   Descartado: number;
   Historico: number;
+  /** Suscritos a Soldata sin baja (soldata_suscrito_at, cualquier etapa). */
+  Suscriptores: number;
 };
 
 async function computeContactosTabCounts(
@@ -561,14 +563,19 @@ async function computeContactosTabCounts(
       .in("contact_roles.tipo", tipos);
   const porEtapa = (etapa: string) =>
     supa.from("contacts").select("id", { count: "exact", head: true }).eq("ciclo_vida", etapa);
-  const [prop, comp, inq, desc, hist] = await Promise.all([
+  const [prop, comp, inq, desc, hist, susc] = await Promise.all([
     porRol(SEG_ROLE_TIPOS.Propietario),
     porRol(SEG_ROLE_TIPOS.Comprador),
     porRol(SEG_ROLE_TIPOS.Inquilino),
     porEtapa("Descartado"),
     porEtapa("Histórico"),
+    supa
+      .from("contacts")
+      .select("id", { count: "exact", head: true })
+      .not("soldata_suscrito_at", "is", null)
+      .is("soldata_baja_at", null),
   ]);
-  for (const r of [prop, comp, inq, desc, hist]) {
+  for (const r of [prop, comp, inq, desc, hist, susc]) {
     if (r.error) throw new Error("Error al contar contactos");
   }
   return {
@@ -577,6 +584,7 @@ async function computeContactosTabCounts(
     Inquilino: inq.count ?? 0,
     Descartado: desc.count ?? 0,
     Historico: hist.count ?? 0,
+    Suscriptores: susc.count ?? 0,
   };
 }
 

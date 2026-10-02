@@ -13,6 +13,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Pagination } from "@/components/pagination/Pagination";
 import { ClienteRow, ClienteDetallePanel } from "@/components/contactos/ClientesPanel";
 import { DuplicadosTab } from "@/components/contactos/DuplicadosPanel";
+import { SuscriptoresTab } from "@/components/contactos/SuscriptoresPanel";
 import { PipelineInteresados } from "@/components/contactos/PipelineInteresados";
 import { clientesPageQuery, clientesStatsQuery, contactosPageQuery } from "@/lib/queries";
 import type { ContactosTabCounts, Segmento } from "@/lib/clientes.functions";
@@ -38,6 +39,7 @@ const TABS = [
   "propietarios",
   "descartado",
   "historico",
+  "suscriptores",
   "duplicados",
 ] as const;
 type ContactosTab = (typeof TABS)[number];
@@ -70,6 +72,7 @@ function tabConfig(counts: ContactosTabCounts | undefined) {
     { key: "propietarios" as const, label: tabLabel("Propietarios", counts?.Propietario) },
     { key: "descartado" as const, label: tabLabel("Descartados", counts?.Descartado) },
     { key: "historico" as const, label: tabLabel("Histórico", counts?.Historico) },
+    { key: "suscriptores" as const, label: tabLabel("Suscriptores", counts?.Suscriptores) },
     { key: "duplicados" as const, label: "Duplicados" },
   ];
 }
@@ -91,7 +94,8 @@ export const Route = createFileRoute("/contactos/")({
       { title: "Contactos · El Sol Grupo CRM" },
       {
         name: "description",
-        content: "Interesados en compra y alquiler, propietarios, descartados e histórico.",
+        content:
+          "Interesados en compra y alquiler, propietarios, descartados, histórico y suscriptores.",
       },
     ],
   }),
@@ -135,6 +139,15 @@ function ContactosPage() {
       {interes && <InteresTab key={tab} seg={interes.seg} />}
       {tab === "historico" && <SimpleContactsTab etapa="Histórico" />}
       {tab === "descartado" && <SimpleContactsTab etapa="Descartado" />}
+      {tab === "suscriptores" && (
+        <SuscriptoresTab
+          page={rawSearch.page ?? 1}
+          pageSize={PAGE_SIZE}
+          q={rawSearch.q ?? ""}
+          onPage={(p) => navigate({ search: (prev) => ({ ...prev, page: p }) })}
+          onQ={(q) => navigate({ search: (prev) => ({ ...prev, q, page: 1 }) })}
+        />
+      )}
       {tab === "duplicados" && <DuplicadosTab />}
     </AppShell>
   );

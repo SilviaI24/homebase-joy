@@ -1,4 +1,5 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
+import { listSuscriptoresPage } from "./soldata.functions";
 import {
   listComerciablesInmuebles,
   listInmueblesActividadReciente,
@@ -293,6 +294,17 @@ export const clientesStatsQuery = queryOptions({
   staleTime: 5 * 60 * 1000,
   gcTime: 30 * 60 * 1000,
 });
+
+/** Suscriptores de Soldata (pestaña de Contactos). */
+export function suscriptoresPageQuery(params: { page?: number; pageSize?: number; q?: string }) {
+  return queryOptions({
+    queryKey: ["suscriptores-page", params],
+    queryFn: () => listSuscriptoresPage({ data: params }),
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: (prev) => prev,
+  });
+}
 
 /** Full cliente detail for Sheet panel. */
 export function clienteDetailQuery(id: string | null) {
